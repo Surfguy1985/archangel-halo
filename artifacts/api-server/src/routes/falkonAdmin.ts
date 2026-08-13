@@ -121,7 +121,9 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
     const trustDocUrl = `${primaryDomain}/.well-known/falkon-trust.json`;
 
     // Use signed gatewayFetch — HALO proves its identity via Ed25519 signature
-    const { ok, falkonPublicKeyPem, body } = await submitTrustBinding(trustDocUrl, publicKeyPem);
+    const { ok, falkonPublicKeyPem: bindingKeyPem, body } = await submitTrustBinding(trustDocUrl, publicKeyPem);
+    // Use a mutable binding so the trust-doc fallback can fill it in below
+    let falkonPublicKeyPem: string | undefined = bindingKeyPem;
 
     await setVerifStep("step2", {
       ok,
@@ -132,15 +134,36 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
     });
 
     if (ok) {
-      // Cache Falkon's returned public key for inbound webhook verification
+      // If the binding response didn't return Falkon's public key, try fetching
+      // it directly from Falkon's published trust document as a fallback.
+      if (!falkonPublicKeyPem) {
+        try {
+          const tdResp = await fetch(
+            `${GATEWAY_ORIGIN}/.well-known/falkon-trust.json`,
+            { signal: AbortSignal.timeout(8_000) },
+          );
+          if (tdResp.ok) {
+            const td = (await tdResp.json().catch(() => null)) as Record<string, unknown> | null;
+            falkonPublicKeyPem = (td?.publicKeyPem ?? td?.public_key_pem) as string | undefined;
+            if (falkonPublicKeyPem) {
+              logger.info("falkon: fetched Falkon gateway public key from trust doc (binding did not return it)");
+            }
+          }
+        } catch (tdErr) {
+          logger.warn({ err: tdErr }, "falkon: could not fetch Falkon trust doc as fallback");
+        }
+      }
+
+      // Cache Falkon's returned public key for inbound webhook verification.
+      // DELETE + INSERT so re-running step 2 always refreshes the cached key.
       if (falkonPublicKeyPem) {
+        await db.execute(sql`DELETE FROM falkon_remote_identity WHERE partner_id = 'falkon-gateway'`);
         await db.execute(
           sql`INSERT INTO falkon_remote_identity
                 (id, partner_id, public_key_pem, algorithm, fetched_at, trust_doc_url, created_at)
               VALUES
                 (gen_random_uuid(), 'falkon-gateway', ${falkonPublicKeyPem},
-                 'Ed25519', now(), ${GATEWAY_ORIGIN}, now())
-              ON CONFLICT DO NOTHING`,
+                 'Ed25519', now(), ${GATEWAY_ORIGIN}, now())`,
         );
         logger.info("falkon: Falkon gateway Ed25519 public key cached for webhook verification");
       } else {

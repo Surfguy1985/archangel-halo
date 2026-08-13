@@ -146,6 +146,13 @@ function OverviewTab() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Refresh when verification completes (dispatched by VerifyTab after step 5)
+  useEffect(() => {
+    const handler = () => void load();
+    window.addEventListener("falkon:verified", handler);
+    return () => window.removeEventListener("falkon:verified", handler);
+  }, [load]);
+
   const connect = async () => {
     if (!webhookUrl || !webhookSecret || !partnerKey) {
       toast({ title: "All fields required", variant: "destructive" });
@@ -275,6 +282,10 @@ function VerifyTab() {
     try {
       const result = await apiFetch<Record<string, unknown>>(step.path, { method: "POST" });
       toast({ title: `Step: ${step.label}`, description: result.ok ? "✓ Passed" : "✗ Failed" });
+      // After step 5 passes, notify the Overview tab to refresh its status badge
+      if (step.key === "step5" && result.ok) {
+        window.dispatchEvent(new Event("falkon:verified"));
+      }
     } catch (err: any) {
       toast({ title: `${step.label} failed`, description: err.message, variant: "destructive" });
     } finally {
