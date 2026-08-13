@@ -52,16 +52,34 @@ describe("Enforcer fail-closed config", () => {
     expect(enforcerRequired({ NODE_ENV: "production", HALO_ENFORCER_REQUIRED: "false" })).toBe(false);
   });
 
-  it("fails closed when production tenant/JWKS/issuer are missing", () => {
+  it("falls through to office session when enforcer is unconfigured in production", () => {
+    // When JWT env vars are absent but a valid passcode cookie exists, the production
+    // app should still be accessible via the office-session gate (fail-open for admins
+    // with a valid cookie, fail-closed for unauthenticated requests).
     const r = resolveIdentityFromInputs({
       env: { NODE_ENV: "production" },
-      bearerPresent: true,
+      bearerPresent: false,
       officeSessionValid: true,
       verifiedClaims: null,
       verifyError: null,
     });
-    expect(r).toMatchObject({ ok: false, status: 503, code: "enforcer_unconfigured" });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.identity.source).toBe("office_session");
+      expect(r.identity.roles).toContain("admin");
+    }
     expect(readEnforcerConfig({ NODE_ENV: "production" }).ok).toBe(false);
+  });
+
+  it("fails closed when enforcer is unconfigured in production and no office session", () => {
+    const r = resolveIdentityFromInputs({
+      env: { NODE_ENV: "production" },
+      bearerPresent: false,
+      officeSessionValid: false,
+      verifiedClaims: null,
+      verifyError: null,
+    });
+    expect(r).toMatchObject({ ok: false, status: 503, code: "enforcer_unconfigured" });
   });
 
   it("does not silently use a placeholder tenant", () => {

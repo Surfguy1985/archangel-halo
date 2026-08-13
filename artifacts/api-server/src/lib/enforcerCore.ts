@@ -310,6 +310,22 @@ export function resolveIdentityFromInputs(input: {
   const cfg = readEnforcerConfig(input.env);
 
   if (required && !cfg.ok) {
+    // Enforcer JWT is required by the environment but not yet configured.
+    // Fall through to the office-session passcode gate so the production app
+    // remains accessible via the passcode cookie while JWT is not wired up.
+    // A missing or invalid passcode still fails closed with 503.
+    if (input.officeSessionValid) {
+      const tenantId = (input.env.HALO_ENFORCER_TENANT_ID ?? "").trim() || null;
+      return {
+        ok: true,
+        identity: {
+          subject: "office-session",
+          tenantId,
+          roles: ["admin"],
+          source: "office_session",
+        },
+      };
+    }
     return { ok: false, status: 503, code: "enforcer_unconfigured" };
   }
 
