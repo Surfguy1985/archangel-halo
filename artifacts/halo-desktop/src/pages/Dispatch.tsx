@@ -39,13 +39,25 @@ function fmtTimeShort(hhmm: string) {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/** True when 2+ jobs in the cell share the same scheduledTime (both set). */
+/** Minimum gap (in minutes) required between consecutive scheduled jobs in the
+ *  same crew/day cell before the board flags a time clash. */
+const MIN_GAP_MINUTES = 60;
+
+/** Convert "HH:MM" → total minutes since midnight. */
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/** True when any two consecutive timed jobs in the cell are closer together
+ *  than MIN_GAP_MINUTES (covers identical start times as a special case).
+ *  Jobs must already be sorted by scheduledTime ascending (byCell does this). */
 function hasTimeClash(cellJobs: Job[]) {
-  const seen = new Set<string>();
-  for (const j of cellJobs) {
-    if (!j.scheduledTime) continue;
-    if (seen.has(j.scheduledTime)) return true;
-    seen.add(j.scheduledTime);
+  const times = cellJobs
+    .filter((j) => j.scheduledTime)
+    .map((j) => toMinutes(j.scheduledTime!));
+  for (let i = 1; i < times.length; i++) {
+    if (times[i]! - times[i - 1]! < MIN_GAP_MINUTES) return true;
   }
   return false;
 }
@@ -486,7 +498,7 @@ function CrewRow({
                 }`}
                 title={
                   clash
-                    ? "Two or more jobs share the same start time"
+                    ? `Consecutive jobs are less than ${MIN_GAP_MINUTES} min apart — likely overlapping`
                     : `${cellJobs.length} jobs booked for this crew on this day`
                 }
                 data-testid={`badge-overbooked-${crew.id}-${date}`}
