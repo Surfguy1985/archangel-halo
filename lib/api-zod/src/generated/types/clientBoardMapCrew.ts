@@ -38,19 +38,4 @@ export interface ClientBoardMapCrew {
   events?: ClientBoardMapEvent[];
   /** Today's GPS breadcrumb trail for this job (oldest first) */
   trail?: TrailPoint[];
-  /** Today's crew photos for the active job (newest first, max 8) */
-  photos?: {
-    id: string;
-    url: string;
-    /** @nullable */
-    phase?: string | null;
-    /** @nullable */
-    note?: string | null;
-  }[];
-  /** Job line items for the active job, used as a service checklist */
-  services?: {
-    id: string;
-    service: string;
-    done: boolean;
-  }[];
 }
