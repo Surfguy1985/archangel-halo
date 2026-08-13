@@ -6,7 +6,7 @@ import { Loader2, Lock } from "lucide-react";
 // surfaces (client boards, crew portals, pay/track/share links) never see it.
 // Manual /api URLs must be absolute — never BASE_URL-prefixed.
 
-type GateState = "loading" | "setup" | "login" | "ok" | "offline";
+type GateState = "loading" | "setup" | "login" | "ok" | "offline" | "forgot" | "forgot-sent" | "reset-form";
 
 export function OfficeGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>("loading");
@@ -14,8 +14,26 @@ export function OfficeGate({ children }: { children: ReactNode }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  // Held during the reset-form state so the token is submitted with the new passcode.
+  const [pendingResetToken, setPendingResetToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check for a reset token in the URL first.
+    const params = new URLSearchParams(window.location.search);
+    const resetToken = params.get("reset");
+    if (resetToken) {
+      // Remove the token from the URL immediately so a refresh doesn't resubmit it.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("reset");
+      window.history.replaceState({}, "", url.toString());
+      // Show the inline "set new passcode" form — the token is submitted
+      // together with the new passcode so there is no gap for /setup hijack.
+      setPendingResetToken(resetToken);
+      setState("reset-form");
+      return;
+    }
+
     let alive = true;
     fetch("/api/office-auth/status")
       .then((r) => r.json())
@@ -42,7 +60,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (state === "setup") {
+    if (state === "setup" || state === "reset-form") {
       if (passcode.trim().length < 6) {
         setError("Use at least 6 characters.");
         return;
@@ -54,23 +72,56 @@ export function OfficeGate({ children }: { children: ReactNode }) {
     }
     setBusy(true);
     try {
-      const res = await fetch(`/api/office-auth/${state === "setup" ? "setup" : "login"}`, {
+      let endpoint: string;
+      let body: Record<string, string>;
+      if (state === "reset-form") {
+        endpoint = "/api/office-auth/reset";
+        body = { token: pendingResetToken ?? "", passcode: passcode.trim() };
+      } else {
+        endpoint = `/api/office-auth/${state === "setup" ? "setup" : "login"}`;
+        body = { passcode: passcode.trim() };
+      }
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode: passcode.trim() }),
+        body: JSON.stringify(body),
       });
-      const body = await res.json().catch(() => ({}));
+      const resBody = await res.json().catch(() => ({}));
       if (res.ok) {
         try { localStorage.setItem("halo_office_gate_ok", "1"); } catch {}
         setState("ok");
-      } else if (body?.setupRequired) {
+      } else if (resBody?.setupRequired) {
         setState("setup");
         setError(null);
       } else {
-        setError(body?.error ?? "Something went wrong — try again.");
+        setError(resBody?.error ?? "Something went wrong — try again.");
       }
     } catch {
       setError("Can't reach the server — check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendForgot = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/office-auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSentTo(body?.sentTo ?? null);
+        setState("forgot-sent");
+      } else {
+        setError(body?.error ?? "Couldn't send the reset email — try again.");
+        setState("login");
+      }
+    } catch {
+      setError("Can't reach the server — check your connection.");
+      setState("login");
     } finally {
       setBusy(false);
     }
@@ -91,6 +142,129 @@ export function OfficeGate({ children }: { children: ReactNode }) {
       <div className="flex h-screen items-center justify-center bg-background p-6">
         <div className="text-center text-sm text-muted-foreground">
           Can't reach the server. Check your connection and reload.
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "reset-form") {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
+          }}
+        />
+        <form
+          onSubmit={submit}
+          className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
+              <div className="text-xs text-muted-foreground">Set a new passcode</div>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+            Your reset link is valid. Enter a new passcode below — you'll be signed in immediately.
+          </p>
+          <input
+            type="password"
+            inputMode="text"
+            autoFocus
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value)}
+            placeholder="New passcode"
+            className="mt-5 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
+            data-testid="input-office-passcode"
+          />
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Confirm new passcode"
+            className="mt-2 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
+            data-testid="input-office-passcode-confirm"
+          />
+          {error && (
+            <div className="mt-2 text-xs font-medium text-red-600" data-testid="text-office-gate-error">
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
+            data-testid="button-office-gate-submit"
+          >
+            {busy ? "One moment…" : "Set passcode & sign in"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  if (state === "forgot" || state === "forgot-sent") {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
+          }}
+        />
+        <div className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
+              <div className="text-xs text-muted-foreground">
+                {state === "forgot-sent" ? "Reset link sent" : "Forgot passcode?"}
+              </div>
+            </div>
+          </div>
+          {state === "forgot-sent" ? (
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              A reset link was sent to{" "}
+              <strong className="text-foreground">{sentTo ?? "your business email"}</strong>.
+              Open it within 1 hour to set a new passcode.
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              We'll send a one-time reset link to the business email on file. The link
+              expires in 1 hour and can only be used once.
+            </p>
+          )}
+          {error && (
+            <div className="mt-2 text-xs font-medium text-red-600">{error}</div>
+          )}
+          {state === "forgot" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={sendForgot}
+              className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
+            >
+              {busy ? "Sending…" : "Send reset link"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { setError(null); setState("login"); }}
+            className="mt-3 w-full rounded-xl border border-[var(--hairline)] py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Back to sign in
+          </button>
         </div>
       </div>
     );
@@ -161,6 +335,16 @@ export function OfficeGate({ children }: { children: ReactNode }) {
         >
           {busy ? "One moment…" : state === "setup" ? "Set passcode & enter" : "Sign in"}
         </button>
+        {state === "login" && (
+          <button
+            type="button"
+            onClick={() => { setError(null); setState("forgot"); }}
+            className="mt-3 w-full text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="button-office-forgot"
+          >
+            Forgot passcode?
+          </button>
+        )}
       </form>
     </div>
   );

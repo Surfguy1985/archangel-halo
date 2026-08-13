@@ -671,27 +671,25 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
             </span>
           </div>
         )}
-        {/* Payment request chip — synced live from Base44 */}
-        {card.paymentRequest && (
+        {/* Invoice chip — shows total + status from the linked HALO invoice */}
+        {card.invoice && (
           <div className="mt-2 flex items-center gap-1.5" data-testid={`job-pay-req-${job.id}`}>
             <DollarSign className="w-3 h-3 shrink-0 text-muted-foreground" />
             <span className="text-[11px] font-semibold text-[var(--ink)]">
-              ${card.paymentRequest.total.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              ${card.invoice.total.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </span>
             <span
               className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${
-                card.paymentRequest.status === "paid"
+                card.invoice.status === "paid"
                   ? "bg-emerald-100 text-emerald-800"
-                  : card.paymentRequest.status === "sent"
+                  : card.invoice.status === "sent"
                     ? "bg-sky-100 text-sky-800"
                     : "bg-amber-100 text-amber-800"
               }`}
             >
-              {card.paymentRequest.status}
+              {card.invoice.status}
             </span>
-            {card.paymentRequest.memo && (
-              <span className="truncate text-[10px] text-muted-foreground">{card.paymentRequest.memo}</span>
-            )}
+            <span className="truncate text-[10px] text-muted-foreground">{card.invoice.invoiceNo}</span>
           </div>
         )}
       </div>
