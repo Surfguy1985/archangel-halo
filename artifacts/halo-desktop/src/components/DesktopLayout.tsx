@@ -1,6 +1,7 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins, FileSignature} from "lucide-react";
+import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins, FileSignature, Sun, Moon, Monitor} from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { useToast} from "@/hooks/use-toast";
 import { useQueryClient} from "@tanstack/react-query";
 import {
@@ -34,6 +35,7 @@ import {
 
 export function DesktopLayout({ children}: { children: React.ReactNode}) {
   const [location, navigate] = useLocation();
+  const { theme, cycle: cycleTheme } = useTheme();
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [cmdText, setCmdText] = useState("");
   const [cmdInitial, setCmdInitial] = useState<string | undefined>(undefined);
@@ -154,6 +156,15 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
               ) : null}
             </button>
           </NotificationsPopover>
+          {/* Theme toggle: system → light → dark */}
+          <button
+            data-testid="button-theme-toggle"
+            onClick={cycleTheme}
+            title={theme === 'system' ? 'Theme: system (click for light)' : theme === 'light' ? 'Theme: light (click for dark)' : 'Theme: dark (click for system)'}
+            className="w-full group-hover/side:w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+          >
+            {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
