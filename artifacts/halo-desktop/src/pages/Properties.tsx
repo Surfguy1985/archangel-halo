@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, useLocation } from "wouter";
-import { Building, Plus, Search, MapPin, Building2, Sparkles, Settings, LayoutList, LayoutGrid, Trash2 } from "lucide-react";
+import { Building, Plus, Search, MapPin, Building2, Sparkles, Settings, LayoutList, LayoutGrid, Trash2, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddPropertyDialog } from "@/components/PropertyDialogs";
@@ -295,6 +295,11 @@ export default function Properties() {
                                 {p.openJobs} active job{p.openJobs !== 1 ? "s" : ""}
                               </span>
                             )}
+                            {p.geocodeFailed && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider rounded-full" title="Address couldn't be geocoded — fix the address or drop a manual pin">
+                                <AlertTriangle className="w-2.5 h-2.5" /> No map pin
+                              </span>
+                            )}
                           </div>
                         </div>
                         {/* Action buttons */}
@@ -393,6 +398,12 @@ export default function Properties() {
                           {p.pmcName && <span className="truncate">{p.pmcName}</span>}
                           {!p.city && !p.pmcName && <span className="text-white/30 italic text-xs">No location</span>}
                         </div>
+                        {p.geocodeFailed && (
+                          <div className="flex items-center gap-1 mt-0.5 text-amber-400 text-[10px] font-semibold">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            Address not found on map — fix address or drop a pin
+                          </div>
+                        )}
                       </div>
                       <div>
                         {hasJobs ? (

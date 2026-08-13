@@ -1,5 +1,5 @@
 import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey } from "@workspace/api-client-react";
-import { Search, Plus, MapPin, Briefcase, Building2, Sparkles } from "lucide-react";
+import { Search, Plus, MapPin, Briefcase, Building2, Sparkles, AlertTriangle } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -134,6 +134,12 @@ export default function Properties() {
 
                   {/* Top-right badges */}
                   <div className="absolute top-[14px] right-[14px] flex flex-col items-end gap-[6px]">
+                    {p.geocodeFailed && (
+                      <span className="inline-flex items-center gap-[5px] px-[10px] py-[4px] rounded-full bg-amber-500 text-white text-[11px] font-display font-bold shadow-[0_2px_8px_rgba(0,0,0,0.18)]" title="Address couldn't be found on the map — fix the address or drop a manual pin">
+                        <AlertTriangle className="w-[10px] h-[10px]" />
+                        No map pin
+                      </span>
+                    )}
                     {hasOwed && (
                       <span className="px-[12px] py-[5px] rounded-full bg-[var(--ink)] text-white text-[13px] font-display font-bold tabular-nums shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                         ${p.owed.toLocaleString()} owed

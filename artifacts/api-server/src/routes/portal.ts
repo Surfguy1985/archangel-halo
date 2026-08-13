@@ -3237,6 +3237,9 @@ router.get("/portal/:token/office-view", async (req, res): Promise<void> => {
       activeJobs: scopedJobs.filter(
         (j) => j.propertyId === p.id && activeStatuses.has(j.status),
       ).length,
+      geocodeFailed:
+        p.geocodedAt != null &&
+        (p.latitude == null || p.longitude == null),
     }));
   }
 

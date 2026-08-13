@@ -92,6 +92,7 @@ import {
   Volume2,
   VolumeX,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import {
@@ -1805,6 +1806,36 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
               </div>
             ))}
           </div>
+          {/* Unpinned properties — geocoded but no coords found */}
+          {(() => {
+            const unpinned = view.properties.filter((p) => p.geocodeFailed);
+            if (unpinned.length === 0) return null;
+            return (
+              <div className="mb-[14px]">
+                <div className="flex items-center gap-[6px] text-[12px] font-semibold text-amber-600 mb-[6px]">
+                  <AlertTriangle className="w-[13px] h-[13px]" />
+                  {unpinned.length} propert{unpinned.length === 1 ? "y" : "ies"} missing a map pin
+                </div>
+                <div className="flex flex-col gap-[6px]">
+                  {unpinned.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`${card} border-l-2 border-amber-400`}
+                    >
+                      <div className="flex items-center gap-[8px]">
+                        <AlertTriangle className="w-[13px] h-[13px] text-amber-500 shrink-0" />
+                        <div className="text-[13px] font-semibold truncate">{p.name}</div>
+                      </div>
+                      <div className="text-[11.5px] text-muted-foreground mt-[2px]">
+                        {[p.address, p.city].filter(Boolean).join(", ") || "No address on file"}
+                        {" — address couldn't be located. Office needs to fix the address or drop a manual pin."}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

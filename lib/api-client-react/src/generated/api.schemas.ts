@@ -1778,6 +1778,7 @@ export interface PropertySummary {
   latitude?: number | null;
   /** @nullable */
   longitude?: number | null;
+  geocodeFailed?: boolean;
 }
 
 export interface CrewPayEntry {
@@ -3229,6 +3230,7 @@ export interface OfficeViewProperty {
   /** @nullable */
   longitude?: number | null;
   activeJobs: number;
+  geocodeFailed?: boolean;
 }
 
 export interface OfficeViewJob {
@@ -8032,4 +8034,3 @@ status?: string;
 export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
-

@@ -20,4 +20,5 @@ export interface OfficeViewProperty {
   /** @nullable */
   longitude?: number | null;
   activeJobs: number;
+  geocodeFailed?: boolean;
 }

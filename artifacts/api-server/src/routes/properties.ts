@@ -110,6 +110,9 @@ router.get("/properties", async (req, res): Promise<void> => {
         ...ser(p),
         owed: Number(owedRow?.owed ?? 0),
         openJobs: Number(jobRow?.open ?? 0),
+        geocodeFailed:
+          p.geocodedAt != null &&
+          (p.latitude == null || p.longitude == null),
       };
     }),
   );
