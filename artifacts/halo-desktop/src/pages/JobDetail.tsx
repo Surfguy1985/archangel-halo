@@ -601,6 +601,28 @@ export default function JobDetail() {
           <section>
             <h2 className="text-lg font-display font-bold mb-3 text-[var(--ink)]">Billing</h2>
             <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
+              {job.clientBudget != null && (() => {
+                const invoicedTotal = jobInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+                const overBudget = invoicedTotal > job.clientBudget;
+                return (
+                  <div className={`p-4 flex items-center justify-between text-sm ${overBudget ? "bg-red-50/60" : ""}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[var(--ink)]">Client budget</span>
+                      {overBudget && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">Over budget</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {jobInvoices.length > 0 && (
+                        <span className={`text-xs font-medium ${overBudget ? "text-red-500" : "text-emerald-600"}`}>
+                          ${invoicedTotal.toLocaleString()} invoiced
+                        </span>
+                      )}
+                      <span className="font-mono font-semibold">${job.clientBudget.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               {jobInvoices.map((inv) => (
                 <div key={inv.id} className="p-4 space-y-2">
                   <div className="flex items-center justify-between text-sm">

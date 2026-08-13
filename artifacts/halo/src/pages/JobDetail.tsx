@@ -375,6 +375,23 @@ export default function JobDetail() {
             <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Billing</span>
           </div>
           <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
+            {job.clientBudget != null && (() => {
+              const invoicedTotal = jobInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+              const overBudget = invoicedTotal > job.clientBudget;
+              return (
+                <div className={`py-[10px] border-b border-[var(--hairline)] flex items-center justify-between gap-[10px] ${overBudget ? "text-red-600" : "text-[var(--ink)]"}`}>
+                  <span className="text-[12.5px] font-semibold">Client budget</span>
+                  <div className="flex items-center gap-[10px]">
+                    {jobInvoices.length > 0 && (
+                      <span className={`text-[11.5px] font-medium ${overBudget ? "text-red-500" : "text-emerald-600"}`}>
+                        ${invoicedTotal.toLocaleString()} invoiced{overBudget ? " — over budget" : ""}
+                      </span>
+                    )}
+                    <span className="font-display font-semibold tabular-nums text-[14px]">${job.clientBudget.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })()}
             {jobInvoices.map((inv, idx) => (
               <div key={inv.id} className={`py-[10px] ${idx !== 0 ? "border-t border-[var(--hairline)]" : ""}`}>
                 <div className="flex items-center gap-[10px] text-[14px]">

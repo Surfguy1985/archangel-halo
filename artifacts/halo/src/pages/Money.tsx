@@ -245,7 +245,7 @@ function OverviewHero() {
 function Invoices() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const { data: invoices, isLoading } = useListInvoices({ query: { queryKey: getListInvoicesQueryKey(), refetchInterval: 30000 } });
+  const { data: invoices, isLoading } = useListInvoices(undefined, { query: { queryKey: getListInvoicesQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -474,7 +474,7 @@ function Invoices() {
 function Expenses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: expenses, isLoading } = useListExpenses({ query: { queryKey: getListExpensesQueryKey(), refetchInterval: 30000 } });
+  const { data: expenses, isLoading } = useListExpenses(undefined, { query: { queryKey: getListExpensesQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const payBill = usePayExpenseBill();

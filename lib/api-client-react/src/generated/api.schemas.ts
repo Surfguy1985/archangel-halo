@@ -2903,6 +2903,20 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
+export interface JobBoardPaymentRequest {
+  id: string;
+  /** @nullable */
+  requestNo?: string | null;
+  total: number;
+  status: string;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2915,6 +2929,7 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  paymentRequest?: JobBoardPaymentRequest | null;
 }
 
 export interface CrewPayInput {
@@ -3366,6 +3381,21 @@ export interface TrailPoint {
   at: string;
 }
 
+export interface CrewMapPinPhoto {
+  id: string;
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewMapPinService {
+  id: string;
+  service: string;
+  done: boolean;
+}
+
 export interface CrewMapPin {
   id: string;
   name: string;
@@ -3385,6 +3415,8 @@ export interface CrewMapPin {
   /** @nullable */
   todayProperty?: string | null;
   /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
@@ -3399,6 +3431,8 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
+  photos?: CrewMapPinPhoto[];
+  services?: CrewMapPinService[];
 }
 
 export interface CrewDayPlanSaveInput {
@@ -7250,6 +7284,21 @@ export interface ClientBoardMapEvent {
   lng?: number | null;
 }
 
+export interface ClientBoardMapCrewPhoto {
+  id: string;
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface ClientBoardMapCrewService {
+  id: string;
+  service: string;
+  done: boolean;
+}
+
 export interface ClientBoardMapCrew {
   crewName: string;
   /** @nullable */
@@ -7280,6 +7329,8 @@ export interface ClientBoardMapCrew {
   events?: ClientBoardMapEvent[];
   /** Today's GPS breadcrumb trail for this job (oldest first) */
   trail?: TrailPoint[];
+  photos?: ClientBoardMapCrewPhoto[];
+  services?: ClientBoardMapCrewService[];
 }
 
 export interface ClientBoardHappening {
