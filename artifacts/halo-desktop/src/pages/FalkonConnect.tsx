@@ -435,8 +435,16 @@ function SyncTab({ label, endpoint, description }: {
   );
 }
 
-// ─── Capabilities Tab ─────────────────────────────────────────────────────────
-
+interface BootstrapReport {
+  ok: boolean;
+  completedAt: string;
+  steps: {
+    properties: { synced: number; total: number; errors: string[] };
+    units: { seeded: number; synced: number; totalProperties: number; errors: string[] };
+    vendors: { synced: number; total: number; errors: string[] };
+    capabilities: { ok: boolean; registered: number; error?: string };
+  };
+}
 interface Capability {
   id: string;
   name: string;
@@ -910,6 +918,7 @@ function EligibilityTab() {
   const [result, setResult] = useState<EligibilityResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [showBootstrap, setShowBootstrap] = useState(false);
   const { toast } = useToast();
 
   const load = async () => {
@@ -933,6 +942,10 @@ function EligibilityTab() {
         body: JSON.stringify({ targetMode: result.nextMode }),
       });
       toast({ title: `Promoted to ${result.nextMode}` });
+      // Auto-trigger bootstrap sync after a successful promote-to-ASSISTED
+      if (result.nextMode === "ASSISTED") {
+        setShowBootstrap(true);
+      }
       void load();
     } catch (err: any) {
       toast({ title: "Promotion failed", description: err.message, variant: "destructive" });
@@ -944,6 +957,7 @@ function EligibilityTab() {
   useEffect(() => { void load(); }, []);
 
   return (
+    <div className="space-y-4">
     <Card>
       <CardHeader>
         <CardTitle>LIVE Eligibility & Mode Promotion</CardTitle>
@@ -999,6 +1013,21 @@ function EligibilityTab() {
         )}
       </CardContent>
     </Card>
+
+    {/* Bootstrap sync notification — server triggers it automatically on promote */}
+    {showBootstrap && (
+      <div className="mt-4 flex items-start gap-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
+        <span className="text-blue-600 text-xl flex-shrink-0">⚡</span>
+        <div>
+          <p className="text-sm font-semibold text-blue-800">Bootstrap sync triggered</p>
+          <p className="text-xs text-blue-700 mt-0.5">
+            Promoted to ASSISTED — the server is now pushing all property, unit, vendor, and capability twins to the Falkon gateway in the background.
+            Use the <strong>Bootstrap Sync</strong> tab to check results or re-run manually.
+          </p>
+        </div>
+      </div>
+    )}
+  </div>
   );
 }
 
@@ -2213,6 +2242,7 @@ export default function FalkonConnect() {
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="usage">Usage</TabsTrigger>
           <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
+          <TabsTrigger value="bootstrap">Bootstrap Sync</TabsTrigger>
         </TabsList>
 
         {/* New network tabs */}
@@ -2255,6 +2285,7 @@ export default function FalkonConnect() {
         <TabsContent value="events"><InboundEventsTab /></TabsContent>
         <TabsContent value="usage"><UsageTab /></TabsContent>
         <TabsContent value="eligibility"><EligibilityTab /></TabsContent>
+        <TabsContent value="bootstrap"><BootstrapSyncTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -2293,5 +2324,125 @@ function UnitSyncTab() {
         <p className="text-sm">{String(result.synced)} / {String(result.total)} unit twins synced</p>
       )}
     </div>
+  );
+}
+
+function BootstrapSyncTab({ autoRun = false }: { autoRun?: boolean }) {
+  const [report, setReport] = useState<BootstrapReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<BootstrapReport>("/falkon/admin/sync/all", { method: "POST" });
+      setReport(data);
+      toast({
+        title: data.ok ? "Bootstrap sync complete" : "Bootstrap sync finished with errors",
+        description: `Properties: ${data.steps.properties.synced}/${data.steps.properties.total} · Units seeded: ${data.steps.units.seeded} synced: ${data.steps.units.synced} · Vendors: ${data.steps.vendors.synced}/${data.steps.vendors.total}`,
+        variant: data.ok ? "default" : "destructive",
+      });
+    } catch (err: any) {
+      toast({ title: "Bootstrap sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (autoRun) void run();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Bootstrap Sync</CardTitle>
+        <CardDescription>
+          One-shot: pushes all properties → unit twins → vendor twins → capabilities to the Falkon
+          gateway in sequence. Safe to re-run — all steps are idempotent.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={run} disabled={loading}>
+          {loading ? "Syncing…" : "Run Bootstrap Sync"}
+        </Button>
+
+        {report && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge className={report.ok ? "bg-green-500 text-white" : ""} variant={report.ok ? "default" : "destructive"}>
+                {report.ok ? "✓ All steps passed" : "⚠ Completed with errors"}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {new Date(report.completedAt).toLocaleString()}
+              </span>
+            </div>
+
+            {/* Properties step */}
+            <div className={`p-3 rounded-lg border ${report.steps.properties.errors.length === 0 ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <span>{report.steps.properties.errors.length === 0 ? "✓" : "✗"}</span>
+                Properties
+                <span className="text-xs font-normal text-muted-foreground ml-auto">
+                  {report.steps.properties.synced}/{report.steps.properties.total} synced
+                </span>
+              </p>
+              {report.steps.properties.errors.length > 0 && (
+                <ul className="mt-1 text-xs text-red-700 space-y-0.5">
+                  {report.steps.properties.errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
+                </ul>
+              )}
+            </div>
+
+            {/* Units step */}
+            <div className={`p-3 rounded-lg border ${report.steps.units.errors.length === 0 ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <span>{report.steps.units.errors.length === 0 ? "✓" : "✗"}</span>
+                Units
+                <span className="text-xs font-normal text-muted-foreground ml-auto">
+                  seeded {report.steps.units.seeded} · synced {report.steps.units.synced}
+                </span>
+              </p>
+              {report.steps.units.errors.length > 0 && (
+                <ul className="mt-1 text-xs text-red-700 space-y-0.5">
+                  {report.steps.units.errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
+                </ul>
+              )}
+            </div>
+
+            {/* Vendors step */}
+            <div className={`p-3 rounded-lg border ${report.steps.vendors.errors.length === 0 ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <span>{report.steps.vendors.errors.length === 0 ? "✓" : "✗"}</span>
+                Vendors
+                <span className="text-xs font-normal text-muted-foreground ml-auto">
+                  {report.steps.vendors.synced}/{report.steps.vendors.total} synced
+                </span>
+              </p>
+              {report.steps.vendors.errors.length > 0 && (
+                <ul className="mt-1 text-xs text-red-700 space-y-0.5">
+                  {report.steps.vendors.errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
+                </ul>
+              )}
+            </div>
+
+            {/* Capabilities step */}
+            <div className={`p-3 rounded-lg border ${report.steps.capabilities.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <span>{report.steps.capabilities.ok ? "✓" : "✗"}</span>
+                Capabilities
+                <span className="text-xs font-normal text-muted-foreground ml-auto">
+                  {report.steps.capabilities.registered} registered
+                </span>
+              </p>
+              {report.steps.capabilities.error && (
+                <p className="mt-1 text-xs text-red-700">• {report.steps.capabilities.error}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

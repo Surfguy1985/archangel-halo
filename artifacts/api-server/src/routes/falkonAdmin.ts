@@ -364,6 +364,230 @@ falkonAdminRouter.post("/falkon/admin/sync/vendors", async (_req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// runBootstrapAll — shared bootstrap sequence (properties → units → vendors → capabilities)
+// Callable from the /sync/all endpoint AND the post-ASSISTED promotion handler so the
+// sequence cannot be skipped by alternate clients or direct API calls to /promote.
+// ---------------------------------------------------------------------------
+
+type BootstrapReport = {
+  steps: {
+    properties: { synced: number; total: number; errors: string[] };
+    units: { seeded: number; synced: number; totalProperties: number; errors: string[] };
+    vendors: { synced: number; total: number; errors: string[] };
+    capabilities: { ok: boolean; registered: number; error?: string };
+  };
+  ok: boolean;
+  completedAt: string;
+};
+
+async function runBootstrapAll(): Promise<BootstrapReport> {
+  const report: BootstrapReport = {
+    steps: {
+      properties: { synced: 0, total: 0, errors: [] },
+      units: { seeded: 0, synced: 0, totalProperties: 0, errors: [] },
+      vendors: { synced: 0, total: 0, errors: [] },
+      capabilities: { ok: false, registered: 0 },
+    },
+    ok: false,
+    completedAt: new Date().toISOString(),
+  };
+
+  // ── Step 1: Properties ──────────────────────────────────────────────────
+  try {
+    const properties = await db.select().from(propertiesTable);
+    report.steps.properties.total = properties.length;
+    for (const prop of properties) {
+      try {
+        const result = await syncPropertyTwin({
+          id: prop.id,
+          name: prop.name,
+          address: prop.address,
+          city: prop.city,
+          units: prop.units,
+          latitude: prop.latitude,
+          longitude: prop.longitude,
+          falkonPropertyId: prop.falkonPropertyId,
+        });
+        if (result.ok) {
+          report.steps.properties.synced++;
+          if (result.twinId && !prop.falkonPropertyId) {
+            await db.execute(
+              sql`UPDATE properties
+                  SET falkon_property_id = ${result.twinId}, falkon_synced_at = now()
+                  WHERE id = ${prop.id}::uuid`,
+            );
+          }
+        } else {
+          report.steps.properties.errors.push(`${prop.id}: sync failed`);
+        }
+      } catch (propErr: any) {
+        report.steps.properties.errors.push(`${prop.id}: ${propErr?.message ?? String(propErr)}`);
+      }
+    }
+  } catch (err: any) {
+    logger.error({ err }, "falkon bootstrap: properties step failed");
+    report.steps.properties.errors.push(`step failed: ${err?.message ?? String(err)}`);
+  }
+
+  // ── Step 2: Units — seed from job unitNos then sync twins ───────────────
+  try {
+    const allProperties = await db
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable);
+    report.steps.units.totalProperties = allProperties.length;
+
+    for (const prop of allProperties) {
+      try {
+        // Seed falkon_units rows from distinct job unitNos (idempotent)
+        const unitNoRows = await db.execute(
+          sql`SELECT DISTINCT unit_no AS "unitNo"
+              FROM jobs
+              WHERE property_id = ${prop.id}::uuid
+                AND unit_no IS NOT NULL
+                AND trim(unit_no) != ''`,
+        );
+        const unitNos: string[] = ((unitNoRows as any).rows ?? (unitNoRows as unknown as any[]))
+          .map((r: any) => r.unitNo ?? r.unit_no)
+          .filter(Boolean);
+
+        for (const unitNo of unitNos) {
+          const exists = await db.execute(
+            sql`SELECT id FROM falkon_units
+                WHERE property_id = ${prop.id}::uuid AND unit_label = ${unitNo}
+                LIMIT 1`,
+          );
+          const existsRows = (exists as any).rows ?? (exists as any);
+          if (!Array.isArray(existsRows) || existsRows.length === 0) {
+            await db.execute(
+              sql`INSERT INTO falkon_units
+                    (id, property_id, unit_label, status, created_at, updated_at)
+                  VALUES
+                    (gen_random_uuid(), ${prop.id}::uuid, ${unitNo}, 'unknown', now(), now())
+                  ON CONFLICT DO NOTHING`,
+            );
+            report.steps.units.seeded++;
+          }
+        }
+
+        // Sync all falkon_units for this property to the gateway
+        const units = await db
+          .select()
+          .from(falkonUnitsTable)
+          .where(eq(falkonUnitsTable.propertyId, prop.id));
+
+        for (const unit of units) {
+          const result = await syncUnitTwin({
+            id: unit.id,
+            propertyId: unit.propertyId,
+            unitLabel: unit.unitLabel,
+            status: unit.status ?? "unknown",
+            falkonUnitId: unit.falkonUnitId ?? null,
+            currentJobId: unit.currentJobId ?? null,
+          });
+          if (result.ok) {
+            report.steps.units.synced++;
+            // Persist Falkon's assigned twin ID if returned and not yet stored
+            if (result.twinId && !unit.falkonUnitId) {
+              await db.execute(
+                sql`UPDATE falkon_units
+                    SET falkon_unit_id = ${result.twinId}, updated_at = now()
+                    WHERE id = ${unit.id}::uuid`,
+              );
+            }
+          } else {
+            report.steps.units.errors.push(`${unit.id}: sync failed`);
+          }
+        }
+      } catch (propErr: any) {
+        report.steps.units.errors.push(
+          `property ${prop.id}: ${propErr?.message ?? String(propErr)}`,
+        );
+      }
+    }
+  } catch (err: any) {
+    logger.error({ err }, "falkon bootstrap: units step failed");
+    report.steps.units.errors.push(`step failed: ${err?.message ?? String(err)}`);
+  }
+
+  // ── Step 3: Vendors ─────────────────────────────────────────────────────
+  try {
+    const crews = await db.select().from(crewsTable);
+    report.steps.vendors.total = crews.length;
+    for (const crew of crews) {
+      try {
+        const result = await syncVendorTwin({
+          id: crew.id,
+          name: crew.name,
+          trade: crew.trade ?? null,
+          falkonVendorId: crew.falkonVendorId ?? null,
+          falkonTier: crew.falkonTier ?? null,
+          falkonComplianceStatus: (crew as any).falkonComplianceStatus ?? null,
+        });
+        if (result.ok) report.steps.vendors.synced++;
+        else report.steps.vendors.errors.push(`${crew.id}: sync failed`);
+      } catch (crewErr: any) {
+        report.steps.vendors.errors.push(`${crew.id}: ${crewErr?.message ?? String(crewErr)}`);
+      }
+    }
+  } catch (err: any) {
+    logger.error({ err }, "falkon bootstrap: vendors step failed");
+    report.steps.vendors.errors.push(`step failed: ${err?.message ?? String(err)}`);
+  }
+
+  // ── Step 4: Capabilities ────────────────────────────────────────────────
+  try {
+    const capabilities = getCapabilityRegistration();
+    const result = await registerCapabilities(capabilities);
+    report.steps.capabilities.ok = result.ok;
+    report.steps.capabilities.registered = result.registered?.length ?? capabilities.length;
+    if (result.ok) {
+      await db.execute(
+        sql`UPDATE falkon_connections
+            SET capabilities_registered_at = now(), updated_at = now()
+            WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`,
+      );
+    }
+  } catch (err: any) {
+    logger.error({ err }, "falkon bootstrap: capabilities step failed");
+    report.steps.capabilities.error = err?.message ?? String(err);
+  }
+
+  report.ok =
+    report.steps.properties.errors.length === 0 &&
+    report.steps.units.errors.length === 0 &&
+    report.steps.vendors.errors.length === 0 &&
+    report.steps.capabilities.ok;
+  report.completedAt = new Date().toISOString();
+
+  logger.info(
+    {
+      propertiesSynced: report.steps.properties.synced,
+      unitsSeeded: report.steps.units.seeded,
+      unitsSynced: report.steps.units.synced,
+      vendorsSynced: report.steps.vendors.synced,
+      capabilitiesRegistered: report.steps.capabilities.registered,
+    },
+    "falkon bootstrap complete",
+  );
+
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// POST /falkon/admin/sync/all — full bootstrap sequence (thin wrapper)
+// ---------------------------------------------------------------------------
+
+falkonAdminRouter.post("/falkon/admin/sync/all", async (_req, res) => {
+  try {
+    const report = await runBootstrapAll();
+    return res.json(report);
+  } catch (err: any) {
+    logger.error({ err }, "falkon sync/all: unexpected failure");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 falkonAdminRouter.post("/falkon/admin/sync/capabilities", async (_req, res) => {
   try {
     const capabilities = getCapabilityRegistration();
@@ -758,7 +982,21 @@ falkonAdminRouter.post("/falkon/admin/eligibility/promote", async (req, res) => 
       .where(eq(falkonConnectionsTable.id, conn.id));
 
     logger.info({ fromMode: currentMode, toMode: promoteTo }, "falkon: mode promoted");
-    return res.json({ ok: true, previousMode: currentMode, mode: promoteTo });
+
+    // When promoting to ASSISTED, kick off the full twin bootstrap asynchronously.
+    // We fire-and-forget so the promote response is immediate; the bootstrap logs its own outcome.
+    if (promoteTo === "ASSISTED") {
+      void runBootstrapAll().catch((err) =>
+        logger.error({ err }, "falkon: post-promote bootstrap failed"),
+      );
+    }
+
+    return res.json({
+      ok: true,
+      previousMode: currentMode,
+      mode: promoteTo,
+      bootstrapTriggered: promoteTo === "ASSISTED",
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

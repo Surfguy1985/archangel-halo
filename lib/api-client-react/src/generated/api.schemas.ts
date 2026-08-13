@@ -2903,6 +2903,22 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
+export interface JobBoardPaymentRequestSummary {
+  id: string;
+  /** @nullable */
+  requestNo?: string | null;
+  /** @nullable */
+  total?: number | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2915,6 +2931,8 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  /** @nullable */
+  paymentRequest?: JobBoardPaymentRequestSummary | null;
 }
 
 export interface CrewPayInput {
@@ -3381,6 +3399,21 @@ export interface TrailPoint {
   at: string;
 }
 
+export interface CrewMapPinPhoto {
+  id: string;
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewMapPinService {
+  id: string;
+  service: string;
+  done: boolean;
+}
+
 export interface CrewMapPin {
   id: string;
   name: string;
@@ -3419,6 +3452,8 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
+  /** @nullable */
+  unitNo?: string | null;
   /** Today's crew photos for the active job (newest first, max 8) */
   photos?: CrewMapPinPhotosItem[];
   /** Job line items for the active job, used as a service checklist */
@@ -4964,6 +4999,10 @@ export interface PortalJob {
   checkedIn?: boolean;
   /** True when this crew has checked out of this job (a checkout exists at/after the latest check-in) */
   checkedOut?: boolean;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  jobAgreedAt?: string | null;
   lineItems?: PortalJobLineItem[];
 }
 
@@ -5308,12 +5347,24 @@ export interface PortalUnseen {
   pay: number;
 }
 
+export interface ApprovedWalk {
+  jobId: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  approvedAt: string;
+}
+
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
   emergencyOffers: PortalEmergencyOffer[];
   unseen: PortalUnseen;
+  approvedWalks?: ApprovedWalk[];
 }
 
 export interface PortalEmergencyCommitResult {
@@ -5347,6 +5398,14 @@ export interface PortalEarnings {
   holds: PortalEarningsHold[];
 }
 
+export interface PortalServicesCatalogItem {
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  category?: string | null;
+}
 export interface EmergencyCandidate {
   crewId: string;
   name: string;
@@ -8001,3 +8060,8 @@ export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
 
+
+export interface PortalServices {
+  catalog: PortalServicesCatalogItem[];
+  byJob: Record<string, string[]>;
+}
