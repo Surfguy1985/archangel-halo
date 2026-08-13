@@ -25,7 +25,9 @@ import {
   AlertTriangle,
   Clock,
   Search,
+  ScanLine,
 } from "lucide-react";
+import { ScanInvoiceDialog } from "./ScanInvoiceDialog";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -384,6 +386,7 @@ function InvoiceRow({
 export function CrewAPTab() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [search, setSearch] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
   const qc = useQueryClient();
 
   // Fetch — pass server-side status filter; do client-side search to avoid debounce complexity
@@ -405,7 +408,23 @@ export function CrewAPTab() {
   };
 
   return (
+    <>
+    <ScanInvoiceDialog open={scanOpen} onOpenChange={setScanOpen} />
     <div className="space-y-6">
+      {/* Header with scan button */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          All crew invoices submitted through the portal or scanned by the office.
+        </p>
+        <Button
+          onClick={() => setScanOpen(true)}
+          className="rounded-full bg-[var(--secondary)] text-white font-bold text-xs px-5 hover:opacity-90 flex items-center gap-2"
+          data-testid="btn-scan-invoice"
+        >
+          <ScanLine className="w-4 h-4" /> Scan invoice
+        </Button>
+      </div>
+
       {/* Summary strip */}
       {isLoading ? (
         <div className="grid grid-cols-3 gap-4">
@@ -469,5 +488,6 @@ export function CrewAPTab() {
         </div>
       )}
     </div>
+    </>
   );
 }

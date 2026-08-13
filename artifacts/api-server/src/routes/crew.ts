@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
 import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
+import { completeJsonWithImage } from "../lib/ai";
+import { z } from "zod";
 import {
   db,
   crewsTable,
@@ -896,6 +898,230 @@ router.get("/crew-invoice-queue", async (req, res): Promise<void> => {
       })),
     ),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Scan an emailed invoice PDF/photo — OCR + crew fuzzy-match
+// ---------------------------------------------------------------------------
+const ScanInvoiceBody = z.object({
+  image: z.string().min(1),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]),
+  filename: z.string().optional(),
+});
+
+// Zod schema for the AI extraction response — normalises / coerces raw model output
+const ExtractionItemSchema = z.object({
+  dateOfWork: z.string().nullable().catch(null),
+  unitNo: z.string().nullable().catch(null),
+  typeOfWork: z.string().catch(""),
+  qty: z.number().catch(1),
+  unitPrice: z.number().catch(0),
+  amount: z.number().catch(0),
+  confidence: z.number().min(0).max(1).catch(0.5),
+});
+const ExtractionSchema = z.object({
+  payee: z.string().nullable().catch(null),
+  invoiceNo: z.string().nullable().catch(null),
+  invoiceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .catch(null),
+  propertyAddress: z.string().nullable().catch(null),
+  subtotal: z.number().nullable().catch(null),
+  total: z.number().nullable().catch(null),
+  items: z.array(ExtractionItemSchema).catch([]),
+  confidence: z.number().min(0).max(1).catch(0.5),
+});
+type Extraction = z.infer<typeof ExtractionSchema>;
+
+router.post("/crew-invoices/scan", async (req, res): Promise<void> => {
+  const body = ScanInvoiceBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid body" });
+    return;
+  }
+  const { image, mediaType, filename } = body.data;
+
+  // Enforce a reasonable base64 size ceiling (~10 MB decoded ≈ 13.3 MB base64)
+  if (image.length > 14_000_000) {
+    res.status(413).json({ error: "File too large — please reduce image size or resolution before uploading" });
+    return;
+  }
+
+  let extraction: Extraction = ExtractionSchema.parse({});
+  try {
+    const raw = await completeJsonWithImage<unknown>(
+      `You are an expert invoice reader for a property-maintenance contractor. Extract the following from the invoice document and return JSON ONLY:
+{
+  "payee": "company or person name who issued this invoice (the vendor/crew)",
+  "invoiceNo": "invoice number or null",
+  "invoiceDate": "YYYY-MM-DD or null",
+  "propertyAddress": "job site, property name, or billing address — whichever identifies the property",
+  "subtotal": number or null,
+  "total": number or null (the amount owed),
+  "items": [{ "dateOfWork": "YYYY-MM-DD", "unitNo": "unit number or null", "typeOfWork": "description", "qty": number, "unitPrice": number, "amount": number, "confidence": 0.0-1.0 }],
+  "confidence": 0.0-1.0 (overall read quality)
+}
+Rules:
+- Never invent values. If a field is absent, use null.
+- For dates use YYYY-MM-DD. If only month/year, use the 1st.
+- amount = qty × unitPrice. Cross-check totals.
+- confidence per line item: 1.0 = perfectly clear, 0.5 = partly legible, 0.3 = guessed.
+- Overall confidence: average of item confidences, reduced if payee/total/date is missing.`,
+      `Filename: ${filename ?? "invoice"}. Extract all fields from this invoice.`,
+      image,
+      mediaType,
+      4096,
+    );
+    // Normalise / coerce through Zod — rejects malformed values safely
+    const parsed = ExtractionSchema.safeParse(raw);
+    if (parsed.success) extraction = parsed.data;
+  } catch {
+    // best-effort — return empty extraction rather than 502
+  }
+
+  // 2. Fuzzy-match payee against crew records
+  const allCrews = await db
+    .select({ id: crewsTable.id, name: crewsTable.name })
+    .from(crewsTable)
+    .orderBy(crewsTable.name);
+
+  const payeeLower = (extraction.payee ?? "").toLowerCase().trim();
+  const crewMatches = allCrews
+    .map((c) => {
+      const nameLower = c.name.toLowerCase();
+      let score = 0;
+      if (!payeeLower) {
+        score = 0;
+      } else if (nameLower === payeeLower) {
+        score = 1.0;
+      } else if (nameLower.startsWith(payeeLower) || payeeLower.startsWith(nameLower)) {
+        score = 0.9;
+      } else if (nameLower.includes(payeeLower) || payeeLower.includes(nameLower)) {
+        score = 0.75;
+      } else {
+        // token overlap: split both into words, count common tokens
+        const aTokens = new Set(payeeLower.split(/\s+/).filter(Boolean));
+        const bTokens = nameLower.split(/\s+/).filter(Boolean);
+        const common = bTokens.filter((t) => aTokens.has(t)).length;
+        if (common > 0) score = 0.5 + 0.1 * (common - 1);
+      }
+      return { ...c, score };
+    })
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+
+  // If no match found but there are crews, return all (score=0) so UI shows a dropdown
+  const finalMatches =
+    crewMatches.length > 0
+      ? crewMatches
+      : allCrews.slice(0, 10).map((c) => ({ ...c, score: 0 }));
+
+  res.json({ extraction, crewMatches: finalMatches });
+});
+
+// ---------------------------------------------------------------------------
+// Office-create a crew invoice (scanned on behalf of a crew)
+// ---------------------------------------------------------------------------
+const OfficeCreateInvoiceBody = z.object({
+  crewId: z.string().uuid(),
+  fromCompany: z.string().min(1),
+  invoiceNo: z.string().optional(),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  propertyAddress: z.string().min(1),
+  signatureName: z.string().optional(),
+  /** Explicit approved total (may include tax/fees/discounts not in line items). Falls back to sum of item amounts. */
+  invoiceTotal: z.number().nonnegative().optional(),
+  items: z.array(
+    z.object({
+      dateOfWork: z.string(),
+      unitNo: z.string().optional(),
+      typeOfWork: z.string().min(1),
+      qty: z.number().positive(),
+      unitPrice: z.number().nonnegative(),
+      amount: z.number().nonnegative(),
+    }),
+  ).min(1),
+});
+
+router.post("/crew-invoices/office-create", async (req, res): Promise<void> => {
+  const parsed = OfficeCreateInvoiceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    return;
+  }
+  const body = parsed.data;
+
+  const [crew] = await db
+    .select({ id: crewsTable.id, name: crewsTable.name })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, body.crewId))
+    .limit(1);
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+
+  const lineTotal = body.items.reduce((s, it) => s + it.amount, 0);
+  // Use the office-approved total when provided (preserves tax/fees/discounts not in line rows)
+  const total = typeof body.invoiceTotal === "number" ? body.invoiceTotal : lineTotal;
+  const now = new Date();
+
+  const created = await db.transaction(async (tx) => {
+    const [inv] = await tx
+      .insert(crewInvoicesTable)
+      .values({
+        crewId: body.crewId,
+        invoiceNo: body.invoiceNo?.trim() || null,
+        invoiceDate: body.invoiceDate,
+        fromCompany: body.fromCompany.trim(),
+        propertyAddress: body.propertyAddress.trim(),
+        subtotal: lineTotal,
+        total,
+        signatureName: body.signatureName?.trim() || body.fromCompany.trim(),
+        signedAt: now,
+        status: "submitted",
+        adminNote: "Scanned by office",
+      })
+      .returning();
+    const itemRows = await tx
+      .insert(crewInvoiceItemsTable)
+      .values(
+        body.items.map((it, idx) => ({
+          invoiceId: inv!.id,
+          dateOfWork: it.dateOfWork,
+          unitNo: it.unitNo?.trim() || null,
+          typeOfWork: it.typeOfWork.trim(),
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+          amount: it.amount,
+          sortOrder: idx,
+        })),
+      )
+      .returning();
+    return { inv: inv!, itemRows };
+  });
+
+  await db.insert(notificationsTable).values({
+    kind: "crew_invoice",
+    priority: "normal",
+    entityType: "crew",
+    entityId: body.crewId,
+    title: `Office scanned invoice from ${crew.name} — $${total.toFixed(2)}`,
+    body: body.propertyAddress.trim(),
+  });
+
+  const labels = await jobLabelMap(
+    created.inv.jobId ? [created.inv.jobId] : [],
+  );
+  res.status(201).json({
+    ...ser(created.inv),
+    crewName: crew.name,
+    jobLabel: created.inv.jobId ? (labels.get(created.inv.jobId) ?? null) : null,
+    items: created.itemRows.map((it) => ser(it)),
+  });
 });
 
 router.patch("/crew-invoices/:id", async (req, res): Promise<void> => {

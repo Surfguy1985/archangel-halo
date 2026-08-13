@@ -60,6 +60,7 @@ app.use(
     "/api/ingest/receipt",
     "/api/checks/scan",
     "/api/properties/:id/sop-rule",
+    "/api/crew-invoices/scan",
   ],
   express.json({ limit: "15mb", verify: rawBodyCapture }),
 );
