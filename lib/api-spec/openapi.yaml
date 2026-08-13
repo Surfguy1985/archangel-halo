@@ -14059,7 +14059,7 @@ components:
       required: [id]
       properties:
         id: { type: string }
-        kind: { type: ["string", "null"], description: "job | event" }
+        kind: { type: ["string", "null"], description: "job | event | dispatch" }
         jobNo: { type: ["string", "null"] }
         description: { type: ["string", "null"] }
         propertyName: { type: ["string", "null"] }
@@ -14074,6 +14074,17 @@ components:
         tasks:
           type: array
           items: { type: string }
+        dispatchAssignmentId: { type: ["string", "null"], description: "ID of the crew_dispatch_assignments row (only set when kind is dispatch)" }
+        dispatchChecklist:
+          type: array
+          description: "Scope-of-work checklist items from the dispatch assignment (only present when kind is dispatch)"
+          items:
+            type: object
+            required: [id, text, done]
+            properties:
+              id: { type: string }
+              text: { type: string }
+              done: { type: boolean }
     PortalOffer:
       type: object
       required: [id, jobId, status, photos]

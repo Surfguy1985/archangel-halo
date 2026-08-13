@@ -6605,7 +6605,7 @@ export const GetPortalResponse = zod.object({
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
-  "kind": zod.string().nullish().describe('job | event'),
+  "kind": zod.string().nullish().describe('job | event | dispatch'),
   "jobNo": zod.string().nullish(),
   "description": zod.string().nullish(),
   "propertyName": zod.string().nullish(),
@@ -6617,7 +6617,13 @@ export const GetPortalResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "windowStart": zod.string().nullish(),
   "status": zod.string().nullish(),
-  "tasks": zod.array(zod.string()).optional()
+  "tasks": zod.array(zod.string()).optional(),
+  "dispatchAssignmentId": zod.string().nullish().describe('ID of the crew_dispatch_assignments row (only set when kind is dispatch)'),
+  "dispatchChecklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional().describe('Scope-of-work checklist items from the dispatch assignment (only present when kind is dispatch)')
 })),
   "offers": zod.array(zod.object({
   "id": zod.string(),

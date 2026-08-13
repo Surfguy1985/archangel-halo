@@ -5183,10 +5183,16 @@ export interface PortalSelfieResult {
   selfiePath: string;
 }
 
+export type PortalScheduleItemDispatchChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 export interface PortalScheduleItem {
   id: string;
   /**
-     * job | event
+     * job | event | dispatch
      * @nullable
      */
   kind?: string | null;
@@ -5213,6 +5219,13 @@ export interface PortalScheduleItem {
   /** @nullable */
   status?: string | null;
   tasks?: string[];
+  /**
+     * ID of the crew_dispatch_assignments row (only set when kind is dispatch)
+     * @nullable
+     */
+  dispatchAssignmentId?: string | null;
+  /** Scope-of-work checklist items from the dispatch assignment (only present when kind is dispatch) */
+  dispatchChecklist?: PortalScheduleItemDispatchChecklistItem[];
 }
 
 export interface PortalOffer {

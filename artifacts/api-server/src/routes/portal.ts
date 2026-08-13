@@ -639,7 +639,11 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       windowStart: null,
       status: "scheduled",
       tasks: taskify(job.description),
-    });
+      // Dispatch-specific: carry the scope-of-work checklist into the guided
+      // card flow so members see and check off their items inline.
+      dispatchChecklist: readDispatchChecklist(da.checklist),
+      dispatchAssignmentId: da.id,
+    } as unknown as (typeof schedule)[number]);
   }
 
   // Time windows are free text ("9:00 AM", "13:30"); parse to minutes so the

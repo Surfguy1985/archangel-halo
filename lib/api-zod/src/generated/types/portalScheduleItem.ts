@@ -5,11 +5,12 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { PortalScheduleItemDispatchChecklistItem } from './portalScheduleItemDispatchChecklistItem';
 
 export interface PortalScheduleItem {
   id: string;
   /**
-     * job | event
+     * job | event | dispatch
      * @nullable
      */
   kind?: string | null;
@@ -36,4 +37,11 @@ export interface PortalScheduleItem {
   /** @nullable */
   status?: string | null;
   tasks?: string[];
+  /**
+     * ID of the crew_dispatch_assignments row (only set when kind is dispatch)
+     * @nullable
+     */
+  dispatchAssignmentId?: string | null;
+  /** Scope-of-work checklist items from the dispatch assignment (only present when kind is dispatch) */
+  dispatchChecklist?: PortalScheduleItemDispatchChecklistItem[];
 }

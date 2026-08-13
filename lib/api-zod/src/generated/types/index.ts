@@ -483,6 +483,7 @@ export * from './portalOfferRespondResult';
 export * from './portalOfficeView';
 export * from './portalPendingMove';
 export * from './portalScheduleItem';
+export * from './portalScheduleItemDispatchChecklistItem';
 export * from './portalSeenInput';
 export * from './portalSeenInputSection';
 export * from './portalSelfieInput';

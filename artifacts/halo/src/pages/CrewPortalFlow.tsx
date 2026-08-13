@@ -35,6 +35,8 @@ import {
   type PortalOffer,
   type PortalEmergencyOffer,
   type PortalJob,
+  type PortalScheduleItem,
+  type PortalScheduleItemDispatchChecklistItem,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -80,14 +82,9 @@ type PortalPhotoShape = {
   takenOn: string;
 };
 
-type ScheduleShape = {
-  jobNo?: string | null;
-  scheduledOn?: string | null;
-  windowStart?: string | null;
-  propertyName?: string | null;
-  propertyAddress?: string | null;
-  propertyCity?: string | null;
-};
+// Use the generated API types so the shape stays in sync with the OpenAPI spec.
+type DispatchChecklistItem = PortalScheduleItemDispatchChecklistItem;
+type ScheduleShape = PortalScheduleItem;
 
 type ActiveCard =
   | { kind: "idle" }
@@ -102,7 +99,7 @@ type ActiveCard =
       minsToWindow: number;
     }
   | { kind: "before-photos"; job: PortalJobShape; areas: string[] }
-  | { kind: "checklist"; job: PortalJobShape }
+  | { kind: "checklist"; job: PortalJobShape; schedItem: ScheduleShape | null }
   | { kind: "cleaning-checklist"; job: PortalJobShape }
   | { kind: "job-checklist"; job: PortalJobShape; checklistType: string }
   | { kind: "after-photos"; job: PortalJobShape; areas: string[] }
@@ -441,7 +438,7 @@ function deriveCard(
 ): ActiveCard {
   const today = localToday();
   const activeJobs = (jobs ?? []).filter((j) => j.status !== "cancelled");
-  const schedules = ((portal as unknown as { schedule?: ScheduleShape[] }).schedule) ?? [];
+  const schedules = portal.schedule ?? [];
 
   for (const job of activeJobs) {
     const isOut = !!localCheckedOut[job.id] || !!job.checkedOut;
@@ -462,6 +459,12 @@ function deriveCard(
     const after = (photos ?? []).filter((p) => p.jobId === job.id && p.phase === "after");
     const myItems = (job.lineItems ?? []).filter((li) => li.mine);
     const allMyDone = myItems.length === 0 || myItems.every((li) => li.completed);
+
+    // Dispatch checklist: items on the crew_dispatch_assignments row for today.
+    const dispatchItems: DispatchChecklistItem[] = schedItem?.kind === "dispatch"
+      ? schedItem.dispatchChecklist ?? []
+      : [];
+    const allDispatchDone = dispatchItems.length === 0 || dispatchItems.every((i) => i.done);
 
     if (!isIn) {
       // Walk-approved jobs get a celebratory "green-lit" card before check-in
@@ -484,7 +487,8 @@ function deriveCard(
       const areas = myItems.map((li) => li.service ?? "").filter(Boolean);
       return { kind: "before-photos", job, areas: areas.length ? areas : ["the work area"] };
     }
-    if (!allMyDone) return { kind: "checklist", job };
+    // Show checklist when line items are pending OR dispatch checklist items are pending.
+    if (!allMyDone || !allDispatchDone) return { kind: "checklist", job, schedItem: schedItem ?? null };
 
     // After line items — check for trade-specific checklists first (carpet /
     // painting / make_ready), then the turn-cleaning checklist for cleaning jobs.
@@ -1120,6 +1124,25 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     }
   };
 
+  const doToggleDispatchItem = async (assignmentId: string, itemId: string, done: boolean) => {
+    setErr(null);
+    setBusy(`dispatchItem:${itemId}`);
+    try {
+      const r = await fetch(`/api/portal/${token}/dispatch/${assignmentId}/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, done }),
+      });
+      if (!r.ok) throw new Error(`check failed: ${r.status}`);
+      // Portal data carries the dispatch checklist — refresh to pick up new state.
+      queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+    } catch {
+      setErr("Couldn't update that item — try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const doAcceptOffer = (offerId: string) => {
     setBusy(`offer:${offerId}`);
     respondOffer.mutate(
@@ -1173,7 +1196,7 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
 
   const renderHome = () => {
     const today = localToday();
-    const schedules = ((portal as unknown as { schedule?: ScheduleShape[] }).schedule) ?? [];
+    const schedules = portal.schedule ?? [];
     const activeJobs = (jobs ?? []).filter((j) => j.status !== "cancelled");
     const todayJobs = activeJobs.filter((j) => {
       const hasSchedule = schedules.some((s) => s.jobNo === j.jobNo && s.scheduledOn === today);
@@ -1601,10 +1624,24 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     }
 
     if (card.kind === "checklist") {
-      const { job } = card;
+      const { job, schedItem: clSchedItem } = card;
       const myItems = (job.lineItems ?? []).filter((li) => li.mine);
       const othersItems = (job.lineItems ?? []).filter((li) => !li.mine);
       const doneCount = myItems.filter((li) => li.completed).length;
+
+      // Dispatch checklist items (scope-of-work from the assignment row).
+      const dispatchItems: DispatchChecklistItem[] =
+        clSchedItem?.kind === "dispatch"
+          ? clSchedItem.dispatchChecklist ?? []
+          : [];
+      const dispatchAssignmentId = clSchedItem?.dispatchAssignmentId ?? null;
+      const dispatchDoneCount = dispatchItems.filter((i) => i.done).length;
+
+      // Totals across both sources.
+      const totalCount = myItems.length + dispatchItems.length;
+      const totalDone = doneCount + dispatchDoneCount;
+      const allDone = totalCount === 0 || totalDone === totalCount;
+
       return (
         <div className={cardBase}>
           <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
@@ -1612,56 +1649,117 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
             <div className="flex items-center justify-between">
               {tag(t.checklistTag, "#60a5fa")}
               <span className="text-[12px] text-white/40 font-bold">
-                {doneCount}/{myItems.length}
+                {totalDone}/{totalCount}
               </span>
             </div>
             <p className="text-[12px] text-white/40">{t.checklistInstr}</p>
-            <div className="flex flex-col gap-[6px] mt-[4px]">
-              {myItems.map((li) => (
-                <button
-                  key={li.id}
-                  type="button"
-                  disabled={busy === `item:${li.id}`}
-                  onClick={() => doToggleItem(job.id, li.id, !li.completed)}
-                  className={`flex items-center gap-[10px] rounded-[14px] px-[14px] py-[13px] text-left transition-all active:scale-[0.98] ${
-                    li.completed
-                      ? "bg-green-500/15 border border-green-500/25"
-                      : "bg-white/[0.04] border border-white/[0.07]"
-                  }`}
-                >
-                  <span
-                    className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                      li.completed
-                        ? "border-green-500 bg-green-500 text-black"
-                        : "border-white/20 bg-transparent"
-                    }`}
-                  >
-                    {busy === `item:${li.id}` ? (
-                      <Loader2 className="w-[12px] h-[12px] animate-spin text-white/50" />
-                    ) : li.completed ? (
-                      <Check className="w-[13px] h-[13px]" />
-                    ) : null}
-                  </span>
-                  <span
-                    className={`flex-1 min-w-0 text-[14px] font-semibold ${
-                      li.completed ? "line-through text-white/30" : "text-white/80"
-                    }`}
-                  >
-                    {li.service}
-                    {li.startTime && !li.completed && (
-                      <span className="ml-[8px] text-[11px] font-bold text-[#B4FF44]">
-                        @ {formatClock(li.startTime)}
+
+            {/* Dispatch scope-of-work items (shown when kind === "dispatch") */}
+            {dispatchItems.length > 0 && (
+              <div className="flex flex-col gap-[6px] mt-[4px]">
+                {myItems.length > 0 && (
+                  <div className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-white/30 px-[2px]">
+                    Your assigned tasks
+                  </div>
+                )}
+                {dispatchItems.map((di) => {
+                  const itemBusy = busy === `dispatchItem:${di.id}`;
+                  return (
+                    <button
+                      key={di.id}
+                      type="button"
+                      disabled={itemBusy || !dispatchAssignmentId}
+                      onClick={() =>
+                        dispatchAssignmentId &&
+                        doToggleDispatchItem(dispatchAssignmentId, di.id, !di.done)
+                      }
+                      className={`flex items-center gap-[10px] rounded-[14px] px-[14px] py-[13px] text-left transition-all active:scale-[0.98] ${
+                        di.done
+                          ? "bg-green-500/15 border border-green-500/25"
+                          : "bg-white/[0.04] border border-white/[0.07]"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                          di.done
+                            ? "border-green-500 bg-green-500 text-black"
+                            : "border-white/20 bg-transparent"
+                        }`}
+                      >
+                        {itemBusy ? (
+                          <Loader2 className="w-[12px] h-[12px] animate-spin text-white/50" />
+                        ) : di.done ? (
+                          <Check className="w-[13px] h-[13px]" />
+                        ) : null}
                       </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
+                      <span
+                        className={`flex-1 min-w-0 text-[14px] font-semibold ${
+                          di.done ? "line-through text-white/30" : "text-white/80"
+                        }`}
+                      >
+                        {di.text}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Line-item checklist (own tasks assigned on the job board) */}
+            {myItems.length > 0 && (
+              <div className="flex flex-col gap-[6px] mt-[4px]">
+                {dispatchItems.length > 0 && (
+                  <div className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-white/30 px-[2px]">
+                    Job line items
+                  </div>
+                )}
+                {myItems.map((li) => (
+                  <button
+                    key={li.id}
+                    type="button"
+                    disabled={busy === `item:${li.id}`}
+                    onClick={() => doToggleItem(job.id, li.id, !li.completed)}
+                    className={`flex items-center gap-[10px] rounded-[14px] px-[14px] py-[13px] text-left transition-all active:scale-[0.98] ${
+                      li.completed
+                        ? "bg-green-500/15 border border-green-500/25"
+                        : "bg-white/[0.04] border border-white/[0.07]"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                        li.completed
+                          ? "border-green-500 bg-green-500 text-black"
+                          : "border-white/20 bg-transparent"
+                      }`}
+                    >
+                      {busy === `item:${li.id}` ? (
+                        <Loader2 className="w-[12px] h-[12px] animate-spin text-white/50" />
+                      ) : li.completed ? (
+                        <Check className="w-[13px] h-[13px]" />
+                      ) : null}
+                    </span>
+                    <span
+                      className={`flex-1 min-w-0 text-[14px] font-semibold ${
+                        li.completed ? "line-through text-white/30" : "text-white/80"
+                      }`}
+                    >
+                      {li.service}
+                      {li.startTime && !li.completed && (
+                        <span className="ml-[8px] text-[11px] font-bold text-[#B4FF44]">
+                          @ {formatClock(li.startTime)}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {othersItems.length > 0 && (
               <p className="text-[12px] text-white/30 mt-[4px]">{t.checklistOthers(othersItems.length)}</p>
             )}
           </div>
-          {myItems.every((li) => li.completed) && (
+          {allDone && (
             <div className="px-[22px] pb-[22px]">
               <div className="flex items-center gap-[8px] rounded-[14px] bg-green-500/10 border border-green-500/20 px-[14px] py-[11px]">
                 <Check className="w-[15px] h-[15px] text-green-400" />
