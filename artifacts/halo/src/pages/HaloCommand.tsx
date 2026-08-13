@@ -4,14 +4,17 @@
  * One dark shell. One composer. Three summonable panels (Map, Kanban, Money).
  * Everything else happens in conversation.
  *
- * SEED  — ring + greeting + at most 2 critical alerts + 3 prompt chips.
+ * SEED  — greeting + optional urgent count + composer + 4 understated prompt chips.
  * THREAD — scrollable chat: user bubbles, HALO answers, action cards.
- * PANELS — LiveMap / JobKanban / Money slide over the chat, close back to thread.
+ * PANELS — LiveMap / JobKanban / Money slide over the chat, return to thread.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, Send, Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
+import {
+  Mic, Bell, MoreHorizontal, Send, Loader2,
+  CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
+} from "lucide-react";
 
 import {
   useGetToday,
@@ -24,7 +27,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { VoiceAction } from "@workspace/api-client-react";
 
 import haloLogo from "../assets/halo-logo.png";
-import { HaloRing } from "@/components/HaloRing";
 import { VoiceCaptureSheet } from "@/components/VoiceCaptureSheet";
 import { NotificationsDrawer } from "@/components/NotificationsDrawer";
 import { MinimalMenuSheet } from "@/components/MinimalMenuSheet";
@@ -65,24 +67,10 @@ function parseLiveLinkResult(result: unknown): LiveLinkData | null {
   try {
     const p = JSON.parse(result);
     if (p.type === "live_link") {
-      return {
-        kind: "pm_link",
-        propertyName: p.propertyName,
-        url: p.url,
-        token: p.token,
-        smsText: p.smsText,
-        expiresAt: p.expiresAt,
-      };
+      return { kind: "pm_link", propertyName: p.propertyName, url: p.url, token: p.token, smsText: p.smsText, expiresAt: p.expiresAt };
     }
     if (p.type === "crew_link") {
-      return {
-        kind: "crew_checkin",
-        crewName: p.crewName,
-        url: p.url,
-        token: p.token,
-        smsText: p.smsText,
-        expiresAt: p.expiresAt,
-      };
+      return { kind: "crew_checkin", crewName: p.crewName, url: p.url, token: p.token, smsText: p.smsText, expiresAt: p.expiresAt };
     }
     return null;
   } catch {
@@ -93,12 +81,9 @@ function parseLiveLinkResult(result: unknown): LiveLinkData | null {
 // ─── Keyframes ────────────────────────────────────────────────────────────────
 
 const KEYFRAMES = `
-@keyframes hcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
-@keyframes hcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-@keyframes hcGlow {
-  0%,100%{opacity:0.55;filter:drop-shadow(0 0 22px rgba(180,255,68,0.38))}
-  50%{opacity:0.85;filter:drop-shadow(0 0 44px rgba(180,255,68,0.68))}
-}
+@keyframes hcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-4px)} }
+@keyframes hcFadeUp { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+@keyframes hcPulseRed { 0%,100%{opacity:0.7} 50%{opacity:1} }
 @media(prefers-reduced-motion:reduce){.hc-in{animation:none!important}}
 `;
 
@@ -114,12 +99,12 @@ function deriveFalkonMode(health?: { gatewayMode?: string }): FalkonMode {
 }
 
 const MODE_STYLE: Record<FalkonMode, { bg: string; text: string; dot: string }> = {
-  SHADOW:   { bg: "bg-white/5 border border-white/10",          text: "text-white/35",     dot: "bg-white/25" },
-  ASSISTED: { bg: "bg-[#B4FF44]/8 border border-[#B4FF44]/20", text: "text-[#B4FF44]/80", dot: "bg-[#B4FF44] animate-pulse" },
-  LIVE:     { bg: "bg-[#22C55E]/8 border border-[#22C55E]/18", text: "text-[#22C55E]/80", dot: "bg-[#22C55E] animate-pulse" },
+  SHADOW:   { bg: "bg-white/[0.05] border border-white/[0.09]",       text: "text-white/30",     dot: "bg-white/20" },
+  ASSISTED: { bg: "bg-[#B4FF44]/[0.07] border border-[#B4FF44]/[0.18]", text: "text-[#B4FF44]/75", dot: "bg-[#B4FF44] animate-pulse" },
+  LIVE:     { bg: "bg-[#22C55E]/[0.07] border border-[#22C55E]/[0.16]", text: "text-[#22C55E]/75", dot: "bg-[#22C55E] animate-pulse" },
 };
 
-// ─── Panel intent detection ───────────────────────────────────────────────────
+// ─── Panel metadata ───────────────────────────────────────────────────────────
 
 const PANEL_MAP: Array<{ panel: PanelType; label: string; patterns: string[] }> = [
   { panel: "map",    label: "Live Map",  patterns: ["live map","crew map","show map","open map","where are crews","crew location","gps","map"] },
@@ -141,7 +126,11 @@ function detectPanelIntent(text: string): { panel: PanelType; label: string } | 
   return null;
 }
 
-const PANEL_ICONS: Record<PanelType, string> = { map: "📍", kanban: "📋", money: "💰" };
+const PANEL_ICON = {
+  map:    MapPin,
+  kanban: Columns3,
+  money:  CircleDollarSign,
+} as const;
 
 // ─── Greeting ─────────────────────────────────────────────────────────────────
 
@@ -160,13 +149,16 @@ async function apiFetch(path: string, opts?: RequestInit): Promise<any> {
   return res.json();
 }
 
-// ─── Bubble components ────────────────────────────────────────────────────────
+// ─── Message components ───────────────────────────────────────────────────────
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-      <div className="max-w-[80%] bg-[#B4FF44] text-[#07101E] rounded-[16px] rounded-br-[4px] px-4 py-2.5 shadow-[0_4px_16px_rgba(180,255,68,0.18)]">
-        <p className="text-[13.5px] font-semibold leading-relaxed">{text}</p>
+    <div className="flex justify-end mb-4 hc-in" style={{ animation: "hcFadeUp 0.18s ease-out both" }}>
+      <div
+        className="max-w-[82%] rounded-[18px] rounded-br-[5px] px-[18px] py-[11px]"
+        style={{ background: "#B4FF44" }}
+      >
+        <p className="text-[14px] font-medium text-[#06100E] leading-relaxed">{text}</p>
       </div>
     </div>
   );
@@ -174,16 +166,17 @@ function UserBubble({ text }: { text: string }) {
 
 function ThinkingBubble() {
   return (
-    <div className="flex items-end gap-2 mb-3">
-      <div className="w-[20px] h-[20px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
-        <HaloRing className="w-[10px] h-[10px] text-[#B4FF44]" />
-      </div>
-      <div className="bg-[#0D1E33] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1.5">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/45"
-            style={{ animation: `hcBounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
-        ))}
-      </div>
+    <div className="flex items-center gap-[5px] mb-5 pl-1" style={{ height: 28 }}>
+      {[0, 1, 2].map(i => (
+        <div
+          key={i}
+          className="w-[5px] h-[5px] rounded-full"
+          style={{
+            background: "rgba(180,255,68,0.38)",
+            animation: `hcBounce 1.2s ease-in-out ${i * 0.16}s infinite`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -197,31 +190,58 @@ function HaloAnswerBubble({
   onFollowUp: (q: string) => void;
 }) {
   return (
-    <div className="mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-      <div className="flex items-end gap-2">
-        <div className="w-[20px] h-[20px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
-          <HaloRing className="w-[10px] h-[10px] text-[#B4FF44]" />
-        </div>
-        <div className="max-w-[85%] bg-[#0C1B30] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3 shadow-sm">
-          <p className="text-[13.5px] text-white/80 leading-relaxed whitespace-pre-wrap">{text}</p>
-          {sources && sources.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 pt-2 border-t border-white/[0.05]">
-              {sources.map((s, i) => (
-                <span key={i} className="text-[10px] text-white/28">
-                  <span className="text-white/18">{s.label}:</span> {s.value}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+    <div className="mb-5 hc-in" style={{ animation: "hcFadeUp 0.22s ease-out both" }}>
+      {/* Tiny HALO identifier */}
+      <div className="flex items-center gap-1.5 mb-[7px]">
+        <div className="w-[5px] h-[5px] rounded-full" style={{ background: "rgba(180,255,68,0.45)" }} />
+        <span
+          className="text-[8.5px] font-bold tracking-[0.18em] uppercase"
+          style={{ color: "rgba(255,255,255,0.22)" }}
+        >
+          HALO
+        </span>
       </div>
+
+      {/* Answer text — no bubble, no card */}
+      <p
+        className="text-[14px] leading-[1.7] whitespace-pre-wrap pl-[13px]"
+        style={{ color: "rgba(255,255,255,0.82)" }}
+      >
+        {text}
+      </p>
+
+      {/* Sources */}
+      {sources && sources.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pl-[13px]">
+          {sources.map((s, i) => (
+            <span key={i} className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+              {s.label}: {s.value}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Follow-up chips */}
       {followUps && followUps.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap mt-1.5 ml-[28px]">
+        <div className="flex gap-2 flex-wrap mt-3 pl-[13px]">
           {followUps.slice(0, 3).map((q, i) => (
             <button
               key={i}
               onClick={() => onFollowUp(q)}
-              className="text-[11px] font-medium text-white/38 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/6 hover:text-white/65 hover:bg-white/[0.07] transition-all active:scale-[0.96]"
+              className="text-[11.5px] font-medium px-3 py-[6px] rounded-full transition-all active:scale-95"
+              style={{
+                color: "rgba(255,255,255,0.35)",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.62)";
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)";
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              }}
             >
               {q}
             </button>
@@ -237,20 +257,29 @@ function PanelOpenedChip({
 }: {
   panel: PanelType; label: string; onReopen: () => void;
 }) {
+  const Icon = PANEL_ICON[panel];
   return (
-    <div className="flex mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+    <div className="flex mb-4 hc-in" style={{ animation: "hcFadeUp 0.2s ease-out both" }}>
       <button
         onClick={onReopen}
-        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all active:scale-[0.97]"
+        className="flex items-center gap-[7px] px-3 py-[7px] rounded-full transition-all active:scale-95"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+        }}
+        onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)")}
+        onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)")}
       >
-        <span className="text-[12px]">{PANEL_ICONS[panel]}</span>
-        <span className="text-[11.5px] text-white/45 font-medium">{label} — tap to reopen</span>
+        <Icon className="w-[11px] h-[11px]" strokeWidth={2} style={{ color: "rgba(255,255,255,0.32)" }} />
+        <span className="text-[11.5px] font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>
+          {label}
+        </span>
       </button>
     </div>
   );
 }
 
-// ─── ActionPlanCard ───────────────────────────────────────────────────────────
+// ─── Action plan card ─────────────────────────────────────────────────────────
 
 function ActionPlanCard({
   msg, falkonMode, onExecute, onDecline,
@@ -264,34 +293,45 @@ function ActionPlanCard({
   const isBlock = msg.plan.risk === "block";
 
   if (msg.status === "executing") return (
-    <div className="flex items-center gap-2.5 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-      <Loader2 className="w-3.5 h-3.5 text-[#B4FF44] animate-spin shrink-0" />
+    <div
+      className="flex items-center gap-3 rounded-[14px] px-4 py-3 mb-4 hc-in"
+      style={{ background: "rgba(180,255,68,0.05)", border: "1px solid rgba(180,255,68,0.12)", animation: "hcFadeUp 0.2s ease-out both" }}
+    >
+      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: "#B4FF44" }} />
       <div>
-        <span className="text-[12.5px] text-[#B4FF44]/80 font-medium">Executing…</span>
-        <p className="text-[11px] text-white/32 mt-0.5">{msg.plan.description}</p>
+        <span className="text-[12.5px] font-medium" style={{ color: "rgba(180,255,68,0.82)" }}>Executing…</span>
+        <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{msg.plan.description}</p>
       </div>
     </div>
   );
 
   if (msg.status === "done") return (
-    <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-      <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
+    <div
+      className="flex items-center gap-3 rounded-[14px] px-4 py-3 mb-4 hc-in"
+      style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.14)", animation: "hcFadeUp 0.2s ease-out both" }}
+    >
+      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#22C55E" }} />
       <div>
-        <span className="text-[12.5px] text-[#22C55E]/90 font-medium">Done</span>
-        <p className="text-[11px] text-white/38 mt-0.5">{msg.result ?? msg.plan.description}</p>
+        <span className="text-[12.5px] font-medium" style={{ color: "rgba(34,197,94,0.9)" }}>Done</span>
+        <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{msg.result ?? msg.plan.description}</p>
       </div>
     </div>
   );
 
   if (msg.status === "error") return (
-    <div className="flex items-center gap-2.5 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-      <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
-      <span className="text-[12.5px] text-[#E11D48]/82">Action failed — try again or handle manually.</span>
+    <div
+      className="flex items-center gap-3 rounded-[14px] px-4 py-3 mb-4 hc-in"
+      style={{ background: "rgba(225,29,72,0.07)", border: "1px solid rgba(225,29,72,0.15)", animation: "hcFadeUp 0.2s ease-out both" }}
+    >
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" style={{ color: "#E11D48" }} />
+      <span className="text-[12.5px]" style={{ color: "rgba(225,29,72,0.82)" }}>Action failed — try again or handle manually.</span>
     </div>
   );
 
   if (msg.status === "declined") return (
-    <div className="mb-3"><span className="text-[11.5px] text-white/22">Cancelled — nothing changed.</span></div>
+    <div className="mb-4">
+      <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.2)" }}>Cancelled — nothing changed.</span>
+    </div>
   );
 
   // pending
@@ -299,35 +339,130 @@ function ActionPlanCard({
   const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "REVIEW" : isShadow ? "SHADOW" : "READY";
 
   return (
-    <div className="rounded-[14px] border border-white/8 px-4 py-3.5 mb-3 hc-in"
-      style={{ background: isBlock ? "rgba(225,29,72,0.06)" : isShadow ? "rgba(245,158,11,0.05)" : "rgba(10,22,40,0.9)", animation: "hcIn 0.2s ease-out both" }}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-[9px] font-bold tracking-[0.16em] uppercase px-2 py-0.5 rounded border"
-          style={{ background: `${riskColor}12`, borderColor: `${riskColor}28`, color: riskColor }}>
+    <div
+      className="rounded-[16px] px-4 py-4 mb-4 hc-in"
+      style={{
+        background: isBlock ? "rgba(225,29,72,0.05)" : isShadow ? "rgba(245,158,11,0.04)" : "rgba(12,20,35,0.95)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        animation: "hcFadeUp 0.2s ease-out both",
+      }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className="text-[8.5px] font-bold tracking-[0.18em] uppercase px-2 py-[3px] rounded-md"
+          style={{ background: `${riskColor}10`, border: `1px solid ${riskColor}22`, color: riskColor }}
+        >
           {riskLabel}
         </span>
         {!isShadow && !isBlock && falkonMode === "ASSISTED" && (
-          <span className="text-[10px] text-white/22">Falkon ASSISTED</span>
+          <span className="text-[9.5px]" style={{ color: "rgba(255,255,255,0.2)" }}>Falkon ASSISTED</span>
         )}
       </div>
-      <p className="text-[13px] text-white/75 leading-relaxed mb-3">{msg.plan.description}</p>
+      <p className="text-[13.5px] leading-relaxed mb-4" style={{ color: "rgba(255,255,255,0.75)" }}>
+        {msg.plan.description}
+      </p>
       {!isBlock && !isShadow && (
         <div className="flex gap-2">
-          <button type="button" onClick={onExecute}
-            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
+          <button
+            type="button"
+            onClick={onExecute}
+            className="flex-1 h-10 rounded-[11px] text-[13px] font-semibold transition-all active:scale-[0.97]"
+            style={{ background: "#B4FF44", color: "#07101E" }}
+          >
             {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
           </button>
-          <button type="button" onClick={onDecline}
-            className="h-9 px-4 rounded-[10px] bg-white/5 border border-white/8 text-[12px] text-white/42 hover:text-white/65 hover:bg-white/8 active:scale-[0.97] transition-all">
+          <button
+            type="button"
+            onClick={onDecline}
+            className="h-10 px-5 rounded-[11px] text-[13px] transition-all active:scale-[0.97]"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}
+          >
             Cancel
           </button>
         </div>
       )}
       {(isShadow || isBlock) && (
-        <p className="text-[11px] text-white/25 mt-1">
+        <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.22)" }}>
           {isShadow ? "Switch to ASSISTED mode to execute." : "Contact your administrator."}
         </p>
       )}
+    </div>
+  );
+}
+
+// ─── Shared composer ──────────────────────────────────────────────────────────
+
+function ComposerInput({
+  value, onChange, onSubmit, onVoice, busy,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  onVoice: () => void;
+  busy: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const hasSend = value.trim().length > 0;
+
+  return (
+    <div
+      className="relative flex items-center overflow-hidden transition-all duration-200"
+      style={{
+        background: focused ? "rgba(255,255,255,0.058)" : "rgba(255,255,255,0.042)",
+        border: `1px solid ${focused ? "rgba(180,255,68,0.22)" : "rgba(255,255,255,0.08)"}`,
+        borderRadius: 20,
+        boxShadow: focused
+          ? "0 0 0 3px rgba(180,255,68,0.06), 0 8px 40px rgba(0,0,0,0.45)"
+          : "0 8px 40px rgba(0,0,0,0.3)",
+      }}
+    >
+      {/* Voice */}
+      <button
+        onClick={onVoice}
+        className="ml-3 w-9 h-9 rounded-full grid place-items-center shrink-0 transition-all active:scale-90"
+        style={{ color: "rgba(255,255,255,0.22)" }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.color = "rgba(180,255,68,0.7)";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(180,255,68,0.08)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.22)";
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+        }}
+      >
+        <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
+      </button>
+
+      {/* Input */}
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Ask HALO anything…"
+        className="flex-1 bg-transparent px-3 focus:outline-none"
+        style={{
+          height: 54,
+          fontSize: 14,
+          color: "rgba(255,255,255,0.9)",
+          caretColor: "#B4FF44",
+        }}
+      />
+
+      {/* Send */}
+      <button
+        onClick={onSubmit}
+        disabled={!hasSend || busy}
+        className="mr-3 w-9 h-9 rounded-full grid place-items-center shrink-0 transition-all active:scale-90 disabled:opacity-20 disabled:scale-100"
+        style={{
+          background: hasSend ? "#B4FF44" : "rgba(255,255,255,0.07)",
+          color: hasSend ? "#07101E" : "rgba(255,255,255,0.28)",
+          boxShadow: hasSend ? "0 2px 12px rgba(180,255,68,0.25)" : "none",
+        }}
+      >
+        {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <Send className="w-[13px] h-[13px]" strokeWidth={2.2} />}
+      </button>
     </div>
   );
 }
@@ -443,7 +578,7 @@ export default function HaloCommand() {
     ]);
     scrollDown();
 
-    // ── Check for panel intent first ─────────────────────────────────────
+    // ── Panel intent first ────────────────────────────────────────────────
     const panelIntent = detectPanelIntent(raw);
     if (panelIntent) {
       setMessages(prev => prev.map(m =>
@@ -491,7 +626,6 @@ export default function HaloCommand() {
     }
 
     if (brainResult) {
-      // Brain says to open a panel via lensKind
       if (brainResult.type === "lens" && brainResult.lensKind) {
         const panel = BRAIN_LENS_TO_PANEL[brainResult.lensKind as string];
         if (panel) {
@@ -508,7 +642,6 @@ export default function HaloCommand() {
         }
       }
 
-      // voice_action with action plan
       if (brainResult.type === "voice_action") {
         setMessages(prev => prev.map(m =>
           m.id === thinkId
@@ -543,7 +676,6 @@ export default function HaloCommand() {
             setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
           }
         } else {
-          // Fallback to legacy voice parse
           try {
             const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
             if (vr?.actions?.length > 0) {
@@ -558,7 +690,6 @@ export default function HaloCommand() {
         return;
       }
 
-      // Standard answer or error
       setMessages(prev => prev.map(m =>
         m.id === thinkId
           ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps }
@@ -568,7 +699,7 @@ export default function HaloCommand() {
       return;
     }
 
-    // ── Fallback (no brain) ───────────────────────────────────────────────
+    // ── Fallback ──────────────────────────────────────────────────────────
     try {
       const result = await parseVoice.mutateAsync({ data: { transcript: raw } });
       if (result?.actions?.length > 0) {
@@ -580,7 +711,7 @@ export default function HaloCommand() {
       } else {
         setMessages(prev => prev.map(m =>
           m.id === thinkId
-            ? { id: thinkId, kind: "halo-answer" as const, text: "Try a command like \"send invoice for [property]\" or ask a question about your operations." }
+            ? { id: thinkId, kind: "halo-answer" as const, text: "Try asking about your jobs, crews, or finances — or say 'open live map'." }
             : m
         ));
       }
@@ -604,14 +735,17 @@ export default function HaloCommand() {
   // ── Message renderer ──────────────────────────────────────────────────────
   const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
-      case "user-msg": return <UserBubble text={msg.text} />;
-      case "thinking": return <ThinkingBubble />;
-      case "halo-answer": return (
-        <HaloAnswerBubble
-          text={msg.text} sources={msg.sources} followUps={msg.followUps}
-          onFollowUp={handleSubmit}
-        />
-      );
+      case "user-msg":
+        return <UserBubble text={msg.text} />;
+      case "thinking":
+        return <ThinkingBubble />;
+      case "halo-answer":
+        return (
+          <HaloAnswerBubble
+            text={msg.text} sources={msg.sources} followUps={msg.followUps}
+            onFollowUp={handleSubmit}
+          />
+        );
       case "action-plan": {
         const planMsg = msg;
         return (
@@ -645,27 +779,33 @@ export default function HaloCommand() {
           />
         );
       }
-      case "confirmation": return (
-        <ConfirmCard
-          logId={msg.logId} actions={msg.actions} shadowMode={falkonMode === "SHADOW"}
-          onConfirmed={text => {
-            setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
-            qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-          }}
-          onCancelled={() => setMessages(prev => prev.map(m =>
-            m.id === msg.id ? { id: msg.id, kind: "halo-answer", text: "Cancelled — nothing was changed." } : m
-          ))}
-        />
-      );
-      case "panel-opened": return (
-        <PanelOpenedChip panel={msg.panel} label={msg.label} onReopen={() => setActivePanel(msg.panel)} />
-      );
-      case "success": return (
-        <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/15 rounded-[12px] px-4 py-2.5 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-          <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
-          <span className="text-[13px] text-[#22C55E]/82">{msg.text}</span>
-        </div>
-      );
+      case "confirmation":
+        return (
+          <ConfirmCard
+            logId={msg.logId} actions={msg.actions} shadowMode={falkonMode === "SHADOW"}
+            onConfirmed={text => {
+              setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
+              qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+            }}
+            onCancelled={() => setMessages(prev => prev.map(m =>
+              m.id === msg.id ? { id: msg.id, kind: "halo-answer", text: "Cancelled — nothing was changed." } : m
+            ))}
+          />
+        );
+      case "panel-opened":
+        return (
+          <PanelOpenedChip panel={msg.panel} label={msg.label} onReopen={() => setActivePanel(msg.panel)} />
+        );
+      case "success":
+        return (
+          <div
+            className="flex items-center gap-3 rounded-[13px] px-4 py-3 mb-4 hc-in"
+            style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.12)", animation: "hcFadeUp 0.2s ease-out both" }}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#22C55E" }} />
+            <span className="text-[13px]" style={{ color: "rgba(34,197,94,0.85)" }}>{msg.text}</span>
+          </div>
+        );
       case "live-link-card":
         return (
           <LiveLinkCard
@@ -677,59 +817,89 @@ export default function HaloCommand() {
             }}
           />
         );
-      case "error": return (
-        <div className="flex items-center gap-2.5 bg-[#E11D48]/7 border border-[#E11D48]/15 rounded-[12px] px-4 py-2.5 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
-          <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
-          <span className="text-[13px] text-[#E11D48]/82">{msg.text}</span>
-        </div>
-      );
-      default: return null;
+      case "error":
+        return (
+          <div
+            className="flex items-center gap-3 rounded-[13px] px-4 py-3 mb-4 hc-in"
+            style={{ background: "rgba(225,29,72,0.06)", border: "1px solid rgba(225,29,72,0.12)", animation: "hcFadeUp 0.2s ease-out both" }}
+          >
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" style={{ color: "#E11D48" }} />
+            <span className="text-[13px]" style={{ color: "rgba(225,29,72,0.82)" }}>{msg.text}</span>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
-  // Prompt chips (seed + thread)
-  const promptChips = suggestedPrompts?.slice(0, 3) ?? [
+  // ── Prompt chips (4 for the 2×2 seed grid) ───────────────────────────────
+  const promptChips = suggestedPrompts?.slice(0, 4) ?? [
     "What needs my attention?",
     "Open live map",
     "Show unpaid invoices",
+    "Generate a live link",
   ];
 
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <div className="min-h-[100dvh] h-[100dvh] bg-[#080D17] flex flex-col overflow-hidden">
+
+      {/* ── Shell ─────────────────────────────────────────────────────────── */}
+      <div
+        className="flex flex-col overflow-hidden"
+        style={{ minHeight: "100dvh", height: "100dvh", background: "#080D17" }}
+      >
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <header className="flex items-center gap-2 px-4 pt-[calc(10px+env(safe-area-inset-top))] pb-3 shrink-0">
-          <img src={haloLogo} alt="HALO" className="h-[20px] w-auto shrink-0"
-            style={{ filter: "brightness(0) invert(1) opacity(0.82)" }} />
+        <header
+          className="flex items-center gap-2 px-5 shrink-0"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+            paddingBottom: 12,
+          }}
+        >
+          {/* HALO logo — understated */}
+          <img
+            src={haloLogo}
+            alt="HALO"
+            className="shrink-0"
+            style={{ height: 17, width: "auto", filter: "brightness(0) invert(1)", opacity: 0.5 }}
+          />
+
           <div className="flex-1" />
 
-          {/* Needs-you indicator */}
-          {totalNeeds > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/18">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48]" style={{ animation: "hcBounce 2s ease-in-out infinite" }} />
-              <span className="text-[10px] font-bold text-[#E11D48]/80">{totalNeeds}</span>
-            </div>
-          )}
-
-          {/* Falkon mode badge */}
+          {/* Falkon mode — minimal pill */}
           <button
             onClick={() => setControlOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.12em] ${modeStyle.bg} ${modeStyle.text} hover:opacity-80 active:scale-[0.95] transition-all`}
+            className={`flex items-center gap-1.5 px-[9px] py-[5px] rounded-full transition-all active:scale-95 ${modeStyle.bg} ${modeStyle.text}`}
           >
-            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot}`} />
-            {falkonMode}
+            <div className={`w-[4.5px] h-[4.5px] rounded-full ${modeStyle.dot}`} />
+            <span className="text-[8px] font-bold tracking-[0.14em]">{falkonMode}</span>
           </button>
 
-          {/* Bell */}
+          {/* Bell — unified unread/urgent badge */}
           <button
             onClick={() => setNotifOpen(true)}
-            className="relative w-9 h-9 rounded-full grid place-items-center bg-white/[0.05] border border-white/8 text-white/38 hover:text-white/65 hover:bg-white/[0.08] transition-all active:scale-[0.94]"
+            className="relative w-8 h-8 rounded-full grid place-items-center transition-all active:scale-95"
+            style={{ color: "rgba(255,255,255,0.32)" }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)")}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.32)")}
           >
-            <Bell className="w-[14px] h-[14px]" strokeWidth={1.8} />
-            {unread > 0 && (
-              <span className="absolute -top-[2px] -right-[2px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#B4FF44] text-black text-[8px] font-bold grid place-items-center">
+            <Bell className="w-[15px] h-[15px]" strokeWidth={1.8} />
+            {totalNeeds > 0 && (
+              <span
+                className="absolute -top-[1px] -right-[1px] min-w-[14px] h-[14px] px-[3px] rounded-full text-white text-[8px] font-bold grid place-items-center"
+                style={{ background: "#E11D48", animation: "hcPulseRed 2s ease-in-out infinite" }}
+              >
+                {totalNeeds}
+              </span>
+            )}
+            {totalNeeds === 0 && unread > 0 && (
+              <span
+                className="absolute -top-[1px] -right-[1px] min-w-[14px] h-[14px] px-[3px] rounded-full text-[8px] font-bold grid place-items-center"
+                style={{ background: "#B4FF44", color: "#07101E" }}
+              >
                 {unread}
               </span>
             )}
@@ -738,56 +908,60 @@ export default function HaloCommand() {
           {/* Menu */}
           <button
             onClick={() => setMenuOpen(true)}
-            className="w-9 h-9 rounded-full grid place-items-center bg-white/[0.05] border border-white/8 text-white/38 hover:text-white/65 hover:bg-white/[0.08] transition-all active:scale-[0.94]"
+            className="w-8 h-8 rounded-full grid place-items-center transition-all active:scale-95"
+            style={{ color: "rgba(255,255,255,0.32)" }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)")}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.32)")}
           >
-            <LayoutGrid className="w-[14px] h-[14px]" strokeWidth={1.8} />
+            <MoreHorizontal className="w-[16px] h-[16px]" strokeWidth={1.8} />
           </button>
         </header>
 
         {/* ── Content ─────────────────────────────────────────────────────── */}
         {!hasThread ? (
-          /* SEED STATE */
-          <div className="flex-1 flex flex-col items-center justify-center px-5 pb-4 overflow-hidden">
-            {/* Ring */}
-            <div className="mb-7" style={{ animation: "hcIn 0.4s ease-out 0.05s both" }}>
-              <div className="w-[68px] h-[68px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
-                style={{ animation: "hcGlow 3.5s ease-in-out infinite" }}>
-                <HaloRing className="w-[30px] h-[30px] text-[#B4FF44]" />
-              </div>
-            </div>
+
+          /* ── SEED STATE ─────────────────────────────────────────────────── */
+          <div
+            className="flex-1 flex flex-col items-center justify-center px-6 overflow-hidden"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
 
             {/* Greeting */}
-            <div className="text-center mb-1" style={{ animation: "hcIn 0.4s ease-out 0.12s both" }}>
-              <h1 className="text-[34px] font-bold text-white leading-none tracking-[-0.02em]">
+            <div
+              className="text-center hc-in"
+              style={{ animation: "hcFadeUp 0.45s ease-out 0.04s both", marginBottom: 36 }}
+            >
+              <h1
+                className="font-semibold text-white leading-[1.04]"
+                style={{ fontSize: "clamp(34px, 9vw, 44px)", letterSpacing: "-0.025em", fontFamily: "var(--font-display)" }}
+              >
                 {timeGreeting()}
               </h1>
-              <p className="text-[13.5px] text-white/32 mt-2 font-medium">
+              <p
+                className="mt-2.5 font-medium"
+                style={{ fontSize: 13, color: "rgba(255,255,255,0.28)", letterSpacing: "0.005em" }}
+              >
                 {falkonMode === "ASSISTED"
                   ? "Auto-pilot active — safe actions execute automatically."
                   : "Ask me anything about your operations."}
               </p>
+
+              {/* Urgent indicator — single quiet line, never a card */}
+              {totalNeeds > 0 && (
+                <p className="mt-2.5" style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>
+                  <span style={{ color: "rgba(225,29,72,0.82)" }}>
+                    {totalNeeds} item{totalNeeds !== 1 ? "s" : ""}
+                  </span>
+                  {" "}need{totalNeeds === 1 ? "s" : ""} your attention
+                </p>
+              )}
             </div>
 
-            {/* Critical alerts — at most 2 lines, no cards */}
-            {(nowCount > 0 || pendingCount > 0) && (
-              <div className="mt-4 text-center space-y-1" style={{ animation: "hcIn 0.4s ease-out 0.18s both" }}>
-                {nowCount > 0 && (
-                  <p className="text-[12.5px]">
-                    <span className="text-[#E11D48]/90 font-semibold">{nowCount} item{nowCount !== 1 ? "s" : ""}</span>
-                    <span className="text-white/35"> need immediate attention</span>
-                  </p>
-                )}
-                {pendingCount > 0 && (
-                  <p className="text-[12.5px]">
-                    <span className="text-[#F59E0B]/90 font-semibold">{pendingCount} autopilot action{pendingCount !== 1 ? "s" : ""}</span>
-                    <span className="text-white/35"> waiting for review</span>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Composer */}
-            <div className="w-full max-w-sm mt-7 mb-5" style={{ animation: "hcIn 0.4s ease-out 0.22s both" }}>
+            {/* Composer — the primary action */}
+            <div
+              className="w-full hc-in"
+              style={{ maxWidth: 380, animation: "hcFadeUp 0.45s ease-out 0.14s both" }}
+            >
               <ComposerInput
                 value={input}
                 onChange={setInput}
@@ -797,15 +971,33 @@ export default function HaloCommand() {
               />
             </div>
 
-            {/* Prompt chips */}
-            <div className="w-full max-w-sm" style={{ animation: "hcIn 0.4s ease-out 0.30s both" }}>
-              <div className="text-[9.5px] font-bold tracking-[0.2em] uppercase text-white/18 mb-2.5 text-center">Suggestions</div>
-              <div className="flex flex-col gap-1.5">
+            {/* 4 chips — 2×2 grid, understated */}
+            <div
+              className="w-full hc-in"
+              style={{ maxWidth: 380, marginTop: 14, animation: "hcFadeUp 0.45s ease-out 0.24s both" }}
+            >
+              <div className="grid grid-cols-2 gap-[7px]">
                 {promptChips.map((chip, i) => (
                   <button
                     key={i}
                     onClick={() => handleSubmit(chip)}
-                    className="text-left text-[12.5px] text-white/40 px-4 py-2.5 rounded-[12px] bg-white/[0.034] border border-white/[0.06] hover:bg-white/[0.058] hover:text-white/60 transition-all active:scale-[0.98]"
+                    className="text-left rounded-[13px] transition-all active:scale-[0.97]"
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.36)",
+                      background: "rgba(255,255,255,0.034)",
+                      border: "1px solid rgba(255,255,255,0.056)",
+                      padding: "10px 13px",
+                      lineHeight: 1.4,
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.058)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.36)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.034)";
+                    }}
                   >
                     {chip}
                   </button>
@@ -813,18 +1005,30 @@ export default function HaloCommand() {
               </div>
             </div>
           </div>
+
         ) : (
-          /* THREAD STATE */
+
+          /* ── THREAD STATE ───────────────────────────────────────────────── */
           <>
-            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2 overscroll-none">
+            <div
+              className="flex-1 overflow-y-auto overscroll-none"
+              style={{ padding: "20px 20px 8px" }}
+            >
               {messages.map(msg => (
                 <div key={msg.id}>{renderMsg(msg)}</div>
               ))}
-              <div ref={bottomRef} className="h-3" />
+              <div ref={bottomRef} style={{ height: 8 }} />
             </div>
 
-            {/* Thread composer */}
-            <div className="px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-white/[0.04] shrink-0">
+            {/* Thread composer — gradient fade, no hard border */}
+            <div
+              className="shrink-0"
+              style={{
+                padding: "10px 20px",
+                paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+                background: "linear-gradient(to top, #080D17 70%, transparent)",
+              }}
+            >
               <ComposerInput
                 value={input}
                 onChange={setInput}
@@ -838,52 +1042,15 @@ export default function HaloCommand() {
       </div>
 
       {/* ── Panels ──────────────────────────────────────────────────────────── */}
-      <LiveMapPanel open={activePanel === "map"} onClose={() => setActivePanel(null)} />
+      <LiveMapPanel open={activePanel === "map"}    onClose={() => setActivePanel(null)} />
       <KanbanPanel  open={activePanel === "kanban"} onClose={() => setActivePanel(null)} />
-      <MoneyPanel   open={activePanel === "money"} onClose={() => setActivePanel(null)} />
+      <MoneyPanel   open={activePanel === "money"}  onClose={() => setActivePanel(null)} />
 
       {/* ── Overlays ────────────────────────────────────────────────────────── */}
-      <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
+      <VoiceCaptureSheet open={voiceOpen}  onOpenChange={setVoiceOpen} />
       <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
-      <MinimalMenuSheet open={menuOpen} onOpenChange={setMenuOpen} />
+      <MinimalMenuSheet open={menuOpen}    onOpenChange={setMenuOpen} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
-  );
-}
-
-// ─── Shared composer ──────────────────────────────────────────────────────────
-
-function ComposerInput({
-  value, onChange, onSubmit, onVoice, busy,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  onVoice: () => void;
-  busy: boolean;
-}) {
-  return (
-    <div className="relative flex items-center bg-white/[0.052] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-white/14 transition-colors focus-within:border-[#B4FF44]/28 focus-within:bg-white/[0.065]">
-      <button
-        onClick={onVoice}
-        className="ml-3 w-8 h-8 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/8 transition-all active:scale-[0.92] shrink-0"
-      >
-        <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
-      </button>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
-        placeholder="Ask HALO anything…"
-        className="flex-1 h-[52px] bg-transparent px-3 text-[14px] text-white placeholder:text-white/20 focus:outline-none"
-      />
-      <button
-        onClick={onSubmit}
-        disabled={!value.trim() || busy}
-        className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.12)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0"
-      >
-        {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <Send className="w-[13px] h-[13px]" strokeWidth={2.2} />}
-      </button>
-    </div>
   );
 }

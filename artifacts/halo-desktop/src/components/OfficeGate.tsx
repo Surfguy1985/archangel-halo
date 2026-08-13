@@ -1,10 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import haloLogo from "../assets/halo-logo.png";
 
-// Passcode gate for the office app. The API now rejects every office call
-// without a signed office-session cookie; this screen mints one. Public
-// surfaces (client boards, crew portals, pay/track/share links) never see it.
-// Manual /api URLs must be absolute — never BASE_URL-prefixed.
+/**
+ * OfficeGate — passcode auth for the office app.
+ * Lives in the same dark shell as HaloCommand so sign-in
+ * feels like part of the product, not a separate screen.
+ * Public surfaces (client boards, crew portals, pay/track links) never see it.
+ */
 
 type GateState = "loading" | "setup" | "login" | "ok" | "offline" | "forgot" | "forgot-sent" | "reset-form";
 
@@ -15,20 +18,16 @@ export function OfficeGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
-  // Held during the reset-form state so the token is submitted with the new passcode.
   const [pendingResetToken, setPendingResetToken] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for a reset token in the URL first.
     const params = new URLSearchParams(window.location.search);
     const resetToken = params.get("reset");
     if (resetToken) {
-      // Remove the token from the URL immediately so a refresh doesn't resubmit it.
       const url = new URL(window.location.href);
       url.searchParams.delete("reset");
       window.history.replaceState({}, "", url.toString());
-      // Show the inline "set new passcode" form — the token is submitted
-      // together with the new passcode so there is no gap for /setup hijack.
       setPendingResetToken(resetToken);
       setState("reset-form");
       return;
@@ -45,30 +44,19 @@ export function OfficeGate({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (!alive) return;
-        // Offline (PWA) fallback: if this device signed in before, let the app
-        // boot — every API call still carries the cookie and the server is the
-        // real gate. Never-signed-in devices stay blocked.
         let seen = false;
         try { seen = localStorage.getItem("halo_office_gate_ok") === "1"; } catch {}
         setState(seen ? "ok" : "offline");
       });
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (state === "setup" || state === "reset-form") {
-      if (passcode.trim().length < 6) {
-        setError("Use at least 6 characters.");
-        return;
-      }
-      if (passcode !== confirm) {
-        setError("Passcodes don't match.");
-        return;
-      }
+      if (passcode.trim().length < 6) { setError("Use at least 6 characters."); return; }
+      if (passcode !== confirm) { setError("Passcodes don't match."); return; }
     }
     setBusy(true);
     try {
@@ -82,8 +70,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
         body = { passcode: passcode.trim() };
       }
       const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const resBody = await res.json().catch(() => ({}));
@@ -91,8 +78,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
         try { localStorage.setItem("halo_office_gate_ok", "1"); } catch {}
         setState("ok");
       } else if (resBody?.setupRequired) {
-        setState("setup");
-        setError(null);
+        setState("setup"); setError(null);
       } else {
         setError(resBody?.error ?? "Something went wrong — try again.");
       }
@@ -104,248 +90,243 @@ export function OfficeGate({ children }: { children: ReactNode }) {
   };
 
   const sendForgot = async () => {
-    setError(null);
-    setBusy(true);
+    setError(null); setBusy(true);
     try {
       const res = await fetch("/api/office-auth/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
       });
       const body = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setSentTo(body?.sentTo ?? null);
-        setState("forgot-sent");
-      } else {
-        setError(body?.error ?? "Couldn't send the reset email — try again.");
-        setState("login");
-      }
+      if (res.ok) { setSentTo(body?.sentTo ?? null); setState("forgot-sent"); }
+      else { setError(body?.error ?? "Couldn't send the reset email — try again."); setState("login"); }
     } catch {
-      setError("Can't reach the server — check your connection.");
-      setState("login");
-    } finally {
-      setBusy(false);
-    }
+      setError("Can't reach the server — check your connection."); setState("login");
+    } finally { setBusy(false); }
   };
 
   if (state === "ok") return <>{children}</>;
 
+  // ── Shell wrapper — dark, full-screen, centered ───────────────────────────
+  const Shell = ({ children: inner }: { children: ReactNode }) => (
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#080D17",
+        padding: 24,
+      }}
+    >
+      {inner}
+    </div>
+  );
+
   if (state === "loading") {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <Shell>
+        <Loader2 style={{ width: 20, height: 20, color: "rgba(255,255,255,0.2)", animation: "spin 1s linear infinite" }} />
+      </Shell>
     );
   }
 
   if (state === "offline") {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-6">
-        <div className="text-center text-sm text-muted-foreground">
-          Can't reach the server. Check your connection and reload.
-        </div>
-      </div>
-    );
-  }
-
-  if (state === "reset-form") {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
-          }}
-        />
-        <form
-          onSubmit={submit}
-          className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]"
-        >
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
-              <Lock className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
-              <div className="text-xs text-muted-foreground">Set a new passcode</div>
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-            Your reset link is valid. Enter a new passcode below — you'll be signed in immediately.
-          </p>
-          <input
-            type="password"
-            inputMode="text"
-            autoFocus
-            value={passcode}
-            onChange={(e) => setPasscode(e.target.value)}
-            placeholder="New passcode"
-            className="mt-5 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
-            data-testid="input-office-passcode"
-          />
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Confirm new passcode"
-            className="mt-2 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
-            data-testid="input-office-passcode-confirm"
-          />
-          {error && (
-            <div className="mt-2 text-xs font-medium text-red-600" data-testid="text-office-gate-error">
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
-            data-testid="button-office-gate-submit"
-          >
-            {busy ? "One moment…" : "Set passcode & sign in"}
-          </button>
-        </form>
-      </div>
+      <Shell>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", maxWidth: 280, lineHeight: 1.6, textAlign: "center" }}>
+          Can't reach the server.<br />Check your connection and reload.
+        </p>
+      </Shell>
     );
   }
 
   if (state === "forgot" || state === "forgot-sent") {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
-          }}
-        />
-        <div className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
-              <Lock className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
-              <div className="text-xs text-muted-foreground">
-                {state === "forgot-sent" ? "Reset link sent" : "Forgot passcode?"}
-              </div>
-            </div>
-          </div>
-          {state === "forgot-sent" ? (
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              A reset link was sent to{" "}
-              <strong className="text-foreground">{sentTo ?? "your business email"}</strong>.
-              Open it within 1 hour to set a new passcode.
-            </p>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              We'll send a one-time reset link to the business email on file. The link
-              expires in 1 hour and can only be used once.
-            </p>
-          )}
-          {error && (
-            <div className="mt-2 text-xs font-medium text-red-600">{error}</div>
-          )}
+      <Shell>
+        <GateCard logo={haloLogo}>
+          <GateHeader
+            title={state === "forgot-sent" ? "Check your inbox" : "Reset passcode"}
+            subtitle={
+              state === "forgot-sent"
+                ? sentTo ? `Sent to ${sentTo}` : "Reset link sent"
+                : "We'll email you a one-time reset link"
+            }
+          />
+          <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.3)", lineHeight: 1.65, marginTop: 16 }}>
+            {state === "forgot-sent"
+              ? "Open the link within 1 hour to set a new passcode. You can close this tab."
+              : "The link expires in 1 hour and can only be used once. It'll be sent to the business email on file."}
+          </p>
+          {error && <ErrorLine text={error} />}
           {state === "forgot" && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={sendForgot}
-              className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
-            >
-              {busy ? "Sending…" : "Send reset link"}
-            </button>
+            <div style={{ marginTop: 20 }}>
+              <GateButton onClick={sendForgot} busy={busy} label="Send reset link" busyLabel="Sending…" />
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => { setError(null); setState("login"); }}
-            className="mt-3 w-full rounded-xl border border-[var(--hairline)] py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Back to sign in
-          </button>
-        </div>
-      </div>
+          <GateLink onClick={() => { setError(null); setState("login"); }} label="Back to sign in" />
+        </GateCard>
+      </Shell>
     );
   }
 
-  return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
-      {/* Ambient brand light — soft lime from above, navy from below. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
-        }}
-      />
-      <form
-        onSubmit={submit}
-        className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
-            <Lock className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
-            <div className="text-xs text-muted-foreground">
-              {state === "setup" ? "Create your office passcode" : "Enter your office passcode"}
+  if (state === "reset-form") {
+    return (
+      <Shell>
+        <GateCard logo={haloLogo}>
+          <GateHeader title="Set new passcode" subtitle="Your reset link is valid" />
+          <form onSubmit={submit} style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+            <GateInput type="password" placeholder="New passcode" value={passcode} onChange={setPasscode}
+              autoFocus focused={focused === "p"} onFocus={() => setFocused("p")} onBlur={() => setFocused(null)}
+              testId="input-office-passcode" />
+            <GateInput type="password" placeholder="Confirm passcode" value={confirm} onChange={setConfirm}
+              focused={focused === "c"} onFocus={() => setFocused("c")} onBlur={() => setFocused(null)}
+              testId="input-office-passcode-confirm" />
+            {error && <ErrorLine text={error} />}
+            <div style={{ marginTop: 4 }}>
+              <GateButton type="submit" busy={busy} label="Set passcode & enter" busyLabel="One moment…" />
             </div>
-          </div>
-        </div>
-        {state === "setup" && (
-          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-            This passcode protects all office data. You'll enter it once per device.
-            Client boards, crew portals, and pay links are not affected.
-          </p>
-        )}
-        <input
-          type="password"
-          inputMode="text"
-          autoFocus
-          value={passcode}
-          onChange={(e) => setPasscode(e.target.value)}
-          placeholder="Passcode"
-          className="mt-5 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
-          data-testid="input-office-passcode"
+          </form>
+        </GateCard>
+      </Shell>
+    );
+  }
+
+  // setup / login
+  return (
+    <Shell>
+      <GateCard logo={haloLogo}>
+        <GateHeader
+          title={state === "setup" ? "Set your passcode" : "Welcome back"}
+          subtitle={state === "setup" ? "Protects all office data — one time per device" : "Enter your office passcode"}
         />
-        {state === "setup" && (
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Confirm passcode"
-            className="mt-2 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
-            data-testid="input-office-passcode-confirm"
-          />
-        )}
-        {error && (
-          <div className="mt-2 text-xs font-medium text-red-600" data-testid="text-office-gate-error">
-            {error}
+        <form onSubmit={submit} style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+          <GateInput type="password" placeholder="Passcode" value={passcode} onChange={setPasscode}
+            autoFocus focused={focused === "p"} onFocus={() => setFocused("p")} onBlur={() => setFocused(null)}
+            testId="input-office-passcode" />
+          {state === "setup" && (
+            <GateInput type="password" placeholder="Confirm passcode" value={confirm} onChange={setConfirm}
+              focused={focused === "c"} onFocus={() => setFocused("c")} onBlur={() => setFocused(null)}
+              testId="input-office-passcode-confirm" />
+          )}
+          {error && <ErrorLine text={error} />}
+          <div style={{ marginTop: 4 }}>
+            <GateButton type="submit" busy={busy}
+              label={state === "setup" ? "Set passcode & enter" : "Sign in"}
+              busyLabel="One moment…"
+              testId="button-office-gate-submit" />
           </div>
-        )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
-          data-testid="button-office-gate-submit"
-        >
-          {busy ? "One moment…" : state === "setup" ? "Set passcode & enter" : "Sign in"}
-        </button>
+        </form>
         {state === "login" && (
-          <button
-            type="button"
-            onClick={() => { setError(null); setState("forgot"); }}
-            className="mt-3 w-full text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-            data-testid="button-office-forgot"
-          >
-            Forgot passcode?
-          </button>
+          <GateLink onClick={() => { setError(null); setState("forgot"); }} label="Forgot passcode?" testId="button-office-forgot" />
         )}
-      </form>
+      </GateCard>
+    </Shell>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function GateCard({ children, logo }: { children: ReactNode; logo: string }) {
+  return (
+    <div style={{
+      width: "100%", maxWidth: 360,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 22,
+      padding: "28px 24px 24px",
+    }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+        <img src={logo} alt="HALO" style={{ height: 20, width: "auto", filter: "brightness(0) invert(1)", opacity: 0.45 }} />
+      </div>
+      {children}
     </div>
+  );
+}
+
+function GateHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <h1 style={{ fontSize: 20, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.015em", fontFamily: "var(--font-display)", margin: 0 }}>
+        {title}
+      </h1>
+      <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.3)", marginTop: 4, marginBottom: 0 }}>
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+function GateInput({
+  type, placeholder, value, onChange, autoFocus, focused, onFocus, onBlur, testId,
+}: {
+  type: string; placeholder: string; value: string;
+  onChange: (v: string) => void; autoFocus?: boolean;
+  focused: boolean; onFocus: () => void; onBlur: () => void; testId?: string;
+}) {
+  return (
+    <input
+      type={type} inputMode="text" autoFocus={autoFocus}
+      value={value} onChange={e => onChange(e.target.value)}
+      onFocus={onFocus} onBlur={onBlur}
+      placeholder={placeholder} data-testid={testId}
+      style={{
+        width: "100%", boxSizing: "border-box",
+        height: 48, borderRadius: 13, padding: "0 14px",
+        fontSize: 14,
+        background: focused ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.04)",
+        border: `1px solid ${focused ? "rgba(180,255,68,0.28)" : "rgba(255,255,255,0.08)"}`,
+        color: "rgba(255,255,255,0.88)",
+        caretColor: "#B4FF44",
+        boxShadow: focused ? "0 0 0 3px rgba(180,255,68,0.06)" : "none",
+        outline: "none",
+        transition: "all 0.15s ease",
+      }}
+    />
+  );
+}
+
+function GateButton({
+  type = "button", busy, label, busyLabel, onClick, testId,
+}: {
+  type?: "button" | "submit"; busy: boolean; label: string; busyLabel: string;
+  onClick?: () => void; testId?: string;
+}) {
+  return (
+    <button
+      type={type} disabled={busy} onClick={onClick} data-testid={testId}
+      style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        height: 48, borderRadius: 13, fontSize: 14, fontWeight: 600,
+        background: "#B4FF44", color: "#07101E", border: "none", cursor: busy ? "default" : "pointer",
+        opacity: busy ? 0.5 : 1, transition: "opacity 0.15s ease",
+      }}
+    >
+      {busy && <Loader2 style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} />}
+      {busy ? busyLabel : label}
+    </button>
+  );
+}
+
+function ErrorLine({ text }: { text: string }) {
+  return (
+    <p data-testid="text-office-gate-error"
+      style={{ fontSize: 11.5, fontWeight: 500, color: "rgba(225,29,72,0.85)", margin: 0, paddingTop: 2 }}>
+      {text}
+    </p>
+  );
+}
+
+function GateLink({ onClick, label, testId }: { onClick: () => void; label: string; testId?: string }) {
+  return (
+    <button type="button" onClick={onClick} data-testid={testId}
+      style={{
+        width: "100%", marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.28)",
+        background: "none", border: "none", cursor: "pointer", textAlign: "center",
+        transition: "color 0.15s ease",
+      }}
+      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.52)")}
+      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.28)")}
+    >
+      {label}
+    </button>
   );
 }
