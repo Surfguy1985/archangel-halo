@@ -707,23 +707,39 @@ export default function JobDetail() {
           </section>
 
           {(() => {
-            const active = schedules.find((s) => s.status !== "cancelled") ?? schedules[0];
-            const dispatchDay = active ? String(active.scheduledOn).slice(0, 10) : null;
-            if (!dispatchDay) return null;
+            const activeSchedules = schedules.filter((s) => s.status !== "cancelled");
+            if (activeSchedules.length === 0) return null;
             return (
               <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-display font-bold text-[var(--ink)]">Dispatched members</h2>
-                  <Link
-                    href={`/calendar?view=dispatch&day=${dispatchDay}`}
-                    data-testid="link-dispatch-view"
-                    className="text-sm font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    Open Dispatch
-                  </Link>
-                </div>
-                <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)]">
-                  <JobDispatchMembers day={dispatchDay} jobId={id} />
+                <h2 className="text-lg font-display font-bold mb-3 text-[var(--ink)]">Dispatched members</h2>
+                <div className="space-y-3">
+                  {activeSchedules.map((s) => {
+                    const dispatchDay = String(s.scheduledOn).slice(0, 10);
+                    return (
+                      <div key={s.id} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)]">
+                        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                          <span className="text-sm font-semibold text-[var(--ink)]">
+                            {new Date(dispatchDay + "T00:00:00").toLocaleDateString(undefined, {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {s.windowStart && (
+                              <span className="ml-2 text-xs font-medium text-muted-foreground">{s.windowStart}</span>
+                            )}
+                          </span>
+                          <Link
+                            href={`/calendar?view=dispatch&day=${dispatchDay}`}
+                            data-testid={`link-dispatch-view-${dispatchDay}`}
+                            className="text-xs font-semibold text-[var(--gold-dark)] hover:underline"
+                          >
+                            Open Dispatch
+                          </Link>
+                        </div>
+                        <JobDispatchMembers day={dispatchDay} jobId={id} />
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             );
