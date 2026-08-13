@@ -12,6 +12,19 @@ import type { JobLineItem } from './jobLineItem';
 import type { JobPhoto } from './jobPhoto';
 import type { PriceItem } from './priceItem';
 
+export interface JobBoardPaymentRequest {
+  id: string;
+  requestNo: string;
+  total: number;
+  status: string;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
   /**
@@ -24,4 +37,6 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  /** @nullable */
+  paymentRequest?: JobBoardPaymentRequest | null;
 }

@@ -860,8 +860,9 @@ falkonAdminRouter.get("/falkon/admin/eligibility", async (_req, res) => {
     });
 
     // 6. Webhook functioning (has processed at least one inbound event)
+    // Note: falkon_inbound_events uses status='processed' (text), not a boolean column
     const eventCount = await db.execute(
-      sql`SELECT COUNT(*) AS cnt FROM falkon_inbound_events WHERE processed = true`,
+      sql`SELECT COUNT(*) AS cnt FROM falkon_inbound_events WHERE status = 'processed'`,
     );
     const cnt = parseInt(
       String(((eventCount as any).rows?.[0] ?? (eventCount as any)[0])?.cnt ?? "0"),
@@ -909,8 +910,9 @@ falkonAdminRouter.get("/falkon/admin/eligibility", async (_req, res) => {
 falkonAdminRouter.get("/falkon/admin/inbound-events", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit ?? 50), 200);
+    // Columns: id, falkon_event_id, event_type, payload, status, processed_at, error, created_at
     const events = await db.execute(
-      sql`SELECT id, event_type, jti, received_at, processed, processed_at,
+      sql`SELECT id, falkon_event_id, event_type, status, processed_at, error,
                  payload->'eventType' AS event_type_from_payload,
                  created_at
           FROM falkon_inbound_events

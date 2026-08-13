@@ -261,7 +261,8 @@ function pathToCapability(path: string): string {
 
 export async function gatewayHealth(): Promise<GatewayHealthResult> {
   const mode = await getEffectiveMode();
-  const { data, error } = await gatewayFetch<GatewayHealthResult>("/health", {
+  // Gateway health endpoint is /healthz (not /health — /health returns 404)
+  const { data, error } = await gatewayFetch<GatewayHealthResult>("/healthz", {
     mode,
     timeoutMs: 5_000,
   });
@@ -269,7 +270,13 @@ export async function gatewayHealth(): Promise<GatewayHealthResult> {
     logger.warn({ err: error }, "falkon: gateway health check failed");
     return { ok: false, status: error.message };
   }
-  return data ?? { ok: true, status: "ok" };
+  // Normalize: gateway returns {"status":"ok"} without an explicit ok boolean.
+  // Treat status === "ok" or status === "healthy" as ok:true.
+  const raw = data ?? { ok: true, status: "ok" };
+  if (!raw.ok && (raw.status === "ok" || raw.status === "healthy")) {
+    return { ...raw, ok: true };
+  }
+  return raw;
 }
 
 export async function submitTrustBinding(trustDocUrl: string, publicKeyPem: string): Promise<{

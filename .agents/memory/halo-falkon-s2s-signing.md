@@ -55,3 +55,10 @@ Store in `falkon_remote_identity` table. Wiped on reconnect (`DELETE FROM falkon
 
 **Why:** Previous code used unsigned `HALO-*` headers and HMAC for outbound delivery — incompatible with Falkon's enterprise contract; all calls were being rejected 401.
 **How to apply:** Any new Falkon-facing HTTP call must use `gatewayFetch()` from `lib/falkonGateway.ts`.
+
+## Gateway URL notes (confirmed Aug 2026)
+
+- GATEWAY_ORIGIN = `https://building-blocks--austpryb1.replit.app/api` (correct — `/api` prefix is right)
+- Health endpoint: `/healthz` (not `/health` — returns 404). Gateway returns `{"status":"ok"}` without `ok:true`; normalize in `gatewayHealth()`.
+- Partner routes (`/api/partners/{clientId}/trust`, `/callbacks`, `/shadow/execute`, `/ping`) all return 404 — not yet implemented on gateway side.
+- `falkon_inbound_events` uses `status` (text: 'pending'/'processed'), NOT a boolean `processed` column. Eligibility query must use `WHERE status = 'processed'`.
