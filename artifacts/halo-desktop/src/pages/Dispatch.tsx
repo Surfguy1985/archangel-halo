@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, Inbox, GripVertical, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, GripVertical, AlertTriangle, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListJobs,
@@ -87,12 +87,14 @@ export default function Dispatch() {
   const [cursor, setCursor] = useState<Date>(today);
   const [over, setOver] = useState<string | null>(null);
   // After a drop on a crew/day, offer an optional start time (skippable).
+  // isEdit=true when triggered by clicking the time chip on an existing card.
   const [timePrompt, setTimePrompt] = useState<{
     jobId: string;
     jobNo: string;
     crewId: string;
     date: string;
     time: string;
+    isEdit: boolean;
   } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -181,6 +183,7 @@ export default function Dispatch() {
               crewId: target.crewId,
               date: target.date,
               time: job.scheduledTime ?? "",
+              isEdit: false,
             }),
         },
       );
@@ -198,6 +201,31 @@ export default function Dispatch() {
       },
     });
     setTimePrompt(null);
+  };
+
+  const clearTime = () => {
+    if (!timePrompt) return;
+    dispatch.mutate({
+      id: timePrompt.jobId,
+      data: {
+        crewLeaderId: timePrompt.crewId,
+        scheduledOn: timePrompt.date,
+        scheduledTime: null,
+      },
+    });
+    setTimePrompt(null);
+  };
+
+  const openEditTime = (job: Job) => {
+    if (!job.crewLeaderId || !job.scheduledOn) return;
+    setTimePrompt({
+      jobId: job.id,
+      jobNo: job.jobNo,
+      crewId: job.crewLeaderId,
+      date: job.scheduledOn,
+      time: job.scheduledTime ?? "",
+      isEdit: true,
+    });
   };
 
   const dragProps = (target: DropTarget) => ({
@@ -346,6 +374,7 @@ export default function Dispatch() {
                     dragProps={dragProps}
                     pending={dispatch.isPending}
                     todayStr={todayStr}
+                    onEditTime={openEditTime}
                   />
                 ))}
               </div>
@@ -370,11 +399,12 @@ export default function Dispatch() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-sm font-display font-bold text-[var(--ink)]">
-              Set a start time?
+              {timePrompt.isEdit ? "Edit start time" : "Set a start time?"}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {timePrompt.jobNo} is on the day — optionally pick when the crew
-              should start.
+              {timePrompt.isEdit
+                ? `${timePrompt.jobNo} — change or remove the scheduled start time.`
+                : `${timePrompt.jobNo} is on the day — optionally pick when the crew should start.`}
             </p>
             <input
               type="time"
@@ -389,21 +419,36 @@ export default function Dispatch() {
               className="mt-3 w-full h-10 px-3 rounded-[10px] border border-[var(--hairline)] bg-card text-sm text-[var(--ink)]"
               data-testid="input-dispatch-start-time"
             />
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="mt-4 flex items-center gap-2">
+              {/* Remove time — only shown when editing an existing time */}
+              {timePrompt.isEdit && (
+                <button
+                  type="button"
+                  onClick={clearTime}
+                  disabled={dispatch.isPending}
+                  className="px-3.5 h-9 text-sm font-semibold rounded-full border border-[var(--hairline)] bg-card text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  data-testid="button-clear-start-time"
+                >
+                  Remove time
+                </button>
+              )}
+              <div className="flex-1" />
               <button
+                type="button"
                 onClick={() => setTimePrompt(null)}
                 className="px-3.5 h-9 text-sm font-semibold rounded-full border border-[var(--hairline)] bg-card hover:bg-black/5 transition-colors"
                 data-testid="button-skip-start-time"
               >
-                Skip
+                {timePrompt.isEdit ? "Cancel" : "Skip"}
               </button>
               <button
+                type="button"
                 onClick={commitTime}
                 disabled={!timePrompt.time || dispatch.isPending}
                 className="px-4 h-9 text-sm font-bold rounded-full bg-[var(--gold-light,#B4FF44)] text-black disabled:opacity-50 transition-opacity"
                 data-testid="button-set-start-time"
               >
-                Set time
+                {timePrompt.isEdit ? "Save" : "Set time"}
               </button>
             </div>
           </div>
@@ -421,6 +466,7 @@ function CrewRow({
   dragProps,
   pending,
   todayStr,
+  onEditTime,
 }: {
   crew: { id: string; name: string; trade?: string | null; selfiePath?: string | null };
   days: Date[];
@@ -429,6 +475,7 @@ function CrewRow({
   dragProps: (t: DropTarget) => Record<string, unknown>;
   pending: boolean;
   todayStr: string;
+  onEditTime: (job: Job) => void;
 }) {
   return (
     <>
@@ -508,7 +555,7 @@ function CrewRow({
               </div>
             )}
             {cellJobs.map((j) => (
-              <JobCard key={j.id} job={j} pending={pending} compact />
+              <JobCard key={j.id} job={j} pending={pending} compact onEditTime={() => onEditTime(j)} />
             ))}
           </div>
         );
@@ -522,11 +569,14 @@ function JobCard({
   pending,
   compact,
   showCrew,
+  onEditTime,
 }: {
   job: Job;
   pending: boolean;
   compact?: boolean;
   showCrew?: boolean;
+  /** When provided, the time chip becomes a clickable button to edit/set the start time. */
+  onEditTime?: () => void;
 }) {
   // Primary label: "1601 — Make Ready" or just service if no unit.
   const svcLabel = serviceLabel(job);
@@ -558,10 +608,31 @@ function JobCard({
           >
             {headline}
           </Link>
-          {job.scheduledTime && (
-            <div className="text-[10px] font-semibold text-[var(--gold-dark)] mt-[2px]">
-              {fmtTimeShort(job.scheduledTime)}
-            </div>
+          {/* Time chip — clickable when onEditTime is provided */}
+          {onEditTime ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTime();
+              }}
+              className="flex items-center gap-0.5 mt-[2px] text-[10px] font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] hover:underline transition-colors cursor-pointer"
+              title={job.scheduledTime ? "Edit start time" : "Set start time"}
+              data-testid={`btn-edit-time-${job.id}`}
+            >
+              <Clock className="w-2.5 h-2.5 shrink-0" />
+              {job.scheduledTime ? fmtTimeShort(job.scheduledTime) : (
+                <span className="opacity-0 group-hover/card:opacity-60 transition-opacity">
+                  Set time
+                </span>
+              )}
+            </button>
+          ) : (
+            job.scheduledTime && (
+              <div className="text-[10px] font-semibold text-[var(--gold-dark)] mt-[2px]">
+                {fmtTimeShort(job.scheduledTime)}
+              </div>
+            )
           )}
           {!compact && job.propertyName && (
             <div className="text-[10px] text-muted-foreground truncate mt-0.5">
