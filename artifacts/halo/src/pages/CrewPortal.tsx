@@ -2103,7 +2103,24 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
   const [showPast, setShowPast] = useState(false);
   const items = showPast ? sorted : upcoming;
 
-  // One-tap directions for today's multi-stop route.
+  // Build a Google Maps waypoint URL for any set of schedule stops.
+  // Stops without an address are skipped from the link but kept on the list.
+  function stopsDirectionsUrl(stops: typeof upcoming): string | null {
+    if (stops.length < 2) return null;
+    const addrs = stops
+      .map((s) =>
+        s.propertyAddress
+          ? s.propertyAddress
+          : s.propertyName
+            ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
+            : null,
+      )
+      .filter((a): a is string => Boolean(a));
+    if (addrs.length < 1) return null;
+    return `https://www.google.com/maps/dir/${addrs.map((a) => encodeURIComponent(a)).join("/")}`;
+  }
+
+  // One-tap directions for today's multi-stop route (prominent top button).
   const todayStops = upcoming.filter((s) => s.scheduledOn === today);
   const todayAddresses = todayStops
     .map((s) =>
@@ -2161,6 +2178,9 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
         const isToday = date === today;
         const dtLabel = formatDay(date) || "TBD";
         const multiStop = stops.length > 1;
+        // Show a compact directions link for upcoming non-today days with 2+ stops.
+        const upcomingDate = date >= today && !isToday;
+        const groupDirectionsUrl = upcomingDate ? stopsDirectionsUrl(stops) : null;
 
         return (
           <div key={date}>
@@ -2173,6 +2193,18 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                 <span className="text-[10px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full bg-[var(--gold-light)]/20 text-[var(--gold-dark)]">
                   Today
                 </span>
+              )}
+              {groupDirectionsUrl && (
+                <a
+                  href={groupDirectionsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  data-testid={`link-directions-${date}`}
+                  className="ml-auto flex items-center gap-[4px] text-[11px] font-bold text-black bg-[var(--gold-light)] px-[9px] py-[3px] rounded-full active:scale-[0.96] transition-transform shrink-0"
+                >
+                  <MapPin className="w-[11px] h-[11px] shrink-0" />
+                  Directions · {stops.length} stops
+                </a>
               )}
             </div>
 
