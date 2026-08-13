@@ -236,7 +236,7 @@ function AssistantBubble({ text, chips, onConfirm, confirmedIds }: {
                     className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all active:scale-[0.96] ${
                       done
                         ? 'bg-[#22C55E]/12 text-[#22C55E]/65 border border-[#22C55E]/18 cursor-not-allowed'
-                        : 'bg-[#B4FF44] text-[#07101E] hover:scale-[1.02]'
+                        : 'bg-white text-[#0A0F1A] hover:bg-white/92 hover:scale-[1.02]'
                     }`}
                   >
                     <CheckCircle2 className="w-3 h-3" />
@@ -333,7 +333,7 @@ function NeedsYouInline({
             <div className="flex items-center gap-2">
               {primary && (
                 <button onClick={() => doAction(card, primary.key)} disabled={isActing}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#B4FF44] text-[#07101E] text-[11.5px] font-bold hover:scale-[1.02] active:scale-[0.97] transition-transform disabled:opacity-50 shrink-0">
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-[#0A0F1A] text-[11.5px] font-bold hover:bg-white/92 active:scale-[0.97] transition-all disabled:opacity-50 shrink-0">
                   {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                   {primary.label}
                 </button>
@@ -765,7 +765,7 @@ export default function HaloOne() {
                 <button
                   onClick={() => { if (input.trim()) send(input); }}
                   disabled={!input.trim() || busy}
-                  className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-[#B4FF44] text-[#07101E] shadow-[0_4px_14px_rgba(180,255,68,0.28)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-32 disabled:scale-100 shrink-0"
+                  className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-32 disabled:scale-100 shrink-0"
                 >
                   {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <ChevronRight className="w-[15px] h-[15px]" strokeWidth={2.5} />}
                 </button>
@@ -863,7 +863,7 @@ export default function HaloOne() {
                   />
                 </div>
                 <button onClick={() => { if (input.trim()) send(input); }} disabled={!input.trim() || busy}
-                  className="w-11 h-11 rounded-full bg-[#B4FF44] grid place-items-center text-[#07101E] shadow-[0_4px_14px_rgba(180,255,68,0.26)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-38 disabled:scale-100 shrink-0">
+                  className="w-11 h-11 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-38 disabled:scale-100 shrink-0">
                   {busy ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}
                 </button>
               </div>

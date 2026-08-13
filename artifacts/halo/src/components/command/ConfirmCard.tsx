@@ -2,8 +2,8 @@
  * ConfirmCard — inline action-confirmation card rendered in the HaloCommand
  * thread after the voice/text parser returns a set of proposed actions.
  *
- * Mirrors the review step in VoiceCaptureSheet but lives in the thread,
- * keeping the conversation flow unbroken.
+ * Primary CTA: white / black (consistent with the new Halo One design system).
+ * Secondary (cancel): quiet ghost button.
  */
 
 import { useState } from "react";
@@ -86,7 +86,7 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
         data: {
           logId,
           selectedTools: actions.map(a => a.tool),
-        },
+        } as any,
       });
       qc.invalidateQueries({ queryKey: getListJobsQueryKey() });
       qc.invalidateQueries({ queryKey: getListCrewsQueryKey() });
@@ -111,24 +111,31 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
   };
 
   return (
-    <div className="w-full rounded-[18px] overflow-hidden bg-[#0D1E33] border border-[#B4FF44]/20 mb-3 shadow-[0_6px_24px_rgba(0,0,0,0.3)]">
+    <div
+      className="w-full rounded-[20px] overflow-hidden mb-3"
+      style={{
+        background: "linear-gradient(160deg, #080F1E 0%, #060C18 100%)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
+    >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-        <div className="w-7 h-7 rounded-[9px] bg-[#B4FF44]/15 border border-[#B4FF44]/30 grid place-items-center">
-          <Sparkles className="w-3.5 h-3.5 text-[#B4FF44]" />
+      <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="w-7 h-7 rounded-[9px] bg-white/8 border border-white/12 grid place-items-center">
+          <Sparkles className="w-3.5 h-3.5 text-white/70" />
         </div>
         <div>
-          <div className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#B4FF44]/80">
+          <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-white/55">
             HALO Proposal
           </div>
-          <div className="text-[12px] text-white/50">
-            {actions.length} action{actions.length !== 1 ? "s" : ""} to confirm
+          <div className="text-[12.5px] text-white/75 font-medium">
+            {actions.length} action{actions.length !== 1 ? "s" : ""} ready to confirm
           </div>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="px-4 py-3 space-y-2">
+      {/* Actions list */}
+      <div className="px-4 py-3.5 space-y-2">
         {actions.map((action, i) => {
           const meta = TOOL_META[action.tool] ?? { label: action.tool, Icon: Sparkles, color: "#B4FF44" };
           const { Icon } = meta;
@@ -137,15 +144,15 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
             .slice(0, 4);
 
           return (
-            <div key={i} className="flex items-start gap-3 bg-white/4 rounded-[13px] p-3">
+            <div key={i} className="flex items-start gap-3 bg-white/[0.038] rounded-[13px] p-3.5">
               <div
                 className="w-7 h-7 rounded-[9px] grid place-items-center shrink-0 mt-0.5"
-                style={{ background: `${meta.color}20`, border: `1px solid ${meta.color}40` }}
+                style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}35` }}
               >
                 <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-white/90 mb-1">{meta.label}</div>
+                <div className="text-[13px] font-semibold text-white/88 mb-1.5">{meta.label}</div>
                 {fields.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {fields.map(([k, v]) => {
@@ -154,7 +161,7 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
                       return (
                         <span
                           key={k}
-                          className="text-[11px] bg-white/8 text-white/60 rounded-full px-2 py-0.5 font-medium"
+                          className="text-[11px] bg-white/7 border border-white/[0.07] text-white/55 rounded-full px-2.5 py-0.5 font-medium"
                         >
                           {formatted}
                         </span>
@@ -168,12 +175,12 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
         })}
       </div>
 
-      {/* CTA */}
-      <div className="px-4 pb-4 flex gap-2">
+      {/* CTA — white/black primary, ghost cancel */}
+      <div className="px-4 pb-4 pt-1 flex gap-2">
         <button
           onClick={handleConfirm}
           disabled={confirm.isPending}
-          className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-[#B4FF44] text-black font-bold text-[13.5px] py-[11px] active:scale-[0.97] transition-transform disabled:opacity-60"
+          className="flex-1 flex items-center justify-center gap-2 rounded-[13px] bg-white text-[#0A0F1A] font-bold text-[13.5px] py-[11px] hover:bg-white/92 active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(255,255,255,0.12)] disabled:opacity-55"
         >
           {confirm.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -185,9 +192,9 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
         <button
           onClick={handleCancel}
           disabled={confirm.isPending}
-          className="flex-[0.45] flex items-center justify-center gap-2 rounded-[12px] bg-white/8 border border-white/12 text-white/60 font-bold text-[13.5px] py-[11px] active:scale-[0.97] transition-colors hover:text-white/80 disabled:opacity-60"
+          className="flex-[0.42] flex items-center justify-center gap-1.5 rounded-[13px] bg-white/5 border border-white/8 text-white/45 font-medium text-[13px] py-[11px] hover:text-white/65 hover:bg-white/8 active:scale-[0.97] transition-all disabled:opacity-55"
         >
-          <X className="w-4 h-4" strokeWidth={2} />
+          <X className="w-3.5 h-3.5" strokeWidth={2} />
           Cancel
         </button>
       </div>

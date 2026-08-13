@@ -536,7 +536,7 @@ export default function HaloCommand() {
                 <button
                   onClick={() => handleSubmit()}
                   disabled={!input.trim() || parseVoice.isPending}
-                  className="mr-4 w-10 h-10 rounded-full grid place-items-center bg-[#B4FF44] text-[#07101E] shadow-[0_4px_20px_rgba(180,255,68,0.32)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-30 disabled:scale-100 shrink-0"
+                  className="mr-4 w-10 h-10 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0"
                 >
                   {parseVoice.isPending ? (
                     <Loader2 className="w-[15px] h-[15px] animate-spin" />
@@ -668,7 +668,7 @@ export default function HaloCommand() {
                     <button
                       onClick={() => handleSubmit()}
                       disabled={parseVoice.isPending}
-                      className="w-12 h-12 rounded-full bg-[#B4FF44] grid place-items-center text-[#07101E] shadow-[0_4px_18px_rgba(180,255,68,0.28)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-50 shrink-0"
+                      className="w-12 h-12 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-50 shrink-0"
                     >
                       {parseVoice.isPending ? <Loader2 className="w-[15px] h-[15px] animate-spin" /> : <Send className="w-[15px] h-[15px]" strokeWidth={2.5} />}
                     </button>
