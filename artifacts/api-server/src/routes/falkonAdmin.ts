@@ -1122,14 +1122,15 @@ interface GateResult {
 /**
  * Determine whether Gate 7 should run in stub mode.
  *
- * Stub mode applies when no live Falkon gateway is configured — i.e. when
+ * Stub mode applies ONLY when no live Falkon gateway is configured — i.e. when
  * eventIngestUrl is absent from the connection record.  In stub mode Gate 7
  * passes immediately on dispatch confirmation so operators don't wait 15 s
  * for a callback that will never arrive.
  *
- * When a real gateway is configured (eventIngestUrl is present) we do an
- * additional quick reachability probe: if the gateway is unreachable we still
- * treat the gate as stub-mode so the verify flow doesn't stall.
+ * When a real gateway URL IS configured, Gate 7 always runs the full callback-
+ * polling path, regardless of whether the gateway is currently reachable.  A
+ * configured-but-down gateway must fail Gate 7 (no auto-pass) so operators
+ * know the live round-trip is broken.
  */
 async function isStubMode(): Promise<{ stub: boolean; reason: string }> {
   try {
@@ -1138,20 +1139,8 @@ async function isStubMode(): Promise<{ stub: boolean; reason: string }> {
     if (!ingestUrl) {
       return { stub: true, reason: "no eventIngestUrl configured" };
     }
-    // Live URL configured — probe reachability with a short timeout.
-    try {
-      const probe = await fetch(ingestUrl, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(3_000),
-      });
-      if (probe.ok || probe.status < 500) {
-        // Gateway responded (even a 4xx means it's reachable)
-        return { stub: false, reason: "gateway reachable" };
-      }
-      return { stub: true, reason: `gateway returned HTTP ${probe.status}` };
-    } catch {
-      return { stub: true, reason: "gateway unreachable (probe timed out or network error)" };
-    }
+    // A real gateway URL is configured — always use the live polling path.
+    return { stub: false, reason: "eventIngestUrl configured" };
   } catch {
     return { stub: true, reason: "could not read connection record" };
   }

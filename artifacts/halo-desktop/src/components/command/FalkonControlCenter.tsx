@@ -100,7 +100,7 @@ function fmt(iso: string | null) {
   return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—";
 }
 
-function GateRow({ gate, running, onRerun }: { gate: GateStatus; running: boolean; onRerun: () => void }) {
+function GateRow({ gate, running, onRerun, disabled }: { gate: GateStatus; running: boolean; onRerun: () => void; disabled?: boolean }) {
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0 group">
       <div className={`w-6 h-6 rounded-full grid place-items-center shrink-0 text-[9px] font-bold ${
@@ -127,7 +127,8 @@ function GateRow({ gate, running, onRerun }: { gate: GateStatus; running: boolea
       )}
       <button
         onClick={onRerun}
-        className="w-7 h-7 rounded-full grid place-items-center opacity-0 group-hover:opacity-100 bg-white/8 text-white/40 hover:text-white/70 transition-all"
+        disabled={disabled}
+        className="w-7 h-7 rounded-full grid place-items-center opacity-0 group-hover:opacity-100 bg-white/8 text-white/40 hover:text-white/70 transition-all disabled:pointer-events-none disabled:opacity-0"
       >
         <RotateCcw className="w-3.5 h-3.5" />
       </button>
@@ -191,14 +192,19 @@ export function FalkonControlCenter({ onClose }: FalkonControlCenterProps) {
 
   const runAllGates = async () => {
     setVerifying(true);
+    // Poll /health every 600ms so gate rows update one-by-one while /verify/all runs
+    // server-side (that endpoint writes verificationSteps after each gate, so polling
+    // /health shows live gate-by-gate progress without bypassing its DB finalization).
+    const poll = setInterval(() => void loadHealth(), 600);
     try {
-      const result = await apiFetch<{ fullyConnected: boolean }>(
+      const result = await apiFetch<{ gates: Array<{ gate: number; passed: boolean }>; fullyConnected: boolean }>(
         "/falkon/admin/verify/all", { method: "POST" }
       );
-      await loadHealth();
+      clearInterval(poll);
+      await loadHealth(); // final authoritative refresh
       if (result.fullyConnected) window.dispatchEvent(new Event("falkon:verified"));
     } catch { /* ignore */ }
-    finally { setVerifying(false); }
+    finally { clearInterval(poll); setVerifying(false); setRunningGate(null); }
   };
 
   const runSingleGate = async (gateNum: number) => {
@@ -304,7 +310,7 @@ export function FalkonControlCenter({ onClose }: FalkonControlCenterProps) {
                   {/* 7-gate status */}
                   <div className="rounded-[16px] bg-white/[0.03] border border-white/6 px-4">
                     {health.gates.map(g => (
-                      <GateRow key={g.gate} gate={g} running={runningGate === g.gate} onRerun={() => runSingleGate(g.gate)} />
+                      <GateRow key={g.gate} gate={g} running={runningGate === g.gate} onRerun={() => runSingleGate(g.gate)} disabled={verifying || runningGate !== null} />
                     ))}
                   </div>
 
@@ -316,7 +322,7 @@ export function FalkonControlCenter({ onClose }: FalkonControlCenterProps) {
                       className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-amber-500/15 text-amber-300 border border-amber-500/25 py-3 text-[13px] font-semibold hover:bg-amber-500/22 active:scale-[0.98] transition-all disabled:opacity-50"
                     >
                       {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                      {verifying ? "Verifying…" : "Run Verify"}
+                      {verifying ? "Verifying…" : "Run All 7 Gates"}
                     </button>
                     <button onClick={loadHealth} className="px-4 flex items-center gap-2 rounded-[12px] bg-white/5 border border-white/8 text-[12px] text-white/50 hover:text-white/70 transition-all">
                       <RefreshCw className="w-4 h-4" /> Refresh
