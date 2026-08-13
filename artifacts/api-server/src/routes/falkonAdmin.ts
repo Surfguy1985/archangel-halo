@@ -302,7 +302,7 @@ falkonAdminRouter.get("/falkon/admin/verify/status", async (_req, res) => {
 
 falkonAdminRouter.post("/falkon/admin/sync/properties", async (_req, res) => {
   try {
-    const properties = await db.select().from(propertiesTable).limit(200);
+    const properties = await db.select().from(propertiesTable);
     const results: { id: string; ok: boolean; action?: string }[] = [];
 
     for (const prop of properties) {
@@ -339,11 +339,11 @@ falkonAdminRouter.post("/falkon/admin/sync/properties", async (_req, res) => {
 falkonAdminRouter.post("/falkon/admin/sync/units/:propId", async (req, res) => {
   try {
     const { propId } = req.params as { propId: string };
-    const units = await db
-      .select()
-      .from(falkonUnitsTable)
-      .where(eq(falkonUnitsTable.propertyId, propId))
-      .limit(500);
+    // "all" is a sentinel that syncs every unit across all properties.
+    const units =
+      propId === "all"
+        ? await db.select().from(falkonUnitsTable)
+        : await db.select().from(falkonUnitsTable).where(eq(falkonUnitsTable.propertyId, propId));
 
     const results: { id: string; ok: boolean }[] = [];
     for (const unit of units) {
@@ -355,6 +355,12 @@ falkonAdminRouter.post("/falkon/admin/sync/units/:propId", async (req, res) => {
         falkonUnitId: unit.falkonUnitId ?? null,
         currentJobId: unit.currentJobId ?? null,
       });
+      // Write back the twin ID if Falkon assigned one
+      if (result.ok && result.twinId && !unit.falkonUnitId) {
+        await db.execute(
+          sql`UPDATE falkon_units SET falkon_unit_id = ${result.twinId}, falkon_synced_at = now() WHERE id = ${unit.id}::uuid`,
+        );
+      }
       results.push({ id: unit.id, ok: result.ok });
     }
 
@@ -366,7 +372,7 @@ falkonAdminRouter.post("/falkon/admin/sync/units/:propId", async (req, res) => {
 
 falkonAdminRouter.post("/falkon/admin/sync/vendors", async (_req, res) => {
   try {
-    const crews = await db.select().from(crewsTable).limit(200);
+    const crews = await db.select().from(crewsTable);
     const results: { id: string; ok: boolean }[] = [];
 
     for (const crew of crews) {
@@ -1086,6 +1092,292 @@ falkonAdminRouter.post("/falkon/admin/test/seed-remote-identity", async (req, re
     return res.status(500).json({ error: err.message });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 7-Gate Unified Verify System ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GATE_NAMES = [
+  "Identity Ready",
+  "Trust Published",
+  "Gateway Reachable",
+  "Partner Verified",
+  "Capabilities Registered",
+  "Webhook Live",
+  "SHADOW Round-Trip ✓",
+] as const;
+
+interface GateResult {
+  gate: number;
+  name: string;
+  passed: boolean;
+  detail?: string;
+  error?: string;
+  ts: string;
+}
+
+async function runShadowRoundTrip(): Promise<GateResult> {
+  const ts = new Date().toISOString();
+  const name = GATE_NAMES[6];
+  const testJobId = `verify-test-${Date.now()}`;
+  try {
+    const execResult = await runShadowExecution({
+      jobId: testJobId,
+    });
+    if (!execResult.ok) {
+      return { gate: 7, name, passed: false, error: (execResult as any).error ?? "Shadow dispatch failed", ts };
+    }
+    // Poll falkon_inbound_events for up to 15s
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 800));
+      // The webhook handler stores the full inbound body in payload. Falkon callbacks
+      // may carry the correlation IDs at the top level OR nested under payload.payload
+      // (the body.payload field that the ingest handler copies into the column).
+      const rows = await db.execute(
+        sql`SELECT id FROM falkon_inbound_events
+            WHERE payload->>'testJobId' = ${testJobId}
+               OR payload->>'correlationId' = ${testJobId}
+               OR payload->>'jobId' = ${testJobId}
+               OR payload->'payload'->>'testJobId' = ${testJobId}
+               OR payload->'payload'->>'correlationId' = ${testJobId}
+               OR payload->'payload'->>'jobId' = ${testJobId}
+            ORDER BY created_at DESC LIMIT 1`,
+      );
+      const found = ((rows as any).rows?.[0] ?? (rows as any)[0]);
+      if (found) {
+        await setVerifStep("gate7", { ok: true, testJobId, callbackEventId: found.id, ts: new Date().toISOString() });
+        return { gate: 7, name, passed: true, detail: `Round-trip complete — inbound event: ${found.id}`, ts: new Date().toISOString() };
+      }
+    }
+    // Timed out — no inbound callback received; a dispatch alone is not a verified round-trip.
+    await setVerifStep("gate7", { ok: false, testJobId, note: "no-callback-15s", ts: new Date().toISOString() });
+    return {
+      gate: 7, name, passed: false,
+      error: "No inbound callback received within 15s — round-trip not confirmed. A live Falkon gateway connection is required for Gate 7.",
+      ts: new Date().toISOString(),
+    };
+  } catch (err: any) {
+    return { gate: 7, name, passed: false, error: err.message ?? "Unexpected error", ts };
+  }
+}
+
+async function runGate(gateNum: number): Promise<GateResult> {
+  const ts = new Date().toISOString();
+  const name = GATE_NAMES[gateNum - 1] ?? `Gate ${gateNum}`;
+  try {
+    switch (gateNum) {
+      case 1: { // Identity Ready — local: Ed25519 keypair + trust doc buildable
+        const pem = getPublicKeyPem();
+        if (!pem) return { gate: 1, name, passed: false, error: "Ed25519 keypair not initialised — restart server", ts };
+        const trustDoc = buildTrustDoc(ARCHANGEL_BASE_URL);
+        if (!trustDoc) return { gate: 1, name, passed: false, error: "Trust doc could not be built (check DB identity row)", ts };
+        return { gate: 1, name, passed: true, detail: `Key: ${pem.slice(27, 60)}…`, ts };
+      }
+      case 2: { // Trust Published — fetch HALO's own trust doc from public URL
+        const trustUrl = `${ARCHANGEL_BASE_URL}/.well-known/falkon-trust.json`;
+        const resp = await fetch(trustUrl, { signal: AbortSignal.timeout(5_000) });
+        if (!resp.ok) return { gate: 2, name, passed: false, error: `Trust doc returned HTTP ${resp.status}`, ts };
+        const doc = await resp.json().catch(() => null) as Record<string, unknown> | null;
+        if (!doc?.clientId) return { gate: 2, name, passed: false, error: "Trust doc missing clientId field", ts };
+        return { gate: 2, name, passed: true, detail: `Published at ${trustUrl}`, ts };
+      }
+      case 3: { // Gateway Reachable — signed ping
+        const pingResult = await gatewayPing();
+        if (!pingResult.ok) return { gate: 3, name, passed: false, error: (pingResult as any).error ?? "Ping failed", ts };
+        return { gate: 3, name, passed: true, detail: "Signed ping acknowledged by gateway", ts };
+      }
+      case 4: { // Partner Verified — submit trust binding
+        const pem = getPublicKeyPem();
+        if (!pem) return { gate: 4, name, passed: false, error: "No signing key — complete Gate 1 first", ts };
+        const trustDocUrl = `${ARCHANGEL_BASE_URL}/.well-known/falkon-trust.json`;
+        const result = await submitTrustBinding(trustDocUrl, pem);
+        if (!result.ok) return { gate: 4, name, passed: false, error: (result as any).error ?? "Trust binding rejected", ts };
+        await db.execute(sql`UPDATE falkon_connections SET trust_doc_verified_at = now(), updated_at = now() WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`);
+        return { gate: 4, name, passed: true, detail: `Client: ${CLIENT_ID}`, ts };
+      }
+      case 5: { // Capabilities Registered — register 22 caps with gateway
+        const capReg = getCapabilityRegistration();
+        const result = await registerCapabilities(capReg);
+        if (!result.ok) return { gate: 5, name, passed: false, error: (result as any).error ?? "Capability registration failed", ts };
+        await db.execute(sql`UPDATE falkon_connections SET capabilities_registered_at = now(), updated_at = now() WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`);
+        const registeredCount = Array.isArray(result.registered) ? result.registered.length : capReg.length;
+        return { gate: 5, name, passed: true, detail: `${registeredCount}/${capReg.length} capabilities registered`, ts };
+      }
+      case 6: { // Webhook Live — register callback with gateway
+        const cbResult = await registerCallback(WEBHOOK_URL);
+        if (!cbResult.ok) return { gate: 6, name, passed: false, error: (cbResult as any).error ?? "Webhook registration failed", ts };
+        return { gate: 6, name, passed: true, detail: `Webhook: ${WEBHOOK_URL}`, ts };
+      }
+      case 7: return runShadowRoundTrip();
+      default: return { gate: gateNum, name, passed: false, error: "Unknown gate number", ts };
+    }
+  } catch (err: any) {
+    return { gate: gateNum, name, passed: false, error: err.message ?? "Unexpected error", ts };
+  }
+}
+
+/** POST /falkon/admin/verify/gate/:gateNumber — run a single gate */
+falkonAdminRouter.post("/falkon/admin/verify/gate/:gateNumber", async (req, res) => {
+  const gateNum = Number(req.params.gateNumber);
+  if (!Number.isInteger(gateNum) || gateNum < 1 || gateNum > 7) {
+    return res.status(400).json({ error: "gateNumber must be 1–7" });
+  }
+  try {
+    const result = await runGate(gateNum);
+    await setVerifStep(`gate${gateNum}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /falkon/admin/verify/all — run all 7 gates in sequence, stop on first failure */
+falkonAdminRouter.post("/falkon/admin/verify/all", async (_req, res) => {
+  try {
+    const results: GateResult[] = [];
+    for (let g = 1; g <= 7; g++) {
+      const result = await runGate(g);
+      results.push(result);
+      await setVerifStep(`gate${g}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+      if (!result.passed) break;
+    }
+    const fullyConnected = results.length === 7 && results.every((r) => r.passed);
+    if (fullyConnected) {
+      await db.execute(
+        sql`UPDATE falkon_connections SET status = 'verified', verified_at = now(), updated_at = now() WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`,
+      );
+    } else {
+      // Any gate failure demotes/clears a previously verified connection so stale callers can't
+      // rely on a connection status that no longer holds.
+      await db.execute(
+        sql`UPDATE falkon_connections SET status = 'pending', verified_at = NULL, updated_at = now()
+            WHERE id = (SELECT id FROM falkon_connections LIMIT 1) AND status = 'verified'`,
+      );
+    }
+    return res.json({ gates: results, fullyConnected, stoppedAt: results[results.length - 1]?.gate ?? 0 });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /falkon/admin/verify/shadow-roundtrip — gate 7 standalone */
+falkonAdminRouter.post("/falkon/admin/verify/shadow-roundtrip", async (_req, res) => {
+  try {
+    const result = await runShadowRoundTrip();
+    await setVerifStep("gate7", { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /falkon/admin/health — consolidated health object for the Control Center */
+falkonAdminRouter.get("/falkon/admin/health", async (_req, res) => {
+  try {
+    const [conn, gwHealth, propCount, unitCount, vendorCount, failedJobCount, recentInboundCount] = await Promise.all([
+      getConn(),
+      gatewayHealth().catch(() => ({ ok: false, status: "unreachable" })),
+      db.execute(sql`SELECT COUNT(*) AS cnt FROM properties WHERE falkon_property_id IS NOT NULL`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
+      db.execute(sql`SELECT COUNT(*) AS cnt FROM falkon_units WHERE falkon_unit_id IS NOT NULL`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
+      db.execute(sql`SELECT COUNT(*) AS cnt FROM crews WHERE falkon_vendor_id IS NOT NULL`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
+      db.execute(sql`SELECT COUNT(*) AS cnt FROM falkon_executions WHERE status = 'failed'`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
+      db.execute(sql`SELECT COUNT(*) AS cnt FROM falkon_inbound_events WHERE created_at > now() - INTERVAL '24 hours'`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
+    ]);
+
+    const steps = (conn?.verificationSteps ?? {}) as Record<string, { ok?: boolean; ts?: string; detail?: string; error?: string }>;
+    const gates = Array.from({ length: 7 }, (_, i) => {
+      const key = `gate${i + 1}`;
+      const step = steps[key];
+      return { gate: i + 1, name: GATE_NAMES[i], passed: step?.ok ?? false, detail: step?.detail, error: step?.error, ts: step?.ts ?? null };
+    });
+    const fullyConnected = gates.every((g) => g.passed);
+
+    return res.json({
+      mode: conn?.mode ?? "OFF",
+      status: conn?.status ?? "disconnected",
+      gatewayHealth: gwHealth,
+      verifiedAt: conn?.verifiedAt?.toISOString() ?? null,
+      fullyConnected,
+      gates,
+      capabilities: {
+        total: FALKON_CAPABILITIES.length,
+        registeredAt: conn?.capabilitiesRegisteredAt?.toISOString() ?? null,
+      },
+      twinSync: {
+        properties: propCount,
+        units: unitCount,
+        vendors: vendorCount,
+      },
+      failedJobCount,
+      recentInboundCount,
+      webhookUrl: conn?.webhookUrl ?? WEBHOOK_URL,
+      trustDocUrl: `${ARCHANGEL_BASE_URL}/.well-known/falkon-trust.json`,
+      clientId: CLIENT_ID,
+      partnerClientId: conn?.partnerClientId ?? null,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /falkon/admin/executions — list executions with optional status filter */
+falkonAdminRouter.get("/falkon/admin/executions", async (req, res) => {
+  try {
+    const { status, limit: limitStr } = req.query as Record<string, string | undefined>;
+    const limit = Math.min(Number(limitStr ?? 20), 100);
+    const rows = await db.execute(
+      sql`SELECT e.id, e.unit_label, e.phase, e.status, e.mode_at_start,
+                 e.started_at, e.completed_at, e.error,
+                 p.name AS property_name,
+                 EXTRACT(EPOCH FROM (COALESCE(e.completed_at, now()) - e.started_at)) * 1000 AS duration_ms
+          FROM falkon_executions e
+          LEFT JOIN properties p ON p.id = e.property_id
+          WHERE (${status ?? null} IS NULL OR e.status = ${status ?? null})
+          ORDER BY e.started_at DESC
+          LIMIT ${limit}`,
+    );
+    const executions = ((rows as any).rows ?? rows) as unknown[];
+    return res.json({ executions: Array.isArray(executions) ? executions : [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /falkon/admin/executions/:id/retry — reset a failed execution to pending */
+falkonAdminRouter.post("/falkon/admin/executions/:id/retry", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.execute(
+      sql`UPDATE falkon_executions SET status = 'pending', error = NULL, updated_at = now()
+          WHERE id = ${id}::uuid AND status = 'failed'`,
+    );
+    return res.json({ ok: true, id });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /falkon/admin/inbound — inbound events with optional status filter */
+falkonAdminRouter.get("/falkon/admin/inbound", async (req, res) => {
+  try {
+    const { status, limit: limitStr } = req.query as Record<string, string | undefined>;
+    const limit = Math.min(Number(limitStr ?? 50), 200);
+    const events = await db.execute(
+      sql`SELECT id, falkon_event_id, event_type, status, processed_at, error, created_at
+          FROM falkon_inbound_events
+          WHERE (${status ?? null} IS NULL OR status = ${status ?? null})
+          ORDER BY created_at DESC
+          LIMIT ${limit}`,
+    );
+    const rows = ((events as any).rows ?? events) as unknown[];
+    return res.json({ events: Array.isArray(rows) ? rows : [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── (test-only routes below) ─────────────────────────────────────────────────
 
 falkonAdminRouter.delete("/falkon/admin/test/seed-remote-identity", async (req, res) => {
   if (process.env.HALO_TEST_MODE !== "1") {

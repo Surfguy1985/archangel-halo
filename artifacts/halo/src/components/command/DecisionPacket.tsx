@@ -56,6 +56,8 @@ interface DecisionPacketProps {
   autopilot?: AutopilotItem;
   onAskHalo?: (context: string) => void;
   onResolved?: () => void;
+  /** When true, renders SHADOW mode visual treatment — amber border, SHADOW chip, Preview/Test labels */
+  shadowMode?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,7 +105,7 @@ function getFalkonRecommendation(card?: FeedCardType, autopilot?: AutopilotItem)
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: DecisionPacketProps) {
+export function DecisionPacket({ card, autopilot, onAskHalo, onResolved, shadowMode }: DecisionPacketProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -145,6 +147,13 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
   const amount = card?.amount;
 
   const handleApprove = async () => {
+    // SHADOW mode: non-mutating — show simulation result without any real mutations.
+    if (shadowMode) {
+      toast({ title: "SHADOW preview", description: "Action simulated — no changes were made." });
+      setResolved(true);
+      onResolved?.();
+      return;
+    }
     try {
       if (autopilot) {
         await approveAutopilot.mutateAsync({ id: autopilot.id });
@@ -179,6 +188,13 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
       setDeclined(true);
       return;
     }
+    // SHADOW mode: non-mutating — show simulation result without any real mutations.
+    if (shadowMode) {
+      toast({ title: "SHADOW preview", description: "Decline simulated — no changes were made." });
+      setResolved(true);
+      onResolved?.();
+      return;
+    }
     try {
       if (autopilot) {
         await dismissAutopilot.mutateAsync({ id: autopilot.id });
@@ -209,12 +225,15 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
   return (
     <div
       className="w-full rounded-[20px] overflow-hidden mb-3 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
-      style={{ border: `1px solid ${accentColor}22` }}
+      style={{
+        border: shadowMode ? "1px solid rgba(245,158,11,0.35)" : `1px solid ${accentColor}22`,
+        borderLeft: shadowMode ? "3px solid rgba(245,158,11,0.65)" : undefined,
+      }}
     >
       {/* Header stripe */}
       <div
         className="px-4 py-3 flex items-center gap-3"
-        style={{ background: `linear-gradient(135deg, ${accentColor}18, ${accentColor}06)` }}
+        style={{ background: shadowMode ? "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04))" : `linear-gradient(135deg, ${accentColor}18, ${accentColor}06)` }}
       >
         <div
           className="w-8 h-8 rounded-[10px] grid place-items-center shrink-0"
@@ -223,11 +242,16 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
           <QueueIcon className="w-4 h-4" style={{ color: accentColor }} strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-bold tracking-[0.18em] uppercase mb-0.5" style={{ color: accentColor }}>
+          <div className="text-[11px] font-bold tracking-[0.18em] uppercase mb-0.5" style={{ color: shadowMode ? "#F59E0B" : accentColor }}>
             {autopilot ? "Autopilot Suggestion" : "Decision Required"}
           </div>
           <div className="text-[14px] font-semibold text-white leading-tight truncate">{title}</div>
         </div>
+        {shadowMode && (
+          <div className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-[0.18em] uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+            SHADOW
+          </div>
+        )}
         {amount != null && (
           <div className="shrink-0 text-right">
             <div className="text-[11px] text-white/40 uppercase tracking-wide mb-0.5">Amount</div>
@@ -241,6 +265,11 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
       </div>
+      {shadowMode && (
+        <div className="px-4 py-1.5 bg-amber-500/5 border-b border-amber-500/12">
+          <p className="text-[11px] text-amber-400/75">Proposed — not executed. SHADOW mode active.</p>
+        </div>
+      )}
 
       {/* Body */}
       <div className="bg-[#0A1628] px-4 py-4 space-y-3">
@@ -319,7 +348,7 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
             className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-[#B4FF44] text-black font-bold text-[13px] py-[11px] active:scale-[0.97] transition-transform disabled:opacity-60"
           >
             {busy && approveAutopilot.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.5} />}
-            Approve
+            {shadowMode ? "Preview" : "Approve"}
           </button>
           <button
             onClick={handleDecline}
@@ -327,11 +356,13 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved }: Decis
             className={`flex-1 flex items-center justify-center gap-2 rounded-[12px] font-bold text-[13px] py-[11px] active:scale-[0.97] transition-all disabled:opacity-60 ${
               declined
                 ? "bg-[#E11D48] text-white"
-                : "bg-white/8 border border-white/12 text-white/70"
+                : shadowMode
+                  ? "bg-amber-500/10 border border-amber-500/25 text-amber-400/80"
+                  : "bg-white/8 border border-white/12 text-white/70"
             }`}
           >
             {busy && dismissAutopilot.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" strokeWidth={2} />}
-            {declined ? "Confirm decline" : "Decline"}
+            {declined ? "Confirm decline" : shadowMode ? "Test" : "Decline"}
           </button>
           <button
             onClick={() => {

@@ -69,6 +69,7 @@ import { ConfirmCard } from "@/components/command/ConfirmCard";
 import { LensCard, type LensType } from "@/components/command/LensCard";
 import { BriefingCard, type BriefingData } from "@/components/command/BriefingCard";
 import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
+import { FalkonControlCenter } from "@/components/command/FalkonControlCenter";
 import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
 import type { VoiceAction } from "@workspace/api-client-react";
 
@@ -756,12 +757,17 @@ export default function HaloCommand() {
   // Seed state = no content yet. Briefing counts as content — show thread layout.
   const hasThread = messages.some(m => m.kind === "user-msg" || m.kind === "briefing");
 
+  // ── Falkon Control Center (admin) ─────────────────────────────────────────
+  const [controlOpen, setControlOpen] = useState(false);
+  const isShadow = falkonMode === "SHADOW";
+
   // ── Render thread message ─────────────────────────────────────────────────
   const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
       case "decision-packet":
         return (
           <DecisionPacket card={msg.card}
+            shadowMode={isShadow}
             onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
             onResolved={() => {
               setMessages(prev => prev.filter(m => m.id !== msg.id));
@@ -772,6 +778,7 @@ export default function HaloCommand() {
       case "autopilot-packet":
         return (
           <DecisionPacket autopilot={msg.action}
+            shadowMode={isShadow}
             onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
             onResolved={() => {
               setMessages(prev => prev.filter(m => m.id !== msg.id));
@@ -800,6 +807,7 @@ export default function HaloCommand() {
       case "confirmation":
         return (
           <ConfirmCard logId={msg.logId} actions={msg.actions}
+            shadowMode={isShadow}
             onConfirmed={text => {
               setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
               qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
@@ -866,11 +874,15 @@ export default function HaloCommand() {
             </div>
           )}
 
-          {/* Falkon mode */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.14em] ${modeStyle.bg} ${modeStyle.text}`}>
+          {/* Falkon mode — clickable for admins → opens Control Center */}
+          <button
+            onClick={() => setControlOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.14em] ${modeStyle.bg} ${modeStyle.text} hover:opacity-80 active:scale-[0.95] transition-all`}
+            title="Open Falkon Control Center"
+          >
             <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${falkonMode !== "SHADOW" ? "animate-pulse" : ""}`} />
             {falkonMode}
-          </div>
+          </button>
 
           <FalkonNetworkPulse />
 
@@ -1230,6 +1242,8 @@ export default function HaloCommand() {
           }}
         />
       )}
+
+      {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
   );
 }

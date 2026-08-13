@@ -244,130 +244,180 @@ function OverviewTab() {
   );
 }
 
-// ─── Five-Step Verify Tab ─────────────────────────────────────────────────────
+// ─── Seven-Gate Connect & Verify Tab ─────────────────────────────────────────
 
-interface VerifyStatus {
-  status: string;
-  verifiedAt?: string;
-  steps: Record<string, Record<string, unknown>>;
-  mode: Mode;
-  trustDocUrl: string;
-  webhookUrl: string;
+interface GateResult {
+  gate: number;
+  name: string;
+  passed: boolean;
+  detail?: string;
+  error?: string;
+  ts: string | null;
 }
 
-const VERIFY_STEPS = [
-  { key: "step1", label: "Health Check", desc: "Can HALO reach the Falkon gateway?", path: "/falkon/admin/verify/1-health-check" },
-  { key: "step2", label: "Trust Binding", desc: "Submit Ed25519 public key to gateway", path: "/falkon/admin/verify/2-trust-binding" },
-  { key: "step3", label: "Register Callback", desc: "Tell Falkon where to send events", path: "/falkon/admin/verify/3-register-callback" },
-  { key: "step4", label: "Shadow Execution", desc: "Run a dry-run pipeline probe", path: "/falkon/admin/verify/4-shadow-execution" },
-  { key: "step5", label: "Ping Round-Trip", desc: "Confirm Falkon can call back to HALO", path: "/falkon/admin/verify/5-ping-roundtrip" },
-];
+interface HealthData {
+  mode: Mode;
+  status: string;
+  verifiedAt?: string;
+  fullyConnected: boolean;
+  gates: GateResult[];
+  trustDocUrl: string;
+  webhookUrl: string;
+  clientId: string;
+  partnerClientId: string | null;
+}
+
+const SEVEN_GATES = [
+  { num: 1, label: "Identity Ready",          desc: "Ed25519 keypair exists; trust doc accessible at /.well-known/falkon-trust.json" },
+  { num: 2, label: "Trust Published",         desc: "HALO's trust doc reachable from its public URL" },
+  { num: 3, label: "Gateway Reachable",       desc: "Signed ping to Falkon gateway returns 200 with valid signature" },
+  { num: 4, label: "Partner Verified",        desc: "Falkon has confirmed HALO's client ID in their registry" },
+  { num: 5, label: "Capabilities Registered", desc: "All 22 capabilities accepted by Falkon gateway" },
+  { num: 6, label: "Webhook Live",            desc: "Falkon can reach HALO's webhook; signature verification accepted" },
+  { num: 7, label: "SHADOW Round-Trip ✓",    desc: "End-to-end: test make_ready.phase_advance dispatched and logged in SHADOW mode" },
+] as const;
 
 function VerifyTab() {
-  const [status, setStatus] = useState<VerifyStatus | null>(null);
-  const [running, setRunning] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthData | null>(null);
+  const [runningGate, setRunningGate] = useState<number | null>(null);
+  const [runningAll, setRunningAll] = useState(false);
   const { toast } = useToast();
 
-  const loadStatus = useCallback(async () => {
+  const loadHealth = useCallback(async () => {
     try {
-      const data = await apiFetch<VerifyStatus>("/falkon/admin/verify/status");
-      setStatus(data);
+      const data = await apiFetch<HealthData>("/falkon/admin/health");
+      setHealth(data);
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { void loadStatus(); }, [loadStatus]);
+  useEffect(() => { void loadHealth(); }, [loadHealth]);
 
-  const runStep = async (step: typeof VERIFY_STEPS[number]) => {
-    setRunning(step.key);
+  const runGate = async (gateNum: number) => {
+    setRunningGate(gateNum);
     try {
-      const result = await apiFetch<Record<string, unknown>>(step.path, { method: "POST" });
-      toast({ title: `Step: ${step.label}`, description: result.ok ? "✓ Passed" : "✗ Failed" });
-      // After step 5 passes, notify the Overview tab to refresh its status badge
-      if (step.key === "step5" && result.ok) {
-        window.dispatchEvent(new Event("falkon:verified"));
-      }
+      const result = await apiFetch<{ gate: number; passed: boolean; detail?: string; error?: string }>(
+        `/falkon/admin/verify/gate/${gateNum}`, { method: "POST" }
+      );
+      toast({
+        title: `Gate ${gateNum}: ${SEVEN_GATES[gateNum - 1]?.label}`,
+        description: result.passed ? `✓ ${result.detail ?? "Passed"}` : `✗ ${result.error ?? "Failed"}`,
+        variant: result.passed ? "default" : "destructive",
+      });
     } catch (err: any) {
-      toast({ title: `${step.label} failed`, description: err.message, variant: "destructive" });
+      toast({ title: `Gate ${gateNum} failed`, description: err.message, variant: "destructive" });
     } finally {
-      setRunning(null);
-      void loadStatus();
+      setRunningGate(null);
+      void loadHealth();
     }
   };
 
   const runAll = async () => {
-    for (const step of VERIFY_STEPS) {
-      await runStep(step);
-      await new Promise((r) => setTimeout(r, 500));
+    setRunningAll(true);
+    try {
+      const result = await apiFetch<{ gates: GateResult[]; fullyConnected: boolean; stoppedAt: number }>(
+        "/falkon/admin/verify/all", { method: "POST" }
+      );
+      if (result.fullyConnected) {
+        window.dispatchEvent(new Event("falkon:verified"));
+        toast({ title: "✅ Fully Connected — SHADOW verified", description: "All 7 gates passed. Connection is verified." });
+      } else {
+        toast({
+          title: `Stopped at Gate ${result.stoppedAt}`,
+          description: `Gates 1–${result.stoppedAt - 1} passed. Fix Gate ${result.stoppedAt} and retry.`,
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({ title: "Verify all failed", description: err.message, variant: "destructive" });
+    } finally {
+      setRunningAll(false);
+      void loadHealth();
     }
   };
+
+  const gateMap = new Map<number, GateResult>(health?.gates?.map(g => [g.gate, g]) ?? []);
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Five-Step Verification</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            7-Gate Connect & Verify
+            {health?.fullyConnected ? (
+              <Badge className="bg-green-500 text-white">✓ Fully Connected</Badge>
+            ) : health?.status === "verified" ? (
+              <Badge variant="secondary">Partially verified</Badge>
+            ) : (
+              <Badge variant="outline">Not verified</Badge>
+            )}
+          </CardTitle>
           <CardDescription>
-            Complete all five steps to promote the connection to Verified status.
+            All 7 gates must pass for "Fully Connected — SHADOW verified" status.
+            Gates 1–3 are local checks; gates 4–7 require a live Falkon gateway connection.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {status && (
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant={status.status === "verified" ? "default" : "secondary"}>
-                {status.status === "verified" ? "✓ Verified" : status.status}
-              </Badge>
-              {status.verifiedAt && (
-                <span className="text-xs text-muted-foreground">
-                  {new Date(status.verifiedAt).toLocaleString()}
-                </span>
-              )}
+          {health?.fullyConnected && (
+            <div className="rounded-lg border border-green-500/30 bg-green-50 dark:bg-green-950/20 p-3 text-sm text-green-700 dark:text-green-300">
+              <strong>✅ Fully Connected — SHADOW verified</strong>
+              <p className="text-xs mt-0.5 text-green-600 dark:text-green-400">
+                Mode: {health.mode} · Partner: Falkon Ops · 22/22 capabilities
+                {health.verifiedAt && ` · Last verified: ${new Date(health.verifiedAt).toLocaleString()}`}
+              </p>
             </div>
           )}
 
           <div className="space-y-2">
-            {VERIFY_STEPS.map((step, i) => {
-              const stepData = status?.steps?.[step.key];
-              const pass = stepData?.ok === true;
-              const ran = !!stepData;
+            {SEVEN_GATES.map((gate) => {
+              const g = gateMap.get(gate.num);
+              const passed = g?.passed ?? false;
+              const ran = !!g?.ts;
+              const isRunning = runningGate === gate.num;
               return (
-                <div key={step.key} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
-                    ran ? (pass ? "bg-green-500" : "bg-red-500") : "bg-slate-300"
-                  }`}>{i + 1}</span>
+                <div key={gate.num} className="flex items-start gap-3 p-3 border rounded-lg">
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 ${
+                    isRunning ? "bg-amber-400 animate-pulse" :
+                    ran ? (passed ? "bg-green-500" : "bg-red-500") : "bg-slate-300 dark:bg-slate-600"
+                  }`}>{gate.num}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{step.label}</p>
-                    <p className="text-xs text-muted-foreground">{step.desc}</p>
+                    <p className="text-sm font-semibold">{gate.label}</p>
+                    <p className="text-xs text-muted-foreground">{gate.desc}</p>
+                    {g?.detail && !g.error && <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">{g.detail}</p>}
+                    {g?.error && <p className="text-xs text-red-500 mt-0.5">{g.error}</p>}
+                    {g?.ts && <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(g.ts).toLocaleTimeString()}</p>}
                   </div>
-                  {ran && !pass && (
-                    <Badge variant="destructive" className="text-xs">Failed</Badge>
-                  )}
-                  {ran && pass && (
-                    <Badge className="bg-green-500 text-white text-xs">Pass</Badge>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={running === step.key}
-                    onClick={() => runStep(step)}
-                  >
-                    {running === step.key ? "Running…" : ran ? "Re-run" : "Run"}
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {ran && !isRunning && (
+                      <Badge variant={passed ? "default" : "destructive"} className={`text-xs ${passed ? "bg-green-500" : ""}`}>
+                        {passed ? "Pass" : "Fail"}
+                      </Badge>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isRunning || runningAll}
+                      onClick={() => runGate(gate.num)}
+                    >
+                      {isRunning ? "Running…" : ran ? "Re-run" : "Run"}
+                    </Button>
+                  </div>
                 </div>
               );
             })}
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={runAll} disabled={!!running}>
-              {running ? "Running…" : "Run All Steps"}
+            <Button onClick={runAll} disabled={runningAll || runningGate !== null}>
+              {runningAll ? "Verifying…" : "Run All 7 Gates"}
             </Button>
-            <Button variant="outline" onClick={loadStatus}>Refresh Status</Button>
+            <Button variant="outline" onClick={loadHealth} disabled={runningAll}>Refresh</Button>
           </div>
 
-          {status && (
+          {health && (
             <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-              <p>Trust Doc: <span className="font-mono">{status.trustDocUrl}</span></p>
-              <p>Webhook: <span className="font-mono">{status.webhookUrl}</span></p>
+              <p>Trust Doc: <span className="font-mono">{health.trustDocUrl}</span></p>
+              <p>Webhook: <span className="font-mono">{health.webhookUrl}</span></p>
+              {health.partnerClientId && <p>Partner Client ID: <span className="font-mono">{health.partnerClientId}</span></p>}
             </div>
           )}
         </CardContent>

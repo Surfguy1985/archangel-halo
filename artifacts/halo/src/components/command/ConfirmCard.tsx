@@ -70,9 +70,11 @@ interface ConfirmCardProps {
   actions: VoiceAction[];
   onConfirmed: (result: string) => void;
   onCancelled: () => void;
+  /** When true, renders SHADOW mode visual treatment — amber border, SHADOW chip, Preview label */
+  shadowMode?: boolean;
 }
 
-export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: ConfirmCardProps) {
+export function ConfirmCard({ logId, actions, onConfirmed, onCancelled, shadowMode }: ConfirmCardProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const confirm = useConfirmVoice();
@@ -81,6 +83,14 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
   if (dismissed) return null;
 
   const handleConfirm = async () => {
+    // SHADOW mode: non-mutating — show what would execute without making any server calls.
+    if (shadowMode) {
+      setDismissed(true);
+      onConfirmed(
+        `SHADOW preview — ${actions.map(a => TOOL_META[a.tool]?.label ?? a.tool).join(", ")} — no changes made`
+      );
+      return;
+    }
     try {
       await confirm.mutateAsync({
         data: {
@@ -115,8 +125,11 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
       className="w-full rounded-[20px] overflow-hidden mb-3"
       style={{
         background: "linear-gradient(160deg, #080F1E 0%, #060C18 100%)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
+        border: shadowMode ? "1px solid rgba(245,158,11,0.35)" : "1px solid rgba(255,255,255,0.06)",
+        borderLeft: shadowMode ? "3px solid rgba(245,158,11,0.65)" : undefined,
+        boxShadow: shadowMode
+          ? "0 8px 32px rgba(245,158,11,0.12), inset 0 1px 0 rgba(255,255,255,0.04)"
+          : "0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
       }}
     >
       {/* Header */}
@@ -124,7 +137,7 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
         <div className="w-7 h-7 rounded-[9px] bg-white/8 border border-white/12 grid place-items-center">
           <Sparkles className="w-3.5 h-3.5 text-white/70" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-white/55">
             HALO Proposal
           </div>
@@ -132,7 +145,17 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
             {actions.length} action{actions.length !== 1 ? "s" : ""} ready to confirm
           </div>
         </div>
+        {shadowMode && (
+          <div className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-[0.18em] uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+            SHADOW
+          </div>
+        )}
       </div>
+      {shadowMode && (
+        <div className="px-4 py-2 bg-amber-500/5 border-b border-amber-500/12">
+          <p className="text-[11px] text-amber-400/75">Proposed — not executed. SHADOW mode active.</p>
+        </div>
+      )}
 
       {/* Actions list */}
       <div className="px-4 py-3.5 space-y-2">
@@ -180,14 +203,18 @@ export function ConfirmCard({ logId, actions, onConfirmed, onCancelled }: Confir
         <button
           onClick={handleConfirm}
           disabled={confirm.isPending}
-          className="flex-1 flex items-center justify-center gap-2 rounded-[13px] bg-white text-[#0A0F1A] font-bold text-[13.5px] py-[11px] hover:bg-white/92 active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(255,255,255,0.12)] disabled:opacity-55"
+          className={`flex-1 flex items-center justify-center gap-2 rounded-[13px] font-bold text-[13.5px] py-[11px] active:scale-[0.97] transition-all disabled:opacity-55 ${
+            shadowMode
+              ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/22"
+              : "bg-white text-[#0A0F1A] hover:bg-white/92 shadow-[0_2px_12px_rgba(255,255,255,0.12)]"
+          }`}
         >
           {confirm.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Check className="w-4 h-4" strokeWidth={2.5} />
           )}
-          {confirm.isPending ? "Working…" : "Confirm"}
+          {confirm.isPending ? "Working…" : shadowMode ? "Preview" : "Confirm"}
         </button>
         <button
           onClick={handleCancel}
