@@ -94,12 +94,12 @@ function unitBoxCls(unit: UnitStatusRec): string {
 function statusPill(status: string): { cls: string; label: string } {
   switch (status) {
     case 'red':
-      return { cls: 'bg-[#f7e2de] text-[#96281b] border-[#e11d48]/20', label: 'Needs attention' };
+      return { cls: 'bg-[#e11d48] text-white border-[#be123c]', label: 'Needs attention' };
     case 'yellow':
-      return { cls: 'bg-[#f5f0d9] text-[#77610f] border-[#a86c14]/20', label: 'In progress' };
+      return { cls: 'bg-amber-500 text-white border-amber-600', label: 'In progress' };
     case 'green':
     default:
-      return { cls: 'bg-[#dcefe4] text-[#1f7a52] border-[#1f7a52]/20', label: 'All clear' };
+      return { cls: 'bg-[#1f7a52] text-white border-[#145236]', label: 'All clear' };
   }
 }
 
@@ -127,7 +127,7 @@ function UnitSlot({
 
   if (!unit) {
     return (
-      <div className="flex aspect-[5/4] items-center justify-center rounded-[12px] border-2 border-dashed border-black/10 bg-black/[0.02] shadow-inner" />
+      <div className="flex aspect-[5/4] items-center justify-center rounded-[12px] border-2 border-dashed border-[#101c33]/20 bg-[#101c33]/[0.04] shadow-inner" />
     );
   }
 
@@ -267,12 +267,12 @@ function UnitSummarySheet({
               </Button>
 
               {unit?.card && (
-                <div className="rounded-[16px] border border-black/10 bg-white p-4 shadow-sm space-y-3">
+                <div className="rounded-[16px] border border-[#101c33]/10 bg-[#101c33]/[0.03] p-4 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-[11px] font-[800] uppercase tracking-widest text-muted-foreground">Current job</h4>
+                    <h4 className="text-[11px] font-[800] uppercase tracking-widest text-[#101c33]/50">Current job</h4>
                     <span
                       className={`rounded-[6px] px-2 py-1 text-[10px] font-[800] uppercase tracking-wider ${
-                        RAIL_META[unit.card.rail]?.box ?? 'bg-black/5 text-[#101c33]'
+                        RAIL_META[unit.card.rail]?.box ?? 'bg-[#101c33] text-[#d8f84e]'
                       }`}
                       data-testid="text-unit-card-rail"
                     >
@@ -291,7 +291,7 @@ function UnitSummarySheet({
                   {(unit.card.services?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {unit.card.services!.map((s) => (
-                        <span key={s} className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-[700] text-[#101c33]">
+                        <span key={s} className="rounded-full bg-[#101c33] px-2.5 py-0.5 text-[11px] font-[700] text-[#d8f84e]">
                           {s}
                         </span>
                       ))}
@@ -312,7 +312,7 @@ function UnitSummarySheet({
                 </div>
               )}
               {data.summary && (
-                <div className="p-4 rounded-[12px] bg-black/[0.02] border border-black/5">
+                <div className="p-4 rounded-[12px] bg-[#101c33]/[0.05] border-l-4 border-[#B4FF44]">
                   <p className="text-[13px] font-[500] leading-relaxed text-[#101c33]">{data.summary}</p>
                 </div>
               )}
@@ -340,7 +340,7 @@ function UnitSummarySheet({
                         key={i}
                         variant="outline"
                         size="sm"
-                        className="h-9 gap-1.5 text-[11px] font-[800] uppercase tracking-wider rounded-[8px] bg-white hover:bg-black/5"
+                        className="h-9 gap-1.5 text-[11px] font-[800] uppercase tracking-wider rounded-[8px] bg-[#101c33]/5 border-[#101c33]/15 text-[#101c33] hover:bg-[#101c33]/10"
                         onClick={() => openLink(l.url)}
                       >
                         <ExternalLink className="h-3.5 w-3.5" /> {l.label}
@@ -635,21 +635,21 @@ export default function UnitsPage() {
 
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
         {/* Legend */}
-        <div className="mx-auto max-w-5xl mb-8 flex flex-wrap items-center gap-6 text-[12px] font-[700] text-[#101c33] bg-white p-4 rounded-[16px] shadow-sm border border-black/5">
+        <div className="mx-auto max-w-5xl mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-[12px] font-[700] bg-[#101c33] p-4 rounded-[16px] shadow-md">
           {Object.entries(RAIL_META).map(([key, meta]) => (
-            <span key={key} className="flex items-center gap-2">
+            <span key={key} className="flex items-center gap-2 text-white/80">
               <span className={`h-4 w-4 rounded-[4px] shadow-sm ${meta.dot}`} /> {meta.label}
             </span>
           ))}
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 text-white/80">
             <span className="h-4 w-4 rounded-[4px] bg-[#1f7a52] shadow-sm" /> All clear
           </span>
-          <span className="flex items-center gap-2">
-            <span className="h-4 w-4 rounded-[4px] border-2 border-dashed border-black/10 bg-black/[0.02]" />{' '}
+          <span className="flex items-center gap-2 text-white/50">
+            <span className="h-4 w-4 rounded-[4px] border-2 border-dashed border-white/25 bg-white/5" />{' '}
             Awaiting a unit
           </span>
-          <span className="ml-auto text-[11px] font-[800] uppercase tracking-widest text-muted-foreground bg-black/5 px-2 py-1 rounded-[6px]">
-            {filled} of {slots.length} slots
+          <span className="ml-auto text-[11px] font-[800] uppercase tracking-widest bg-[#d8f84e] text-[#101c33] px-2.5 py-1 rounded-[6px]">
+            {filled} / {slots.length}
           </span>
         </div>
 
@@ -678,8 +678,8 @@ export default function UnitsPage() {
           </div>
           {filled === 0 && !editing && (
             <div className="mt-16 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-black/5 flex items-center justify-center mb-4">
-                <LayoutGrid className="h-8 w-8 text-muted-foreground/50" />
+              <div className="w-16 h-16 bg-[#101c33] rounded-2xl shadow-md flex items-center justify-center mb-4">
+                <LayoutGrid className="h-8 w-8 text-[#d8f84e]" />
               </div>
               <h3 className="text-[16px] font-[800] text-[#101c33]">Your site map is empty</h3>
               <p className="mt-2 text-[14px] font-[500] text-muted-foreground max-w-md">
