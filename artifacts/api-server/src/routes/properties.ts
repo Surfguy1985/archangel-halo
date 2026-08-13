@@ -648,10 +648,29 @@ router.get("/catalog-items", async (_req, res): Promise<void> => {
   res.json(ListCatalogItemsResponse.parse(serList(rows)));
 });
 
+const duplicateCatalogItemError = (service: string) =>
+  `"${service}" is already in the master catalog. Edit the existing entry instead — two entries with the same name would clutter the import picker.`;
+
 router.post("/catalog-items", async (req, res): Promise<void> => {
   const body = CreateCatalogItemBody.parse(req.body);
-  const [row] = await db.insert(catalogItemsTable).values(body).returning();
-  res.status(201).json(CreateCatalogItemResponse.parse(ser(row)));
+  const service = body.service.trim();
+  if (!service) {
+    res.status(400).json({ error: "Service name is required" });
+    return;
+  }
+  try {
+    const [row] = await db
+      .insert(catalogItemsTable)
+      .values({ ...body, service })
+      .returning();
+    res.status(201).json(CreateCatalogItemResponse.parse(ser(row)));
+  } catch (err) {
+    if (isPriceItemDuplicate(err)) {
+      res.status(409).json({ error: duplicateCatalogItemError(service) });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.patch("/catalog-items/:id", async (req, res): Promise<void> => {
@@ -661,16 +680,24 @@ router.patch("/catalog-items/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "No fields to update" });
     return;
   }
-  const [row] = await db
-    .update(catalogItemsTable)
-    .set(body)
-    .where(eq(catalogItemsTable.id, id))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Catalog item not found" });
-    return;
+  try {
+    const [row] = await db
+      .update(catalogItemsTable)
+      .set(body.service != null ? { ...body, service: body.service.trim() } : body)
+      .where(eq(catalogItemsTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Catalog item not found" });
+      return;
+    }
+    res.json(UpdateCatalogItemResponse.parse(ser(row)));
+  } catch (err) {
+    if (isPriceItemDuplicate(err)) {
+      res.status(409).json({ error: duplicateCatalogItemError(body.service?.trim() ?? "This service") });
+      return;
+    }
+    throw err;
   }
-  res.json(UpdateCatalogItemResponse.parse(ser(row)));
 });
 
 router.delete("/catalog-items/:id", async (req, res): Promise<void> => {

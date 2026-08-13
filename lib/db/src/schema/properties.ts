@@ -42,17 +42,26 @@ export const propertiesTable = pgTable("properties", {
     .defaultNow(),
 });
 
-export const catalogItemsTable = pgTable("catalog_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  service: text("service").notNull(),
-  detail: text("detail"),
-  unit: text("unit"),
-  rate: doublePrecision("rate"),
-  category: text("category"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const catalogItemsTable = pgTable(
+  "catalog_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    service: text("service").notNull(),
+    detail: text("detail"),
+    unit: text("unit"),
+    rate: doublePrecision("rate"),
+    category: text("category"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // Import picker matches by service name — two catalog rows with the same
+    // name would create confusing near-duplicates. Case/whitespace-insensitive
+    // so "Make Ready" and " make ready " collide the same as price_items does.
+    uniqueIndex("catalog_items_service_uq").on(sql`lower(trim(${t.service}))`),
+  ],
+);
 
 export const contactsTable = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -64,6 +64,10 @@ function CatalogItemSheet({
   const update = useUpdateCatalogItem();
   const del = useDeleteCatalogItem();
   const pending = create.isPending || update.isPending;
+  const mutationError = create.error ?? update.error ?? del.error;
+  const errorMsg: string | null =
+    (mutationError as { data?: { error?: string } } | null)?.data?.error ??
+    (mutationError instanceof Error ? mutationError.message : null);
 
   const done = () => {
     queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey() });
@@ -160,7 +164,9 @@ function CatalogItemSheet({
             </button>
           )}
           {(create.isError || update.isError || del.isError) && (
-            <div className="text-[12.5px] text-destructive text-center mt-[10px]">Couldn't save. Try again.</div>
+            <div className="text-[12.5px] text-destructive text-center mt-[10px]">
+              {errorMsg ?? "Couldn't save. Try again."}
+            </div>
           )}
         </div>
       </SheetContent>
