@@ -67,6 +67,7 @@ import { FalkonNetworkPulse } from "@/components/FalkonNetworkPulse";
 import { DecisionPacket } from "@/components/command/DecisionPacket";
 import { ConfirmCard } from "@/components/command/ConfirmCard";
 import { LensCard, type LensType } from "@/components/command/LensCard";
+import { BriefingCard, type BriefingData } from "@/components/command/BriefingCard";
 import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
 import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
 import type { VoiceAction } from "@workspace/api-client-react";
@@ -84,7 +85,9 @@ type TMsg =
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "walk-result"; items: { id: string; description: string }[]; summary: string }
-  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string };
+  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  // Structured rich messages injected by the command brain
+  | { id: string; kind: "briefing"; data: BriefingData };
 
 // ─── Module-level thread persistence ─────────────────────────────────────────
 
@@ -536,6 +539,51 @@ export default function HaloCommand() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Briefing injection on first load ──────────────────────────────────────
+  // Runs once when brainReady becomes true. If the thread is still empty
+  // (no history restored) fetches the daily briefing and injects it as the
+  // first message. A ref prevents double-injection on StrictMode remounts.
+  const briefingInjectedRef = useRef(false);
+  useEffect(() => {
+    if (!brainReady || briefingInjectedRef.current) return;
+    briefingInjectedRef.current = true;
+    apiFetch("/api/command/briefing")
+      .then((data: BriefingData) => {
+        setMessages(prev => {
+          // Skip injection if history was restored — don't overwrite real messages
+          if (prev.some(m => m.kind !== "briefing")) return prev;
+          return [{ id: `briefing-${data.date}`, kind: "briefing" as const, data }];
+        });
+      })
+      .catch(() => { /* non-fatal — briefing is a bonus, not required */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brainReady]);
+
+  // ── Briefing 60s auto-refresh (visibility-aware) ──────────────────────────
+  useEffect(() => {
+    if (!brainReady) return;
+    const refreshBriefing = () => {
+      if (document.hidden) return;
+      apiFetch("/api/command/briefing")
+        .then((data: BriefingData) => {
+          setMessages(prev => {
+            if (prev.length === 0 || prev[0].kind !== "briefing") return prev;
+            // Replace the briefing in-place, keep the same id for React stability
+            return [{ id: prev[0].id, kind: "briefing" as const, data }, ...prev.slice(1)];
+          });
+        })
+        .catch(() => {});
+    };
+    const interval = setInterval(refreshBriefing, 60_000);
+    const onVisibilityChange = () => { if (!document.hidden) refreshBriefing(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brainReady]);
+
   // ── Scroll ────────────────────────────────────────────────────────────────
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = useCallback(() => {
@@ -705,8 +753,8 @@ export default function HaloCommand() {
   const pendingCount = (autopilot ?? []).filter(a => a.status === "pending").length;
   const totalNeeds = nowCount + pendingCount;
 
-  // Seed state = no user messages yet
-  const hasThread = messages.some(m => m.kind === "user-msg");
+  // Seed state = no content yet. Briefing counts as content — show thread layout.
+  const hasThread = messages.some(m => m.kind === "user-msg" || m.kind === "briefing");
 
   // ── Render thread message ─────────────────────────────────────────────────
   const renderMsg = (msg: TMsg) => {
@@ -779,6 +827,14 @@ export default function HaloCommand() {
         );
       case "walk-result":
         return <WalkResultCard items={msg.items} summary={msg.summary} />;
+      case "briefing":
+        return (
+          <BriefingCard
+            data={msg.data}
+            shadowMode={falkonMode === "SHADOW"}
+            onPrompt={handleSubmit}
+          />
+        );
       default:
         return null;
     }

@@ -14,14 +14,15 @@
  */
 
 import { type Request, Router, type IRouter } from "express";
-import { eq, desc, and, isNull } from "drizzle-orm";
-import { db, haloConversationsTable, haloConversationMessagesTable } from "@workspace/db";
+import { eq, desc, and, isNull, gte } from "drizzle-orm";
+import { db, haloConversationsTable, haloConversationMessagesTable, autopilotActionsTable, invoicesTable, propertiesTable, jobsTable } from "@workspace/db";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
   runCommandBrain,
   type ConversationMessage,
 } from "../lib/commandBrain";
+import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -277,6 +278,218 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
       text: "I hit an unexpected error. Please try again.",
       messageId: null,
     });
+  }
+});
+
+// ─── Daily Briefing ───────────────────────────────────────────────────────────
+//
+// GET /command/briefing?role=executive
+// Returns a structured briefing object built from live DB data.
+
+router.get("/command/briefing", async (req, res): Promise<void> => {
+  try {
+    const now = new Date();
+    const hour = now.getHours();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [{ feed }, snapshot, pendingAutopilot, paidMtd] = await Promise.all([
+      computeQueues(),
+      buildSnapshot(),
+      db.select().from(autopilotActionsTable)
+        .where(eq(autopilotActionsTable.status, "pending"))
+        .orderBy(desc(autopilotActionsTable.createdAt)),
+      db.select({ amount: invoicesTable.amount })
+        .from(invoicesTable)
+        .where(and(
+          eq(invoicesTable.status, "paid"),
+          gte(invoicesTable.paidAt, monthStart),
+        )),
+    ]);
+
+    const greetWord = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    // ── Attention items from feed (tier=now/today) ──────────────────────────
+    const attentionFeed: FeedItem[] = feed.filter(f => f.tier === "now" || f.tier === "today").slice(0, 8);
+    const attentionItems = attentionFeed.map(f => ({
+      id: f.id,
+      label: f.title,
+      subtext: f.sub || undefined,
+      urgency: (f.tier === "now" ? "critical" : "warn") as "critical" | "warn" | "info",
+      entityType: f.entityType ?? undefined,
+      entityId: f.entityId ?? undefined,
+      action: f.actions?.[0] ? { label: f.actions[0].label, url: f.actions[0].action } : undefined,
+    }));
+
+    // ── Approval items from pending autopilot actions ──────────────────────
+    const approvalItems = pendingAutopilot.slice(0, 6).map(a => ({
+      id: a.id,
+      label: a.title,
+      subtext: a.body,
+      urgency: "warn" as const,
+      entityType: a.entityType ?? undefined,
+      entityId: a.entityId ?? undefined,
+    }));
+
+    // ── Sections ─────────────────────────────────────────────────────────────
+    type BriefingSectionKind = "attention" | "approvals" | "active_jobs" | "health" | "exceptions" | "economics";
+    type UrgencyLevel = "critical" | "warn" | "info";
+    interface BriefingItemShape {
+      id: string; label: string; subtext?: string;
+      urgency: UrgencyLevel;
+      action?: { label: string; url: string };
+      entityType?: string; entityId?: string;
+    }
+    interface BriefingSectionShape {
+      kind: BriefingSectionKind; title: string; badge?: number;
+      items: BriefingItemShape[]; summary?: string;
+    }
+    const sections: BriefingSectionShape[] = [];
+
+    if (attentionItems.length > 0) {
+      sections.push({
+        kind: "attention",
+        title: "Needs Your Attention",
+        badge: attentionItems.length,
+        items: attentionItems,
+        summary: `${attentionItems.length} item${attentionItems.length !== 1 ? "s" : ""} flagged`,
+      });
+    }
+    if (approvalItems.length > 0) {
+      sections.push({
+        kind: "approvals",
+        title: "Waiting for Approval",
+        badge: approvalItems.length,
+        items: approvalItems,
+        summary: `${approvalItems.length} action${approvalItems.length !== 1 ? "s" : ""} pending`,
+      });
+    }
+    sections.push({
+      kind: "health",
+      title: "Business Health",
+      badge: snapshot.jobs.overBudget > 0 ? snapshot.jobs.overBudget : undefined,
+      items: [],
+      summary: `${snapshot.jobs.open} active job${snapshot.jobs.open !== 1 ? "s" : ""}, ${snapshot.jobs.overBudget} over budget`,
+    });
+
+    // ── Economics ────────────────────────────────────────────────────────────
+    const mtdRevenue = paidMtd.reduce((s, i) => s + (i.amount ?? 0), 0);
+    const economics = {
+      mtdRevenue,
+      mtdCollected: mtdRevenue,
+      openReceivables: snapshot.invoices.totalReceivables,
+      activeJobCount: snapshot.jobs.open,
+      avgMarginPct: snapshot.margin.avgMarginPct ?? 0,
+      flaggedJobs: snapshot.jobs.overBudget,
+    };
+
+    // ── Suggested prompts (time-aware) ───────────────────────────────────────
+    const prompts = hour < 12
+      ? ["Who's checked in today?", "Show invoices waiting for payment", "Any jobs over budget?", "Approve everything safe"]
+      : ["What needs my attention?", "Show pending approvals", "How are we doing this month?", "Which jobs need crew?"];
+
+    res.json({
+      greeting: `${greetWord}. Here's what needs you.`,
+      date: now.toISOString().slice(0, 10),
+      sections,
+      economics,
+      suggestedPrompts: prompts,
+    });
+  } catch (err) {
+    logger.error({ err }, "command: briefing failed");
+    res.status(500).json({ error: "Failed to build briefing" });
+  }
+});
+
+// ─── Attention Queue ──────────────────────────────────────────────────────────
+//
+// GET /command/attention
+// Returns prioritized attention items: overdue invoices, over-budget jobs,
+// uncrewed jobs, GPS gaps, pending autopilot, Falkon failures — sorted by urgency.
+
+router.get("/command/attention", async (req, res): Promise<void> => {
+  try {
+    const [{ feed }, pendingAutopilot] = await Promise.all([
+      computeQueues(),
+      db.select().from(autopilotActionsTable)
+        .where(eq(autopilotActionsTable.status, "pending"))
+        .orderBy(desc(autopilotActionsTable.createdAt)),
+    ]);
+
+    type UrgencyLevel = "critical" | "warn" | "info";
+    const attentionItems = [
+      // From feed: now tier = critical, today tier = warn, week = info
+      ...feed.filter(f => f.tier === "now" || f.tier === "today" || f.tier === "week").map(f => ({
+        id: f.id,
+        label: f.title,
+        subtext: f.sub || undefined,
+        urgency: (f.tier === "now" ? "critical" : f.tier === "today" ? "warn" : "info") as UrgencyLevel,
+        queue: f.queue,
+        amount: f.amount ?? undefined,
+        entityType: f.entityType ?? undefined,
+        entityId: f.entityId ?? undefined,
+        action: f.actions?.[0] ? { label: f.actions[0].label, url: f.actions[0].action } : undefined,
+      })),
+      // Pending autopilot as info-level attention
+      ...pendingAutopilot.map(a => ({
+        id: `ap-${a.id}`,
+        label: a.title,
+        subtext: a.body,
+        urgency: "warn" as UrgencyLevel,
+        queue: "autopilot",
+        amount: undefined,
+        entityType: a.entityType ?? undefined,
+        entityId: a.entityId ?? undefined,
+        action: undefined,
+      })),
+    ];
+
+    // Sort: critical → warn → info
+    const urgencyOrder: Record<UrgencyLevel, number> = { critical: 0, warn: 1, info: 2 };
+    attentionItems.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency]);
+
+    res.json({ items: attentionItems, total: attentionItems.length });
+  } catch (err) {
+    logger.error({ err }, "command: attention failed");
+    res.status(500).json({ error: "Failed to build attention queue" });
+  }
+});
+
+// ─── Approval Queue ───────────────────────────────────────────────────────────
+//
+// GET /command/approvals
+// Returns pending approvals with full context for inline approve/reject.
+
+router.get("/command/approvals", async (req, res): Promise<void> => {
+  try {
+    const pendingActions = await db.select()
+      .from(autopilotActionsTable)
+      .where(eq(autopilotActionsTable.status, "pending"))
+      .orderBy(desc(autopilotActionsTable.createdAt));
+
+    const approvals = pendingActions.map(a => {
+      // Derive risk level from kind
+      const highRiskKinds = new Set(["crew_pay", "invoice_send", "falkon_capability"]);
+      const lowRiskKinds = new Set(["schedule_offer", "schedule_reminder", "follow_up"]);
+      const riskLevel: "low" | "medium" | "high" =
+        highRiskKinds.has(a.kind) ? "high" : lowRiskKinds.has(a.kind) ? "low" : "medium";
+
+      return {
+        id: a.id,
+        kind: a.kind,
+        title: a.title,
+        entityLabel: a.entityId ? `${a.entityType}:${a.entityId}` : a.entityType,
+        riskLevel,
+        context: a.body,
+        approveUrl: `/api/autopilot/actions/${a.id}/approve`,
+        rejectUrl: `/api/autopilot/actions/${a.id}/dismiss`,
+        createdAt: a.createdAt?.toISOString(),
+      };
+    });
+
+    res.json({ approvals, total: approvals.length });
+  } catch (err) {
+    logger.error({ err }, "command: approvals failed");
+    res.status(500).json({ error: "Failed to build approval queue" });
   }
 });
 

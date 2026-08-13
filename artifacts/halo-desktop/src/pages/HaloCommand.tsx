@@ -61,6 +61,7 @@ import { VoiceCaptureDialog } from "@/components/VoiceCaptureDialog";
 import { DecisionPacket } from "@/components/command/DecisionPacket";
 import { ConfirmCard } from "@/components/command/ConfirmCard";
 import { LensCard, type LensType } from "@/components/command/LensCard";
+import { BriefingCard, type BriefingData } from "@/components/command/BriefingCard";
 import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
 import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
 import type { VoiceAction } from "@workspace/api-client-react";
@@ -77,7 +78,9 @@ type TMsg =
   | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string };
+  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  // Structured rich messages injected by the command brain
+  | { id: string; kind: "briefing"; data: BriefingData };
 
 // ─── Module-level persistence ─────────────────────────────────────────────────
 
@@ -485,6 +488,46 @@ export default function HaloCommand() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Briefing injection on first load ──────────────────────────────────────
+  const briefingInjectedRef = useRef(false);
+  useEffect(() => {
+    if (!brainReady || briefingInjectedRef.current) return;
+    briefingInjectedRef.current = true;
+    apiFetch("/api/command/briefing")
+      .then((data: BriefingData) => {
+        setMessages(prev => {
+          if (prev.some(m => m.kind !== "briefing")) return prev;
+          return [{ id: `briefing-${data.date}`, kind: "briefing" as const, data }];
+        });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brainReady]);
+
+  // ── Briefing 60s auto-refresh (visibility-aware) ──────────────────────────
+  useEffect(() => {
+    if (!brainReady) return;
+    const refreshBriefing = () => {
+      if (document.hidden) return;
+      apiFetch("/api/command/briefing")
+        .then((data: BriefingData) => {
+          setMessages(prev => {
+            if (prev.length === 0 || prev[0].kind !== "briefing") return prev;
+            return [{ id: prev[0].id, kind: "briefing" as const, data }, ...prev.slice(1)];
+          });
+        })
+        .catch(() => {});
+    };
+    const interval = setInterval(refreshBriefing, 60_000);
+    const onVisibilityChange = () => { if (!document.hidden) refreshBriefing(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brainReady]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
@@ -645,7 +688,8 @@ export default function HaloCommand() {
   const pendingCount = (autopilot ?? []).filter(a => a.status === "pending").length;
   const totalNeeds = nowCount + pendingCount;
 
-  const hasThread = messages.some(m => m.kind === "user-msg");
+  // Seed state = no content yet. Briefing counts as content — show thread layout.
+  const hasThread = messages.some(m => m.kind === "user-msg" || m.kind === "briefing");
 
   const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
@@ -711,6 +755,14 @@ export default function HaloCommand() {
             <AlertCircle className="w-[15px] h-[15px] text-[#E11D48] shrink-0" />
             <span className="text-[13.5px] text-[#E11D48]/85">{msg.text}</span>
           </div>
+        );
+      case "briefing":
+        return (
+          <BriefingCard
+            data={msg.data}
+            shadowMode={falkonMode === "SHADOW"}
+            onPrompt={handleSubmit}
+          />
         );
       default: return null;
     }
