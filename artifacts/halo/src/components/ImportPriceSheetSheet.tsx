@@ -132,6 +132,25 @@ export function ImportPriceSheetSheet({
         }
         return;
       }
+      // Excel spreadsheets → convert every sheet to CSV text.
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+        const XLSX = await import("xlsx");
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sections = wb.SheetNames.map((name) => {
+          const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+          return `# Sheet: ${name}\n${csv}`;
+        });
+        const content = sections.join("\n\n");
+        if (!content.trim()) throw new Error("empty spreadsheet");
+        const result = await extract.mutateAsync({
+          id: propertyId,
+          data: { content, filename: file.name },
+        });
+        applyRows(result.rows, result.summary ?? null);
+        return;
+      }
       // CSV / TSV / TXT
       const content = await file.text();
       if (!content.trim()) throw new Error("empty file");
@@ -143,7 +162,7 @@ export function ImportPriceSheetSheet({
     } catch {
       toast({
         title: "Couldn't read that file",
-        description: "Supported: PDF, CSV, TXT, or a photo of the price sheet.",
+        description: "Supported: PDF, CSV, TXT, Excel (.xlsx/.xls), or a photo of the price sheet.",
         variant: "destructive",
       });
     } finally {
@@ -209,7 +228,7 @@ export function ImportPriceSheetSheet({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,.heic,.heif,.pdf,.csv,.txt,.tsv"
+                accept="image/*,.heic,.heif,.pdf,.csv,.txt,.tsv,.xlsx,.xls"
                 className="hidden"
                 onChange={onFilePicked}
                 data-testid="input-price-sheet-file"
@@ -231,7 +250,7 @@ export function ImportPriceSheetSheet({
                     <div className="text-[14px] font-semibold text-[var(--ink)]">
                       Upload price sheet
                     </div>
-                    <div className="text-[12px]">PDF, CSV, or a photo</div>
+                    <div className="text-[12px]">PDF, CSV, Excel, or a photo</div>
                   </>
                 )}
               </button>
