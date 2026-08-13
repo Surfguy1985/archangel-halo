@@ -14,14 +14,33 @@
  */
 
 import { type Request, Router, type IRouter } from "express";
-import { eq, desc, and, isNull, gte } from "drizzle-orm";
-import { db, haloConversationsTable, haloConversationMessagesTable, autopilotActionsTable, invoicesTable, propertiesTable, jobsTable } from "@workspace/db";
+import { eq, desc, and, isNull, gte, inArray, lt } from "drizzle-orm";
+import {
+  db,
+  haloConversationsTable,
+  haloConversationMessagesTable,
+  autopilotActionsTable,
+  invoicesTable,
+  propertiesTable,
+  jobsTable,
+  expensesTable,
+  crewPhotosTable,
+  crewCheckinsTable,
+  crewsTable,
+  jobLineItemsTable,
+  activitiesTable,
+  vendorsTable,
+  cleaningChecklistsTable,
+  jobChecklistsTable,
+} from "@workspace/db";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
   runCommandBrain,
   type ConversationMessage,
 } from "../lib/commandBrain";
+import { JOB_CHECKLIST_ITEMS_FLAT } from "../lib/jobChecklists";
+import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
 
@@ -243,8 +262,38 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
       }),
     ]);
 
+    // Entity context — pass to brain so it can scope answers and lens kinds
+    const entityContext = conv.entityType && conv.entityId
+      ? { entityType: conv.entityType, entityId: conv.entityId }
+      : null;
+
     // Run the brain
-    const brainResponse = await runCommandBrain(message.trim(), role, history, snapshot);
+    const brainResponse = await runCommandBrain(message.trim(), role, history, snapshot, entityContext);
+
+    // Authoritatively enforce entity ID for entity-scoped conversations.
+    // Compatible lens kinds per entity type — server validates and overrides.
+    const ENTITY_TYPE_LENS_MAP: Record<string, string[]> = {
+      job: ["turn_timeline", "budget_breakdown", "photo_evidence", "inspection_checklist"],
+      property: ["property_status"],
+      invoice: ["invoice_detail"],
+      vendor: ["vendor_profile"],
+    };
+    const ENTITY_SCOPED_LENS_KINDS = new Set([
+      "property_status", "turn_timeline", "budget_breakdown", "photo_evidence",
+      "inspection_checklist", "invoice_detail", "vendor_profile",
+    ]);
+    if (brainResponse.type === "lens" && entityContext && brainResponse.lensKind) {
+      const compatible = (ENTITY_TYPE_LENS_MAP[entityContext.entityType] ?? []).includes(brainResponse.lensKind);
+      if (compatible) {
+        // Always use conversation entity ID — never trust AI-supplied value
+        brainResponse.entityId = entityContext.entityId;
+      } else if (ENTITY_SCOPED_LENS_KINDS.has(brainResponse.lensKind)) {
+        // Entity-scoped lens kind but wrong entity type — downgrade to answer
+        brainResponse.type = "answer";
+        brainResponse.lensKind = undefined;
+        brainResponse.entityId = undefined;
+      }
+    }
 
     // Save assistant response
     const [saved] = await db
@@ -490,6 +539,450 @@ router.get("/command/approvals", async (req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "command: approvals failed");
     res.status(500).json({ error: "Failed to build approval queue" });
+  }
+});
+
+// ─── Lens aggregator endpoints ────────────────────────────────────────────────
+
+/**
+ * GET /command/lens/property-status/:propertyId
+ * Aggregated property snapshot for the PropertyStatusLens card.
+ */
+router.get("/command/lens/property-status/:propertyId", async (req, res): Promise<void> => {
+  const { propertyId } = req.params;
+  try {
+    const [property] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1);
+    if (!property) { res.status(404).json({ error: "Property not found" }); return; }
+
+    const jobs = await db.select({
+      id: jobsTable.id,
+      unitNo: jobsTable.unitNo,
+      status: jobsTable.status,
+      boardStatus: jobsTable.boardStatus,
+      scheduledOn: jobsTable.scheduledOn,
+    })
+      .from(jobsTable)
+      .where(and(eq(jobsTable.propertyId, propertyId), isNull(jobsTable.clearedAt)));
+
+    const jobIds = jobs.map(j => j.id);
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    // Open (unpaid) invoices receivable
+    const openInvRows = await db.select({ amount: invoicesTable.amount, status: invoicesTable.status })
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.propertyId, propertyId)));
+    const openReceivables = openInvRows
+      .filter((r) => !["paid", "cancelled", "void"].includes(r.status ?? ""))
+      .reduce((s: number, r: { amount: number }) => s + r.amount, 0);
+
+    // Today's crew check-ins
+    let crewOnSite: Array<{ name: string | null; checkedInAt: string }> = [];
+    if (jobIds.length > 0) {
+      const checkins = await db.select({
+        crewId: crewCheckinsTable.crewId,
+        kind: crewCheckinsTable.kind,
+        createdAt: crewCheckinsTable.createdAt,
+        crewName: crewsTable.name,
+      })
+        .from(crewCheckinsTable)
+        .leftJoin(crewsTable, eq(crewCheckinsTable.crewId, crewsTable.id))
+        .where(and(inArray(crewCheckinsTable.jobId, jobIds), gte(crewCheckinsTable.createdAt, todayStart)))
+        .orderBy(desc(crewCheckinsTable.createdAt));
+
+      // Most recent action per crew — if latest is checkin, they're on site
+      const crewLatest = new Map<string, typeof checkins[0]>();
+      for (const c of checkins) {
+        if (!crewLatest.has(c.crewId)) crewLatest.set(c.crewId, c);
+      }
+      crewOnSite = [...crewLatest.values()]
+        .filter(c => c.kind === "checkin")
+        .map(c => ({ name: c.crewName, checkedInAt: c.createdAt?.toISOString() ?? "" }));
+    }
+
+    // Last walk activity
+    const lastWalkRows = await db.select({ body: activitiesTable.body, createdAt: activitiesTable.createdAt })
+      .from(activitiesTable)
+      .where(and(eq(activitiesTable.entityType, "property"), eq(activitiesTable.entityId, propertyId), eq(activitiesTable.kind, "walk_complete")))
+      .orderBy(desc(activitiesTable.createdAt))
+      .limit(1);
+
+    const activeJobs = jobs.filter(j => !["complete", "paid", "cancelled"].includes(j.status));
+    const overdueJobs = activeJobs.filter(j => j.scheduledOn && j.scheduledOn < todayStr);
+
+    res.json({
+      property: { id: property.id, name: property.name, city: (property as Record<string, unknown>).city ?? null, address: (property as Record<string, unknown>).address ?? null },
+      stats: {
+        totalUnits: (property as Record<string, unknown>).units ?? 0,
+        activeJobs: activeJobs.length,
+        overdueJobs: overdueJobs.length,
+        totalJobs: jobs.length,
+      },
+      crewOnSite,
+      openReceivables,
+      lastWalk: lastWalkRows[0] ? {
+        date: lastWalkRows[0].createdAt?.toISOString(),
+        note: lastWalkRows[0].body,
+      } : null,
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/property-status failed");
+    res.status(500).json({ error: "Failed to load property status" });
+  }
+});
+
+/**
+ * GET /command/lens/turn-timeline/:jobId
+ * Job timeline + budget summary for the TurnTimelineLens card.
+ */
+router.get("/command/lens/turn-timeline/:jobId", async (req, res): Promise<void> => {
+  const { jobId } = req.params;
+  try {
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    const [property] = job.propertyId
+      ? await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, job.propertyId)).limit(1)
+      : [null];
+
+    const [crew] = job.crewLeaderId
+      ? await db.select({ id: crewsTable.id, name: crewsTable.name }).from(crewsTable).where(eq(crewsTable.id, job.crewLeaderId)).limit(1)
+      : [null];
+
+    // Today's check-in for this job
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayCheckins = await db.select({ kind: crewCheckinsTable.kind, createdAt: crewCheckinsTable.createdAt })
+      .from(crewCheckinsTable)
+      .where(and(eq(crewCheckinsTable.jobId, jobId), gte(crewCheckinsTable.createdAt, todayStart)))
+      .orderBy(desc(crewCheckinsTable.createdAt));
+
+    const latestCheckin = todayCheckins[0];
+    const crewOnSite = latestCheckin?.kind === "checkin"
+      ? { name: crew?.name ?? null, checkedInAt: latestCheckin.createdAt?.toISOString() ?? null }
+      : null;
+
+    // Approved expenses total (actual spend)
+    const expenseRows = await db.select({ amount: expensesTable.amount })
+      .from(expensesTable)
+      .where(and(eq(expensesTable.jobId, jobId), eq(expensesTable.approvalStatus, "approved")));
+    const spent = expenseRows.reduce((s: number, e: { amount: number }) => s + e.amount, 0);
+
+    // Line items total (quoted)
+    const lineItems = await db.select({ rate: jobLineItemsTable.rate, qty: jobLineItemsTable.qty })
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, jobId));
+    const quoted = lineItems.reduce((s: number, li: { rate: number; qty: number }) => s + li.rate * li.qty, 0);
+
+    // Recent photos (latest 6)
+    const photos = await db.select({ storagePath: crewPhotosTable.storagePath, phase: crewPhotosTable.phase, createdAt: crewPhotosTable.createdAt })
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.jobId, jobId))
+      .orderBy(desc(crewPhotosTable.createdAt))
+      .limit(6);
+
+    // Last activity for this job
+    const lastActivities = await db.select({ kind: activitiesTable.kind, body: activitiesTable.body, createdAt: activitiesTable.createdAt })
+      .from(activitiesTable)
+      .where(and(eq(activitiesTable.entityType, "job"), eq(activitiesTable.entityId, jobId)))
+      .orderBy(desc(activitiesTable.createdAt))
+      .limit(1);
+
+    // Timeline events (latest 5)
+    const timelineEvents = await db.select({ kind: activitiesTable.kind, body: activitiesTable.body, createdAt: activitiesTable.createdAt })
+      .from(activitiesTable)
+      .where(and(eq(activitiesTable.entityType, "job"), eq(activitiesTable.entityId, jobId)))
+      .orderBy(desc(activitiesTable.createdAt))
+      .limit(5);
+
+    res.json({
+      job: {
+        id: job.id,
+        jobNo: job.jobNo,
+        unitNo: job.unitNo,
+        category: job.category,
+        status: job.status,
+        boardStatus: job.boardStatus,
+        scheduledOn: job.scheduledOn,
+        propertyName: property?.name ?? null,
+      },
+      crew: crewOnSite,
+      budget: { quoted, spent, remaining: Math.max(0, quoted - spent) },
+      photos: photos.map(p => ({
+        url: `/api/storage${p.storagePath}`,
+        phase: p.phase,
+        takenAt: p.createdAt?.toISOString(),
+      })),
+      lastActivity: lastActivities[0]
+        ? { label: lastActivities[0].body ?? lastActivities[0].kind, at: lastActivities[0].createdAt?.toISOString() }
+        : null,
+      timeline: timelineEvents.map(e => ({ kind: e.kind, label: e.body ?? e.kind, at: e.createdAt?.toISOString() })),
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/turn-timeline failed");
+    res.status(500).json({ error: "Failed to load turn timeline" });
+  }
+});
+
+/**
+ * GET /command/lens/budget/:jobId
+ * Detailed budget breakdown for the BudgetBreakdownLens card.
+ */
+router.get("/command/lens/budget/:jobId", async (req, res): Promise<void> => {
+  const { jobId } = req.params;
+  try {
+    const [job] = await db.select({
+      id: jobsTable.id,
+      jobNo: jobsTable.jobNo,
+      unitNo: jobsTable.unitNo,
+      marginPct: jobsTable.marginPct,
+    }).from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    const lineItems = await db.select({ service: jobLineItemsTable.service, rate: jobLineItemsTable.rate, qty: jobLineItemsTable.qty })
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, jobId));
+
+    const expenses = await db.select({ category: expensesTable.category, amount: expensesTable.amount })
+      .from(expensesTable)
+      .where(and(eq(expensesTable.jobId, jobId), eq(expensesTable.approvalStatus, "approved")));
+
+    const quoted = lineItems.reduce((s: number, li: { rate: number; qty: number }) => s + li.rate * li.qty, 0);
+    const spent = expenses.reduce((s: number, e: { amount: number }) => s + e.amount, 0);
+
+    // Group expenses by category
+    const byCat: Record<string, number> = {};
+    for (const e of expenses) {
+      const cat = e.category ?? "Other";
+      byCat[cat] = (byCat[cat] ?? 0) + e.amount;
+    }
+
+    // Group line items by service (simplified categories)
+    const byService: Record<string, number> = {};
+    for (const li of lineItems) {
+      const svc = li.service ?? "Other";
+      byService[svc] = (byService[svc] ?? 0) + li.rate * li.qty;
+    }
+
+    // Build category comparison
+    const allKeys = new Set([...Object.keys(byService), ...Object.keys(byCat)]);
+    const categories = [...allKeys].map(key => ({
+      label: key,
+      quoted: byService[key] ?? 0,
+      actual: byCat[key] ?? 0,
+      variance: (byCat[key] ?? 0) - (byService[key] ?? 0),
+    }));
+
+    const variancePct = quoted > 0 ? ((spent - quoted) / quoted) * 100 : 0;
+    const marginPct = job.marginPct ?? null;
+
+    res.json({
+      jobId,
+      jobLabel: job.unitNo ? `Unit ${job.unitNo}` : job.jobNo,
+      quoted,
+      spent,
+      variance: spent - quoted,
+      variancePct,
+      marginPct: marginPct !== null ? marginPct * 100 : null,
+      categories,
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/budget failed");
+    res.status(500).json({ error: "Failed to load budget breakdown" });
+  }
+});
+
+/**
+ * GET /command/lens/vendor/:vendorId
+ * Vendor profile summary for the VendorProfileLens card.
+ */
+router.get("/command/lens/vendor/:vendorId", async (req, res): Promise<void> => {
+  const { vendorId } = req.params;
+  try {
+    const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, vendorId)).limit(1);
+    if (!vendor) { res.status(404).json({ error: "Vendor not found" }); return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const compliant = !vendor.coiExpiresOn || vendor.coiExpiresOn >= today;
+
+    res.json({
+      vendor: {
+        id: vendor.id,
+        name: vendor.name,
+        trade: vendor.trade,
+        email: vendor.email,
+        phone: vendor.phone,
+        coiExpiresOn: vendor.coiExpiresOn,
+        compliant,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/vendor failed");
+    res.status(500).json({ error: "Failed to load vendor profile" });
+  }
+});
+
+/**
+ * GET /command/lens/invoice-detail/:invoiceId
+ * Invoice detail for the InvoiceDetailLens card.
+ */
+router.get("/command/lens/invoice-detail/:invoiceId", async (req, res): Promise<void> => {
+  const { invoiceId } = req.params;
+  try {
+    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, invoiceId)).limit(1);
+    if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+    const [property] = invoice.propertyId
+      ? await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, invoice.propertyId)).limit(1)
+      : [null];
+
+    const today = new Date();
+    const overdayDays = invoice.dueAt && invoice.status !== "paid"
+      ? Math.floor((today.getTime() - new Date(invoice.dueAt).getTime()) / 86400000)
+      : null;
+
+    res.json({
+      invoice: {
+        id: invoice.id,
+        invoiceNo: (invoice as Record<string, unknown>).invoiceNo ?? null,
+        status: invoice.status,
+        amount: invoice.amount,
+        taxAmount: (invoice as Record<string, unknown>).taxAmount ?? 0,
+        dueAt: invoice.dueAt?.toISOString() ?? null,
+        sentAt: invoice.sentAt?.toISOString() ?? null,
+        paidAt: invoice.paidAt?.toISOString() ?? null,
+        propertyName: property?.name ?? null,
+        overdayDays: overdayDays && overdayDays > 0 ? overdayDays : null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/invoice-detail failed");
+    res.status(500).json({ error: "Failed to load invoice detail" });
+  }
+});
+
+/**
+ * GET /command/lens/job-checklist/:jobId
+ * Real checklist completion state from cleaning_checklists + job_checklists tables.
+ */
+router.get("/command/lens/job-checklist/:jobId", async (req, res): Promise<void> => {
+  const { jobId } = req.params;
+  try {
+    // Canonical item counts from the registered templates
+    const CLEANING_TOTAL = CLEANING_CHECKLIST.reduce((s, sec) => s + sec.items.length, 0);
+    const TRADE_TOTALS: Record<string, number> = {
+      carpet: (JOB_CHECKLIST_ITEMS_FLAT["carpet"] ?? []).length,
+      make_ready: (JOB_CHECKLIST_ITEMS_FLAT["make_ready"] ?? []).length,
+      painting: (JOB_CHECKLIST_ITEMS_FLAT["painting"] ?? []).length,
+    };
+
+    const [cleaningRows, tradeRows] = await Promise.all([
+      db.select({
+        id: cleaningChecklistsTable.id,
+        crewId: cleaningChecklistsTable.crewId,
+        checkedItems: cleaningChecklistsTable.checkedItems,
+        signedOffAt: cleaningChecklistsTable.signedOffAt,
+      }).from(cleaningChecklistsTable).where(eq(cleaningChecklistsTable.jobId, jobId)),
+      db.select({
+        id: jobChecklistsTable.id,
+        crewId: jobChecklistsTable.crewId,
+        checklistType: jobChecklistsTable.checklistType,
+        checkedItems: jobChecklistsTable.checkedItems,
+        signedOffAt: jobChecklistsTable.signedOffAt,
+        agreedAt: jobChecklistsTable.agreedAt,
+      }).from(jobChecklistsTable).where(eq(jobChecklistsTable.jobId, jobId)),
+    ]);
+
+    const checklists = [
+      ...cleaningRows.map((r) => {
+        const items = Array.isArray(r.checkedItems) ? r.checkedItems as Array<{ id: string }> : [];
+        return {
+          type: "cleaning" as const,
+          checkedCount: items.length,
+          totalCount: CLEANING_TOTAL,
+          signedOff: !!r.signedOffAt,
+          agreedAt: null as string | null,
+        };
+      }),
+      ...tradeRows.map((r) => {
+        const items = Array.isArray(r.checkedItems) ? r.checkedItems as Array<{ id: string }> : [];
+        const totalCount = TRADE_TOTALS[r.checklistType] ?? (JOB_CHECKLIST_ITEMS_FLAT[r.checklistType as keyof typeof JOB_CHECKLIST_ITEMS_FLAT] ?? []).length;
+        return {
+          type: r.checklistType,
+          checkedCount: items.length,
+          totalCount,
+          signedOff: !!r.signedOffAt,
+          agreedAt: r.agreedAt?.toISOString() ?? null,
+        };
+      }),
+    ];
+
+    const totalItems = checklists.reduce((s, c) => s + c.totalCount, 0);
+    const checkedItems = checklists.reduce((s, c) => s + c.checkedCount, 0);
+    const allSignedOff = checklists.length > 0 && checklists.every((c) => c.signedOff);
+
+    res.json({
+      jobId,
+      checklists,
+      summary: {
+        totalItems: totalItems || 0,
+        checkedItems: checkedItems || 0,
+        allSignedOff,
+        hasChecklists: checklists.length > 0,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/job-checklist failed");
+    res.status(500).json({ error: "Failed to load job checklist" });
+  }
+});
+
+/**
+ * GET /command/activity-since
+ * Activity log entries filtered by entity + date, for change-since queries.
+ * Query params: entityType, entityId, since (ISO date)
+ */
+router.get("/command/activity-since", async (req, res): Promise<void> => {
+  const { entityType, entityId, since } = req.query as Record<string, string | undefined>;
+
+  try {
+    const conditions = [];
+    if (entityType) conditions.push(eq(activitiesTable.entityType, entityType));
+    if (entityId) conditions.push(eq(activitiesTable.entityId, entityId));
+    if (since) {
+      const sinceDate = new Date(since);
+      if (!isNaN(sinceDate.getTime())) {
+        conditions.push(gte(activitiesTable.createdAt, sinceDate));
+      }
+    }
+
+    const rows = await db.select({
+      id: activitiesTable.id,
+      kind: activitiesTable.kind,
+      body: activitiesTable.body,
+      entityType: activitiesTable.entityType,
+      entityId: activitiesTable.entityId,
+      createdAt: activitiesTable.createdAt,
+    })
+      .from(activitiesTable)
+      .where(conditions.length > 0 ? and(...conditions as [typeof conditions[0], ...typeof conditions]) : undefined)
+      .orderBy(desc(activitiesTable.createdAt))
+      .limit(100);
+
+    res.json({
+      activities: rows.map(a => ({
+        id: a.id,
+        kind: a.kind,
+        body: a.body,
+        entityType: a.entityType,
+        entityId: a.entityId,
+        at: a.createdAt?.toISOString(),
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "command: activity-since failed");
+    res.status(500).json({ error: "Failed to load activity log" });
   }
 });
 

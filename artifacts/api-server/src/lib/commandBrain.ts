@@ -79,7 +79,9 @@ export interface BrainResponse {
   /** Always present — the natural language response text */
   text: string;
   /** Set when type === 'lens' — which lens to open */
-  lensKind?: "portfolio" | "timeline" | "money" | "evidence" | "network" | "map";
+  lensKind?: "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map" | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist";
+  /** Set when type === 'lens' and lens is entity-scoped — the entity UUID for the API call */
+  entityId?: string;
   /** Set when a proposed action is in SHADOW mode */
   shadowLabel?: string;
   /** Data citations shown below the response bubble */
@@ -337,7 +339,8 @@ export function buildSuggestedPrompts(
 const BRAIN_RESPONSE_SCHEMA = `{
   "type": "answer" | "lens" | "voice_action" | "error",
   "text": "string — your natural language response, always present",
-  "lensKind": "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | null,
+  "lensKind": "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map" | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist" | null,
+  "entityId": "string UUID or null — required when lensKind is entity-scoped (property_status/turn_timeline/budget_breakdown/invoice_detail/vendor_profile/photo_evidence/inspection_checklist); the entity's database UUID",
   "shadowLabel": "string or null — set only for proposed actions in SHADOW mode",
   "sources": [{ "label": "string", "value": "string" }] | null,
   "suggestedFollowUps": ["string", "string"] — exactly 2-3 relevant next questions
@@ -359,8 +362,12 @@ export async function runCommandBrain(
   role: string,
   history: ConversationMessage[],
   snapshot: BusinessSnapshot,
+  entityContext?: { entityType: string; entityId: string } | null,
 ): Promise<BrainResponse> {
-  const systemPrompt = buildSystemPrompt(role, snapshot);
+  const entityNote = entityContext
+    ? `\n\n## Entity Context\nThis conversation is scoped to a specific ${entityContext.entityType} (ID: ${entityContext.entityId}). When the user asks about status, budget, timeline, photos, or other details, answer in the context of this specific ${entityContext.entityType} rather than the global portfolio. When emitting a lens type, prefer the entity-specific kinds (property_status, turn_timeline, budget_breakdown, invoice_detail, photo_evidence, inspection_checklist) and return entityId="${entityContext.entityId}" in your response.`
+    : "";
+  const systemPrompt = buildSystemPrompt(role, snapshot) + entityNote;
 
   // Build the messages array with history + current message
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [
@@ -402,6 +409,7 @@ export async function runCommandBrain(
       type: parsed.type ?? "answer",
       text: parsed.text ?? "I couldn't formulate a response. Please try rephrasing.",
       lensKind: parsed.lensKind ?? undefined,
+      entityId: parsed.entityId ?? undefined,
       shadowLabel: parsed.shadowLabel ?? undefined,
       sources: parsed.sources ?? undefined,
       suggestedFollowUps: parsed.suggestedFollowUps ?? undefined,

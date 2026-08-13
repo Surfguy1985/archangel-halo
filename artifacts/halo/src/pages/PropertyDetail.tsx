@@ -3,8 +3,9 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap, MessageSquare } from "lucide-react";
 import { useState } from "react";
+import { CommandSheet } from "@/components/command/CommandSheet";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
 import { AddContactSheet } from "@/components/AddContactSheet";
@@ -71,6 +72,7 @@ export default function PropertyDetail() {
   const updateProperty = useUpdateProperty();
   const clearJob = useClearJob();
   const [clearErrorJobId, setClearErrorJobId] = useState<string | null>(null);
+  const [haloOpen, setHaloOpen] = useState(false);
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
@@ -813,6 +815,24 @@ export default function PropertyDetail() {
           />
         ) : null;
       })()}
+
+      {/* Ask HALO FAB */}
+      <button
+        onClick={() => setHaloOpen(true)}
+        className="fixed bottom-24 right-4 z-[100] w-12 h-12 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all active:scale-95"
+        style={{ background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)" }}
+        aria-label="Ask HALO about this property"
+      >
+        <MessageSquare className="w-5 h-5 text-white" strokeWidth={2} />
+      </button>
+
+      <CommandSheet
+        open={haloOpen}
+        onOpenChange={setHaloOpen}
+        entityType="property"
+        entityId={id}
+        entityLabel={data?.property?.name ?? "This Property"}
+      />
     </div>
   );
 }

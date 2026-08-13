@@ -666,7 +666,7 @@ export default function HaloCommand() {
         if (brainResult.type === "lens" && brainResult.lensKind) {
           setMessages(prev => prev.map(m =>
             m.id === thinkId
-              ? { id: thinkId, kind: "lens" as const, lensType: brainResult.lensKind as LensType, query: raw }
+              ? { id: thinkId, kind: "lens" as const, lensType: brainResult.lensKind as LensType, query: brainResult.entityId ?? raw }
               : m
           ));
           if (brainResult.text) {

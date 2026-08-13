@@ -52,8 +52,10 @@ import {
   Siren,
   Clock,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { useState} from "react";
+import { CommandSheet } from "@/components/command/CommandSheet";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useToast} from "@/hooks/use-toast";
 import {
@@ -125,6 +127,7 @@ export default function JobDetail() {
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
+  const [haloOpen, setHaloOpen] = useState(false);
   const { data: emergencyData } = useGetEmergencyPing(id, {
     query: { enabled: !!id, queryKey: getGetEmergencyPingQueryKey(id) },
   });
@@ -440,6 +443,14 @@ export default function JobDetail() {
             className="flex items-center gap-2 bg-card border border-[var(--hairline)] px-3 py-2 rounded-full font-medium hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm text-muted-foreground"
           >
             <Trash2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setHaloOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm text-white shadow-[0_2px_12px_rgba(99,102,241,0.35)] hover:shadow-[0_4px_16px_rgba(99,102,241,0.5)] transition-all"
+            style={{ background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)" }}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Ask HALO
           </button>
         </div>
       </header>
@@ -856,6 +867,15 @@ export default function JobDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Ask HALO drawer */}
+      <CommandSheet
+        open={haloOpen}
+        onOpenChange={setHaloOpen}
+        entityType="job"
+        entityId={id}
+        entityLabel={job?.unitNo ? `Unit ${job.unitNo} — ${job.category ?? "Job"}` : `${job?.jobNo ?? ""} ${job?.category ?? ""}`}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@
  * Lenses: money | timeline | evidence | network | portfolio | map
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   useGetMoneySummary,
@@ -48,7 +48,10 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type LensType = "money" | "timeline" | "evidence" | "network" | "portfolio" | "map";
+export type LensType =
+  | "money" | "timeline" | "evidence" | "network" | "portfolio" | "map"
+  | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map"
+  | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist";
 
 interface LensCardProps {
   lensType: LensType;
@@ -65,12 +68,21 @@ const LENS_META: Record<LensType, {
   deepLink: string;
   expandLabel: string;
 }> = {
-  money:     { label: "Money",     icon: DollarSign, accent: "#B4FF44", deepLink: "/money",      expandLabel: "Open Money Hub" },
-  timeline:  { label: "Timeline",  icon: Clock,      accent: "#6366F1", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
-  evidence:  { label: "Evidence",  icon: Camera,     accent: "#F59E0B", deepLink: "/crews",      expandLabel: "Browse Gallery" },
-  network:   { label: "Network",   icon: Users,      accent: "#3B82F6", deepLink: "/crews",      expandLabel: "Crew & Dispatch" },
-  portfolio: { label: "Portfolio", icon: BarChart3,  accent: "#8B5CF6", deepLink: "/properties", expandLabel: "All Properties" },
-  map:       { label: "Live Map",  icon: MapPin,     accent: "#22C55E", deepLink: "/crews",      expandLabel: "Open Live GPS Map" },
+  money:               { label: "Money",         icon: DollarSign,  accent: "#B4FF44", deepLink: "/money",      expandLabel: "Open Money Hub" },
+  timeline:            { label: "Timeline",      icon: Clock,       accent: "#6366F1", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
+  evidence:            { label: "Evidence",      icon: Camera,      accent: "#F59E0B", deepLink: "/crews",      expandLabel: "Browse Gallery" },
+  network:             { label: "Network",       icon: Users,       accent: "#3B82F6", deepLink: "/crews",      expandLabel: "Crew & Dispatch" },
+  portfolio:           { label: "Portfolio",     icon: BarChart3,   accent: "#8B5CF6", deepLink: "/properties", expandLabel: "All Properties" },
+  map:                 { label: "Live Map",      icon: MapPin,      accent: "#22C55E", deepLink: "/crews",      expandLabel: "Open Live GPS Map" },
+  // ── Entity-scoped lenses ──────────────────────────────────────────────────
+  property_status:     { label: "Property",      icon: Building2,   accent: "#8B5CF6", deepLink: "/properties", expandLabel: "Open Property" },
+  turn_timeline:       { label: "Job",           icon: Activity,    accent: "#6366F1", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
+  budget_breakdown:    { label: "Budget",        icon: TrendingUp,  accent: "#F59E0B", deepLink: "/money",      expandLabel: "Open Money Hub" },
+  crew_map:            { label: "Crew Map",      icon: MapPin,      accent: "#22C55E", deepLink: "/crews",      expandLabel: "Open Live GPS Map" },
+  invoice_detail:      { label: "Invoice",       icon: FileText,    accent: "#B4FF44", deepLink: "/money",      expandLabel: "Open Money Hub" },
+  vendor_profile:      { label: "Vendor",        icon: Package,     accent: "#3B82F6", deepLink: "/crews",      expandLabel: "View Vendors" },
+  photo_evidence:      { label: "Photos",        icon: Camera,      accent: "#F59E0B", deepLink: "/crews",      expandLabel: "Browse Gallery" },
+  inspection_checklist:{ label: "Checklist",     icon: CheckCircle2,accent: "#22C55E", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
 };
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -704,6 +716,385 @@ function PortfolioLens({ query: _q }: { query?: string }) {
   );
 }
 
+// ─── Custom hook for entity-scoped lens data ──────────────────────────────────
+
+function useLensData<T>(path: string | null) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!path) { setLoading(false); return; }
+    setLoading(true);
+    fetch(`/api${path}`, { credentials: "include" })
+      .then(r => r.ok ? (r.json() as Promise<T>) : Promise.resolve(null))
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [path]);
+  return { data, loading };
+}
+
+// ─── Property Status Lens ─────────────────────────────────────────────────────
+
+interface PropertyStatusData {
+  property: { id: string; name: string; city?: string | null };
+  stats: { totalUnits: number; activeJobs: number; overdueJobs: number; totalJobs: number };
+  crewOnSite: Array<{ name: string | null; checkedInAt: string }>;
+  openReceivables: number;
+  lastWalk: { date: string; note?: string | null } | null;
+}
+function PropertyStatusLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<PropertyStatusData>(query ? `/command/lens/property-status/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data) return <LensEmpty icon={Building2} message="Property not found" />;
+  const { property, stats, crewOnSite, openReceivables, lastWalk } = data;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-[14px] font-bold text-white/90">{property.name}</div>
+        {property.city && <div className="text-[11px] text-white/35 mt-0.5">{property.city}</div>}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <KpiCell label="Active Jobs" value={String(stats.activeJobs)} accent="#6366F1" />
+        <KpiCell label="Overdue" value={String(stats.overdueJobs)} accent={stats.overdueJobs > 0 ? "#EF4444" : "#22C55E"} />
+        <KpiCell label="Total Jobs" value={String(stats.totalJobs)} accent="#8B5CF6" />
+        <KpiCell label="Open A/R" value={`$${Math.round(openReceivables / 1000)}k`} accent="#B4FF44" />
+      </div>
+      {crewOnSite.length > 0 && (
+        <div className="bg-[#22C55E]/8 border border-[#22C55E]/20 rounded-[12px] px-3.5 py-2.5 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse shrink-0" />
+          <div className="text-[12px] text-[#22C55E]/90 font-medium">
+            {crewOnSite.map(c => c.name ?? "Crew").join(", ")} on site
+          </div>
+        </div>
+      )}
+      {lastWalk && (
+        <div className="text-[11px] text-white/35">
+          Last walk: {new Date(lastWalk.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        </div>
+      )}
+      <PrimaryCTA label="View Property" onClick={() => go(`/properties/${query}`)} />
+      <SecondaryCTA label="View Jobs" onClick={() => go("/jobboard")} />
+    </div>
+  );
+}
+
+// ─── Turn Timeline Lens ───────────────────────────────────────────────────────
+
+interface TurnTimelineData {
+  job: { id: string; jobNo: string; unitNo: string | null; category: string | null; status: string; boardStatus: string; scheduledOn: string | null; propertyName: string | null };
+  crew: { name: string | null; checkedInAt: string | null } | null;
+  budget: { quoted: number; spent: number; remaining: number };
+  photos: Array<{ url: string; phase: string | null; takenAt: string | null }>;
+  lastActivity: { label: string; at: string } | null;
+}
+function TurnTimelineLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<TurnTimelineData>(query ? `/command/lens/turn-timeline/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data) return <LensEmpty icon={Activity} message="Job not found" />;
+  const { job, crew, budget, photos, lastActivity } = data;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  const spentPct = budget.quoted > 0 ? Math.min(100, (budget.spent / budget.quoted) * 100) : 0;
+  const overBudget = budget.spent > budget.quoted;
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-[14px] font-bold text-white/90">{job.unitNo ? `Unit ${job.unitNo}` : job.jobNo}</div>
+        {job.propertyName && <div className="text-[11px] text-white/35">{job.propertyName}</div>}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#6366F1]/12 text-[#6366F1]/90 border border-[#6366F1]/25">
+          {job.boardStatus.replace(/_/g, " ")}
+        </span>
+        {crew && (
+          <div className="flex items-center gap-1.5 text-[11px] text-[#22C55E]/80">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+            {crew.name ?? "Crew"} on site
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="flex justify-between text-[11px] text-white/40 mb-1.5">
+          <span>Budget</span>
+          <span className={overBudget ? "text-[#EF4444]/80" : ""}>
+            ${Math.round(budget.spent).toLocaleString()} / ${Math.round(budget.quoted).toLocaleString()}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${spentPct}%`, background: overBudget ? "#EF4444" : "#6366F1" }} />
+        </div>
+      </div>
+      {photos.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {photos.slice(0, 5).map((p, i) => (
+            <img key={i} src={p.url} alt={p.phase ?? "photo"} className="w-14 h-14 rounded-[10px] object-cover shrink-0 border border-white/10" />
+          ))}
+        </div>
+      )}
+      {lastActivity && (
+        <div className="text-[11px] text-white/35">
+          {lastActivity.label} · {new Date(lastActivity.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+        </div>
+      )}
+      <PrimaryCTA label="Open Job" onClick={() => go(`/jobs/${query}`)} />
+    </div>
+  );
+}
+
+// ─── Budget Breakdown Lens ────────────────────────────────────────────────────
+
+interface BudgetData {
+  jobLabel: string;
+  quoted: number;
+  spent: number;
+  variance: number;
+  variancePct: number;
+  marginPct: number | null;
+  categories: Array<{ label: string; quoted: number; actual: number; variance: number }>;
+}
+function BudgetBreakdownLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<BudgetData>(query ? `/command/lens/budget/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data) return <LensEmpty icon={TrendingUp} message="Budget data not available" />;
+  const { jobLabel, quoted, spent, variance, variancePct, marginPct, categories } = data;
+  const overBudget = variance > 0;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  return (
+    <div className="space-y-3">
+      <div className="text-[13px] font-bold text-white/85">{jobLabel}</div>
+      <div className="grid grid-cols-3 gap-2">
+        <KpiCell label="Quoted" value={`$${Math.round(quoted).toLocaleString()}`} accent="#8B5CF6" />
+        <KpiCell label="Actual" value={`$${Math.round(spent).toLocaleString()}`} accent={overBudget ? "#EF4444" : "#22C55E"} />
+        <KpiCell label="Variance" value={`${overBudget ? "+" : ""}${Math.round(variancePct)}%`} accent={overBudget ? "#EF4444" : "#22C55E"} />
+      </div>
+      <div className="space-y-1.5">
+        {categories.slice(0, 5).map(cat => {
+          const catOver = cat.variance > 0;
+          return (
+            <div key={cat.label} className="flex items-center gap-2">
+              <div className="text-[12px] text-white/50 flex-1 truncate">{cat.label}</div>
+              <div className="text-[11px] text-white/35 w-14 text-right tabular-nums">${Math.round(cat.quoted).toLocaleString()}</div>
+              <div className="text-[11px] font-medium w-14 text-right tabular-nums" style={{ color: catOver ? "#EF4444" : "#22C55E" }}>
+                ${Math.round(cat.actual).toLocaleString()}
+              </div>
+              <div className="text-[10px] w-8 text-right tabular-nums" style={{ color: catOver ? "#EF4444" : "#22C55E" }}>
+                {catOver ? "+" : ""}{Math.round(cat.variance)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {marginPct !== null && (
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="text-white/40">Margin</span>
+          <span className="font-bold" style={{ color: marginPct < 25 ? "#EF4444" : "#22C55E" }}>{Math.round(marginPct)}%</span>
+        </div>
+      )}
+      <PrimaryCTA label="View Invoices" onClick={() => go("/money")} />
+    </div>
+  );
+}
+
+// ─── Crew Map Lens ────────────────────────────────────────────────────────────
+
+function CrewMapLens({ query: _query }: { query?: string }) {
+  const { data: crews, isLoading } = useListCrews();
+  const [, navigate] = useLocation();
+  if (isLoading) return <LensLoading />;
+  const crewList = (crews ?? []) as unknown as Array<Record<string, unknown>>;
+  const onSite = crewList.filter(c => c.checkedIn || c.activeCheckin);
+  const available = crewList.filter(c => !c.checkedIn && !c.activeCheckin);
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <KpiCell label="On Site" value={String(onSite.length)} accent="#22C55E" />
+        <KpiCell label="Available" value={String(available.length)} accent="#3B82F6" />
+      </div>
+      {onSite.slice(0, 4).map(c => (
+        <div key={c.id as string} className="flex items-center gap-2.5">
+          <div className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse shrink-0" />
+          <div className="text-[12.5px] text-white/80 font-medium">{c.name as string}</div>
+          {c.currentUnit != null ? <div className="text-[10.5px] text-white/35 ml-auto">Unit {String(c.currentUnit)}</div> : null}
+        </div>
+      ))}
+      {onSite.length === 0 && <LensEmpty icon={MapPin} message="No crews currently on site" />}
+      <PrimaryCTA label="Open Crew Map" onClick={() => navigate("/crews")} />
+    </div>
+  );
+}
+
+// ─── Invoice Detail Lens ──────────────────────────────────────────────────────
+
+interface InvoiceDetailData {
+  invoice: { id: string; invoiceNo: string | null; status: string; amount: number; taxAmount: number; dueAt: string | null; sentAt: string | null; paidAt: string | null; propertyName: string | null; overdayDays: number | null };
+}
+function InvoiceDetailLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<InvoiceDetailData>(query ? `/command/lens/invoice-detail/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data) return <LensEmpty icon={FileText} message="Invoice not found" />;
+  const { invoice } = data;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  const STATUS_COLOR: Record<string, string> = { paid: "#22C55E", sent: "#F59E0B", draft: "#6366F1" };
+  const statusColor = invoice.overdayDays && invoice.overdayDays > 0 ? "#EF4444" : (STATUS_COLOR[invoice.status] ?? "#8B5CF6");
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-[14px] font-bold text-white/90">
+            {invoice.invoiceNo ? `Invoice #${invoice.invoiceNo}` : "Invoice"}
+          </div>
+          {invoice.propertyName && <div className="text-[11px] text-white/35">{invoice.propertyName}</div>}
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border shrink-0"
+          style={{ color: statusColor, background: `${statusColor}12`, borderColor: `${statusColor}28` }}>
+          {invoice.overdayDays && invoice.overdayDays > 0 ? `${invoice.overdayDays}d overdue` : invoice.status}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <KpiCell label="Amount" value={`$${Math.round(invoice.amount).toLocaleString()}`} accent="#B4FF44" />
+        <KpiCell label="Tax" value={`$${Math.round(invoice.taxAmount ?? 0).toLocaleString()}`} accent="#8B5CF6" />
+      </div>
+      {invoice.dueAt && (
+        <div className="text-[11px] text-white/35">
+          Due: {new Date(invoice.dueAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        </div>
+      )}
+      <PrimaryCTA label="Open Invoice" onClick={() => go("/money")} />
+    </div>
+  );
+}
+
+// ─── Vendor Profile Lens ──────────────────────────────────────────────────────
+
+interface VendorProfileData {
+  vendor: { id: string; name: string; trade: string | null; email: string | null; phone: string | null; coiExpiresOn: string | null; compliant: boolean };
+}
+function VendorProfileLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<VendorProfileData>(query ? `/command/lens/vendor/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data) return <LensEmpty icon={Package} message="Vendor not found" />;
+  const { vendor } = data;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-[14px] font-bold text-white/90">{vendor.name}</div>
+        {vendor.trade && <div className="text-[11px] text-white/35">{vendor.trade}</div>}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border"
+          style={vendor.compliant
+            ? { color: "#22C55E", background: "#22C55E12", borderColor: "#22C55E28" }
+            : { color: "#EF4444", background: "#EF444412", borderColor: "#EF444428" }}>
+          {vendor.compliant ? "COI ✓ Valid" : "COI Expired"}
+        </span>
+        {vendor.coiExpiresOn && (
+          <span className="text-[11px] text-white/35">
+            thru {new Date(vendor.coiExpiresOn).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+          </span>
+        )}
+      </div>
+      {vendor.phone && <div className="text-[12px] text-white/50">{vendor.phone}</div>}
+      {vendor.email && <div className="text-[12px] text-white/50">{vendor.email}</div>}
+      <PrimaryCTA label="View Vendors" onClick={() => go("/crews")} />
+    </div>
+  );
+}
+
+// ─── Photo Evidence Lens ──────────────────────────────────────────────────────
+
+function PhotoEvidenceLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<TurnTimelineData>(query ? `/command/lens/turn-timeline/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data || data.photos.length === 0) return <LensEmpty icon={Camera} message="No photos for this job yet" />;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  const before = data.photos.filter(p => p.phase === "before");
+  const after = data.photos.filter(p => p.phase === "after");
+  const rest = data.photos.filter(p => p.phase !== "before" && p.phase !== "after");
+  return (
+    <div className="space-y-3">
+      <div className="text-[12.5px] font-bold text-white/85">
+        {data.job.unitNo ? `Unit ${data.job.unitNo}` : data.job.jobNo} — {data.photos.length} photo{data.photos.length !== 1 ? "s" : ""}
+      </div>
+      {before.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-white/28 mb-1.5">Before</div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {before.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="before" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
+          </div>
+        </div>
+      )}
+      {after.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#22C55E]/60 mb-1.5">After</div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {after.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="after" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-[#22C55E]/20" />)}
+          </div>
+        </div>
+      )}
+      {rest.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {rest.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="photo" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
+        </div>
+      )}
+      <PrimaryCTA label="Open Job" onClick={() => go(`/jobs/${query}`)} />
+    </div>
+  );
+}
+
+// ─── Inspection Checklist Lens ────────────────────────────────────────────────
+
+interface ChecklistData {
+  jobId: string;
+  checklists: Array<{ type: string; checkedCount: number; totalCount: number; signedOff: boolean; agreedAt: string | null }>;
+  summary: { totalItems: number; checkedItems: number; allSignedOff: boolean; hasChecklists: boolean };
+}
+function InspectionChecklistLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
+  const [, navigate] = useLocation();
+  const { data, loading } = useLensData<ChecklistData>(query ? `/command/lens/job-checklist/${query}` : null);
+  if (loading) return <LensLoading />;
+  if (!data || !data.summary.hasChecklists) return <LensEmpty icon={CheckCircle2} message="No checklists assigned to this job yet" />;
+  const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
+  const { summary, checklists } = data;
+  const pct = summary.totalItems > 0 ? Math.round((summary.checkedItems / summary.totalItems) * 100) : 0;
+  const TYPE_LABELS: Record<string, string> = {
+    cleaning: "Cleaning (31-point)", carpet: "Carpet", make_ready: "Make-Ready", painting: "Painting",
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-[12.5px] font-bold text-white/85">{summary.checkedItems}/{summary.totalItems} items complete</div>
+        <span className="text-[11px] font-bold" style={{ color: summary.allSignedOff ? "#22C55E" : pct > 60 ? "#F59E0B" : "#EF4444" }}>{pct}%</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: summary.allSignedOff ? "#22C55E" : "#F59E0B" }} />
+      </div>
+      <div className="space-y-2">
+        {checklists.map((c, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`w-3.5 h-3.5 rounded-full border grid place-items-center shrink-0 ${c.signedOff ? "bg-[#22C55E]/15 border-[#22C55E]/40" : "bg-white/5 border-white/15"}`}>
+                {c.signedOff && <CheckCircle2 className="w-2 h-2 text-[#22C55E]" strokeWidth={3} />}
+              </div>
+              <div className="text-[12px] text-white/75">{TYPE_LABELS[c.type] ?? c.type}</div>
+            </div>
+            <div className="text-[11px] text-white/40">{c.checkedCount}/{c.totalCount}</div>
+          </div>
+        ))}
+      </div>
+      {summary.allSignedOff && (
+        <div className="text-[11px] text-[#22C55E] font-medium text-center py-1">✓ All checklists signed off</div>
+      )}
+      <PrimaryCTA label="Open Job" onClick={() => go(`/jobs/${query}`)} />
+    </div>
+  );
+}
+
 // ─── Main LensCard ────────────────────────────────────────────────────────────
 
 export function LensCard({ lensType, query, onDeepLink }: LensCardProps) {
@@ -755,7 +1146,7 @@ export function LensCard({ lensType, query, onDeepLink }: LensCardProps) {
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Live indicator for map/network */}
-          {(lensType === "map" || lensType === "network") && (
+          {(lensType === "map" || lensType === "network" || lensType === "crew_map") && (
             <div className="flex items-center gap-1 text-[9px] font-bold text-[#22C55E]/70">
               <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
               LIVE
@@ -776,12 +1167,20 @@ export function LensCard({ lensType, query, onDeepLink }: LensCardProps) {
       {/* ── Content ────────────────────────────────────────────────────── */}
       {!collapsed && (
         <div className="px-4 py-4">
-          {lensType === "money"     && <MoneyLens     query={query} />}
-          {lensType === "timeline"  && <TimelineLens  query={query} />}
-          {lensType === "network"   && <NetworkLens   query={query} />}
-          {lensType === "portfolio" && <PortfolioLens query={query} />}
-          {lensType === "map"       && <MapLens        query={query} />}
-          {lensType === "evidence"  && <EvidenceLens  query={query} />}
+          {lensType === "money"               && <MoneyLens               query={query} />}
+          {lensType === "timeline"            && <TimelineLens            query={query} />}
+          {lensType === "network"             && <NetworkLens             query={query} />}
+          {lensType === "portfolio"           && <PortfolioLens           query={query} />}
+          {lensType === "map"                 && <MapLens                 query={query} />}
+          {lensType === "evidence"            && <EvidenceLens            query={query} />}
+          {lensType === "property_status"     && <PropertyStatusLens      query={query} onDeepLink={onDeepLink} />}
+          {lensType === "turn_timeline"       && <TurnTimelineLens        query={query} onDeepLink={onDeepLink} />}
+          {lensType === "budget_breakdown"    && <BudgetBreakdownLens     query={query} onDeepLink={onDeepLink} />}
+          {lensType === "crew_map"            && <CrewMapLens             query={query} />}
+          {lensType === "invoice_detail"      && <InvoiceDetailLens       query={query} onDeepLink={onDeepLink} />}
+          {lensType === "vendor_profile"      && <VendorProfileLens       query={query} onDeepLink={onDeepLink} />}
+          {lensType === "photo_evidence"      && <PhotoEvidenceLens       query={query} onDeepLink={onDeepLink} />}
+          {lensType === "inspection_checklist"&& <InspectionChecklistLens query={query} onDeepLink={onDeepLink} />}
         </div>
       )}
 

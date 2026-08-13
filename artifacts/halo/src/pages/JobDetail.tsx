@@ -31,8 +31,9 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown, Megaphone, FileText, DollarSign, MessageSquareShare, Siren } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown, Megaphone, FileText, DollarSign, MessageSquareShare, Siren, MessageSquare } from "lucide-react";
 import { useState } from "react";
+import { CommandSheet } from "@/components/command/CommandSheet";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
 import { FalkonBadge } from "@/components/FalkonBadge";
@@ -72,6 +73,7 @@ export default function JobDetail() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updateKind, setUpdateKind] = useState<UpdateClientKind | null>(null);
   const [updateInvoiceId, setUpdateInvoiceId] = useState<string | null>(null);
+  const [haloOpen, setHaloOpen] = useState(false);
   const { data: allInvoices } = useListInvoices();
   const jobInvoices = (allInvoices ?? []).filter((i) => i.jobId === id);
 
@@ -652,7 +654,25 @@ export default function JobDetail() {
         jobLabel={job.jobNo || job.category || "Job"}
       />
       
+      {/* Ask HALO FAB */}
+      <button
+        onClick={() => setHaloOpen(true)}
+        className="fixed bottom-24 right-4 z-[100] w-12 h-12 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all active:scale-95"
+        style={{ background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)" }}
+        aria-label="Ask HALO about this job"
+      >
+        <MessageSquare className="w-5 h-5 text-white" strokeWidth={2} />
+      </button>
+
       <FalkonBadge />
+
+      <CommandSheet
+        open={haloOpen}
+        onOpenChange={setHaloOpen}
+        entityType="job"
+        entityId={id}
+        entityLabel={job.unitNo ? `Unit ${job.unitNo} — ${job.category ?? "Job"}` : `${job.jobNo} ${job.category ?? ""}`}
+      />
     </div>
   );
 }
