@@ -46,6 +46,7 @@ import { JOB_CHECKLIST_ITEMS_FLAT } from "../lib/jobChecklists";
 import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
+import { authorizeAction, primaryRole } from "../lib/enforcerCore";
 
 const router: IRouter = Router();
 
@@ -87,7 +88,7 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
       buildSnapshot(),
     ]);
 
-    const role = "executive"; // default; real role-detection is a future enhancement
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
     const suggestedPrompts = buildSuggestedPrompts(snapshot, role);
 
     res.json({ conversations, suggestedPrompts });
@@ -101,8 +102,9 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
 
 router.post("/command/conversations", async (req, res): Promise<void> => {
   try {
-    const { entityType, entityId, role = "executive", title } = req.body ?? {};
+    const { entityType, entityId, title } = req.body ?? {};
     const actor = actorToken(req);
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
 
     const [conv] = await db
       .insert(haloConversationsTable)
@@ -171,7 +173,7 @@ router.get("/command/conversations/:id/messages", async (req, res): Promise<void
 router.get("/command/conversations/entity/:type/:entityId", async (req, res): Promise<void> => {
   try {
     const { type, entityId } = req.params;
-    const role = (req.query.role as string) ?? "executive";
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
     const actor = actorToken(req);
 
     // Try to find existing conversation owned by this actor
@@ -216,8 +218,9 @@ router.get("/command/conversations/entity/:type/:entityId", async (req, res): Pr
 
 router.post("/command/conversations/:id/ask", async (req, res): Promise<void> => {
   const { id } = req.params;
-  const { message, role = "executive" } = req.body ?? {};
+  const { message } = req.body ?? {};
   const actor = actorToken(req);
+  const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
 
   if (!message || typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message is required" });
@@ -1003,7 +1006,23 @@ router.get("/command/activity-since", async (req, res): Promise<void> => {
 
 router.post("/command/actions/execute", async (req, res): Promise<void> => {
   try {
-    const { description, risk, capability, params = {} } = req.body ?? {};
+    const identity = req.haloIdentity;
+    if (!identity) {
+      res.status(401).json({ ok: false, executed: false, error: "Authentication required" });
+      return;
+    }
+
+    const { description, capability, params = {} } = req.body ?? {};
+    const authz = authorizeAction(identity, typeof capability === "string" ? capability : undefined);
+    if (!authz.ok) {
+      res.status(403).json({
+        ok: false,
+        executed: false,
+        reason: "insufficient_role",
+        message: "This action is not permitted for your role.",
+      });
+      return;
+    }
 
     // Read current Falkon mode
     const [conn] = await db
@@ -1022,30 +1041,6 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
       return;
     }
 
-    if (risk === "block") {
-      res.status(403).json({
-        ok: false,
-        executed: false,
-        reason: "block",
-        message: "This action requires elevated authorization and cannot be auto-executed from the chat interface.",
-      });
-      return;
-    }
-
-    if (risk === "review") {
-      // Return a pending approval — the UI already shows the approval card before
-      // calling this endpoint, so this is just the ack.
-      res.json({
-        ok: true,
-        executed: false,
-        requiresApproval: true,
-        description,
-        message: "This action requires explicit approval before execution.",
-      });
-      return;
-    }
-
-    // risk === "auto" in ASSISTED mode — route to appropriate handler
     const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
     const proto = req.get("x-forwarded-proto") ?? req.protocol;
     const baseUrl = process.env.REPLIT_DEV_DOMAIN

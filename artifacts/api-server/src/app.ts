@@ -12,6 +12,7 @@ declare global {
   namespace Express {
     interface Request {
       rawBody?: string;
+      haloIdentity?: import("./lib/enforcerCore").HaloIdentity;
     }
   }
 }
@@ -30,7 +31,7 @@ app.use(
           url: req.url
             ?.split("?")[0]
             ?.replace(
-              /(\/(client|portal|pay|track|recap-shares|photo-shares|job-summaries|board|summary)\/)[^/]+/,
+              /(\/(client|portal|pay|track|recap-shares|photo-shares|job-summaries|board|summary|live|checkin)\/)[^/]+/,
               "$1<redacted>",
             ),
         };
@@ -45,6 +46,14 @@ app.use(
 );
 app.use(cors());
 app.use(cookieParser());
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("X-DNS-Prefetch-Control", "off");
+  next();
+});
 // Capture rawBody before JSON parsing (needed for Falkon webhook Ed25519 verification)
 const rawBodyCapture = (
   req: Request,

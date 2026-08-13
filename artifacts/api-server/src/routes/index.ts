@@ -72,8 +72,10 @@ router.use("/pay/:token", (req, res, next) => {
 // --- Office lockdown: passcode + session cookie for everything that isn't a
 // token-authenticated client/crew/public-share surface or an inbound webhook.
 import officeAuthRouter, { officeGuard } from "../lib/officeAuth";
+import { enforcerGuard } from "../lib/enforcer";
 router.use(officeAuthRouter);
 router.use(officeGuard());
+router.use(enforcerGuard());
 
 router.use(healthRouter);
 router.use(todayRouter);

@@ -412,11 +412,15 @@ export async function runCommandBrain(
   history: ConversationMessage[],
   snapshot: BusinessSnapshot,
   entityContext?: { entityType: string; entityId: string } | null,
+  opts?: { systemPromptOverride?: string; readOnly?: boolean },
 ): Promise<BrainResponse> {
   const entityNote = entityContext
     ? `\n\n## Entity Context\nThis conversation is scoped to a specific ${entityContext.entityType} (ID: ${entityContext.entityId}). When the user asks about status, budget, timeline, photos, or other details, answer in the context of this specific ${entityContext.entityType} rather than the global portfolio. When emitting a lens type, prefer the entity-specific kinds (property_status, turn_timeline, budget_breakdown, invoice_detail, photo_evidence, inspection_checklist) and return entityId="${entityContext.entityId}" in your response.`
     : "";
-  const systemPrompt = buildSystemPrompt(role, snapshot) + entityNote;
+  const systemPrompt = (opts?.systemPromptOverride ?? buildSystemPrompt(role, snapshot)) + entityNote;
+  const readOnlyNote = opts?.readOnly
+    ? "\n\nREAD-ONLY SESSION: never emit voice_action or actionPlan. You cannot mutate operational data."
+    : "";
 
   // Build the messages array with history + current message
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [
@@ -429,7 +433,7 @@ export async function runCommandBrain(
     messages.shift();
   }
 
-  const fullSystem = `${systemPrompt}\n\n## Response Format\nReturn ONLY valid JSON matching this schema:\n${BRAIN_RESPONSE_SCHEMA}`;
+  const fullSystem = `${systemPrompt}${readOnlyNote}\n\n## Response Format\nReturn ONLY valid JSON matching this schema:\n${BRAIN_RESPONSE_SCHEMA}`;
 
   try {
     const response = await anthropic.messages.create({
@@ -453,6 +457,12 @@ export async function runCommandBrain(
     if (firstBrace > 0) jsonStr = jsonStr.slice(firstBrace);
 
     const parsed = JSON.parse(jsonStr) as BrainResponse;
+
+    if (opts?.readOnly && parsed.type === "voice_action") {
+      parsed.type = "answer";
+      parsed.actionPlan = undefined;
+      parsed.shadowLabel = undefined;
+    }
 
     return {
       type: parsed.type ?? "answer",

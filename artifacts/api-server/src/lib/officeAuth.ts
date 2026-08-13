@@ -143,7 +143,7 @@ function invalidateHashCache(): void {
 
 // Token-authenticated, public-share, or webhook surfaces. Everything else on
 // /api is office-only.
-const PUBLIC_PREFIXES = [
+export const PUBLIC_PREFIXES = [
   "/office-auth",
   "/walk-auth",
   "/healthz",
@@ -192,11 +192,26 @@ const WALK_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
 
 const DEMO_ACTION_RE = /^\/admin\/accounts\/([^/]+)\/board\/actions$/;
 
+export function isPublicApiPath(path: string): boolean {
+  return PUBLIC_PREFIXES.some((p) => path.startsWith(p));
+}
+
+export function isIdentityExemptPath(path: string, method: string): boolean {
+  if (isPublicApiPath(path)) return true;
+  if (WALK_RE.test(path)) return true;
+  if ((method === "GET" || method === "HEAD") && path === "/presentation/demo") return true;
+  return false;
+}
+
 export function officeGuard() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (req.method === "OPTIONS") return next();
     const path = req.path;
-    if (PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return next();
+    if (isPublicApiPath(path)) return next();
+    // Enforcer bearer tokens are verified by enforcerGuard — do not require
+    // the office cookie when a Bearer credential is present.
+    const authz = req.headers.authorization;
+    if (typeof authz === "string" && /^Bearer\s+\S+/i.test(authz)) return next();
     if (WALK_RE.test(path)) {
       if (
         verifyWalkSession(req.cookies?.[WALK_COOKIE_NAME]) ||
