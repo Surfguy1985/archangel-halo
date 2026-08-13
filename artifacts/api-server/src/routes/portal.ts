@@ -131,9 +131,19 @@ import {
   SetPortalSelfieResponse,
   GetJobTrackerParams,
   GetJobTrackerResponse,
-  GetPortalServicesParams,
-  GetPortalServicesResponse,
 } from "@workspace/api-zod";
+const GetPortalServicesParams = z.object({ token: z.string() });
+const GetPortalServicesResponse = z.object({
+  catalog: z.array(
+    z.object({
+      service: z.string(),
+      unit: z.string().nullable(),
+      rate: z.number(),
+      category: z.string().nullable(),
+    }),
+  ),
+  byJob: z.record(z.string(), z.array(z.string())),
+});
 import { createHash } from "node:crypto";
 import { businessSettingsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";

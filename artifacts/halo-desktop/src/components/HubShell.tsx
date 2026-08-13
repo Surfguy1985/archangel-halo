@@ -67,10 +67,9 @@ export function HubShell({
 }
 
 export const WORK_TABS: HubTab[] = [
-  { label: "Work", href: "/work" },
-  { label: "Board", href: "/jobboard" },
-  { label: "Dispatch", href: "/dispatch" },
-  { label: "Calendar", href: "/calendar" },
+  { label: "Board", href: "/jobboard", testId: "hub-tab-board" },
+  { label: "Dispatch", href: "/dispatch", testId: "hub-tab-dispatch" },
+  { label: "Calendar", href: "/calendar", testId: "hub-tab-calendar" },
 ];
 
 export const CLIENT_TABS: HubTab[] = [
@@ -80,8 +79,8 @@ export const CLIENT_TABS: HubTab[] = [
 ];
 
 export const MONEY_TABS: HubTab[] = [
-  { label: "Overview", href: "/money" },
-  { label: "Payments", href: "/money/payments" },
+  { label: "Invoices", href: "/money", testId: "hub-tab-invoices" },
+  { label: "Payments", href: "/money/payments", testId: "hub-tab-payments" },
 ];
 
 export const PURCHASING_TABS: HubTab[] = [

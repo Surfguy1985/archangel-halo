@@ -104,18 +104,18 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
-          <NavItem href="/" icon={Home} label="Home" active={location === "/"} tourId="nav-today" />
+          <NavItem href="/" icon={Home} label="Today" active={location === "/" || location === "/today"} tourId="nav-today" />
           <NavItem
             href="/jobboard"
             icon={ClipboardList}
-            label="Work"
-            active={location.startsWith("/jobboard") || location.startsWith("/dispatch") || location.startsWith("/calendar") || location.startsWith("/jobs/")}
+            label="Jobs"
+            active={location.startsWith("/jobboard") || location.startsWith("/dispatch") || location.startsWith("/calendar") || location.startsWith("/work") || location.startsWith("/jobs/")}
             tourId="nav-jobboard"
           />
           <NavItem
             href="/properties"
             icon={Building}
-            label="Clients"
+            label="Properties"
             active={location.startsWith("/properties") || location.startsWith("/pipeline") || location.startsWith("/admin")}
             tourId="nav-properties"
           />
@@ -173,7 +173,11 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => navigate("/wings")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-wings">
                 <Feather className="w-4 h-4 mr-2" />
-                Wings
+                Wings Program
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/work")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-work-sync">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Base44 Work Sync
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
               <DropdownMenuLabel className="font-display text-xs">Showcase</DropdownMenuLabel>

@@ -64,32 +64,35 @@ function App() {
                 <Switch>
                   <Route path="/" component={HaloCommand} />
                   <Route path="/today" component={Today} />
-                  <Route path="/properties">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Properties /></HubShell>}</Route>
+                  <Route path="/properties">{() => <HubShell title="Properties" tabs={CLIENT_TABS}><Properties /></HubShell>}</Route>
                   <Route path="/properties/:id" component={PropertyDetail} />
                   <Route path="/jobs/:id" component={JobDetail} />
                   <Route path="/invoices/new" component={CreateInvoice} />
                   <Route path="/invoices/:id" component={InvoiceDetail} />
                   <Route path="/money">{() => <HubShell title="Money" tabs={MONEY_TABS}><Money /></HubShell>}</Route>
                   <Route path="/money/payments">{() => <HubShell title="Money" tabs={MONEY_TABS}><Payments /></HubShell>}</Route>
-                  <Route path="/work">{() => <HubShell title="Work" tabs={WORK_TABS}><WorkEmbed /></HubShell>}</Route>
-                  <Route path="/calendar">{() => <HubShell title="Work" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
-                  <Route path="/dispatch">{() => <HubShell title="Work" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
+                  {/* /work kept for legacy links & the Base44 sync panel (accessible from ⋯ menu) */}
+                  <Route path="/work" component={WorkEmbed} />
+                  <Route path="/calendar">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
+                  <Route path="/dispatch">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
                   <Route path="/crews" component={Crews} />
                   <Route path="/crews/:id" component={CrewDetail} />
                   <Route path="/wings" component={Wings} />
-                  <Route path="/pipeline">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Pipeline /></HubShell>}</Route>
+                  <Route path="/pipeline">{() => <HubShell title="Properties" tabs={CLIENT_TABS}><Pipeline /></HubShell>}</Route>
                   <Route path="/catalog">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Catalog /></HubShell>}</Route>
                   <Route path="/supply">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Supply /></HubShell>}</Route>
                   <Route path="/vendors">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Vendors /></HubShell>}</Route>
                   <Route path="/import" component={Import} />
                   <Route path="/integrations">{() => <FalkonConnect />}</Route>
-                  <Route path="/jobboard">{() => <HubShell title="Work" tabs={WORK_TABS}><JobBoard /></HubShell>}</Route>
-                  <Route path="/admin">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Admin /></HubShell>}</Route>
+                  <Route path="/jobboard">{() => <HubShell title="Jobs" tabs={WORK_TABS}><JobBoard /></HubShell>}</Route>
+                  <Route path="/admin">{() => <HubShell title="Properties" tabs={CLIENT_TABS}><Admin /></HubShell>}</Route>
                   <Route path="/admin/:propertyId" component={AdminAccount} />
                   <Route path="/admin/:propertyId/board" component={ClientBoardOffice} />
                   {/* Alias: the mobile app's Board Demo link uses /properties/:id/board?present=1;
                       desktop visitors get redirected here, so serve the same office board. */}
                   <Route path="/properties/:propertyId/board" component={ClientBoardOffice} />
+                  {/* Legacy redirect — /invoices without an ID goes to the Money hub */}
+                  <Route path="/invoices">{() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/money"); return null; }}</Route>
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>
