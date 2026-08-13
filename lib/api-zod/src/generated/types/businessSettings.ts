@@ -26,4 +26,16 @@ export interface BusinessSettings {
   autopilotAutoApprove?: boolean;
   /** When true, a job can't close out until its job summary has been sent to the PM */
   requireSummaryBeforeCloseOut?: boolean;
+  /** Send the 6:45am scheduled daily task-list digest to the owner */
+  emailDailyDigest?: boolean;
+  /** Send the 6:30pm scheduled evening close summary to the owner */
+  emailEveningClose?: boolean;
+  /** Run automated lead nurture drip campaign steps */
+  emailLeadNurtureDrip?: boolean;
+  /** Auto-send live job link / recap email when a job is scheduled or completed */
+  emailAutoJobRecapLinks?: boolean;
+  /** Send crew a thank-you email on job close-out */
+  emailCrewThankYou?: boolean;
+  /** Auto-reply thank-you to new phone-in inquiries */
+  emailInquiryAutoReply?: boolean;
 }

@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2, Sparkles } from "lucide-react";
+import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2, Sparkles, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TrainingCenter } from "@/components/TrainingCenter";
 import { OfficePasscodeCard } from "@/components/OfficePasscodeCard";
@@ -53,6 +53,35 @@ export default function Settings() {
             description: on
               ? "Autopilot will now act on its own — reminders and rebroadcasts go out immediately."
               : "Autopilot will wait for your approval on the Today page.",
+          });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't save", description: e.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  const setEmailToggle = (
+    key:
+      | "emailDailyDigest"
+      | "emailEveningClose"
+      | "emailLeadNurtureDrip"
+      | "emailAutoJobRecapLinks"
+      | "emailCrewThankYou"
+      | "emailInquiryAutoReply",
+    label: string,
+    on: boolean,
+  ) => {
+    updateSettings.mutate(
+      { data: { [key]: on } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetBusinessSettingsQueryKey() });
+          toast({
+            title: on ? `${label} on` : `${label} off`,
+            description: on
+              ? "HALO will now send this email automatically."
+              : "This automatic email is paused.",
           });
         },
         onError: (e) =>
@@ -161,6 +190,59 @@ export default function Settings() {
     });
   };
 
+  const EMAIL_TOGGLES: {
+    key:
+      | "emailDailyDigest"
+      | "emailEveningClose"
+      | "emailLeadNurtureDrip"
+      | "emailAutoJobRecapLinks"
+      | "emailCrewThankYou"
+      | "emailInquiryAutoReply";
+    label: string;
+    description: string;
+    testId: string;
+  }[] = [
+    {
+      key: "emailDailyDigest",
+      label: "Morning digest",
+      description: "6:45 am task-list summary sent to the owner every weekday.",
+      testId: "switch-email-daily-digest",
+    },
+    {
+      key: "emailEveningClose",
+      label: "Evening close",
+      description: "6:30 pm end-of-day summary — open jobs, uncollected invoices, urgent flags.",
+      testId: "switch-email-evening-close",
+    },
+    {
+      key: "emailAutoJobRecapLinks",
+      label: "Job live-link & recap",
+      description:
+        "Emails the property contact a live job-tracker link when a job is scheduled, and a recap when it's done.",
+      testId: "switch-email-recap-links",
+    },
+    {
+      key: "emailCrewThankYou",
+      label: "Crew thank-you",
+      description: "Sends the assigned crew a thank-you note when a job is closed out.",
+      testId: "switch-email-crew-thank-you",
+    },
+    {
+      key: "emailLeadNurtureDrip",
+      label: "Lead nurture drip",
+      description:
+        "Runs automated multi-step email sequences for new leads captured by the AI phone assistant.",
+      testId: "switch-email-lead-nurture",
+    },
+    {
+      key: "emailInquiryAutoReply",
+      label: "Inquiry auto-reply",
+      description:
+        "Sends a branded thank-you reply to callers whose email is captured by the AI phone assistant.",
+      testId: "switch-email-inquiry-reply",
+    },
+  ];
+
   return (
     <div className="pt-[8px]">
       <h1 className="font-display font-bold text-[24px] mb-[4px]">Settings</h1>
@@ -265,6 +347,53 @@ export default function Settings() {
           off to approve each move from the Today page, or turn it on to let HALO act
           immediately on its own.
         </p>
+      </div>
+
+      {/* ── Automatic emails ─────────────────────────────────────────────── */}
+      <div className="rounded-[20px] border border-[var(--hairline)] bg-card p-[16px] mb-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-[10px] mb-[4px]">
+          <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
+            <Mail className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />
+          </div>
+          <div className="font-display font-bold text-[15px]">Automatic emails</div>
+        </div>
+        <p className="text-[12.5px] text-muted-foreground mt-[6px] mb-[14px] leading-[1.5]">
+          HALO can send routine emails on your behalf. Turn each one on or off — changes
+          take effect on the next scheduled send with no restart needed.
+        </p>
+        <div className="flex flex-col gap-[0px]">
+          {EMAIL_TOGGLES.map(({ key, label, description, testId }, i) => (
+            <div
+              key={key}
+              className={`flex items-start gap-[12px] py-[12px] ${
+                i < EMAIL_TOGGLES.length - 1
+                  ? "border-b border-[var(--hairline)]"
+                  : ""
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-semibold text-[13.5px] leading-snug">
+                  {label}
+                </div>
+                <div className="text-[12px] text-muted-foreground mt-[2px] leading-[1.45]">
+                  {description}
+                </div>
+              </div>
+              <div className="shrink-0 pt-[2px]">
+                <Switch
+                  checked={
+                    bizSettings
+                      ? (bizSettings[key as keyof typeof bizSettings] as boolean | undefined) ?? false
+                      : false
+                  }
+                  onCheckedChange={(on) => setEmailToggle(key, label, on)}
+                  disabled={updateSettings.isPending}
+                  data-testid={testId}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <ArrivalSheet open={testOpen} onOpenChange={setTestOpen} result={testResult} />

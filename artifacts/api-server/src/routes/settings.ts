@@ -110,6 +110,12 @@ function serialize(row: {
   autopilotEnabled?: boolean | null;
   autopilotAutoApprove?: boolean | null;
   requireSummaryBeforeCloseOut?: boolean | null;
+  emailDailyDigest?: boolean | null;
+  emailEveningClose?: boolean | null;
+  emailLeadNurtureDrip?: boolean | null;
+  emailAutoJobRecapLinks?: boolean | null;
+  emailCrewThankYou?: boolean | null;
+  emailInquiryAutoReply?: boolean | null;
 }) {
   return {
     expenseApprovalThreshold: row.expenseApprovalThreshold ?? 0,
@@ -117,6 +123,12 @@ function serialize(row: {
     autopilotEnabled: row.autopilotEnabled ?? true,
     autopilotAutoApprove: row.autopilotAutoApprove ?? false,
     requireSummaryBeforeCloseOut: row.requireSummaryBeforeCloseOut ?? false,
+    emailDailyDigest: row.emailDailyDigest ?? false,
+    emailEveningClose: row.emailEveningClose ?? false,
+    emailLeadNurtureDrip: row.emailLeadNurtureDrip ?? false,
+    emailAutoJobRecapLinks: row.emailAutoJobRecapLinks ?? false,
+    emailCrewThankYou: row.emailCrewThankYou ?? false,
+    emailInquiryAutoReply: row.emailInquiryAutoReply ?? false,
     companyName: row.companyName,
     tagline: row.tagline,
     street: row.street,
@@ -167,6 +179,24 @@ router.put("/settings/business", async (req, res): Promise<void> => {
         : {}),
       ...(body.requireSummaryBeforeCloseOut != null
         ? { requireSummaryBeforeCloseOut: body.requireSummaryBeforeCloseOut }
+        : {}),
+      ...(body.emailDailyDigest != null
+        ? { emailDailyDigest: body.emailDailyDigest }
+        : {}),
+      ...(body.emailEveningClose != null
+        ? { emailEveningClose: body.emailEveningClose }
+        : {}),
+      ...(body.emailLeadNurtureDrip != null
+        ? { emailLeadNurtureDrip: body.emailLeadNurtureDrip }
+        : {}),
+      ...(body.emailAutoJobRecapLinks != null
+        ? { emailAutoJobRecapLinks: body.emailAutoJobRecapLinks }
+        : {}),
+      ...(body.emailCrewThankYou != null
+        ? { emailCrewThankYou: body.emailCrewThankYou }
+        : {}),
+      ...(body.emailInquiryAutoReply != null
+        ? { emailInquiryAutoReply: body.emailInquiryAutoReply }
         : {}),
       updatedAt: new Date(),
     })

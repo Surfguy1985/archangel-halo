@@ -15,7 +15,7 @@ import { sendClientCardDigests } from "./clientCardDigest";
 import { expireOverdueEmergencyPings } from "./emergencyExpiry";
 import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
-import { AUTO_EMAILS } from "./emailPolicy";
+import { getAutoEmails } from "./emailPolicy";
 import { logger } from "./logger";
 import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
 
@@ -86,10 +86,11 @@ function nowInEastern(): {
 let campaignProcessingRunning = false;
 
 async function processDueCampaignSteps(): Promise<void> {
-  // Owner decision: lead nurture drips are off. Campaign rows are left
-  // intact (status/nextSendAt untouched) so re-enabling the flag resumes
-  // processing where it left off.
-  if (!AUTO_EMAILS.leadNurtureDrip) return;
+  // Check the live DB setting so the owner's toggle takes effect immediately.
+  // Campaign rows are left intact (status/nextSendAt untouched) so re-enabling
+  // the toggle resumes processing where it left off.
+  const policy = await getAutoEmails();
+  if (!policy.leadNurtureDrip) return;
   // Re-entry guard: never let overlapping ticks process campaigns at once.
   if (campaignProcessingRunning) return;
   campaignProcessingRunning = true;
@@ -221,8 +222,18 @@ async function tick(): Promise<void> {
     logger.warn({ err }, "Lead campaign processing failed");
   }
 
+  // Read the live email policy once per tick so toggle changes take effect
+  // on the next scheduler tick (≤60 s) without a server restart.
+  let tickPolicy: Awaited<ReturnType<typeof getAutoEmails>>;
+  try {
+    tickPolicy = await getAutoEmails();
+  } catch (err) {
+    logger.warn({ err }, "Failed to read auto-email policy; skipping scheduled emails this tick");
+    tickPolicy = { dailyDigest: false, eveningClose: false, leadNurtureDrip: false, autoJobRecapLinks: false, crewThankYou: false, inquiryAutoReply: false };
+  }
+
   if (
-    AUTO_EMAILS.dailyDigest &&
+    tickPolicy.dailyDigest &&
     hour === DAILY_HOUR &&
     minute >= DAILY_MINUTE &&
     lastDailyDate !== date
@@ -236,7 +247,7 @@ async function tick(): Promise<void> {
   }
 
   if (
-    AUTO_EMAILS.eveningClose &&
+    tickPolicy.eveningClose &&
     hour === CLOSE_HOUR &&
     minute >= CLOSE_MINUTE &&
     lastCloseDate !== date

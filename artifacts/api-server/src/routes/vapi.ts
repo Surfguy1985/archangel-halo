@@ -13,7 +13,7 @@ import {
 } from "@workspace/db";
 import { completeJson } from "../lib/ai";
 import { sendLeadThankYouEmail } from "../lib/email";
-import { AUTO_EMAILS } from "../lib/emailPolicy";
+import { getAutoEmails } from "../lib/emailPolicy";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -253,8 +253,8 @@ ${(transcript ?? "").slice(0, 12000)}`,
       body: `Phone call-in lead captured by AI${prop ? ` for ${prop.name}` : ""}${bidNote ? " with a draft bid" : ""}`,
     });
     // Autopilot: branded thank-you email to the caller (when we got an email).
-    // Owner decision: inquiry auto-replies are off.
-    if (AUTO_EMAILS.inquiryAutoReply && extracted.contactEmail) {
+    const vapiPolicy = await getAutoEmails();
+    if (vapiPolicy.inquiryAutoReply && extracted.contactEmail) {
       const emailResult = await sendLeadThankYouEmail({
         to: extracted.contactEmail,
         contactName: extracted.contactName,

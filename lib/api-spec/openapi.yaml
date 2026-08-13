@@ -13159,6 +13159,12 @@ components:
         autopilotEnabled: { type: boolean, description: "Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs" }
         autopilotAutoApprove: { type: boolean, description: "When true, Autopilot executes its proposed actions immediately instead of waiting for approval" }
         requireSummaryBeforeCloseOut: { type: boolean, description: "When true, a job can't close out until its job summary has been sent to the PM" }
+        emailDailyDigest: { type: boolean, description: "Send the 6:45am scheduled daily task-list digest to the owner" }
+        emailEveningClose: { type: boolean, description: "Send the 6:30pm scheduled evening close summary to the owner" }
+        emailLeadNurtureDrip: { type: boolean, description: "Run automated lead nurture drip campaign steps" }
+        emailAutoJobRecapLinks: { type: boolean, description: "Auto-send live job link / recap email when a job is scheduled or completed" }
+        emailCrewThankYou: { type: boolean, description: "Send crew a thank-you email on job close-out" }
+        emailInquiryAutoReply: { type: boolean, description: "Auto-reply thank-you to new phone-in inquiries" }
     BusinessSettingsInput:
       type: object
       properties:
@@ -13176,6 +13182,12 @@ components:
         autopilotEnabled: { type: boolean }
         autopilotAutoApprove: { type: boolean }
         requireSummaryBeforeCloseOut: { type: boolean }
+        emailDailyDigest: { type: boolean }
+        emailEveningClose: { type: boolean }
+        emailLeadNurtureDrip: { type: boolean }
+        emailAutoJobRecapLinks: { type: boolean }
+        emailCrewThankYou: { type: boolean }
+        emailInquiryAutoReply: { type: boolean }
     AutopilotAction:
       type: object
       required: [id, kind, entityType, entityId, title, body, status, createdAt]

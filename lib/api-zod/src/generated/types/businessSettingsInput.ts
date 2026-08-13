@@ -21,4 +21,10 @@ export interface BusinessSettingsInput {
   autopilotEnabled?: boolean;
   autopilotAutoApprove?: boolean;
   requireSummaryBeforeCloseOut?: boolean;
+  emailDailyDigest?: boolean;
+  emailEveningClose?: boolean;
+  emailLeadNurtureDrip?: boolean;
+  emailAutoJobRecapLinks?: boolean;
+  emailCrewThankYou?: boolean;
+  emailInquiryAutoReply?: boolean;
 }

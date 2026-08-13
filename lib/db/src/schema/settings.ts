@@ -30,6 +30,22 @@ export const businessSettingsTable = pgTable("business_settings", {
   requireSummaryBeforeCloseOut: boolean("require_summary_before_close_out")
     .notNull()
     .default(false),
+  // ── Automatic-email on/off switches (owner-controlled) ───────────────────
+  // Defaults match the current hard-disabled state (Aug 2026). Each toggle
+  // corresponds to one AUTO_EMAILS key; the server consults these at runtime.
+  /** 6:45am scheduled daily task-list digest to the owner. */
+  emailDailyDigest: boolean("email_daily_digest").notNull().default(false),
+  /** 6:30pm scheduled evening close summary to the owner. */
+  emailEveningClose: boolean("email_evening_close").notNull().default(false),
+  /** Lead nurture drip campaign steps. */
+  emailLeadNurtureDrip: boolean("email_lead_nurture_drip").notNull().default(false),
+  /** Crew thank-you email on job close-out. */
+  emailCrewThankYou: boolean("email_crew_thank_you").notNull().default(false),
+  /** Auto-reply thank-you to new phone-in inquiries. */
+  emailInquiryAutoReply: boolean("email_inquiry_auto_reply").notNull().default(false),
+  /** Auto-send live job link / recap email when a job is scheduled or completed. */
+  emailAutoJobRecapLinks: boolean("email_auto_job_recap_links").notNull().default(false),
+  // ─────────────────────────────────────────────────────────────────────────
   // scrypt hash of the office passcode ("s2:<salt>:<hash>", base64url). NULL
   // until the office sets one up; while NULL the office API answers 401 with
   // setupRequired so the apps show the create-passcode screen.

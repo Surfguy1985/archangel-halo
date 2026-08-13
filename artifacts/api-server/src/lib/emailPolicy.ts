@@ -1,25 +1,44 @@
 /**
- * Kill switches for AUTOMATIC emails (owner decision, Aug 2026): only urgent
- * alerts, the weekly scorecard, past-due payment reminders, client board
- * digests, and emergency work request alerts stay on automatically.
+ * Automatic-email policy — owner-controlled via Settings.
  *
- * Everything listed here is hard-disabled. Flip a flag to `true` to bring a
- * send back — every disabled call site checks its flag and is otherwise
- * unchanged. Manually triggered emails (invoices, bids, pay requests,
- * welcome/password links, manual recaps/reminders, the manual digest/close
- * endpoints) do NOT consult these flags.
+ * `getAutoEmails()` reads live values from business_settings so the owner
+ * can toggle each automatic email from the Settings screen without a code
+ * change.  Every disabled call site checks its flag and is otherwise
+ * unchanged.
+ *
+ * Manually triggered emails (invoices, bids, pay requests, welcome/password
+ * links, manual recaps/reminders, the manual digest/close endpoints) do NOT
+ * consult these flags.
+ *
+ * Note: `autoJobRecapLinks` is governed by the existing `autoSendRecapLinks`
+ * column (already in business_settings); no separate column is needed.
  */
-export const AUTO_EMAILS = {
-  /** 6:45a scheduled daily task-list digest to the owner. */
-  dailyDigest: false,
-  /** 6:30p scheduled evening close summary to the owner. */
-  eveningClose: false,
+import { getBusinessSettings } from "./businessSettings";
+
+export interface AutoEmailPolicy {
+  /** 6:45am scheduled daily task-list digest to the owner. */
+  dailyDigest: boolean;
+  /** 6:30pm scheduled evening close summary to the owner. */
+  eveningClose: boolean;
   /** Lead nurture drip campaign steps (scheduler + campaign start). */
-  leadNurtureDrip: false,
+  leadNurtureDrip: boolean;
   /** Auto live job link / recap email when a job is scheduled or completed. */
-  autoJobRecapLinks: false,
+  autoJobRecapLinks: boolean;
   /** Crew thank-you email on job close-out. */
-  crewThankYou: false,
+  crewThankYou: boolean;
   /** Auto-reply thank-you to new phone-in inquiries. */
-  inquiryAutoReply: false,
-} as const;
+  inquiryAutoReply: boolean;
+}
+
+/** Read the current automatic-email policy from business_settings. */
+export async function getAutoEmails(): Promise<AutoEmailPolicy> {
+  const s = await getBusinessSettings();
+  return {
+    dailyDigest: s.emailDailyDigest ?? false,
+    eveningClose: s.emailEveningClose ?? false,
+    leadNurtureDrip: s.emailLeadNurtureDrip ?? false,
+    autoJobRecapLinks: s.emailAutoJobRecapLinks ?? false,
+    crewThankYou: s.emailCrewThankYou ?? false,
+    inquiryAutoReply: s.emailInquiryAutoReply ?? false,
+  };
+}
