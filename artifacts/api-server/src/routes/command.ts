@@ -14,7 +14,7 @@
  */
 
 import { type Request, Router, type IRouter } from "express";
-import { eq, desc, and, isNull, gte, inArray, lt } from "drizzle-orm";
+import { eq, desc, and, isNull, gte, inArray, lt, count } from "drizzle-orm";
 import {
   db,
   haloConversationsTable,
@@ -35,7 +35,15 @@ import {
   pmLiveLinksTable,
   crewCheckinLinksTable,
 } from "@workspace/db";
-import { falkonConnectionsTable, falkonPoliciesTable } from "@workspace/db/schema";
+import {
+  falkonConnectionsTable,
+  falkonPoliciesTable,
+  falkonExchangeProductsTable,
+  falkonExchangeListingsTable,
+  falkonExchangeEntitlementsTable,
+  falkonExchangeActivationTable,
+  falkonCrossRequestsTable,
+} from "@workspace/db/schema";
 import { checkAssistedGate, type ConsequentialAction, type PolicySnapshot } from "../lib/falkonEmit";
 import {
   buildSnapshot,
@@ -1045,20 +1053,28 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
 
     // risk === "auto" in ASSISTED mode — gate-check consequential capabilities first.
     // Non-consequential capabilities (notes, briefings, reads) pass through immediately.
-    const CAPABILITY_GATE_MAP: Partial<Record<string, ConsequentialAction>> = {
-      dispatch_crew:          "dispatch_crew",
-      "crew.assign":          "dispatch_crew",
-      "crew.dispatch":        "dispatch_crew",
-      "crew.reassign":        "reassign_crew",
-      "invoice.approve":      "approve_invoice",
-      "invoice.send":         "send_invoice",
-      "invoice.pay":          "pay_invoice",
-      "payment.record":       "pay_invoice",
-      "crew.pay":             "pay_crew",
-      "payment.crew":         "pay_crew",
-      "walk.approve":         "approve_walk",
-      "change_order.approve": "approve_change_order",
-      "bid.submit":           "submit_bid",
+    const CAPABILITY_GATE_MAP: Partial<Record<string, ConsequentialAction | undefined>> = {
+      dispatch_crew:                "dispatch_crew",
+      "crew.assign":                "dispatch_crew",
+      "crew.dispatch":              "dispatch_crew",
+      "crew.reassign":              "reassign_crew",
+      "invoice.approve":            "approve_invoice",
+      "invoice.send":               "send_invoice",
+      "invoice.pay":                "pay_invoice",
+      "payment.record":             "pay_invoice",
+      "crew.pay":                   "pay_crew",
+      "payment.crew":               "pay_crew",
+      "walk.approve":               "approve_walk",
+      "change_order.approve":       "approve_change_order",
+      "bid.submit":                 "submit_bid",
+      // ── Phase 3: Exchange (consequential — always need ASSISTED approval) ──
+      "exchange.create_product":    "create_exchange_product",
+      "exchange.publish_listing":   "publish_listing",
+      "exchange.grant_entitlement": "grant_entitlement",
+      "exchange.activate":          "activate_exchange",
+      // ── Phase 3: Exchange (read-only — no gate needed) ────────────────────
+      "exchange.list_products":     undefined,
+      "exchange.check_status":      undefined,
     };
 
     const consequentialAction = capability ? CAPABILITY_GATE_MAP[capability] : undefined;
@@ -1229,31 +1245,10 @@ async function dispatchAutoAction(
     case "weather.risk_scan": {
       const { scanHeadline, scanSites } = await import("../lib/weatherScan");
       const props = await db
-        .select({
-          id: propertiesTable.id,
-          name: propertiesTable.name,
-          city: propertiesTable.city,
-          address: propertiesTable.address,
-          latitude: propertiesTable.latitude,
-          longitude: propertiesTable.longitude,
-        })
-        .from(propertiesTable)
-        .where(eq(propertiesTable.status, "active"));
-      const sites = await scanSites(
-        props.map((p) => ({
-          id: p.id,
-          name: p.name,
-          city: p.city,
-          address: p.address,
-          latitude: p.latitude,
-          longitude: p.longitude,
-        })),
-      );
-      return JSON.stringify({
-        type: "weather_scan",
-        headline: scanHeadline(sites),
-        sites,
-      });
+        .select({ id: propertiesTable.id, name: propertiesTable.name, city: propertiesTable.city, address: propertiesTable.address, latitude: propertiesTable.latitude, longitude: propertiesTable.longitude })
+        .from(propertiesTable).where(eq(propertiesTable.status, "active"));
+      const sites = await scanSites(props.map((p) => ({ id: p.id, name: p.name, city: p.city, address: p.address, latitude: p.latitude, longitude: p.longitude })));
+      return JSON.stringify({ type: "weather_scan", headline: scanHeadline(sites), sites });
     }
 
     case "ops.eod_briefing": {
@@ -1275,63 +1270,59 @@ async function dispatchAutoAction(
       const { recommendScheduleMoves } = await import("../lib/scheduleRecommendCore");
       const { MAX_SCAN_SITES, scanSites } = await import("../lib/weatherScan");
       const today = localDateInEastern();
-      const jobRows = await db
-        .select({
-          id: jobsTable.id,
-          jobNo: jobsTable.jobNo,
-          propertyId: jobsTable.propertyId,
-          scheduledOn: jobsTable.scheduledOn,
-          description: jobsTable.description,
-        })
-        .from(jobsTable);
+      const jobRows = await db.select({ id: jobsTable.id, jobNo: jobsTable.jobNo, propertyId: jobsTable.propertyId, scheduledOn: jobsTable.scheduledOn, description: jobsTable.description }).from(jobsTable);
       const upcoming = jobRows.filter((j) => j.scheduledOn && j.scheduledOn >= today);
       const propIds = [...new Set(upcoming.map((j) => j.propertyId))].slice(0, MAX_SCAN_SITES);
       const props = propIds.length
-        ? await db
-            .select({
-              id: propertiesTable.id,
-              name: propertiesTable.name,
-              city: propertiesTable.city,
-              address: propertiesTable.address,
-              latitude: propertiesTable.latitude,
-              longitude: propertiesTable.longitude,
-            })
-            .from(propertiesTable)
-            .where(inArray(propertiesTable.id, propIds))
+        ? await db.select({ id: propertiesTable.id, name: propertiesTable.name, city: propertiesTable.city, address: propertiesTable.address, latitude: propertiesTable.latitude, longitude: propertiesTable.longitude }).from(propertiesTable).where(inArray(propertiesTable.id, propIds))
         : [];
-      const scanned = await scanSites(
-        props.map((p) => ({
-          id: p.id,
-          name: p.name,
-          city: p.city,
-          address: p.address,
-          latitude: p.latitude,
-          longitude: p.longitude,
-        })),
-      );
+      const scanned = await scanSites(props.map((p) => ({ id: p.id, name: p.name, city: p.city, address: p.address, latitude: p.latitude, longitude: p.longitude })));
       const nameById = new Map(props.map((p) => [p.id, p.name]));
-      const packet = recommendScheduleMoves(
-        upcoming.map((j) => ({
-          ...j,
-          propertyName: nameById.get(j.propertyId) ?? null,
-        })),
-        scanned.map((s) => ({
-          propertyId: s.propertyId,
-          days: s.days.map((d) => ({ date: d.date, severity: d.severity, summary: d.summary })),
-        })),
-        today,
-      );
+      const packet = recommendScheduleMoves(upcoming.map((j) => ({ ...j, propertyName: nameById.get(j.propertyId) ?? null })), scanned.map((s) => ({ propertyId: s.propertyId, days: s.days.map((d) => ({ date: d.date, severity: d.severity, summary: d.summary })) })), today);
       return JSON.stringify({ type: "schedule_recommend", ...packet });
     }
 
     case "estimate.from_evidence": {
       const text = String((_params as Record<string, unknown>).text ?? description ?? "");
       const { loadCatalogCandidates } = await import("../lib/catalogLookup");
-      const { draftEstimateFromLines, estimateHeadline, heuristicExtractLines } = await import(
-        "../lib/estimateFromEvidenceCore"
-      );
+      const { draftEstimateFromLines, estimateHeadline, heuristicExtractLines } = await import("../lib/estimateFromEvidenceCore");
       const lines = draftEstimateFromLines(heuristicExtractLines(text), await loadCatalogCandidates());
       return JSON.stringify({ type: "estimate_draft", headline: estimateHeadline(lines), lines, invoice: false });
+    }
+
+    // ── Phase 3: Falkon Exchange read-only queries ────────────────────────────
+    case "exchange.list_products": {
+      const [products, activationRow] = await Promise.all([
+        db.select().from(falkonExchangeProductsTable).orderBy(falkonExchangeProductsTable.name),
+        db.select({ state: falkonExchangeActivationTable.state }).from(falkonExchangeActivationTable).limit(1),
+      ]);
+      const enriched = await Promise.all(products.map(async (p) => {
+        const [lRow, eRow] = await Promise.all([
+          db.select({ n: count() }).from(falkonExchangeListingsTable).where(eq(falkonExchangeListingsTable.productId, p.id)),
+          db.select({ n: count() }).from(falkonExchangeEntitlementsTable).where(and(eq(falkonExchangeEntitlementsTable.productId, p.id), eq(falkonExchangeEntitlementsTable.status, "active"))),
+        ]);
+        return { ...p, listingCount: Number(lRow[0]?.n ?? 0), activeEntitlements: Number(eRow[0]?.n ?? 0) };
+      }));
+      return JSON.stringify({ type: "exchange_products", products: enriched, activationState: activationRow[0]?.state ?? "draft" });
+    }
+
+    case "exchange.check_status": {
+      const [connRow, crossRow, activationRow] = await Promise.all([
+        db.select({ mode: falkonConnectionsTable.mode }).from(falkonConnectionsTable).limit(1),
+        db.select({ n: count() }).from(falkonCrossRequestsTable).where(eq(falkonCrossRequestsTable.approvalState, "fulfilled")),
+        db.select().from(falkonExchangeActivationTable).limit(1),
+      ]);
+      const mode = connRow[0]?.mode ?? "OFF";
+      const fulfilledCount = Number(crossRow[0]?.n ?? 0);
+      const merchantAccepted = activationRow[0]?.merchantAgreementAccepted ?? false;
+      const prerequisites = [
+        { key: "live_mode", label: "LIVE mode active", met: mode === "LIVE", detail: mode === "LIVE" ? "Falkon connection is in LIVE mode. ✓" : `Current mode: ${mode}. Must promote to LIVE before Exchange can activate.` },
+        { key: "cross_business_history", label: "At least 5 fulfilled cross-business requests", met: fulfilledCount >= 5, detail: `${fulfilledCount} of 5 required cross-business requests fulfilled.` },
+        { key: "merchant_agreement", label: "Exchange merchant agreement accepted", met: merchantAccepted, detail: merchantAccepted ? "Merchant agreement accepted. ✓" : "Not yet accepted. Use PATCH /api/exchange/activation/merchant-agreement." },
+      ];
+      const missing = prerequisites.filter((p) => !p.met).map((p) => p.label);
+      return JSON.stringify({ type: "exchange_status", activationState: activationRow[0]?.state ?? "draft", prerequisitesAllMet: missing.length === 0, missing, prerequisites, hint: missing.length === 0 ? "All prerequisites met. POST /api/exchange/activate to begin activation." : `${missing.length} prerequisite(s) unmet — resolve before activating.` });
+    }
     }
 
     default:

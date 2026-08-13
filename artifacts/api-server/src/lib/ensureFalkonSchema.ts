@@ -413,6 +413,109 @@ const STATEMENTS: string[] = [
   `ALTER TABLE crews ADD COLUMN IF NOT EXISTS portal_token_hash text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS crews_portal_token_hash_uq
      ON crews (portal_token_hash)`,
+
+  // ── Falkon Exchange — Phase 3 tables ─────────────────────────────────────
+  // All Exchange tables start in draft mode. Commercial activation requires
+  // LIVE mode + ≥5 fulfilled cross-business requests + merchant agreement.
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_products (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_key text NOT NULL UNIQUE,
+    name text NOT NULL,
+    category text NOT NULL DEFAULT 'workflow',
+    pricing_model text NOT NULL DEFAULT 'per_job',
+    price_per_unit double precision,
+    sla_hours integer NOT NULL DEFAULT 24,
+    availability text NOT NULL DEFAULT 'available',
+    description text,
+    capabilities jsonb NOT NULL DEFAULT '[]',
+    status text NOT NULL DEFAULT 'draft',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_listings (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL,
+    title text NOT NULL,
+    summary text,
+    price_display text,
+    sla_summary text,
+    availability_status text NOT NULL DEFAULT 'available',
+    visibility text NOT NULL DEFAULT 'draft',
+    drafted_at timestamptz NOT NULL DEFAULT now(),
+    published_at timestamptz,
+    metadata jsonb NOT NULL DEFAULT '{}',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_entitlements (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL,
+    partner_org text NOT NULL,
+    api_key_id uuid,
+    granted_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz,
+    usage_limit integer,
+    usage_count integer NOT NULL DEFAULT 0,
+    status text NOT NULL DEFAULT 'active',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_usage (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    entitlement_id uuid,
+    product_id uuid NOT NULL,
+    api_key_id uuid,
+    endpoint text,
+    call_count integer NOT NULL DEFAULT 1,
+    recorded_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_revenue (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL,
+    entitlement_id uuid,
+    period text NOT NULL,
+    amount double precision NOT NULL DEFAULT 0,
+    currency text NOT NULL DEFAULT 'USD',
+    status text NOT NULL DEFAULT 'draft',
+    metadata jsonb NOT NULL DEFAULT '{}',
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_api_keys (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    key_hash text NOT NULL,
+    partner_org text NOT NULL,
+    scopes jsonb NOT NULL DEFAULT '[]',
+    last_used_at timestamptz,
+    expires_at timestamptz,
+    status text NOT NULL DEFAULT 'active',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS falkon_api_keys_hash_uq ON falkon_api_keys (key_hash)`,
+
+  `CREATE TABLE IF NOT EXISTS falkon_exchange_activation (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    singleton_key text NOT NULL DEFAULT 'singleton',
+    state text NOT NULL DEFAULT 'draft',
+    prerequisites_met jsonb NOT NULL DEFAULT '{}',
+    activation_attempted_at timestamptz,
+    activated_at timestamptz,
+    merchant_agreement_accepted boolean NOT NULL DEFAULT false,
+    merchant_agreement_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `ALTER TABLE falkon_exchange_activation
+     ADD COLUMN IF NOT EXISTS singleton_key text NOT NULL DEFAULT 'singleton'`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS falkon_exchange_activation_singleton_uq
+   ON falkon_exchange_activation (singleton_key)`,
 ];
 
 // ---------------------------------------------------------------------------

@@ -12,8 +12,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
-  Mic, Bell, MoreHorizontal, Send, Loader2,
+  Paperclip, ArrowUp, Bell, MoreHorizontal, Loader2,
   CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
+  List, CalendarDays, Users, ExternalLink,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,35 @@ interface ActionPlanData {
 
 type PanelType = "map" | "kanban" | "money";
 
+// ─── Exchange card types ──────────────────────────────────────────────────────
+
+type ExchangeProductSummary = {
+  id: string;
+  productKey: string;
+  name: string;
+  category: string;
+  pricingModel: string;
+  pricePerUnit: number | null;
+  slaHours: number;
+  availability: string;
+  status: string;
+  listingCount: number;
+  activeEntitlements: number;
+};
+
+type ExchangeStatusData = {
+  type?: string;
+  activationState: string;
+  prerequisitesAllMet: boolean;
+  missing: string[];
+  prerequisites: Array<{ key: string; label: string; met: boolean; detail: string }>;
+  hint?: string;
+};
+
+type ExchangeMsgData =
+  | { kind: "exchange-product-card"; products: ExchangeProductSummary[]; activationState: string }
+  | { kind: "exchange-status-card"; statusData: ExchangeStatusData };
+
 type TMsg =
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
@@ -57,8 +87,31 @@ type TMsg =
   | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
   | { id: string; kind: "panel-opened"; panel: PanelType; label: string }
   | { id: string; kind: "live-link-card"; data: LiveLinkData }
+  | { id: string; kind: "exchange-product-card"; products: ExchangeProductSummary[]; activationState: string }
+  | { id: string; kind: "exchange-status-card"; statusData: ExchangeStatusData }
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string };
+
+// ─── Exchange result parser ───────────────────────────────────────────────────
+// Called after every auto-execute / manual-execute to check whether the action
+// returned Exchange-typed JSON (exchange_products or exchange_status). Returns
+// the TMsg shape (minus id) so callers can spread it in directly.
+
+function parseExchangeResult(result: unknown): ExchangeMsgData | null {
+  if (!result || typeof result !== "string") return null;
+  try {
+    const p = JSON.parse(result);
+    if (p.type === "exchange_products") {
+      return { kind: "exchange-product-card", products: p.products ?? [], activationState: p.activationState ?? "draft" };
+    }
+    if (p.type === "exchange_status") {
+      return { kind: "exchange-status-card", statusData: p as ExchangeStatusData };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 // ─── Live link result parser ──────────────────────────────────────────────────
 
@@ -84,8 +137,49 @@ const KEYFRAMES = `
 @keyframes hcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-4px)} }
 @keyframes hcFadeUp { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
 @keyframes hcPulseRed { 0%,100%{opacity:0.7} 50%{opacity:1} }
+@keyframes haloAura {
+  0%,100%{filter:drop-shadow(0 0 6px rgba(212,134,12,0.55)) drop-shadow(0 0 18px rgba(212,134,12,0.25))}
+  50%{filter:drop-shadow(0 0 14px rgba(255,208,96,0.8)) drop-shadow(0 0 36px rgba(255,208,96,0.38))}
+}
 @media(prefers-reduced-motion:reduce){.hc-in{animation:none!important}}
 `;
+
+// ─── Angel Halo Ring ──────────────────────────────────────────────────────────
+
+function AngelHalo() {
+  return (
+    <svg
+      width="128" height="48" viewBox="0 0 128 48" fill="none"
+      style={{ animation: "haloAura 3.2s ease-in-out infinite", display: "block" }}
+    >
+      <defs>
+        <linearGradient id="hg-m" x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%"   stopColor="#8B5209" stopOpacity="0" />
+          <stop offset="18%"  stopColor="#D4880C" stopOpacity="1" />
+          <stop offset="38%"  stopColor="#FFD060" stopOpacity="1" />
+          <stop offset="50%"  stopColor="#FFE599" stopOpacity="1" />
+          <stop offset="62%"  stopColor="#FFD060" stopOpacity="1" />
+          <stop offset="82%"  stopColor="#D4880C" stopOpacity="1" />
+          <stop offset="100%" stopColor="#8B5209" stopOpacity="0" />
+        </linearGradient>
+        <filter id="hglow-m" x="-25%" y="-100%" width="150%" height="380%">
+          <feGaussianBlur stdDeviation="3.5" result="b1" />
+          <feGaussianBlur stdDeviation="9"   result="b2" />
+          <feMerge>
+            <feMergeNode in="b2" />
+            <feMergeNode in="b1" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <ellipse
+        cx="64" cy="24" rx="57" ry="18"
+        stroke="url(#hg-m)" strokeWidth="4.5" fill="none"
+        filter="url(#hglow-m)"
+      />
+    </svg>
+  );
+}
 
 // ─── Falkon mode ──────────────────────────────────────────────────────────────
 
@@ -401,78 +495,112 @@ function ActionPlanCard({
   );
 }
 
+// ─── Seed card data ───────────────────────────────────────────────────────────
+
+const SEED_CARDS = [
+  { Icon: List,         color: "#4F8EF5", bg: "rgba(79,142,245,0.12)",  prompt: "What are our most pressing jobs today?",   title: "What are our most pressing jobs today?",    desc: "Prioritized list of urgent and important jobs." },
+  { Icon: CalendarDays, color: "#A78BFA", bg: "rgba(167,139,250,0.12)", prompt: "What's on deck this week?",                title: "What's on deck this week?",                 desc: "Upcoming jobs and key deadlines." },
+  { Icon: Users,        color: "#2DD4BF", bg: "rgba(45,212,191,0.12)",  prompt: "What's the status of active operations?",  title: "Status of active operations",               desc: "Summary of ongoing operations and progress." },
+  { Icon: ExternalLink, color: "#A78BFA", bg: "rgba(167,139,250,0.12)", prompt: "Show me the Halo Work app",                title: "Show me the Halo Work app",                 desc: "Open the connected Halo Work application." },
+];
+
+function SeedCard({ card, onSubmit }: { card: typeof SEED_CARDS[number]; onSubmit: (s: string) => void }) {
+  return (
+    <button
+      onClick={() => onSubmit(card.prompt)}
+      className="text-left rounded-[12px] transition-all active:scale-[0.97]"
+      style={{
+        padding: "12px 12px",
+        background: "rgba(255,255,255,0.034)",
+        border: "1px solid rgba(255,255,255,0.065)",
+      }}
+    >
+      <div style={{
+        width: 26, height: 26, borderRadius: 7, background: card.bg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 8,
+      }}>
+        <card.Icon size={13} color={card.color} strokeWidth={2} />
+      </div>
+      <p style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.8)", lineHeight: 1.35, marginBottom: 4 }}>
+        {card.title}
+      </p>
+      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1.4 }}>
+        {card.desc}
+      </p>
+    </button>
+  );
+}
+
+// ─── Wings icon ───────────────────────────────────────────────────────────────
+
+function WingsIcon() {
+  return (
+    <svg width="20" height="13" viewBox="0 0 22 14" fill="none" style={{ opacity: 0.32 }}>
+      <path d="M11 7C9.5 4.5 6 2 2 2C2 5 4 8 7 9.5L11 7Z" fill="white" />
+      <path d="M11 7C12.5 4.5 16 2 20 2C20 5 18 8 15 9.5L11 7Z" fill="white" />
+      <ellipse cx="11" cy="7" rx="1.5" ry="1" fill="white" />
+    </svg>
+  );
+}
+
 // ─── Shared composer ──────────────────────────────────────────────────────────
 
 function ComposerInput({
-  value, onChange, onSubmit, onVoice, busy,
+  value, onChange, onSubmit, busy,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
-  onVoice: () => void;
+  onVoice?: () => void;
   busy: boolean;
 }) {
   const [focused, setFocused] = useState(false);
-  const hasSend = value.trim().length > 0;
 
   return (
     <div
-      className="relative flex items-center overflow-hidden transition-all duration-200"
       style={{
-        background: focused ? "rgba(255,255,255,0.058)" : "rgba(255,255,255,0.042)",
-        border: `1px solid ${focused ? "rgba(180,255,68,0.22)" : "rgba(255,255,255,0.08)"}`,
-        borderRadius: 20,
-        boxShadow: focused
-          ? "0 0 0 3px rgba(180,255,68,0.06), 0 8px 40px rgba(0,0,0,0.45)"
-          : "0 8px 40px rgba(0,0,0,0.3)",
+        display: "flex", alignItems: "center",
+        background: focused ? "rgba(255,255,255,0.052)" : "rgba(255,255,255,0.038)",
+        border: `1px solid ${focused ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.08)"}`,
+        borderRadius: 16,
+        boxShadow: focused ? "0 0 0 3px rgba(255,255,255,0.03), 0 8px 40px rgba(0,0,0,0.4)" : "0 4px 32px rgba(0,0,0,0.32)",
+        transition: "all 0.18s ease",
+        padding: "5px 6px 5px 14px",
       }}
     >
-      {/* Voice */}
-      <button
-        onClick={onVoice}
-        className="ml-3 w-9 h-9 rounded-full grid place-items-center shrink-0 transition-all active:scale-90"
-        style={{ color: "rgba(255,255,255,0.22)" }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLButtonElement).style.color = "rgba(180,255,68,0.7)";
-          (e.currentTarget as HTMLButtonElement).style.background = "rgba(180,255,68,0.08)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.22)";
-          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-        }}
-      >
-        <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
-      </button>
-
-      {/* Input */}
+      <Paperclip size={15} strokeWidth={2} style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }} />
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        placeholder="Ask HALO anything…"
-        className="flex-1 bg-transparent px-3 focus:outline-none"
+        placeholder="Ask anything about Archangel Operations..."
         style={{
-          height: 54,
-          fontSize: 14,
-          color: "rgba(255,255,255,0.9)",
-          caretColor: "#B4FF44",
+          flex: 1, background: "transparent", border: "none", outline: "none",
+          fontSize: 14, color: "rgba(255,255,255,0.88)", caretColor: "#B4FF44",
+          padding: "10px 12px", minHeight: 44,
         }}
       />
-
-      {/* Send */}
       <button
+        type="button"
         onClick={onSubmit}
-        disabled={!hasSend || busy}
-        className="mr-3 w-9 h-9 rounded-full grid place-items-center shrink-0 transition-all active:scale-90 disabled:opacity-20 disabled:scale-100"
+        disabled={!value.trim() || busy}
         style={{
-          background: hasSend ? "#B4FF44" : "rgba(255,255,255,0.07)",
-          color: hasSend ? "#07101E" : "rgba(255,255,255,0.28)",
-          boxShadow: hasSend ? "0 2px 12px rgba(180,255,68,0.25)" : "none",
+          width: 34, height: 34, borderRadius: "50%", flexShrink: 0, cursor: "pointer",
+          background: value.trim() ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
+          border: "1px solid rgba(255,255,255,0.13)",
+          display: "grid", placeItems: "center",
+          color: value.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)",
+          transition: "all 0.18s ease",
+          opacity: busy ? 0.5 : 1,
         }}
       >
-        {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <Send className="w-[13px] h-[13px]" strokeWidth={2.2} />}
+        {busy
+          ? <Loader2 size={13} className="animate-spin" />
+          : <ArrowUp size={14} strokeWidth={2.2} />
+        }
       </button>
     </div>
   );
@@ -672,10 +800,16 @@ export default function HaloCommand() {
                 body: JSON.stringify(plan),
               });
               const llData = parseLiveLinkResult(r.result);
+              const exData = parseExchangeResult(r.result);
               if (llData) {
                 setMessages(prev => [
                   ...prev.map(m => m.id === planId ? { ...m as any, status: "done" as const } : m),
                   { id: `ll-${Date.now()}`, kind: "live-link-card" as const, data: llData },
+                ]);
+              } else if (exData) {
+                setMessages(prev => [
+                  ...prev.map(m => m.id === planId ? { ...m as any, status: "done" as const } : m),
+                  { id: `ex-${Date.now()}`, ...exData },
                 ]);
               } else {
                 setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
@@ -781,10 +915,16 @@ export default function HaloCommand() {
                   body: JSON.stringify(planMsg.plan),
                 });
                 const llData = parseLiveLinkResult(r.result);
+                const exData = parseExchangeResult(r.result);
                 if (llData) {
                   setMessages(prev => [
                     ...prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const } : m),
                     { id: `ll-${Date.now()}`, kind: "live-link-card" as const, data: llData },
+                  ]);
+                } else if (exData) {
+                  setMessages(prev => [
+                    ...prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const } : m),
+                    { id: `ex-${Date.now()}`, ...exData },
                   ]);
                 } else {
                   setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m));
@@ -837,6 +977,56 @@ export default function HaloCommand() {
               setMessages(prev => prev.filter(m => m.id !== msg.id));
             }}
           />
+        );
+      case "exchange-product-card":
+        return (
+          <div style={{ background: "rgba(180,255,68,0.035)", border: "1px solid rgba(180,255,68,0.1)", borderRadius: 14, padding: "12px 14px", marginBottom: 12, animation: "hcFadeUp 0.2s ease-out both" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(180,255,68,0.65)", textTransform: "uppercase" }}>Falkon Exchange</span>
+              <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 5, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>{msg.activationState}</span>
+            </div>
+            {msg.products.length === 0
+              ? <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", padding: "4px 0" }}>No products found.</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {msg.products.map(p => (
+                    <div key={p.id} style={{ background: "rgba(255,255,255,0.028)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 10, padding: "8px 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)", flex: 1, lineHeight: 1.3 }}>{p.name}</span>
+                        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", background: "rgba(255,255,255,0.055)", borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{p.category}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{p.pricePerUnit != null ? `$${(p.pricePerUnit / 100).toLocaleString()} / ${p.pricingModel.replace(/_/g, " ")}` : "Custom pricing"}</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{p.slaHours}h SLA</span>
+                        {p.activeEntitlements > 0 && <span style={{ fontSize: 11, color: "rgba(180,255,68,0.65)" }}>{p.activeEntitlements} partner{p.activeEntitlements !== 1 ? "s" : ""}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+        );
+      case "exchange-status-card":
+        return (
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "12px 14px", marginBottom: 12, animation: "hcFadeUp 0.2s ease-out both" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(180,255,68,0.65)", textTransform: "uppercase" }}>Exchange Activation</span>
+              <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 6, background: msg.statusData.prerequisitesAllMet ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.09)", color: msg.statusData.prerequisitesAllMet ? "rgba(34,197,94,0.8)" : "rgba(245,158,11,0.75)" }}>{msg.statusData.activationState}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {(msg.statusData.prerequisites ?? []).map(p => (
+                <div key={p.key} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ width: 15, height: 15, borderRadius: "50%", background: p.met ? "rgba(34,197,94,0.12)" : "rgba(225,29,72,0.1)", border: `1px solid ${p.met ? "rgba(34,197,94,0.3)" : "rgba(225,29,72,0.22)"}`, flexShrink: 0, marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: p.met ? "#22C55E" : "#E11D48", fontWeight: 700 }}>{p.met ? "✓" : "✗"}</div>
+                  <div>
+                    <div style={{ fontSize: 12, color: p.met ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.42)", fontWeight: 500, lineHeight: 1.35 }}>{p.label}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", marginTop: 1, lineHeight: 1.4 }}>{p.detail}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {msg.statusData.hint && (
+              <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.3)", fontStyle: "italic", lineHeight: 1.45 }}>{msg.statusData.hint}</div>
+            )}
+          </div>
         );
       case "error":
         return (
@@ -943,87 +1133,75 @@ export default function HaloCommand() {
 
           /* ── SEED STATE ─────────────────────────────────────────────────── */
           <div
-            className="flex-1 flex flex-col items-center justify-center px-6 overflow-hidden"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            className="flex-1 flex flex-col items-center overflow-y-auto"
+            style={{ padding: "28px 20px", paddingBottom: "max(28px, env(safe-area-inset-bottom))" }}
           >
+            <div className="w-full flex flex-col items-center" style={{ maxWidth: 420 }}>
 
-            {/* Greeting */}
-            <div
-              className="text-center hc-in"
-              style={{ animation: "hcFadeUp 0.45s ease-out 0.04s both", marginBottom: 36 }}
-            >
-              <h1
-                className="font-semibold text-white leading-[1.04]"
-                style={{ fontSize: "clamp(34px, 9vw, 44px)", letterSpacing: "-0.025em", fontFamily: "var(--font-display)" }}
-              >
-                {timeGreeting()}
-              </h1>
-              <p
-                className="mt-2.5 font-medium"
-                style={{ fontSize: 13, color: "rgba(255,255,255,0.28)", letterSpacing: "0.005em" }}
-              >
-                {falkonMode === "ASSISTED"
-                  ? "Auto-pilot active — safe actions execute automatically."
-                  : "Ask me anything about your operations."}
-              </p>
-
-              {/* Urgent indicator — single quiet line, never a card */}
-              {totalNeeds > 0 && (
-                <p className="mt-2.5" style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>
-                  <span style={{ color: "rgba(225,29,72,0.82)" }}>
-                    {totalNeeds} item{totalNeeds !== 1 ? "s" : ""}
-                  </span>
-                  {" "}need{totalNeeds === 1 ? "s" : ""} your attention
-                </p>
-              )}
-            </div>
-
-            {/* Composer — the primary action */}
-            <div
-              className="w-full hc-in"
-              style={{ maxWidth: 380, animation: "hcFadeUp 0.45s ease-out 0.14s both" }}
-            >
-              <ComposerInput
-                value={input}
-                onChange={setInput}
-                onSubmit={() => handleSubmit()}
-                onVoice={() => setVoiceOpen(true)}
-                busy={parseVoice.isPending}
-              />
-            </div>
-
-            {/* 4 chips — 2×2 grid, understated */}
-            <div
-              className="w-full hc-in"
-              style={{ maxWidth: 380, marginTop: 14, animation: "hcFadeUp 0.45s ease-out 0.24s both" }}
-            >
-              <div className="grid grid-cols-2 gap-[7px]">
-                {promptChips.map((chip, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSubmit(chip)}
-                    className="text-left rounded-[13px] transition-all active:scale-[0.97]"
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(255,255,255,0.36)",
-                      background: "rgba(255,255,255,0.034)",
-                      border: "1px solid rgba(255,255,255,0.056)",
-                      padding: "10px 13px",
-                      lineHeight: 1.4,
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)";
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.058)";
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.36)";
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.034)";
-                    }}
-                  >
-                    {chip}
-                  </button>
-                ))}
+              {/* Angel halo ring */}
+              <div style={{ animation: "hcFadeUp 0.45s ease-out 0.02s both", marginBottom: 18 }}>
+                <AngelHalo />
               </div>
+
+              {/* Greeting */}
+              <div className="text-center hc-in" style={{ animation: "hcFadeUp 0.45s ease-out 0.1s both", marginBottom: 28 }}>
+                <h1 style={{
+                  fontSize: "clamp(32px, 9vw, 42px)", fontWeight: 600,
+                  color: "#fff", lineHeight: 1.1, letterSpacing: "-0.025em",
+                  marginBottom: 10,
+                }}>
+                  Hi, Team.
+                </h1>
+                <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.36)", lineHeight: 1.55 }}>
+                  Chat below to find out anything about<br />Archangel Operations.
+                </p>
+                {totalNeeds > 0 && (
+                  <p style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
+                    <span style={{ color: "rgba(225,29,72,0.82)", fontWeight: 600 }}>
+                      {totalNeeds} item{totalNeeds !== 1 ? "s" : ""}
+                    </span>
+                    {" "}need{totalNeeds === 1 ? "s" : ""} your attention
+                  </p>
+                )}
+              </div>
+
+              {/* Composer */}
+              <div className="w-full hc-in" style={{ animation: "hcFadeUp 0.45s ease-out 0.18s both", marginBottom: 22 }}>
+                <ComposerInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => handleSubmit()}
+                  busy={parseVoice.isPending}
+                />
+              </div>
+
+              {/* TRY ASKING label + 2×2 card grid */}
+              <div className="w-full hc-in" style={{ animation: "hcFadeUp 0.45s ease-out 0.26s both" }}>
+                <p style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+                  color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                  marginBottom: 10,
+                }}>
+                  Try Asking
+                </p>
+                <div className="grid grid-cols-2 gap-[8px]">
+                  {SEED_CARDS.map((card, i) => (
+                    <SeedCard key={i} card={card} onSubmit={handleSubmit} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                marginTop: 24, display: "flex", alignItems: "center", gap: 7,
+                animation: "hcFadeUp 0.45s ease-out 0.34s both",
+              }}>
+                <WingsIcon />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+                  Halo can make mistakes. Always verify critical information.
+                </span>
+              </div>
+
             </div>
           </div>
 

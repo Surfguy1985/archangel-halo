@@ -20,6 +20,13 @@ export interface PhaseManifest {
   capabilities: PhaseCapabilityPreview[];
   prerequisites: string[];
   whatThisUnlocks: string;
+  /**
+   * Tracks build / activation progress for this phase.
+   *   undefined  — not yet built (default for phases 4–6)
+   *   "draft"    — implementation built; activation prerequisites not met
+   *   "active"   — commercially activated (all prerequisites satisfied)
+   */
+  builtState?: "draft" | "active";
 }
 
 export const PHASE_MANIFESTS: PhaseManifest[] = [
@@ -129,6 +136,9 @@ export const PHASE_MANIFESTS: PhaseManifest[] = [
     ],
     whatThisUnlocks:
       "HALO generates revenue from its operational excellence by licensing make-ready, property management, and dispatch capabilities to other businesses on the Falkon Exchange.",
+    // Phase 3 is built and in draft-ready state. Commercial activation requires
+    // all four prerequisites to be satisfied — enforced at /exchange/activate.
+    builtState: "draft",
   },
   {
     phase: 4,

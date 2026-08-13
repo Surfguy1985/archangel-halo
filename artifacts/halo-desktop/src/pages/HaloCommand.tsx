@@ -12,7 +12,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Mic, Send, Loader2, CheckCircle2, AlertCircle,
+  Paperclip, ArrowUp, Loader2, CheckCircle2, AlertCircle,
+  List, CalendarDays, Users, ExternalLink,
 } from "lucide-react";
 
 import {
@@ -45,6 +46,35 @@ interface ActionPlanData {
 
 type PanelType = "map" | "kanban" | "money";
 
+// ─── Exchange card types ──────────────────────────────────────────────────────
+
+type ExchangeProductSummary = {
+  id: string;
+  productKey: string;
+  name: string;
+  category: string;
+  pricingModel: string;
+  pricePerUnit: number | null;
+  slaHours: number;
+  availability: string;
+  status: string;
+  listingCount: number;
+  activeEntitlements: number;
+};
+
+type ExchangeStatusData = {
+  type?: string;
+  activationState: string;
+  prerequisitesAllMet: boolean;
+  missing: string[];
+  prerequisites: Array<{ key: string; label: string; met: boolean; detail: string }>;
+  hint?: string;
+};
+
+type ExchangeMsgData =
+  | { kind: "exchange-product-card"; products: ExchangeProductSummary[]; activationState: string }
+  | { kind: "exchange-status-card"; statusData: ExchangeStatusData };
+
 type TMsg =
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
@@ -52,19 +82,77 @@ type TMsg =
   | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
   | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
   | { id: string; kind: "panel-opened"; panel: PanelType; label: string }
+  | { id: string; kind: "exchange-product-card"; products: ExchangeProductSummary[]; activationState: string }
+  | { id: string; kind: "exchange-status-card"; statusData: ExchangeStatusData }
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string };
+
+// ─── Exchange result parser ───────────────────────────────────────────────────
+
+function parseExchangeResult(result: unknown): ExchangeMsgData | null {
+  if (!result || typeof result !== "string") return null;
+  try {
+    const p = JSON.parse(result);
+    if (p.type === "exchange_products") {
+      return { kind: "exchange-product-card", products: p.products ?? [], activationState: p.activationState ?? "draft" };
+    }
+    if (p.type === "exchange_status") {
+      return { kind: "exchange-status-card", statusData: p as ExchangeStatusData };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 
 const KEYFRAMES = `
 @keyframes dcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
 @keyframes dcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-@keyframes dcGlow {
-  0%,100%{opacity:0.5;filter:drop-shadow(0 0 24px rgba(180,255,68,0.35))}
-  50%{opacity:0.85;filter:drop-shadow(0 0 48px rgba(180,255,68,0.65))}
+@keyframes haloAura {
+  0%,100%{filter:drop-shadow(0 0 6px rgba(212,134,12,0.55)) drop-shadow(0 0 18px rgba(212,134,12,0.25))}
+  50%{filter:drop-shadow(0 0 14px rgba(255,208,96,0.8)) drop-shadow(0 0 36px rgba(255,208,96,0.38))}
 }
+@media(prefers-reduced-motion:reduce){.dc-in{animation:none!important}}
 `;
+
+// ─── Angel Halo Ring ──────────────────────────────────────────────────────────
+
+function AngelHalo() {
+  return (
+    <svg
+      width="148" height="56" viewBox="0 0 148 56" fill="none"
+      style={{ animation: "haloAura 3.2s ease-in-out infinite", display: "block" }}
+    >
+      <defs>
+        <linearGradient id="hg-d" x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%"   stopColor="#8B5209" stopOpacity="0" />
+          <stop offset="18%"  stopColor="#D4880C" stopOpacity="1" />
+          <stop offset="38%"  stopColor="#FFD060" stopOpacity="1" />
+          <stop offset="50%"  stopColor="#FFE599" stopOpacity="1" />
+          <stop offset="62%"  stopColor="#FFD060" stopOpacity="1" />
+          <stop offset="82%"  stopColor="#D4880C" stopOpacity="1" />
+          <stop offset="100%" stopColor="#8B5209" stopOpacity="0" />
+        </linearGradient>
+        <filter id="hglow-d" x="-25%" y="-100%" width="150%" height="380%">
+          <feGaussianBlur stdDeviation="4" result="b1" />
+          <feGaussianBlur stdDeviation="10" result="b2" />
+          <feMerge>
+            <feMergeNode in="b2" />
+            <feMergeNode in="b1" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <ellipse
+        cx="74" cy="28" rx="66" ry="21"
+        stroke="url(#hg-d)" strokeWidth="5" fill="none"
+        filter="url(#hglow-d)"
+      />
+    </svg>
+  );
+}
 
 // ─── Falkon ───────────────────────────────────────────────────────────────────
 
@@ -279,6 +367,92 @@ function ActionPlanCard({ msg, falkonMode, onExecute, onDecline }: {
           {isShadow ? "Switch to ASSISTED mode to execute." : "Contact your administrator."}
         </p>
       )}
+    </div>
+  );
+}
+
+// ─── Seed card data ───────────────────────────────────────────────────────────
+
+const SEED_CARDS = [
+  { Icon: List,         color: "#4F8EF5", bg: "rgba(79,142,245,0.12)",   prompt: "What are our most pressing jobs today?",    title: "What are our most pressing jobs today?",      desc: "Show me a prioritized list of urgent and important jobs." },
+  { Icon: CalendarDays, color: "#A78BFA", bg: "rgba(167,139,250,0.12)",  prompt: "What's on deck this week?",                 title: "What's on deck this week?",                   desc: "Show upcoming jobs and key deadlines." },
+  { Icon: Users,        color: "#2DD4BF", bg: "rgba(45,212,191,0.12)",   prompt: "What's the status of active operations?",   title: "What's the status of active operations?",     desc: "Get a summary of ongoing operations and progress." },
+  { Icon: ExternalLink, color: "#A78BFA", bg: "rgba(167,139,250,0.12)",  prompt: "Show me the Halo Work app",                 title: "Show me the Halo Work app",                   desc: "Open the connected Halo Work application." },
+];
+
+function SeedCard({ card, onSubmit }: { card: typeof SEED_CARDS[number]; onSubmit: (s: string) => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={() => onSubmit(card.prompt)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        textAlign: "left", padding: "14px",
+        borderRadius: 12,
+        background: hov ? "rgba(255,255,255,0.052)" : "rgba(255,255,255,0.032)",
+        border: `1px solid ${hov ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.065)"}`,
+        transition: "all 0.18s ease", cursor: "pointer",
+        transform: hov ? "translateY(-1px)" : "none",
+      }}
+    >
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+        <card.Icon size={14} color={card.color} strokeWidth={2} />
+      </div>
+      <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)", lineHeight: 1.35, marginBottom: 6 }}>{card.title}</p>
+      <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.3)", lineHeight: 1.45 }}>{card.desc}</p>
+    </button>
+  );
+}
+
+// ─── Wings icon ───────────────────────────────────────────────────────────────
+
+function WingsIcon() {
+  return (
+    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" style={{ opacity: 0.35 }}>
+      <path d="M11 7C9.5 4.5 6 2 2 2C2 5 4 8 7 9.5L11 7Z" fill="white" />
+      <path d="M11 7C12.5 4.5 16 2 20 2C20 5 18 8 15 9.5L11 7Z" fill="white" />
+      <ellipse cx="11" cy="7" rx="1.5" ry="1" fill="white" />
+    </svg>
+  );
+}
+
+// ─── Shared composer ──────────────────────────────────────────────────────────
+
+function ComposerInput({ value, onChange, onSubmit, busy }: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  onVoice?: () => void;
+  busy: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center",
+      background: focused ? "rgba(255,255,255,0.052)" : "rgba(255,255,255,0.038)",
+      border: `1px solid ${focused ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.08)"}`,
+      borderRadius: 16,
+      boxShadow: focused ? "0 0 0 3px rgba(255,255,255,0.03), 0 8px 40px rgba(0,0,0,0.4)" : "0 4px 32px rgba(0,0,0,0.35)",
+      transition: "all 0.18s ease",
+      padding: "6px 8px 6px 16px",
+    }}>
+      <Paperclip size={15} strokeWidth={2} style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }} />
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Ask anything about Archangel Operations..."
+        style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 14.5, color: "rgba(255,255,255,0.88)", caretColor: "#B4FF44", padding: "10px 14px", minHeight: 44 }}
+      />
+      <button
+        type="button" onClick={onSubmit} disabled={!value.trim() || busy}
+        style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, cursor: "pointer", background: value.trim() ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", display: "grid", placeItems: "center", color: value.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)", transition: "all 0.18s ease", opacity: busy ? 0.5 : 1 }}
+      >
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={15} strokeWidth={2.2} />}
+      </button>
     </div>
   );
 }
@@ -532,7 +706,15 @@ export default function HaloCommand() {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(planMsg.plan),
                 });
-                setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m));
+                const exData = parseExchangeResult(r.result);
+                if (exData) {
+                  setMessages(prev => [
+                    ...prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const } : m),
+                    { id: `ex-${Date.now()}`, ...exData },
+                  ]);
+                } else {
+                  setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m));
+                }
                 qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
               } catch {
                 setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "error" as const } : m));
@@ -557,6 +739,52 @@ export default function HaloCommand() {
         />
       );
       case "panel-opened": return <PanelOpenedChip panel={msg.panel} label={msg.label} onReopen={() => setActivePanel(msg.panel)} />;
+      case "exchange-product-card": return (
+        <div style={{ background: "rgba(180,255,68,0.035)", border: "1px solid rgba(180,255,68,0.1)", borderRadius: 14, padding: "12px 16px", marginBottom: 12, animation: "dcIn 0.2s ease-out both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(180,255,68,0.65)", textTransform: "uppercase" }}>Falkon Exchange</span>
+            <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 5, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>{msg.activationState}</span>
+          </div>
+          {msg.products.length === 0
+            ? <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>No products found.</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {msg.products.map(p => (
+                  <div key={p.id} style={{ background: "rgba(255,255,255,0.028)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 10, padding: "8px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)", flex: 1 }}>{p.name}</span>
+                      <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(255,255,255,0.28)", textTransform: "uppercase", background: "rgba(255,255,255,0.055)", borderRadius: 4, padding: "1px 6px" }}>{p.category}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, marginTop: 3 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{p.pricePerUnit != null ? `$${(p.pricePerUnit / 100).toLocaleString()} / ${p.pricingModel.replace(/_/g, " ")}` : "Custom pricing"}</span>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{p.slaHours}h SLA</span>
+                      {p.activeEntitlements > 0 && <span style={{ fontSize: 11, color: "rgba(180,255,68,0.6)" }}>{p.activeEntitlements} partner{p.activeEntitlements !== 1 ? "s" : ""}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      );
+      case "exchange-status-card": return (
+        <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "12px 16px", marginBottom: 12, animation: "dcIn 0.2s ease-out both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(180,255,68,0.65)", textTransform: "uppercase" }}>Exchange Activation</span>
+            <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 6, background: msg.statusData.prerequisitesAllMet ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.09)", color: msg.statusData.prerequisitesAllMet ? "rgba(34,197,94,0.8)" : "rgba(245,158,11,0.75)" }}>{msg.statusData.activationState}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {(msg.statusData.prerequisites ?? []).map(p => (
+              <div key={p.key} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: p.met ? "rgba(34,197,94,0.12)" : "rgba(225,29,72,0.1)", border: `1px solid ${p.met ? "rgba(34,197,94,0.3)" : "rgba(225,29,72,0.22)"}`, flexShrink: 0, marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: p.met ? "#22C55E" : "#E11D48", fontWeight: 700 }}>{p.met ? "✓" : "✗"}</div>
+                <div>
+                  <div style={{ fontSize: 12.5, color: p.met ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.42)", fontWeight: 500 }}>{p.label}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", marginTop: 2, lineHeight: 1.4 }}>{p.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {msg.statusData.hint && <div style={{ marginTop: 10, fontSize: 11.5, color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>{msg.statusData.hint}</div>}
+        </div>
+      );
       case "success": return (
         <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/15 rounded-[13px] px-4 py-3 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
           <CheckCircle2 className="w-4 h-4 text-[#22C55E] shrink-0" />
@@ -579,62 +807,72 @@ export default function HaloCommand() {
       <div className="h-full flex flex-col bg-[#080D17]">
 
         {!hasThread ? (
-          /* SEED STATE */
-          <div className="flex-1 flex flex-col items-center justify-center px-8 pb-8">
-            {/* Ring */}
-            <div className="mb-8" style={{ animation: "dcIn 0.4s ease-out 0.05s both" }}>
-              <div className="w-[80px] h-[80px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
-                style={{ animation: "dcGlow 3.5s ease-in-out infinite" }}>
-                <HaloRing className="w-[36px] h-[36px] text-[#B4FF44]" />
+          /* ── SEED STATE ─────────────────────────────────────────────────── */
+          <div className="flex-1 flex flex-col items-center justify-center px-8 overflow-y-auto">
+            <div className="w-full max-w-[680px] flex flex-col items-center py-10">
+
+              {/* Angel halo ring */}
+              <div style={{ animation: "dcIn 0.5s ease-out 0.02s both", marginBottom: 22 }}>
+                <AngelHalo />
               </div>
-            </div>
 
-            {/* Greeting */}
-            <div className="text-center mb-2" style={{ animation: "dcIn 0.4s ease-out 0.12s both" }}>
-              <h1 className="text-[40px] font-bold text-white leading-none tracking-[-0.025em]">
-                {timeGreeting()}
-              </h1>
-              <p className="text-[15px] text-white/32 mt-3 font-medium">
-                {falkonMode === "ASSISTED"
-                  ? "Auto-pilot active — safe actions execute automatically."
-                  : "Ask me anything about your operations."}
-              </p>
-            </div>
-
-            {/* Critical alerts */}
-            {(nowCount > 0 || pendingCount > 0) && (
-              <div className="mt-5 text-center space-y-1.5" style={{ animation: "dcIn 0.4s ease-out 0.18s both" }}>
-                {nowCount > 0 && (
-                  <p className="text-[14px]">
-                    <span className="text-[#E11D48]/90 font-semibold">{nowCount} item{nowCount !== 1 ? "s" : ""}</span>
-                    <span className="text-white/35"> need immediate attention</span>
-                  </p>
-                )}
-                {pendingCount > 0 && (
-                  <p className="text-[14px]">
-                    <span className="text-[#F59E0B]/90 font-semibold">{pendingCount} autopilot action{pendingCount !== 1 ? "s" : ""}</span>
-                    <span className="text-white/35"> waiting for review</span>
+              {/* Greeting */}
+              <div className="text-center" style={{ animation: "dcIn 0.5s ease-out 0.1s both", marginBottom: 32 }}>
+                <h1 style={{
+                  fontSize: "clamp(38px, 4.5vw, 52px)", fontWeight: 600,
+                  color: "#fff", lineHeight: 1.1, letterSpacing: "-0.025em",
+                  marginBottom: 12,
+                }}>
+                  Hi, Team.
+                </h1>
+                <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
+                  Chat below to find out anything about Archangel Operations.
+                </p>
+                {/* Inline urgent indicator */}
+                {(nowCount > 0 || pendingCount > 0) && (
+                  <p style={{ marginTop: 10, fontSize: 13, color: "rgba(255,255,255,0.35)" }}>
+                    <span style={{ color: "rgba(225,29,72,0.85)", fontWeight: 600 }}>
+                      {nowCount + pendingCount} item{nowCount + pendingCount !== 1 ? "s" : ""}
+                    </span>
+                    {" "}need your attention
                   </p>
                 )}
               </div>
-            )}
 
-            {/* Composer */}
-            <div className="w-full max-w-2xl mt-8 mb-6" style={{ animation: "dcIn 0.4s ease-out 0.22s both" }}>
-              <ComposerInput value={input} onChange={setInput} onSubmit={() => handleSubmit()} onVoice={() => setVoiceOpen(true)} busy={parseVoice.isPending} />
-            </div>
-
-            {/* Prompt chips */}
-            <div className="w-full max-w-2xl" style={{ animation: "dcIn 0.4s ease-out 0.3s both" }}>
-              <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/18 mb-3 text-center">Suggestions</div>
-              <div className="flex gap-2 justify-center flex-wrap">
-                {promptChips.map((chip, i) => (
-                  <button key={i} onClick={() => handleSubmit(chip)}
-                    className="text-[13px] text-white/40 px-5 py-2.5 rounded-[12px] bg-white/[0.034] border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60 transition-all active:scale-[0.98]">
-                    {chip}
-                  </button>
-                ))}
+              {/* Composer */}
+              <div className="w-full" style={{ animation: "dcIn 0.5s ease-out 0.18s both", marginBottom: 28 }}>
+                <ComposerInput value={input} onChange={setInput} onSubmit={() => handleSubmit()} onVoice={() => setVoiceOpen(true)} busy={parseVoice.isPending} />
               </div>
+
+              {/* TRY ASKING label */}
+              <div className="w-full" style={{ animation: "dcIn 0.5s ease-out 0.26s both" }}>
+                <p style={{
+                  fontSize: 10.5, fontWeight: 700, letterSpacing: "0.18em",
+                  color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                  marginBottom: 12,
+                }}>
+                  Try Asking
+                </p>
+
+                {/* 4 suggestion cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                  {SEED_CARDS.map((card, i) => (
+                    <SeedCard key={i} card={card} onSubmit={handleSubmit} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer disclaimer */}
+              <div style={{
+                marginTop: 32, display: "flex", alignItems: "center",
+                gap: 8, animation: "dcIn 0.5s ease-out 0.34s both",
+              }}>
+                <WingsIcon />
+                <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.22)" }}>
+                  Halo can make mistakes. Always verify critical information.
+                </span>
+              </div>
+
             </div>
           </div>
         ) : (
@@ -668,32 +906,3 @@ export default function HaloCommand() {
   );
 }
 
-// ─── Shared composer ──────────────────────────────────────────────────────────
-
-function ComposerInput({ value, onChange, onSubmit, onVoice, busy }: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  onVoice: () => void;
-  busy: boolean;
-}) {
-  return (
-    <div className="relative flex items-center bg-white/[0.052] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.4)] hover:border-white/15 transition-colors focus-within:border-[#B4FF44]/28 focus-within:bg-white/[0.065]">
-      <button onClick={onVoice}
-        className="ml-3.5 w-9 h-9 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/8 transition-all active:scale-[0.92] shrink-0">
-        <Mic className="w-[16px] h-[16px]" strokeWidth={2} />
-      </button>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
-        placeholder="Ask HALO anything…"
-        className="flex-1 h-[56px] bg-transparent px-3 text-[15px] text-white placeholder:text-white/20 focus:outline-none"
-      />
-      <button onClick={onSubmit} disabled={!value.trim() || busy}
-        className="mr-3.5 w-10 h-10 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.12)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0">
-        {busy ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.2} />}
-      </button>
-    </div>
-  );
-}

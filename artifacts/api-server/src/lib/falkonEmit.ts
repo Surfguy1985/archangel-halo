@@ -99,15 +99,20 @@ export type FalkonEntityType =
  * before executing externally. Policy fields can pre-authorize low-risk variants.
  */
 export type ConsequentialAction =
-  | "dispatch_crew"        // Assign a crew to a job
-  | "reassign_crew"        // Change crew assignment mid-job
-  | "approve_invoice"      // Mark an invoice as approved
-  | "send_invoice"         // Send invoice to client
-  | "pay_invoice"          // Record payment on an invoice
-  | "approve_change_order" // Approve a change order (scope/budget change)
-  | "pay_crew"             // Release crew payment
-  | "approve_walk"         // Approve a walk (already handled, but gatable)
-  | "submit_bid";          // Send a bid to a client/partner
+  | "dispatch_crew"          // Assign a crew to a job
+  | "reassign_crew"          // Change crew assignment mid-job
+  | "approve_invoice"        // Mark an invoice as approved
+  | "send_invoice"           // Send invoice to client
+  | "pay_invoice"            // Record payment on an invoice
+  | "approve_change_order"   // Approve a change order (scope/budget change)
+  | "pay_crew"               // Release crew payment
+  | "approve_walk"           // Approve a walk (already handled, but gatable)
+  | "submit_bid"             // Send a bid to a client/partner
+  // ── Phase 3: Falkon Exchange ───────────────────────────────────────────────
+  | "create_exchange_product" // Define a new Exchange product (pricing/SLA/availability)
+  | "publish_listing"         // Create or promote an Exchange listing draft
+  | "grant_entitlement"       // Grant a partner org access to an Exchange product
+  | "activate_exchange";      // Attempt commercial activation of the Falkon Exchange
 
 export interface PolicySnapshot {
   mode?: string;
@@ -115,6 +120,12 @@ export interface PolicySnapshot {
   maxAutoInvoiceAmount?: number | null;
   maxAutoCrewRate?: number | null;
   maxAutoChangeOrder?: number | null;
+  /**
+   * Future: max Exchange transaction amount auto-approved without review.
+   * Currently unused — all Exchange consequential actions require explicit
+   * ASSISTED approval (no auto-grant policy path for Exchange actions).
+   */
+  maxAutoExchangeAmount?: number | null;
 }
 
 export interface DecisionPacket {
@@ -136,24 +147,58 @@ export function checkAssistedGate(
   context: { amount?: number; crewRate?: number },
   policy: PolicySnapshot,
 ): DecisionPacket {
-  const decision = decideFalkonPolicy({
-    mode: policy.mode ?? "OFF",
-    action,
-    actorChannel: "human",
-    amount: context.amount,
-    crewRate: context.crewRate,
-    policy: {
-      autoDispatchEnabled: policy.autoDispatchEnabled,
-      maxAutoInvoiceAmount: policy.maxAutoInvoiceAmount,
-      maxAutoCrewRate: policy.maxAutoCrewRate,
-      maxAutoChangeOrder: policy.maxAutoChangeOrder,
-    },
-  });
+  if (!policy.mode || policy.mode !== "ASSISTED") {
+    return { permitted: true, reason: "Not in ASSISTED mode", summary: "", policyGranted: false };
+  }
+
+  // Policy-gated auto-permits
+  if (action === "dispatch_crew" && policy.autoDispatchEnabled) {
+    return { permitted: true, reason: "Policy: autoDispatchEnabled", summary: "Auto-dispatch authorised by policy", policyGranted: true };
+  }
+  if (
+    (action === "approve_invoice" || action === "send_invoice" || action === "pay_invoice") &&
+    typeof policy.maxAutoInvoiceAmount === "number" && typeof context.amount === "number" &&
+    context.amount <= policy.maxAutoInvoiceAmount
+  ) {
+    return { permitted: true, reason: `Policy: amount ${context.amount} ≤ maxAutoInvoiceAmount ${policy.maxAutoInvoiceAmount}`, summary: "Invoice within auto-approval limit", policyGranted: true };
+  }
+  if (
+    action === "approve_change_order" &&
+    typeof policy.maxAutoChangeOrder === "number" && typeof context.amount === "number" &&
+    context.amount <= policy.maxAutoChangeOrder
+  ) {
+    return { permitted: true, reason: `Policy: amount ${context.amount} ≤ maxAutoChangeOrder ${policy.maxAutoChangeOrder}`, summary: "Change order within auto-approval limit", policyGranted: true };
+  }
+  if (
+    action === "pay_crew" &&
+    typeof policy.maxAutoCrewRate === "number" && typeof context.crewRate === "number" &&
+    context.crewRate <= policy.maxAutoCrewRate
+  ) {
+    return { permitted: true, reason: `Policy: crewRate ${context.crewRate} ≤ maxAutoCrewRate ${policy.maxAutoCrewRate}`, summary: "Crew payment within auto-approval limit", policyGranted: true };
+  }
+
+  // Default: ASSISTED mode requires explicit human approval
+  const actionLabels: Record<ConsequentialAction, string> = {
+    dispatch_crew:           "Dispatching a crew to this job",
+    reassign_crew:           "Reassigning the crew mid-job",
+    approve_invoice:         "Approving this invoice",
+    send_invoice:            "Sending this invoice",
+    pay_invoice:             "Recording payment on this invoice",
+    approve_change_order:    "Approving this change order",
+    pay_crew:                "Releasing crew payment",
+    approve_walk:            "Approving this walk",
+    submit_bid:              "Submitting this bid",
+    create_exchange_product: "Creating a Falkon Exchange product",
+    publish_listing:         "Publishing an Exchange listing",
+    grant_entitlement:       "Granting Exchange access to a partner",
+    activate_exchange:       "Activating the Falkon Exchange commercially",
+  };
+
   return {
-    permitted: decision.permitted,
-    reason: decision.reason,
-    summary: decision.summary,
-    policyGranted: decision.policyGranted,
+    permitted: false,
+    reason: "ASSISTED: requires explicit approval",
+    summary: actionLabels[action] ?? action,
+    policyGranted: false,
   };
 }
 

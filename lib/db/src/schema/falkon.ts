@@ -321,11 +321,191 @@ export const falkonPendingApprovalsTable = pgTable("falkon_pending_approvals", {
   tenantId: text("tenant_id"),
   capability: text("capability"),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
-  status: text("status").notNull().default("pending"), // pending | approved | denied | consumed
+  status: text("status").notNull().default("pending"),
   decisionId: uuid("decision_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+
+// ── Falkon Exchange — Phase 3 tables ─────────────────────────────────────────
+//
+// All Exchange data is in DRAFT state until Phase 3 is commercially activated.
+// Activation requires LIVE mode + ≥5 fulfilled cross-business requests + merchant
+// agreement — enforced at the /exchange/activate endpoint, never bypassed here.
+
+/**
+ * Canonical workflow products HALO can license via the Falkon Exchange.
+ * Five products are seeded on server boot (idempotent). Additional products
+ * may be created by operators via POST /exchange/products.
+ */
+export const falkonExchangeProductsTable = pgTable("falkon_exchange_products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Stable slug identifier — unique, URL-safe, e.g. "make-ready-pipeline". */
+  productKey: text("product_key").notNull().unique(),
+  name: text("name").notNull(),
+  /** "workflow" | "api" | "platform" */
+  category: text("category").notNull().default("workflow"),
+  /** "per_job" | "per_unit" | "monthly" | "per_call" */
+  pricingModel: text("pricing_model").notNull().default("per_job"),
+  /** Price in cents. NULL = custom/negotiated pricing. */
+  pricePerUnit: doublePrecision("price_per_unit"),
+  /** Service-level agreement in hours. */
+  slaHours: integer("sla_hours").notNull().default(24),
+  /** "available" | "limited" | "unavailable" */
+  availability: text("availability").notNull().default("available"),
+  description: text("description"),
+  /** Array of capability descriptor strings. */
+  capabilities: jsonb("capabilities").notNull().default([]),
+  /** "draft" | "active" | "archived". All products start as draft. */
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Exchange Listing — the public-facing card for a product on the Exchange.
+ * Listings are always created as "draft" and may only be promoted to "live"
+ * after Exchange commercial activation (all prerequisites met).
+ */
+export const falkonExchangeListingsTable = pgTable("falkon_exchange_listings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  /** Human-readable price string, e.g. "$450 / job". */
+  priceDisplay: text("price_display"),
+  /** Human-readable SLA string, e.g. "24-hour turnaround". */
+  slaSummary: text("sla_summary"),
+  /** "available" | "limited" | "unavailable" */
+  availabilityStatus: text("availability_status").notNull().default("available"),
+  /** "draft" | "pending_review" | "live" | "archived". Starts as draft always. */
+  visibility: text("visibility").notNull().default("draft"),
+  draftedAt: timestamp("drafted_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Set only when promoted to live after activation. */
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  /** Arbitrary metadata (tags, categories, featured flag, etc.). */
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Partner entitlement — grants a named partner organization access to a product.
+ * Created by operators via POST /exchange/entitlements (boundary-gated).
+ */
+export const falkonExchangeEntitlementsTable = pgTable("falkon_exchange_entitlements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").notNull(),
+  /** Falkon org identifier of the partner receiving access. */
+  partnerOrg: text("partner_org").notNull(),
+  /** Optional API key record linked to this entitlement. */
+  apiKeyId: uuid("api_key_id"),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  /** NULL = unlimited. */
+  usageLimit: integer("usage_limit"),
+  usageCount: integer("usage_count").notNull().default(0),
+  /** "active" | "revoked" | "expired" */
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Metered usage log — one row per usage event (batch or single call).
+ * Used to compute billing, enforce quotas, and produce revenue records.
+ */
+export const falkonExchangeUsageTable = pgTable("falkon_exchange_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entitlementId: uuid("entitlement_id"),
+  productId: uuid("product_id").notNull(),
+  apiKeyId: uuid("api_key_id"),
+  /** Endpoint or capability invoked, e.g. "/make-ready/create". */
+  endpoint: text("endpoint"),
+  callCount: integer("call_count").notNull().default(1),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Revenue metadata — draft revenue records per entitlement per billing period.
+ * In draft/inactive Exchange state, status is always "draft".
+ * Real settlement requires Exchange to be commercially activated.
+ */
+export const falkonExchangeRevenueTable = pgTable("falkon_exchange_revenue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").notNull(),
+  entitlementId: uuid("entitlement_id"),
+  /** Billing period in YYYY-MM format. */
+  period: text("period").notNull(),
+  /** Amount in cents. */
+  amount: doublePrecision("amount").notNull().default(0),
+  currency: text("currency").notNull().default("USD"),
+  /** "draft" | "pending" | "settled". Always "draft" until Exchange activates. */
+  status: text("status").notNull().default("draft"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Partner API keys for programmatic consumption of Exchange products.
+ * keyHash stores a bcrypt/scrypt hash — the raw key is never persisted.
+ * In draft Exchange state, no external partner calls are accepted.
+ */
+export const falkonApiKeysTable = pgTable(
+  "falkon_api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /** Scrypt/bcrypt hash of the raw API key — never stored raw. */
+    keyHash: text("key_hash").notNull(),
+    partnerOrg: text("partner_org").notNull(),
+    /** Array of scope strings, e.g. ["make-ready:read", "billing:read"]. */
+    scopes: jsonb("scopes").notNull().default([]),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** "active" | "revoked" | "expired" */
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("falkon_api_keys_hash_uq").on(t.keyHash)],
+);
+
+/**
+ * Exchange activation singleton — tracks activation state and prerequisites.
+ * Enforced as a singleton at the DB level via a UNIQUE constraint on
+ * `singleton_key` (always "singleton"). `ensureActivationRow()` uses
+ * `INSERT … ON CONFLICT DO UPDATE … RETURNING` to atomically insert-or-read
+ * the row, eliminating any concurrent-insert race.
+ *
+ * Operators use PATCH /exchange/activation/merchant-agreement to accept the
+ * merchant agreement (one of the three activation prerequisites), then POST
+ * /exchange/activate — which evaluates all prerequisites first, then applies
+ * the Falkon boundary gate only when all are met.
+ */
+export const falkonExchangeActivationTable = pgTable(
+  "falkon_exchange_activation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /**
+     * Singleton enforcer — always "singleton". The UNIQUE index on this column
+     * prevents more than one row from ever existing in the table.
+     */
+    singletonKey: text("singleton_key").notNull().default("singleton"),
+    /** "draft" | "pending" | "active". Starts as draft. */
+    state: text("state").notNull().default("draft"),
+    /** Last evaluated prerequisite snapshot (for display). */
+    prerequisitesMet: jsonb("prerequisites_met").notNull().default({}),
+    activationAttemptedAt: timestamp("activation_attempted_at", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    merchantAgreementAccepted: boolean("merchant_agreement_accepted").notNull().default(false),
+    merchantAgreementAt: timestamp("merchant_agreement_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("falkon_exchange_activation_singleton_uq").on(t.singletonKey)],
+);
+>>>>>>> 8389061 (Implement Falkon schema validation and command execution logic)
 
 // ── Type Exports ─────────────────────────────────────────────────────────────
 
@@ -339,3 +519,10 @@ export type FalkonPhaseGate = typeof falkonPhaseGatesTable.$inferSelect;
 export type FalkonAuditLog = typeof falkonAuditLogTable.$inferSelect;
 export type FalkonPolicyDecision = typeof falkonPolicyDecisionsTable.$inferSelect;
 export type FalkonPendingApproval = typeof falkonPendingApprovalsTable.$inferSelect;
+export type FalkonExchangeProduct = typeof falkonExchangeProductsTable.$inferSelect;
+export type FalkonExchangeListing = typeof falkonExchangeListingsTable.$inferSelect;
+export type FalkonExchangeEntitlement = typeof falkonExchangeEntitlementsTable.$inferSelect;
+export type FalkonExchangeUsage = typeof falkonExchangeUsageTable.$inferSelect;
+export type FalkonExchangeRevenue = typeof falkonExchangeRevenueTable.$inferSelect;
+export type FalkonApiKey = typeof falkonApiKeysTable.$inferSelect;
+export type FalkonExchangeActivation = typeof falkonExchangeActivationTable.$inferSelect;

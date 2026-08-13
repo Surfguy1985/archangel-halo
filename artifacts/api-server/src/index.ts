@@ -7,6 +7,7 @@ import { ensureFalkonIdentity } from "./lib/falkonIdentity";
 import { ensureBase44Schema } from "./lib/ensureBase44Schema";
 import { ensureEnforcerSchema } from "./lib/ensureEnforcerSchema";
 import { startFalkonNetworkPoller } from "./lib/falkonNetworkPoller";
+import { seedExchangeProducts } from "./lib/seedExchangeProducts";
 
 const rawPort = process.env["PORT"];
 
@@ -33,11 +34,17 @@ app.listen(port, (err) => {
   ensureChartOfAccounts().catch((err) =>
     logger.error({ err }, "Failed to seed chart of accounts"),
   );
-  // Falkon: schema first, then identity, then network poller.
-  // Identity table must exist before we generate or load the keypair.
+  // Falkon: schema first, then identity, then network poller, then Exchange seeding.
+  // Order matters: tables must exist before identity + seeder run.
   ensureFalkonSchema()
     .then(() => ensureFalkonIdentity())
     .then(() => startFalkonNetworkPoller())
+    .then(() =>
+      // Phase 3: seed canonical Exchange workflow products (idempotent, non-fatal).
+      seedExchangeProducts().catch((err) =>
+        logger.warn({ err }, "Exchange product seeding failed (non-fatal)"),
+      ),
+    )
     .catch((err) =>
       logger.error({ err }, "Failed to bootstrap Falkon schema or identity"),
     );

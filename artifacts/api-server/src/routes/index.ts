@@ -51,6 +51,7 @@ import catalogLookupRouter from "./catalogLookup";
 import estimatesRouter from "./estimates";
 import smsOfficeRouter, { twilioWebhookRouter } from "./sms";
 import voiceEodRouter from "./voiceEod";
+import exchangeRouter from "./exchange";
 
 const router: IRouter = Router();
 
@@ -137,5 +138,6 @@ router.use(catalogLookupRouter);
 router.use(estimatesRouter);
 router.use(smsOfficeRouter);
 router.use(voiceEodRouter);
+router.use(exchangeRouter);
 
 export default router;
