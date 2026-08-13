@@ -1,49 +1,18 @@
 /**
  * HALO Command — Desktop conversational operating system.
  *
- * Renders inside DesktopLayout (sidebar nav stays visible — Home icon is this
- * page; Work, Clients, Money, Crews in the sidebar act as the "Work App" rail).
+ * Renders inside DesktopLayout (sidebar nav stays visible).
+ * One composer. Three summonable panels (Map, Kanban, Money).
+ * Everything else happens in conversation.
  *
- * Two layout states:
- *
- *   SEED   — full-height centered workspace: glowing halo ring, "Hi, Team."
- *            greeting, one large rounded command composer, four Try Asking
- *            cards. Hardware-like Apple-level polish. Matches the premium
- *            near-black screenshot reference exactly.
- *
- *   THREAD — once the user sends a message the seed content slides away and
- *            the thread fills the content area with the command bar anchored
- *            at the bottom. All lenses, confirmations, and decisions are fully
- *            functional.
- *
- * "Work App" nav: the DesktopLayout sidebar's "Home" icon is this page.
- * Sidebar items Work → /jobboard (Base44 embed + job board), Clients → /properties,
- * Money → /money provide CRM navigation. The "Work App" shortcut in the thread
- * command chips opens /work (Base44 embed).
- *
- * Falkon safeguards: SHADOW / ASSISTED / LIVE shown. Consequential actions
- * always surface a ConfirmCard.
- *
- * Thread persists at module level across route navigations.
+ * SEED   — ring + greeting + at most 2 critical alerts + 3 prompt chips.
+ * THREAD — scrollable chat: user bubbles, HALO answers, action cards.
+ * PANELS — LiveMap / Kanban / Money slide in from the right over the content.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "wouter";
 import {
-  Mic,
-  Send,
-  Footprints,
-  Sparkles,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  ChevronRight,
-  X,
-  Zap,
-  DollarSign,
-  MapPin,
-  FileText,
-  ExternalLink,
+  Mic, Send, Loader2, CheckCircle2, AlertCircle,
 } from "lucide-react";
 
 import {
@@ -52,24 +21,21 @@ import {
   useParseVoice,
   getGetTodayQueryKey,
   getListAutopilotActionsQueryKey,
-  type FeedCard as FeedCardType,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { VoiceAction } from "@workspace/api-client-react";
 
 import { HaloRing } from "@/components/HaloRing";
 import { VoiceCaptureDialog } from "@/components/VoiceCaptureDialog";
-import { DecisionPacket } from "@/components/command/DecisionPacket";
 import { ConfirmCard } from "@/components/command/ConfirmCard";
-import { LensCard, type LensType } from "@/components/command/LensCard";
-import { BriefingCard, type BriefingData } from "@/components/command/BriefingCard";
-import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
 import { FalkonControlCenter } from "@/components/command/FalkonControlCenter";
 import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
-import type { VoiceAction } from "@workspace/api-client-react";
+import { LiveMapPanel } from "@/components/panels/LiveMapPanel";
+import { KanbanPanel } from "@/components/panels/KanbanPanel";
+import { MoneyPanel } from "@/components/panels/MoneyPanel";
 
-// ─── Thread message types ─────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Structured action plan from commandBrain — wired to ASSISTED auto-execution */
 interface ActionPlanData {
   description: string;
   risk: "auto" | "review" | "block";
@@ -77,291 +43,124 @@ interface ActionPlanData {
   params?: Record<string, unknown>;
 }
 
+type PanelType = "map" | "kanban" | "money";
+
 type TMsg =
-  | { id: string; kind: "decision-packet"; card: FeedCardType }
-  | { id: string; kind: "autopilot-packet"; action: { id: string; title: string; body: string; type: string; status: string } }
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
-  | { id: string; kind: "halo-response"; text: string }
-  | { id: string; kind: "lens"; lensType: LensType; query: string }
-  | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
-  | { id: string; kind: "success"; text: string }
-  | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[] }
   | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
-  // Structured rich messages injected by the command brain
-  | { id: string; kind: "briefing"; data: BriefingData };
+  | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
+  | { id: string; kind: "panel-opened"; panel: PanelType; label: string }
+  | { id: string; kind: "success"; text: string }
+  | { id: string; kind: "error"; text: string };
 
-// ─── Module-level persistence ─────────────────────────────────────────────────
+// ─── CSS ──────────────────────────────────────────────────────────────────────
 
-// Messages always start empty — DB is the authoritative source, restored on init.
+const KEYFRAMES = `
+@keyframes dcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+@keyframes dcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes dcGlow {
+  0%,100%{opacity:0.5;filter:drop-shadow(0 0 24px rgba(180,255,68,0.35))}
+  50%{opacity:0.85;filter:drop-shadow(0 0 48px rgba(180,255,68,0.65))}
+}
+`;
 
-// ─── API fetch helper ─────────────────────────────────────────────────────────
+// ─── Falkon ───────────────────────────────────────────────────────────────────
 
-async function apiFetch(path: string, options?: RequestInit): Promise<any> {
-  const res = await fetch(path, {
-    ...options,
-    credentials: "same-origin",
-  });
+type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
+
+function deriveFalkonMode(health?: { gatewayMode?: string }): FalkonMode {
+  const m = health?.gatewayMode;
+  if (m === "ASSISTED") return "ASSISTED";
+  if (m === "LIVE") return "LIVE";
+  return "SHADOW";
+}
+
+// ─── Panel intent detection ───────────────────────────────────────────────────
+
+const PANEL_MAP: Array<{ panel: PanelType; label: string; patterns: string[] }> = [
+  { panel: "map",    label: "Live Map",  patterns: ["live map","crew map","show map","open map","where are crews","gps","map"] },
+  { panel: "kanban", label: "Job Board", patterns: ["job board","kanban","open board","show board","the board","show jobs","open jobs"] },
+  { panel: "money",  label: "Money",     patterns: ["money","open money","show money","financials","invoices","billing","revenue","receivables"] },
+];
+
+const BRAIN_LENS_TO_PANEL: Record<string, PanelType> = {
+  map: "map", crew_map: "map",
+  timeline: "kanban", turn_timeline: "kanban",
+  money: "money", budget_breakdown: "money", invoice_detail: "money",
+};
+
+const PANEL_ICONS: Record<PanelType, string> = { map: "📍", kanban: "📋", money: "💰" };
+
+function detectPanelIntent(text: string): { panel: PanelType; label: string } | null {
+  const lower = text.toLowerCase().trim();
+  for (const { panel, label, patterns } of PANEL_MAP) {
+    if (patterns.some(p => lower.includes(p))) return { panel, label };
+  }
+  return null;
+}
+
+function timeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning.";
+  if (h < 17) return "Good afternoon.";
+  return "Good evening.";
+}
+
+async function apiFetch(path: string, opts?: RequestInit): Promise<any> {
+  const res = await fetch(path, { ...opts, credentials: "same-origin" });
   if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => "")}`);
   return res.json();
 }
 
-// ─── Keyframes ───────────────────────────────────────────────────────────────
-
-const KEYFRAMES = `
-@keyframes hcdBounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30%            { transform: translateY(-5px); }
-}
-@keyframes hcdMsgIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes hcdAmbient {
-  0%, 100% { opacity: 0.20; transform: scaleY(0.55); }
-  50%       { opacity: 0.55; transform: scaleY(1); }
-}
-@keyframes hcdGlow {
-  0%, 100% { opacity: 0.52; filter: drop-shadow(0 0 28px rgba(180,255,68,0.40)); }
-  50%       { opacity: 0.88; filter: drop-shadow(0 0 52px rgba(180,255,68,0.72)); }
-}
-@keyframes hcdSeedIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hcd-msg, .hcd-seed-item { animation: none !important; }
-}
-`;
-
-// ─── Intent detection ─────────────────────────────────────────────────────────
-
-const LENS_MAP: Array<{ keywords: string[]; lens: LensType }> = [
-  {
-    keywords: ["invoice", "invoices", "payment", "money", "margin", "revenue", "budget",
-      "overdue", "outstanding", "scope", "financial", "bill", "billing", "collect",
-      "paid", "unpaid", "past due", "receivable", "accounts", "needing invoic",
-      "send invoice", "create invoice", "new invoice", "units.*invoic"],
-    lens: "money",
-  },
-  {
-    keywords: ["schedule", "timeline", "turn", "turns", "due this week", "late", "delay",
-      "project", "sla", "unscheduled", "on deck", "deck", "upcoming", "next week",
-      "work order", "job timeline", "what.*week", "structure.*day", "organize.*day",
-      "what.*today", "pressing jobs", "most.*job", "active job"],
-    lens: "timeline",
-  },
-  {
-    keywords: ["crew", "vendor", "on site", "available", "compliance", "coi", "contractor",
-      "who is", "missing", "performance", "dispatch", "dispatched", "check in",
-      "checked in", "active today", "working today", "who.*site", "who.*working",
-      "who.*dispatch", "send.*link", "live link", "portal link", "crew.*link"],
-    lens: "network",
-  },
-  {
-    keywords: ["photo", "before", "after", "inspection", "evidence", "qc", "quality",
-      "image", "picture", "proof", "documentation", "photo evidence", "inspect"],
-    lens: "evidence",
-  },
-  {
-    keywords: ["portfolio", "properties", "executive", "brief me", "health", "overview",
-      "all properties", "compare", "report", "performance", "pressing", "urgent",
-      "critical", "operations", "status", "summary", "what is happening",
-      "active operations", "summarize", "across"],
-    lens: "portfolio",
-  },
-  {
-    keywords: ["map", "location", "gps", "where", "route", "driving", "find another",
-      "near", "miles", "live map", "crew map", "who.*where", "live.*map"],
-    lens: "map",
-  },
-];
-
-const QUERY_STARTERS = [
-  "show", "which", "find", "who", "what", "how many", "list", "give me",
-  "brief me", "compare", "check", "tell me", "are there", "is there",
-  "do we have", "what are", "why is", "where", "when",
-];
-
-const WORK_APP_PHRASES = ["work app", "crm", "legacy", "open today", "traditional", "base44", "go to work"];
-
-function detectIntent(text: string): { type: "navigate"; path: string } | { type: "lens"; lens: LensType } | { type: "action" } | { type: "falkon" } {
-  const lower = text.toLowerCase().trim();
-  if (WORK_APP_PHRASES.some(p => lower.includes(p))) return { type: "navigate", path: "/work" };
-  if (isFalkonFormationIntent(text)) return { type: "falkon" };
-  const isQuery = QUERY_STARTERS.some(s => lower.startsWith(s));
-  if (isQuery) {
-    for (const { keywords, lens } of LENS_MAP) {
-      if (keywords.some(k => { try { return new RegExp(k).test(lower); } catch { return lower.includes(k); } })) {
-        return { type: "lens", lens };
-      }
-    }
-    return { type: "lens", lens: "portfolio" };
-  }
-  for (const { keywords, lens } of LENS_MAP) {
-    if (keywords.some(k => { try { return new RegExp(k).test(lower); } catch { return lower.includes(k); } })) {
-      const hasDataVerb = ["show", "open", "see", "view", "check", "pull up", "display"].some(v => lower.includes(v));
-      if (hasDataVerb) return { type: "lens", lens };
-    }
-  }
-  return { type: "action" };
-}
-
-// ─── Falkon mode ──────────────────────────────────────────────────────────────
-
-type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
-
-function deriveFalkonMode(health?: { gatewayMode?: string; overallHealth?: string }): FalkonMode {
-  // Use the actual gateway connection mode (from falkon_connections.mode),
-  // NOT the peer network health. A healthy peer network does NOT mean the
-  // gateway S2S session exists or has been verified.
-  const mode = health?.gatewayMode;
-  if (!mode || mode === "OFF" || mode === "SHADOW") return "SHADOW";
-  if (mode === "ASSISTED") return "ASSISTED";
-  if (mode === "LIVE") return "LIVE";
-  return "SHADOW";
-}
-
-const FALKON_MODE_STYLES: Record<FalkonMode, { bg: string; text: string; dot: string }> = {
-  SHADOW:   { bg: "bg-white/5 border border-white/10",            text: "text-white/38",     dot: "bg-white/30" },
-  ASSISTED: { bg: "bg-[#B4FF44]/8 border border-[#B4FF44]/20",   text: "text-[#B4FF44]/80", dot: "bg-[#B4FF44]" },
-  LIVE:     { bg: "bg-[#22C55E]/8 border border-[#22C55E]/20",   text: "text-[#22C55E]/80", dot: "bg-[#22C55E]" },
-};
-
-// ─── Ambient ──────────────────────────────────────────────────────────────────
-
-const AMBIENT_MSGS = [
-  "Evaluating active job margins…",
-  "Checking vendor COI status…",
-  "Syncing Falkon network peers…",
-  "Scanning for overdue invoices…",
-  "Monitoring crew GPS signals…",
-  "Reviewing autopilot conditions…",
-  "Verifying evidence gates…",
-  "Watching unit readiness…",
-];
-
-// ─── Try Asking cards ─────────────────────────────────────────────────────────
-
-const TRY_ASKING: Array<{
-  label: string;
-  sub: string;
-  icon: typeof DollarSign;
-  iconColor: string;
-  query: string;
-  lens?: LensType;
-}> = [
-  {
-    label: "Most pressing jobs today",
-    sub: "Surfaces urgency across properties",
-    icon: Zap,
-    iconColor: "#F59E0B",
-    query: "Most pressing jobs today",
-    lens: "portfolio",
-  },
-  {
-    label: "Live crew map",
-    sub: "GPS positions + dispatch status",
-    icon: MapPin,
-    iconColor: "#22C55E",
-    query: "Show live crew map",
-    lens: "map",
-  },
-  {
-    label: "Units needing invoices",
-    sub: "Completed work, unbilled",
-    icon: DollarSign,
-    iconColor: "#B4FF44",
-    query: "Show units needing invoices",
-    lens: "money",
-  },
-  {
-    label: "Create an invoice",
-    sub: "Draft and send in seconds",
-    icon: FileText,
-    iconColor: "#6366F1",
-    query: "Create an invoice",
-  },
-];
-
-// ─── Thread sub-components ────────────────────────────────────────────────────
-
-function ThinkingBubble() {
-  return (
-    <div className="flex items-end gap-3 mb-4">
-      <div className="w-[26px] h-[26px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/22 grid place-items-center shrink-0">
-        <HaloRing className="w-[13px] h-[13px] text-[#B4FF44]" />
-      </div>
-      <div className="bg-[#0D1E33] border border-white/7 rounded-[18px] rounded-bl-[4px] px-5 py-3.5 flex items-center gap-2">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="w-[6px] h-[6px] rounded-full bg-[#B4FF44]/45"
-            style={{ animation: `hcdBounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HaloBubble({ text }: { text: string }) {
-  return (
-    <div className="flex items-end gap-3 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-      <div className="w-[26px] h-[26px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/22 grid place-items-center shrink-0">
-        <HaloRing className="w-[13px] h-[13px] text-[#B4FF44]" />
-      </div>
-      <div className="max-w-[72%] bg-[#0C1B30] border border-white/7 rounded-[18px] rounded-bl-[4px] px-5 py-3.5 shadow-sm">
-        <p className="text-[14px] text-white/82 leading-relaxed">{text}</p>
-      </div>
-    </div>
-  );
-}
+// ─── Bubbles ──────────────────────────────────────────────────────────────────
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-      <div className="max-w-[72%] bg-[#B4FF44] text-[#07101E] rounded-[18px] rounded-br-[4px] px-5 py-3.5 shadow-[0_4px_20px_rgba(180,255,68,0.22)]">
+    <div className="flex justify-end mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+      <div className="max-w-[70%] bg-[#B4FF44] text-[#07101E] rounded-[16px] rounded-br-[4px] px-4 py-2.5 shadow-[0_4px_20px_rgba(180,255,68,0.15)]">
         <p className="text-[14px] font-semibold leading-relaxed">{text}</p>
       </div>
     </div>
   );
 }
 
-// ─── HaloAnswerBubble — brain-grounded response with sources & follow-ups ─────
+function ThinkingBubble() {
+  return (
+    <div className="flex items-end gap-3 mb-4">
+      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
+        <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
+      </div>
+      <div className="bg-[#0D1E33] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-2">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/45"
+            style={{ animation: `dcBounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-function HaloAnswerBubble({
-  text,
-  sources,
-  followUps,
-  shadowLabel,
-  onFollowUp,
-}: {
+function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
   text: string;
   sources?: Array<{ label: string; value: string }>;
   followUps?: string[];
-  shadowLabel?: string;
   onFollowUp: (q: string) => void;
 }) {
   return (
-    <div className="mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-      {shadowLabel && (
-        <div className="flex items-center gap-1.5 mb-1.5 ml-[38px]">
-          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 border border-amber-500/25 text-amber-400 uppercase tracking-wider">
-            SHADOW
-          </span>
-          <span className="text-[10px] text-amber-400/65">Proposed — not executed</span>
-        </div>
-      )}
+    <div className="mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
       <div className="flex items-end gap-3">
-        <div className="w-[26px] h-[26px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/22 grid place-items-center shrink-0">
-          <HaloRing className="w-[13px] h-[13px] text-[#B4FF44]" />
+        <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
+          <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
         </div>
-        <div className={`max-w-[72%] rounded-[18px] rounded-bl-[4px] px-5 py-3.5 shadow-sm ${shadowLabel ? "bg-amber-950/40 border border-amber-500/20" : "bg-[#0C1B30] border border-white/7"}`}>
-          <p className="text-[14px] text-white/82 leading-relaxed">{text}</p>
+        <div className="max-w-[80%] bg-[#0C1B30] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3">
+          <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-wrap">{text}</p>
           {sources && sources.length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5 pt-2.5 border-t border-white/6">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-white/[0.05]">
               {sources.map((s, i) => (
-                <span key={i} className="text-[10.5px] text-white/35">
-                  <span className="text-white/22">{s.label}:</span> {s.value}
+                <span key={i} className="text-[10.5px] text-white/28">
+                  <span className="text-white/16">{s.label}:</span> {s.value}
                 </span>
               ))}
             </div>
@@ -369,13 +168,10 @@ function HaloAnswerBubble({
         </div>
       </div>
       {followUps && followUps.length > 0 && (
-        <div className="flex gap-2 flex-wrap mt-2 ml-[38px]">
-          {followUps.map((q, i) => (
-            <button
-              key={i}
-              onClick={() => onFollowUp(q)}
-              className="text-[11.5px] font-medium text-white/42 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/7 hover:text-white/70 hover:bg-white/[0.07] transition-all active:scale-[0.96]"
-            >
+        <div className="flex gap-2 flex-wrap mt-2 ml-[34px]">
+          {followUps.slice(0, 3).map((q, i) => (
+            <button key={i} onClick={() => onFollowUp(q)}
+              className="text-[11.5px] font-medium text-white/38 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/6 hover:text-white/60 hover:bg-white/[0.07] transition-all active:scale-[0.97]">
               {q}
             </button>
           ))}
@@ -385,14 +181,21 @@ function HaloAnswerBubble({
   );
 }
 
-// ─── ActionPlanCard (desktop) ─────────────────────────────────────────────────
+function PanelOpenedChip({ panel, label, onReopen }: { panel: PanelType; label: string; onReopen: () => void }) {
+  return (
+    <div className="flex mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+      <button onClick={onReopen}
+        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all">
+        <span className="text-[12px]">{PANEL_ICONS[panel]}</span>
+        <span className="text-[12px] text-white/45">{label} — click to reopen</span>
+      </button>
+    </div>
+  );
+}
 
-function ActionPlanCard({
-  msg,
-  falkonMode,
-  onExecute,
-  onDecline,
-}: {
+// ─── ActionPlanCard ───────────────────────────────────────────────────────────
+
+function ActionPlanCard({ msg, falkonMode, onExecute, onDecline }: {
   msg: { plan: ActionPlanData; status: string; result?: string };
   falkonMode: FalkonMode;
   onExecute: () => void;
@@ -401,72 +204,68 @@ function ActionPlanCard({
   const isShadow = falkonMode === "SHADOW";
   const isBlock = msg.plan.risk === "block";
 
-  if (msg.status === "executing") {
-    return (
-      <div className="flex items-center gap-3 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[14px] px-5 py-3.5 mb-3">
-        <Loader2 className="w-4 h-4 text-[#B4FF44] animate-spin shrink-0" />
-        <div>
-          <span className="text-[13px] text-[#B4FF44]/80 font-medium">Executing…</span>
-          <p className="text-[11.5px] text-white/35 mt-0.5">{msg.plan.description}</p>
-        </div>
+  if (msg.status === "executing") return (
+    <div className="flex items-center gap-3 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[14px] px-4 py-3.5 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+      <Loader2 className="w-4 h-4 text-[#B4FF44] animate-spin shrink-0" />
+      <div>
+        <span className="text-[13px] text-[#B4FF44]/80 font-medium">Executing…</span>
+        <p className="text-[11.5px] text-white/30 mt-0.5">{msg.plan.description}</p>
       </div>
-    );
-  }
-  if (msg.status === "done") {
-    return (
-      <div className="flex items-center gap-3 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[14px] px-5 py-3.5 mb-3">
-        <CheckCircle2 className="w-4 h-4 text-[#22C55E] shrink-0" />
-        <div>
-          <span className="text-[13px] text-[#22C55E]/90 font-medium">Done</span>
-          <p className="text-[11.5px] text-white/40 mt-0.5">{msg.result ?? msg.plan.description}</p>
-        </div>
-      </div>
-    );
-  }
-  if (msg.status === "error") {
-    return (
-      <div className="flex items-center gap-3 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[14px] px-5 py-3.5 mb-3">
-        <AlertCircle className="w-4 h-4 text-[#E11D48] shrink-0" />
-        <span className="text-[13px] text-[#E11D48]/85">Action failed — try again or handle manually.</span>
-      </div>
-    );
-  }
-  if (msg.status === "declined") {
-    return <div className="mb-3"><span className="text-[12px] text-white/25">Cancelled — no changes made.</span></div>;
-  }
+    </div>
+  );
 
-  // pending
+  if (msg.status === "done") return (
+    <div className="flex items-center gap-3 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[14px] px-4 py-3.5 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+      <CheckCircle2 className="w-4 h-4 text-[#22C55E] shrink-0" />
+      <div>
+        <span className="text-[13px] text-[#22C55E]/90 font-medium">Done</span>
+        <p className="text-[11.5px] text-white/35 mt-0.5">{msg.result ?? msg.plan.description}</p>
+      </div>
+    </div>
+  );
+
+  if (msg.status === "error") return (
+    <div className="flex items-center gap-3 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[14px] px-4 py-3.5 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+      <AlertCircle className="w-4 h-4 text-[#E11D48] shrink-0" />
+      <span className="text-[13px] text-[#E11D48]/80">Action failed — try again or handle manually.</span>
+    </div>
+  );
+
+  if (msg.status === "declined") return (
+    <div className="mb-4"><span className="text-[12px] text-white/22">Cancelled — nothing changed.</span></div>
+  );
+
   const riskColor = isBlock ? "#E11D48" : msg.plan.risk === "review" ? "#F59E0B" : "#B4FF44";
-  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "NEEDS APPROVAL" : isShadow ? "SHADOW" : "READY";
-  const borderCls = isShadow ? "bg-amber-950/30 border-amber-500/20" : isBlock ? "bg-[#E11D48]/8 border-[#E11D48]/20" : "bg-[#0A1628] border-white/8";
+  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "REVIEW" : isShadow ? "SHADOW" : "READY";
 
   return (
-    <div className={`rounded-[18px] px-5 py-4 mb-3 border ${borderCls}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-[9.5px] font-bold tracking-[0.18em] uppercase px-2.5 py-0.5 rounded-md border"
-          style={{ background: `${riskColor}15`, borderColor: `${riskColor}30`, color: riskColor }}>
+    <div className="rounded-[16px] border border-white/8 px-4 py-4 mb-4"
+      style={{ background: isBlock ? "rgba(225,29,72,0.06)" : isShadow ? "rgba(245,158,11,0.05)" : "rgba(10,22,40,0.9)", animation: "dcIn 0.2s ease-out both" }}>
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="text-[9px] font-bold tracking-[0.16em] uppercase px-2 py-0.5 rounded border"
+          style={{ background: `${riskColor}12`, borderColor: `${riskColor}28`, color: riskColor }}>
           {riskLabel}
         </span>
         {!isShadow && !isBlock && falkonMode === "ASSISTED" && (
-          <span className="text-[10.5px] text-white/25">Falkon ASSISTED</span>
+          <span className="text-[10.5px] text-white/22">Falkon ASSISTED</span>
         )}
       </div>
-      <p className="text-[14px] text-white/75 leading-relaxed mb-4">{msg.plan.description}</p>
+      <p className="text-[13.5px] text-white/75 leading-relaxed mb-4">{msg.plan.description}</p>
       {!isBlock && !isShadow && (
-        <div className="flex gap-2.5">
+        <div className="flex gap-2">
           <button type="button" onClick={onExecute}
-            className="flex-1 h-10 rounded-[11px] bg-[#B4FF44] text-[#07101E] text-[13px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
+            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12.5px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
             {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
           </button>
           <button type="button" onClick={onDecline}
-            className="h-10 px-5 rounded-[11px] bg-white/5 border border-white/8 text-[13px] text-white/45 hover:text-white/70 hover:bg-white/8 active:scale-[0.97] transition-all">
+            className="h-9 px-4 rounded-[10px] bg-white/5 border border-white/8 text-[12.5px] text-white/40 hover:text-white/65 hover:bg-white/8 transition-all">
             Cancel
           </button>
         </div>
       )}
       {(isShadow || isBlock) && (
-        <p className="text-[11.5px] text-white/28 mt-1.5">
-          {isShadow ? "Switch to ASSISTED mode to execute this action." : "Contact your administrator to enable this action."}
+        <p className="text-[11.5px] text-white/25 mt-1">
+          {isShadow ? "Switch to ASSISTED mode to execute." : "Contact your administrator."}
         </p>
       )}
     </div>
@@ -476,53 +275,42 @@ function ActionPlanCard({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloCommand() {
-  const [, navigate] = useLocation();
   const qc = useQueryClient();
 
-  const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 } });
-  const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 15_000 } });
+  const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 15_000 } });
+  const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 20_000 } });
   const { data: health } = useFalkonHealth();
   const parseVoice = useParseVoice();
 
   const [messages, setMessages] = useState<TMsg[]>([]);
-
   const [input, setInput] = useState("");
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [walkOpen, setWalkOpen] = useState(false);
-
-  // ── Brain conversation ─────────────────────────────────────────────────────
   const [conversationId, setConversationId] = useState<string | null>(() => {
     try { return sessionStorage.getItem("halo_desktop_convo_id"); } catch { return null; }
   });
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[] | null>(null);
-  // False until the conversation is validated server-side; gates submission to
-  // prevent write races during init and new-chat creation.
   const [brainReady, setBrainReady] = useState(false);
+  const [activePanel, setActivePanel] = useState<PanelType | null>(null);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
 
-  const [ambientIdx, setAmbientIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT_MSGS.length), 8000);
-    return () => clearInterval(t);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollDown = useCallback(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
-  // ── Init brain conversation + history restore ──────────────────────────────
+  // ── Brain init ────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
-        // Fetch suggested prompts (endpoint also returns conversations list, but
-        // we intentionally ignore it — we honour the session-stored ID only).
         const data = await apiFetch("/api/command/conversations");
         if (cancelled) return;
         if (data.suggestedPrompts) setSuggestedPrompts(data.suggestedPrompts);
 
-        // If a valid session-scoped conversation ID is already stored, use it.
-        // Otherwise create a brand-new conversation for this session.
-        let convoId = conversationId; // initialised from sessionStorage
+        let convoId = conversationId;
         if (!convoId) {
           const created = await apiFetch("/api/command/conversations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ role: "executive" }),
           });
           if (!cancelled && created?.conversation?.id) {
@@ -532,248 +320,148 @@ export default function HaloCommand() {
           }
         }
 
-        // Always validate the stored conversation against the server and restore
-        // its persisted history. Skipping this based on in-memory state would
-        // allow a prior-session thread to bleed into a newly authenticated one.
         if (convoId) {
           try {
-            const msgData = await apiFetch(`/api/command/conversations/${convoId}/messages?limit=40`);
+            const msgData = await apiFetch(`/api/command/conversations/${convoId}/messages?limit=30`);
             if (cancelled) return;
-            const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: { id: string; role: string; content: string; meta?: { type?: string; lensKind?: string; shadowLabel?: string } | null }) => {
-              if (m.role === "user") {
-                return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
-              }
-              if (m.role === "assistant" && m.content) {
-                return [{
-                  id: `r-${m.id}`,
-                  kind: "halo-answer" as const,
-                  text: m.content,
-                  shadowLabel: m.meta?.shadowLabel ?? undefined,
-                }];
-              }
+            const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: any) => {
+              if (m.role === "user") return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
+              if (m.role === "assistant" && m.content) return [{ id: `r-${m.id}`, kind: "halo-answer" as const, text: m.content }];
               return [];
             });
-            // DB is the source of truth — overwrite in-memory state.
             setMessages(restored);
-          } catch (restoreErr) {
-            if (cancelled) return;
-            // Stale conversation (session rotated) — discard the prior-session
-            // thread, clear the stored ID, and create a fresh conversation.
-            if (restoreErr instanceof Error && restoreErr.message.startsWith("404")) {
+          } catch (e: any) {
+            if (e?.message?.startsWith("404")) {
               setMessages([]);
               try { sessionStorage.removeItem("halo_desktop_convo_id"); } catch {}
               setConversationId(null);
-              try {
-                const fresh = await apiFetch("/api/command/conversations", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ role: "executive" }),
-                });
-                if (!cancelled && fresh?.conversation?.id) {
-                  const freshId: string = fresh.conversation.id;
-                  setConversationId(freshId);
-                  try { sessionStorage.setItem("halo_desktop_convo_id", freshId); } catch {}
-                }
-              } catch { /* non-fatal */ }
             }
-            // Other errors: non-fatal, keep current state
           }
         }
-      } catch { /* non-fatal — brain degrades gracefully */ }
+      } catch { /* non-fatal */ }
     }
     init().finally(() => { if (!cancelled) setBrainReady(true); });
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Briefing injection on first load ──────────────────────────────────────
-  const briefingInjectedRef = useRef(false);
-  useEffect(() => {
-    if (!brainReady || briefingInjectedRef.current) return;
-    briefingInjectedRef.current = true;
-    apiFetch("/api/command/briefing")
-      .then((data: BriefingData) => {
-        setMessages(prev => {
-          if (prev.some(m => m.kind !== "briefing")) return prev;
-          return [{ id: `briefing-${data.date}`, kind: "briefing" as const, data }];
-        });
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brainReady]);
+  const openPanel = useCallback((panel: PanelType, label: string, addChip?: boolean) => {
+    setActivePanel(panel);
+    if (addChip) {
+      setMessages(prev => [...prev, { id: `panel-${Date.now()}`, kind: "panel-opened" as const, panel, label }]);
+      scrollDown();
+    }
+  }, [scrollDown]);
 
-  // ── Briefing 60s auto-refresh (visibility-aware) ──────────────────────────
-  useEffect(() => {
-    if (!brainReady) return;
-    const refreshBriefing = () => {
-      if (document.hidden) return;
-      apiFetch("/api/command/briefing")
-        .then((data: BriefingData) => {
-          setMessages(prev => {
-            if (prev.length === 0 || prev[0].kind !== "briefing") return prev;
-            return [{ id: prev[0].id, kind: "briefing" as const, data }, ...prev.slice(1)];
-          });
-        })
-        .catch(() => {});
-    };
-    const interval = setInterval(refreshBriefing, 60_000);
-    const onVisibilityChange = () => { if (!document.hidden) refreshBriefing(); };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brainReady]);
-
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
-  }, []);
-
-  const handleSubmit = async (text?: string) => {
+  const handleSubmit = useCallback(async (text?: string) => {
     if (!brainReady) return;
     const raw = (text ?? input).trim();
     if (!raw) return;
     setInput("");
 
-    const userId = `user-${Date.now()}`;
-    const thinkId = `think-${Date.now()}`;
-
+    const userId = `u-${Date.now()}`;
+    const thinkId = `t-${Date.now()}`;
     setMessages(prev => [...prev,
       { id: userId, kind: "user-msg" as const, text: raw },
       { id: thinkId, kind: "thinking" as const },
     ]);
-    scrollToBottom();
+    scrollDown();
 
-    const intent = detectIntent(raw);
-
-    if (intent.type === "navigate") {
-      setMessages(prev => prev.filter(m => m.id !== thinkId));
-      navigate(intent.path);
+    const panelIntent = detectPanelIntent(raw);
+    if (panelIntent) {
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: `Opening ${panelIntent.label}.` } : m
+      ));
+      openPanel(panelIntent.panel, panelIntent.label, true);
       return;
     }
-    if (intent.type === "falkon") {
-      setMessages(prev => prev.filter(m => m.id !== thinkId));
-      // Falkon sheet not on desktop — fall through to brain
-    }
 
-    // ── Brain path (primary) ─────────────────────────────────────────────────
-    const convoId = conversationId;
+    let convoId = conversationId;
+    let brainResult: any = null;
+
     if (convoId) {
-      let activeConvoId = convoId;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let brainResult: any = null;
-
       try {
-        brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        brainResult = await apiFetch(`/api/command/conversations/${convoId}/ask`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: raw, role: "executive" }),
         });
-      } catch (brainErr) {
-        // Stale conversation (session rotated) — discard prior-session messages,
-        // create fresh conversation, and retry the ask once.
-        if (brainErr instanceof Error && brainErr.message.startsWith("404")) {
+      } catch (e: any) {
+        if (e?.message?.startsWith("404")) {
           setMessages([]);
           try { sessionStorage.removeItem("halo_desktop_convo_id"); } catch {}
           setConversationId(null);
           try {
             const fresh = await apiFetch("/api/command/conversations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ role: "executive" }),
             });
             if (fresh?.conversation?.id) {
-              activeConvoId = fresh.conversation.id;
-              setConversationId(activeConvoId);
-              try { sessionStorage.setItem("halo_desktop_convo_id", activeConvoId); } catch {}
-              brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+              convoId = fresh.conversation.id;
+              setConversationId(convoId);
+              try { sessionStorage.setItem("halo_desktop_convo_id", convoId!); } catch {}
+              brainResult = await apiFetch(`/api/command/conversations/${convoId}/ask`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: raw, role: "executive" }),
               });
             }
-          } catch { /* fall through to legacy */ }
+          } catch { /* fall through */ }
         }
-        // Other errors: brainResult stays null → fall through to legacy
+      }
+    }
+
+    if (brainResult) {
+      if (brainResult.type === "lens" && brainResult.lensKind) {
+        const panel = BRAIN_LENS_TO_PANEL[brainResult.lensKind as string];
+        if (panel) {
+          const meta = PANEL_MAP.find(p => p.panel === panel);
+          const label = meta?.label ?? brainResult.lensKind;
+          setMessages(prev => prev.map(m =>
+            m.id === thinkId
+              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Opening ${label}.`, followUps: brainResult.suggestedFollowUps }
+              : m
+          ));
+          openPanel(panel, label, true);
+          return;
+        }
       }
 
-      if (brainResult) {
-        if (brainResult.type === "lens" && brainResult.lensKind) {
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "lens" as const, lensType: brainResult.lensKind as LensType, query: brainResult.entityId ?? raw }
-              : m
-          ));
-          if (brainResult.text) {
-            setMessages(prev => [...prev, {
-              id: `ans-${Date.now()}`,
-              kind: "halo-answer" as const,
-              text: brainResult.text,
-              sources: brainResult.sources,
-              followUps: brainResult.suggestedFollowUps,
-            }]);
-          }
-        } else if (brainResult.type === "voice_action") {
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, shadowLabel: brainResult.shadowLabel, followUps: brainResult.suggestedFollowUps }
-              : m
-          ));
-          const plan = brainResult.actionPlan as ActionPlanData | undefined;
-          if (plan) {
-            const planId = `plan-${Date.now()}`;
-            if (plan.risk === "auto" && falkonMode === "ASSISTED") {
-              setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "executing" as const }]);
-              scrollToBottom();
-              try {
-                const execResult = await apiFetch("/api/command/actions/execute", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(plan),
-                });
-                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: execResult.result } : m));
-              } catch {
-                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
-              }
-            } else {
-              setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
+      if (brainResult.type === "voice_action") {
+        setMessages(prev => prev.map(m =>
+          m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, followUps: brainResult.suggestedFollowUps } : m
+        ));
+        const plan = brainResult.actionPlan as ActionPlanData | undefined;
+        const falkonMode = deriveFalkonMode(health);
+        if (plan) {
+          const planId = `plan-${Date.now()}`;
+          if (plan.risk === "auto" && falkonMode === "ASSISTED") {
+            setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "executing" as const }]);
+            scrollDown();
+            try {
+              const r = await apiFetch("/api/command/actions/execute", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(plan),
+              });
+              setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
+            } catch {
+              setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
             }
           } else {
-          try {
-            const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
-            if (vr?.actions?.length > 0) {
-              setMessages(prev => [...prev, {
-                id: `conf-${Date.now()}`,
-                kind: "confirmation" as const,
-                logId: (vr as any).logId ?? "",
-                actions: vr.actions,
-              }]);
-            }
-          } catch { /* non-fatal */ }
+            setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
           }
-        } else {
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps, shadowLabel: brainResult.shadowLabel }
-              : m
-          ));
         }
-        scrollToBottom();
+        scrollDown();
         return;
       }
-    }
 
-    // ── Legacy path (no conversation yet, or brain failed) ───────────────────
-    if (intent.type === "lens") {
-      await new Promise(r => setTimeout(r, 320));
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "lens" as const, lensType: intent.lens, query: raw } : m
+        m.id === thinkId
+          ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps }
+          : m
       ));
-      scrollToBottom();
+      scrollDown();
       return;
     }
+
     try {
       const result = await parseVoice.mutateAsync({ data: { transcript: raw } });
       if (result?.actions?.length > 0) {
@@ -783,145 +471,83 @@ export default function HaloCommand() {
             : m
         ));
       } else {
-        const lower = raw.toLowerCase();
-        const isDataQ = QUERY_STARTERS.some(s => lower.startsWith(s));
         setMessages(prev => prev.map(m =>
-          m.id === thinkId
-            ? isDataQ
-              ? { id: thinkId, kind: "lens" as const, lensType: "portfolio" as const, query: raw }
-              : { id: thinkId, kind: "halo-response" as const, text: `Try a command: "Create invoice for [property]", "Schedule job [ID] Thursday", or say "show" to view any data.` }
-            : m
+          m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: "Try a command like \"send invoice for [property]\" or ask a question." } : m
         ));
       }
     } catch {
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "error" as const, text: "Something went wrong. Check your connection and try again." } : m
+        m.id === thinkId ? { id: thinkId, kind: "error" as const, text: "Connection error — try again." } : m
       ));
     }
-    scrollToBottom();
-  };
+    scrollDown();
+  }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown]);
 
   const falkonMode = deriveFalkonMode(health);
-  const modeStyle = FALKON_MODE_STYLES[falkonMode];
-  const nowCount = today?.feed?.filter((c: FeedCardType) => c.tier === "now").length ?? 0;
-  const pendingCount = (autopilot ?? []).filter(a => a.status === "pending").length;
-  const totalNeeds = nowCount + pendingCount;
+  const nowCount = (today?.feed ?? []).filter((c: any) => c.tier === "now").length;
+  const pendingCount = (autopilot ?? []).filter((a: any) => a.status === "pending").length;
+  const hasThread = messages.some(m => m.kind === "user-msg");
 
-  // Seed state = no content yet. Briefing counts as content — show thread layout.
-  const hasThread = messages.some(m => m.kind === "user-msg" || m.kind === "briefing");
-
-  // ── Falkon Control Center (admin) ─────────────────────────────────────────
-  const [controlOpen, setControlOpen] = useState(false);
-  const isShadow = falkonMode === "SHADOW";
+  const promptChips = suggestedPrompts?.slice(0, 3) ?? [
+    "What needs my attention?",
+    "Open live map",
+    "Show unpaid invoices",
+  ];
 
   const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
-      case "decision-packet":
-        return (
-          <DecisionPacket card={msg.card}
-            shadowMode={isShadow}
-            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
-            onResolved={() => {
-              setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Decision recorded." }]);
-            }}
-          />
-        );
-      case "autopilot-packet":
-        return (
-          <DecisionPacket autopilot={msg.action}
-            shadowMode={isShadow}
-            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
-            onResolved={() => {
-              setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Done." }]);
-            }}
-          />
-        );
       case "user-msg": return <UserBubble text={msg.text} />;
       case "thinking": return <ThinkingBubble />;
-      case "halo-response": return <HaloBubble text={msg.text} />;
-      case "halo-answer":
-        return (
-          <HaloAnswerBubble
-            text={msg.text}
-            sources={msg.sources}
-            followUps={msg.followUps}
-            shadowLabel={msg.shadowLabel}
-            onFollowUp={handleSubmit}
-          />
-        );
-      case "lens":
-        return <LensCard lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
-      case "confirmation":
-        return (
-          <ConfirmCard logId={msg.logId} actions={msg.actions}
-            shadowMode={isShadow}
-            onConfirmed={text => {
-              setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
-              qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-            }}
-            onCancelled={() => {
-              setMessages(prev => prev.map(m =>
-                m.id === msg.id ? { id: msg.id, kind: "halo-response", text: "Cancelled — nothing changed." } : m
-              ));
-            }}
-          />
-        );
-      case "success":
-        return (
-          <div className="flex items-center gap-3 bg-[#22C55E]/8 border border-[#22C55E]/18 rounded-[14px] px-5 py-3.5 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-            <CheckCircle2 className="w-[15px] h-[15px] text-[#22C55E] shrink-0" />
-            <span className="text-[13.5px] text-[#22C55E]/85">{msg.text}</span>
-          </div>
-        );
-      case "error":
-        return (
-          <div className="flex items-center gap-3 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[14px] px-5 py-3.5 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-            <AlertCircle className="w-[15px] h-[15px] text-[#E11D48] shrink-0" />
-            <span className="text-[13.5px] text-[#E11D48]/85">{msg.text}</span>
-          </div>
-        );
+      case "halo-answer": return <HaloAnswerBubble text={msg.text} sources={msg.sources} followUps={msg.followUps} onFollowUp={handleSubmit} />;
       case "action-plan": {
         const planMsg = msg;
         return (
           <ActionPlanCard
-            msg={planMsg}
-            falkonMode={falkonMode}
+            msg={planMsg} falkonMode={falkonMode}
             onExecute={async () => {
               setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "executing" as const } : m));
               try {
                 const r = await apiFetch("/api/command/actions/execute", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(planMsg.plan),
                 });
-                setMessages(prev => prev.map(m =>
-                  m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m
-                ));
+                setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m));
                 qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
               } catch {
-                setMessages(prev => prev.map(m =>
-                  m.id === planMsg.id ? { ...m as any, status: "error" as const } : m
-                ));
+                setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "error" as const } : m));
               }
             }}
-            onDecline={() => {
-              setMessages(prev => prev.map(m =>
-                m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
-              ));
-            }}
+            onDecline={() => setMessages(prev => prev.map(m =>
+              m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
+            ))}
           />
         );
       }
-      case "briefing":
-        return (
-          <BriefingCard
-            data={msg.data}
-            shadowMode={falkonMode === "SHADOW"}
-            onPrompt={handleSubmit}
-          />
-        );
+      case "confirmation": return (
+        <ConfirmCard
+          logId={msg.logId} actions={msg.actions} shadowMode={falkonMode === "SHADOW"}
+          onConfirmed={text => {
+            setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
+            qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          }}
+          onCancelled={() => setMessages(prev => prev.map(m =>
+            m.id === msg.id ? { id: msg.id, kind: "halo-answer", text: "Cancelled — nothing was changed." } : m
+          ))}
+        />
+      );
+      case "panel-opened": return <PanelOpenedChip panel={msg.panel} label={msg.label} onReopen={() => setActivePanel(msg.panel)} />;
+      case "success": return (
+        <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/15 rounded-[13px] px-4 py-3 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+          <CheckCircle2 className="w-4 h-4 text-[#22C55E] shrink-0" />
+          <span className="text-[13.5px] text-[#22C55E]/82">{msg.text}</span>
+        </div>
+      );
+      case "error": return (
+        <div className="flex items-center gap-2.5 bg-[#E11D48]/7 border border-[#E11D48]/15 rounded-[13px] px-4 py-3 mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
+          <AlertCircle className="w-4 h-4 text-[#E11D48] shrink-0" />
+          <span className="text-[13.5px] text-[#E11D48]/82">{msg.text}</span>
+        </div>
+      );
       default: return null;
     }
   };
@@ -929,324 +555,124 @@ export default function HaloCommand() {
   return (
     <>
       <style>{KEYFRAMES}</style>
-
-      {/* Fill the DesktopLayout main content area — full height flex column */}
-      <div className="flex flex-col h-full min-h-[calc(100vh-120px)] bg-[#070C16]">
+      <div className="h-full flex flex-col bg-[#080D17]">
 
         {!hasThread ? (
-          /* ─── SEED STATE ──────────────────────────────────────────────── */
-          <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
-            {/* Status strip */}
-            <div
-              className="flex items-center gap-3 mb-12 hcd-seed-item"
-              style={{ animation: "hcdSeedIn 0.45s ease-out 0s both" }}
-            >
-              <button
-                onClick={() => setControlOpen(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.14em] ${modeStyle.bg} ${modeStyle.text} hover:opacity-80 active:scale-[0.95] transition-all`}
-                title="Open Falkon Control Center"
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${falkonMode !== "SHADOW" ? "animate-pulse" : ""}`} />
-                FALKON {falkonMode}
-              </button>
-              {totalNeeds > 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48] animate-pulse" />
-                  <span className="text-[10px] font-bold text-[#E11D48]/85">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
-                </div>
-              )}
-            </div>
-
-            {/* Glowing halo ring */}
-            <div
-              className="mb-8 hcd-seed-item"
-              style={{ animation: "hcdSeedIn 0.45s ease-out 0.06s both" }}
-            >
-              <div
-                className="w-[88px] h-[88px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
-                style={{ animation: "hcdGlow 3.5s ease-in-out infinite" }}
-              >
-                <HaloRing className="w-[40px] h-[40px] text-[#B4FF44]" />
+          /* SEED STATE */
+          <div className="flex-1 flex flex-col items-center justify-center px-8 pb-8">
+            {/* Ring */}
+            <div className="mb-8" style={{ animation: "dcIn 0.4s ease-out 0.05s both" }}>
+              <div className="w-[80px] h-[80px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
+                style={{ animation: "dcGlow 3.5s ease-in-out infinite" }}>
+                <HaloRing className="w-[36px] h-[36px] text-[#B4FF44]" />
               </div>
             </div>
 
             {/* Greeting */}
-            <div
-              className="text-center mb-10 hcd-seed-item"
-              style={{ animation: "hcdSeedIn 0.45s ease-out 0.13s both" }}
-            >
-              <h1 className="text-[52px] font-bold text-white leading-none tracking-[-0.025em] mb-3">
-                Hi, Team.
+            <div className="text-center mb-2" style={{ animation: "dcIn 0.4s ease-out 0.12s both" }}>
+              <h1 className="text-[40px] font-bold text-white leading-none tracking-[-0.025em]">
+                {timeGreeting()}
               </h1>
-              <p className="text-[16px] text-white/32 font-light tracking-[-0.01em]">
-                Ask me anything. I'll handle it.
+              <p className="text-[15px] text-white/32 mt-3 font-medium">
+                {falkonMode === "ASSISTED"
+                  ? "Auto-pilot active — safe actions execute automatically."
+                  : "Ask me anything about your operations."}
               </p>
             </div>
 
-            {/* Big command input */}
-            <div
-              className="w-full max-w-2xl mb-10 hcd-seed-item"
-              style={{ animation: "hcdSeedIn 0.45s ease-out 0.20s both" }}
-            >
-              <div className="relative flex items-center bg-white/[0.048] border border-white/10 rounded-[20px] overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.40)] hover:border-white/15 transition-all focus-within:border-[#B4FF44]/30 focus-within:shadow-[0_12px_48px_rgba(0,0,0,0.40),0_0_0_1px_rgba(180,255,68,0.10)] focus-within:bg-white/[0.06]">
-                {/* Mic */}
-                <button
-                  onClick={() => setVoiceOpen(true)}
-                  className="ml-4 w-9 h-9 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/7 transition-all active:scale-[0.92] shrink-0"
-                >
-                  <Mic className="w-[16px] h-[16px]" strokeWidth={2} />
-                </button>
-
-                <input
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                  placeholder="Ask HALO anything…"
-                  className="flex-1 h-[64px] bg-transparent px-4 text-[16px] text-white placeholder:text-white/20 focus:outline-none"
-                  autoFocus
-                />
-
-                <button
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || parseVoice.isPending}
-                  className="mr-4 w-10 h-10 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0"
-                >
-                  {parseVoice.isPending ? (
-                    <Loader2 className="w-[15px] h-[15px] animate-spin" />
-                  ) : (
-                    <ChevronRight className="w-[18px] h-[18px]" strokeWidth={2.5} />
-                  )}
-                </button>
+            {/* Critical alerts */}
+            {(nowCount > 0 || pendingCount > 0) && (
+              <div className="mt-5 text-center space-y-1.5" style={{ animation: "dcIn 0.4s ease-out 0.18s both" }}>
+                {nowCount > 0 && (
+                  <p className="text-[14px]">
+                    <span className="text-[#E11D48]/90 font-semibold">{nowCount} item{nowCount !== 1 ? "s" : ""}</span>
+                    <span className="text-white/35"> need immediate attention</span>
+                  </p>
+                )}
+                {pendingCount > 0 && (
+                  <p className="text-[14px]">
+                    <span className="text-[#F59E0B]/90 font-semibold">{pendingCount} autopilot action{pendingCount !== 1 ? "s" : ""}</span>
+                    <span className="text-white/35"> waiting for review</span>
+                  </p>
+                )}
               </div>
+            )}
+
+            {/* Composer */}
+            <div className="w-full max-w-2xl mt-8 mb-6" style={{ animation: "dcIn 0.4s ease-out 0.22s both" }}>
+              <ComposerInput value={input} onChange={setInput} onSubmit={() => handleSubmit()} onVoice={() => setVoiceOpen(true)} busy={parseVoice.isPending} />
             </div>
 
-            {/* Try Asking */}
-            <div
-              className="w-full max-w-2xl hcd-seed-item"
-              style={{ animation: "hcdSeedIn 0.45s ease-out 0.27s both" }}
-            >
-              <div className="text-[10px] font-bold tracking-[0.24em] uppercase text-white/20 mb-4 text-center">
-                Try Asking
-              </div>
-              <div className="grid grid-cols-4 gap-3">
-                {(suggestedPrompts ?? TRY_ASKING.map(c => c.label)).slice(0, 4).map((item, i) => {
-                  const isDynamic = !!suggestedPrompts;
-                  const card = TRY_ASKING[i];
-                  const Icon = card?.icon ?? Sparkles;
-                  const iconColor = card?.iconColor ?? "#B4FF44";
-                  const label = isDynamic ? (item as string) : (item as string);
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        if (!isDynamic && card?.lens) {
-                          setMessages([
-                            { id: `u-${Date.now()}`, kind: "user-msg" as const, text: card.query },
-                            { id: `l-${Date.now()}`, kind: "lens" as const, lensType: card.lens, query: card.query },
-                          ]);
-                        } else {
-                          handleSubmit(isDynamic ? label : (card?.query ?? label));
-                        }
-                      }}
-                      className="flex flex-col items-start gap-3 p-5 rounded-[18px] bg-white/[0.035] border border-white/7 text-left hover:bg-white/[0.058] hover:border-white/12 transition-all active:scale-[0.97] group"
-                    >
-                      <div
-                        className="w-8 h-8 rounded-[10px] grid place-items-center"
-                        style={{ background: `${iconColor}12`, border: `1px solid ${iconColor}22` }}
-                      >
-                        <Icon className="w-4 h-4" style={{ color: iconColor }} />
-                      </div>
-                      <div>
-                        <div className="text-[13px] font-semibold text-white/60 leading-snug mb-1 group-hover:text-white/80 transition-colors">
-                          {label}
-                        </div>
-                        {!isDynamic && card?.sub && (
-                          <div className="text-[11px] text-white/22 leading-snug">{card.sub}</div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* More prompts row */}
-              <div className="flex flex-wrap gap-2 mt-5 justify-center">
-                {[
-                  "Who's dispatched today?",
-                  "What's on deck this week?",
-                  "Send crew a live job link",
-                  "Show active operations",
-                  "Open Work App",
-                ].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => handleSubmit(p)}
-                    className="px-3.5 py-1.5 rounded-full bg-white/[0.028] border border-white/6 text-[12px] text-white/32 hover:text-white/60 hover:bg-white/[0.045] transition-all active:scale-[0.96]"
-                  >
-                    {p}
+            {/* Prompt chips */}
+            <div className="w-full max-w-2xl" style={{ animation: "dcIn 0.4s ease-out 0.3s both" }}>
+              <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/18 mb-3 text-center">Suggestions</div>
+              <div className="flex gap-2 justify-center flex-wrap">
+                {promptChips.map((chip, i) => (
+                  <button key={i} onClick={() => handleSubmit(chip)}
+                    className="text-[13px] text-white/40 px-5 py-2.5 rounded-[12px] bg-white/[0.034] border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60 transition-all active:scale-[0.98]">
+                    {chip}
                   </button>
                 ))}
               </div>
             </div>
           </div>
         ) : (
-          /* ─── THREAD STATE ────────────────────────────────────────────── */
+          /* THREAD STATE */
           <>
-            {/* Thread area */}
-            <div className="flex-1 overflow-y-auto px-8 py-6 overscroll-none">
-              <div className="max-w-3xl mx-auto">
-                {messages.map(msg => (
-                  <div key={msg.id} className="hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
-                    {renderMsg(msg)}
-                  </div>
-                ))}
-                <div ref={bottomRef} className="h-4" />
-              </div>
+            <div className="flex-1 overflow-y-auto px-6 pt-5 pb-3 max-w-3xl mx-auto w-full">
+              {messages.map(msg => (
+                <div key={msg.id}>{renderMsg(msg)}</div>
+              ))}
+              <div ref={bottomRef} className="h-4" />
             </div>
 
-            {/* Ambient strip */}
-            <div className="border-t border-white/[0.04] px-8 py-2 flex items-center gap-3 max-w-3xl mx-auto w-full shrink-0">
-              <div className="flex gap-[3px] shrink-0">
-                {[0, 1, 2].map(i => (
-                  <div key={i} className="w-[3px] h-[9px] rounded-full bg-[#B4FF44]"
-                    style={{ animation: `hcdAmbient 2.2s ease-in-out ${i * 0.35}s infinite` }} />
-                ))}
-              </div>
-              <span className="text-[11px] text-white/22 font-medium flex-1 truncate">{AMBIENT_MSGS[ambientIdx]}</span>
-              {/* New chat — creates a fresh persisted conversation */}
-              <button
-                disabled={!brainReady}
-                onClick={async () => {
-                  setBrainReady(false);
-                  setMessages([]);
-                  setConversationId(null);
-                  try { sessionStorage.removeItem("halo_desktop_convo_id"); } catch {}
-                  try {
-                    const created = await apiFetch("/api/command/conversations", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ role: "executive" }),
-                    });
-                    if (created?.conversation?.id) {
-                      const newId: string = created.conversation.id;
-                      setConversationId(newId);
-                      try { sessionStorage.setItem("halo_desktop_convo_id", newId); } catch {}
-                    }
-                  } catch { /* non-fatal */ }
-                  setBrainReady(true);
-                }}
-                className="flex items-center gap-1 text-[10.5px] text-white/18 hover:text-white/45 transition-colors px-2 py-1 rounded-md hover:bg-white/5 disabled:opacity-30"
-              >
-                <X className="w-3 h-3" /> New chat
-              </button>
-            </div>
-
-            {/* Command bar */}
-            <div className="px-8 pb-6 pt-3 shrink-0 border-t border-white/[0.04] bg-[#070C16]">
+            <div className="px-6 py-4 border-t border-white/[0.04] shrink-0">
               <div className="max-w-3xl mx-auto">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setVoiceOpen(true)}
-                    className="w-12 h-12 rounded-full bg-[#B4FF44]/8 border border-[#B4FF44]/18 grid place-items-center text-[#B4FF44] hover:bg-[#B4FF44]/15 transition-all active:scale-[0.92] shrink-0"
-                  >
-                    <Mic className="w-[17px] h-[17px]" strokeWidth={2} />
-                  </button>
-
-                  <div className="relative flex-1">
-                    <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-[#B4FF44]/35 pointer-events-none" />
-                    <input
-                      value={input}
-                      onChange={e => setInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                      placeholder="Ask HALO anything…"
-                      className="w-full h-12 rounded-full bg-white/5 border border-white/8 pl-[38px] pr-5 text-[14px] text-white placeholder:text-white/22 focus:outline-none focus:border-[#B4FF44]/35 focus:ring-1 focus:ring-[#B4FF44]/12 focus:bg-white/6 transition-all"
-                    />
-                  </div>
-
-                  {input.trim() ? (
-                    <button
-                      onClick={() => handleSubmit()}
-                      disabled={!brainReady || parseVoice.isPending}
-                      className="w-12 h-12 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-50 shrink-0"
-                    >
-                      {parseVoice.isPending ? <Loader2 className="w-[15px] h-[15px] animate-spin" /> : <Send className="w-[15px] h-[15px]" strokeWidth={2.5} />}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setWalkOpen(true)}
-                      className="w-12 h-12 rounded-full bg-white/5 border border-white/8 grid place-items-center text-white/35 hover:text-[#B4FF44] hover:border-[#B4FF44]/22 hover:bg-[#B4FF44]/6 transition-all active:scale-[0.92] shrink-0"
-                      title="Walk Mode"
-                    >
-                      <Footprints className="w-[17px] h-[17px]" strokeWidth={2} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick lens chips + Work App */}
-                <div className="flex gap-2 mt-3 overflow-x-auto pb-0.5 scrollbar-hide items-center">
-                  {(
-                    [
-                      { label: "Money",     lens: "money"     as LensType, query: "Show money overview" },
-                      { label: "Jobs",      lens: "timeline"  as LensType, query: "Show job timeline" },
-                      { label: "Crew",      lens: "network"   as LensType, query: "Show crew and dispatch" },
-                      { label: "Portfolio", lens: "portfolio" as LensType, query: "Portfolio overview" },
-                      { label: "Evidence",  lens: "evidence"  as LensType, query: "Show photo evidence" },
-                      { label: "Map",       lens: "map"       as LensType, query: "Live crew map" },
-                    ] as const
-                  ).map(chip => (
-                    <button
-                      key={chip.label}
-                      onClick={() => {
-                        setMessages(prev => [...prev,
-                          { id: `u-${Date.now()}`, kind: "user-msg", text: chip.query },
-                          { id: `l-${Date.now()}`, kind: "lens", lensType: chip.lens, query: chip.query },
-                        ]);
-                        scrollToBottom();
-                      }}
-                      className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/7 text-[11px] font-bold text-white/35 hover:text-white/65 hover:bg-white/8 transition-all active:scale-[0.95]"
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-
-                  <div className="w-px h-5 bg-white/[0.07] mx-1 shrink-0" />
-
-                  {/* Work App shortcut */}
-                  <button
-                    onClick={() => navigate("/work")}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.028] border border-white/6 text-[11px] font-medium text-white/28 hover:text-white/55 hover:bg-white/[0.045] transition-all active:scale-[0.95]"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Work App
-                  </button>
-                </div>
+                <ComposerInput value={input} onChange={setInput} onSubmit={() => handleSubmit()} onVoice={() => setVoiceOpen(true)} busy={parseVoice.isPending} />
               </div>
             </div>
           </>
         )}
       </div>
 
-      {/* ── Overlays ──────────────────────────────────────────────────────── */}
-      <VoiceCaptureDialog
-        open={voiceOpen}
-        onOpenChange={setVoiceOpen}
-      />
+      {/* Panels */}
+      <LiveMapPanel open={activePanel === "map"}    onClose={() => setActivePanel(null)} />
+      <KanbanPanel  open={activePanel === "kanban"} onClose={() => setActivePanel(null)} />
+      <MoneyPanel   open={activePanel === "money"}  onClose={() => setActivePanel(null)} />
 
-      {walkOpen && (
-        <WalkModeOverlay
-          onClose={() => setWalkOpen(false)}
-          onSendToHalo={(items, summary) => {
-            setMessages(prev => [...prev, {
-              id: `walk-${Date.now()}`,
-              kind: "halo-response",
-              text: `Walk captured ${items.length} item${items.length !== 1 ? "s" : ""}. ${summary}`,
-            }]);
-            scrollToBottom();
-          }}
-        />
-      )}
-
+      {/* Overlays */}
+      <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
+  );
+}
+
+// ─── Shared composer ──────────────────────────────────────────────────────────
+
+function ComposerInput({ value, onChange, onSubmit, onVoice, busy }: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  onVoice: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="relative flex items-center bg-white/[0.052] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.4)] hover:border-white/15 transition-colors focus-within:border-[#B4FF44]/28 focus-within:bg-white/[0.065]">
+      <button onClick={onVoice}
+        className="ml-3.5 w-9 h-9 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/8 transition-all active:scale-[0.92] shrink-0">
+        <Mic className="w-[16px] h-[16px]" strokeWidth={2} />
+      </button>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
+        placeholder="Ask HALO anything…"
+        className="flex-1 h-[56px] bg-transparent px-3 text-[15px] text-white placeholder:text-white/20 focus:outline-none"
+      />
+      <button onClick={onSubmit} disabled={!value.trim() || busy}
+        className="mr-3.5 w-10 h-10 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_14px_rgba(255,255,255,0.12)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0">
+        {busy ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.2} />}
+      </button>
+    </div>
   );
 }

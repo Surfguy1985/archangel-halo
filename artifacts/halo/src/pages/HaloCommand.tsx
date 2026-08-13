@@ -1,48 +1,17 @@
 /**
- * HALO Command — the primary conversational operating system.
+ * HALO Command — the entire operating interface.
  *
- * This is the FIXED SEED default experience when office opens. It renders two
- * layout states:
+ * One dark shell. One composer. Three summonable panels (Map, Kanban, Money).
+ * Everything else happens in conversation.
  *
- *   SEED   — full-screen centered: glowing halo ring, "Hi, Team." greeting,
- *            one large rounded command composer, four restrained Try Asking
- *            cards. Matches the premium near-black hardware-like screenshot.
- *
- *   THREAD — once the user sends a message, slides into a standard chat
- *            thread with the command bar at the bottom. All existing lens
- *            cards, confirmation packets, decision packets, and walk capture
- *            remain fully functional.
- *
- * Navigation: HaloCommand is the sole entry point — / stays here.
- * All expert screens (properties, money, jobs, crews) are reachable via the
- * More menu, lens chips, or voice. /today redirects back to /.
- *
- * Falkon safeguards: SHADOW / ASSISTED / LIVE modes are displayed. Consequential
- * actions always surface a ConfirmCard for explicit approval before execution.
- *
- * Thread state persists at module level across route changes so Back → /
- * restores the last conversation.
+ * SEED  — ring + greeting + at most 2 critical alerts + 3 prompt chips.
+ * THREAD — scrollable chat: user bubbles, HALO answers, action cards.
+ * PANELS — LiveMap / JobKanban / Money slide over the chat, close back to thread.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import {
-  Mic,
-  Bell,
-  LayoutGrid,
-  Footprints,
-  Sparkles,
-  Send,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  ChevronRight,
-  DollarSign,
-  MapPin,
-  FileText,
-  Zap,
-  X,
-} from "lucide-react";
+import { Mic, Bell, LayoutGrid, Send, Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
 
 import {
   useGetToday,
@@ -50,30 +19,25 @@ import {
   useParseVoice,
   getGetTodayQueryKey,
   getListAutopilotActionsQueryKey,
-  type FeedCard as FeedCardType,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { VoiceAction } from "@workspace/api-client-react";
 
 import haloLogo from "../assets/halo-logo.png";
 import { HaloRing } from "@/components/HaloRing";
 import { VoiceCaptureSheet } from "@/components/VoiceCaptureSheet";
-import { AskFalkonSheet } from "@/components/AskFalkonSheet";
-import { ArrivalDetection } from "@/components/ArrivalSheet";
 import { NotificationsDrawer } from "@/components/NotificationsDrawer";
-import { MoreMenuSheet } from "@/components/MoreMenuSheet";
-import { FalkonNetworkPulse } from "@/components/FalkonNetworkPulse";
-import { DecisionPacket } from "@/components/command/DecisionPacket";
-import { ConfirmCard } from "@/components/command/ConfirmCard";
-import { LensCard, type LensType } from "@/components/command/LensCard";
-import { BriefingCard, type BriefingData } from "@/components/command/BriefingCard";
-import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
+import { MinimalMenuSheet } from "@/components/MinimalMenuSheet";
 import { FalkonControlCenter } from "@/components/command/FalkonControlCenter";
-import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
-import type { VoiceAction } from "@workspace/api-client-react";
+import { ConfirmCard } from "@/components/command/ConfirmCard";
+import { LiveMapPanel } from "@/components/panels/LiveMapPanel";
+import { KanbanPanel } from "@/components/panels/KanbanPanel";
+import { MoneyPanel } from "@/components/panels/MoneyPanel";
+import { LiveLinkCard, type LiveLinkData } from "@/components/LiveLinkCard";
+import { useFalkonHealth } from "@/lib/falkonNetwork";
 
-// ─── Thread message types ─────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Structured action plan from commandBrain — wired to ASSISTED auto-execution */
 interface ActionPlanData {
   description: string;
   risk: "auto" | "review" | "block";
@@ -81,230 +45,142 @@ interface ActionPlanData {
   params?: Record<string, unknown>;
 }
 
+type PanelType = "map" | "kanban" | "money";
+
 type TMsg =
-  | { id: string; kind: "decision-packet"; card: FeedCardType }
-  | { id: string; kind: "autopilot-packet"; action: { id: string; title: string; body: string; type: string; status: string } }
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
-  | { id: string; kind: "halo-response"; text: string }
-  | { id: string; kind: "lens"; lensType: LensType; query: string }
-  | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
-  | { id: string; kind: "success"; text: string }
-  | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "walk-result"; items: { id: string; description: string }[]; summary: string }
-  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[] }
   | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
-  // Structured rich messages injected by the command brain
-  | { id: string; kind: "briefing"; data: BriefingData };
+  | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
+  | { id: string; kind: "panel-opened"; panel: PanelType; label: string }
+  | { id: string; kind: "live-link-card"; data: LiveLinkData }
+  | { id: string; kind: "success"; text: string }
+  | { id: string; kind: "error"; text: string };
 
-// ─── Module-level thread persistence ─────────────────────────────────────────
+// ─── Live link result parser ──────────────────────────────────────────────────
 
-// Messages always start empty — DB is the authoritative source, restored on init.
-
-// ─── API fetch helper ─────────────────────────────────────────────────────────
-
-async function apiFetch(path: string, options?: RequestInit): Promise<any> {
-  const res = await fetch(path, {
-    ...options,
-    credentials: "same-origin",
-  });
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => "")}`);
-  return res.json();
+function parseLiveLinkResult(result: unknown): LiveLinkData | null {
+  if (!result || typeof result !== "string") return null;
+  try {
+    const p = JSON.parse(result);
+    if (p.type === "live_link") {
+      return {
+        kind: "pm_link",
+        propertyName: p.propertyName,
+        url: p.url,
+        token: p.token,
+        smsText: p.smsText,
+        expiresAt: p.expiresAt,
+      };
+    }
+    if (p.type === "crew_link") {
+      return {
+        kind: "crew_checkin",
+        crewName: p.crewName,
+        url: p.url,
+        token: p.token,
+        smsText: p.smsText,
+        expiresAt: p.expiresAt,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-// ─── Keyframes ───────────────────────────────────────────────────────────────
+// ─── Keyframes ────────────────────────────────────────────────────────────────
 
 const KEYFRAMES = `
-@keyframes hcBounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30%            { transform: translateY(-5px); }
-}
-@keyframes hcMsgIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes hcAmbient {
-  0%, 100% { opacity: 0.22; transform: scaleY(0.55); }
-  50%       { opacity: 0.58; transform: scaleY(1); }
-}
+@keyframes hcBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+@keyframes hcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 @keyframes hcGlow {
-  0%, 100% { opacity: 0.55; filter: drop-shadow(0 0 22px rgba(180,255,68,0.42)); }
-  50%       { opacity: 0.85; filter: drop-shadow(0 0 42px rgba(180,255,68,0.70)); }
+  0%,100%{opacity:0.55;filter:drop-shadow(0 0 22px rgba(180,255,68,0.38))}
+  50%{opacity:0.85;filter:drop-shadow(0 0 44px rgba(180,255,68,0.68))}
 }
-@keyframes hcSeedFade {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hc-msg { animation: none !important; }
-  .hc-seed-item { animation: none !important; }
-}
+@media(prefers-reduced-motion:reduce){.hc-in{animation:none!important}}
 `;
-
-// ─── Intent detection ─────────────────────────────────────────────────────────
-
-const LENS_MAP: Array<{ keywords: string[]; lens: LensType }> = [
-  {
-    keywords: ["invoice", "invoices", "payment", "money", "margin", "revenue", "budget",
-      "overdue", "outstanding", "scope", "financial", "bill", "billing", "collect",
-      "paid", "unpaid", "past due", "receivable", "accounts", "unit.*invoic", "needing invoic",
-      "units.*invoic", "send invoice", "create invoice", "new invoice"],
-    lens: "money",
-  },
-  {
-    keywords: ["schedule", "timeline", "turn", "turns", "due this week", "late", "delay",
-      "project", "sla", "unscheduled", "on deck", "deck", "upcoming", "next week",
-      "work order", "job timeline", "unit.*turn", "what.*week", "structure.*day",
-      "organize.*day", "what.*today", "pressing jobs", "most.*job"],
-    lens: "timeline",
-  },
-  {
-    keywords: ["crew", "vendor", "on site", "available", "compliance", "coi", "contractor",
-      "who is", "missing", "performance", "dispatch", "dispatched", "check in",
-      "checked in", "active today", "working today", "who.*site", "who.*working",
-      "who.*dispatch", "send.*link", "live link", "portal link", "crew.*link"],
-    lens: "network",
-  },
-  {
-    keywords: ["photo", "before", "after", "inspection", "evidence", "qc", "quality",
-      "image", "picture", "proof", "documentation", "photo evidence", "inspect"],
-    lens: "evidence",
-  },
-  {
-    keywords: ["portfolio", "properties", "executive", "brief me", "health", "overview",
-      "all properties", "compare", "report", "performance", "pressing", "urgent",
-      "critical", "operations", "status", "summary", "what is happening", "what.*happening",
-      "active operations", "summarize", "across", "today.*status"],
-    lens: "portfolio",
-  },
-  {
-    keywords: ["map", "location", "gps", "where", "route", "driving", "find another",
-      "near", "miles", "live map", "crew map", "who.*where", "live.*map"],
-    lens: "map",
-  },
-];
-
-const QUERY_STARTERS = [
-  "show", "which", "find", "who", "what", "how many", "list", "give me",
-  "brief me", "compare", "check", "tell me", "are there", "is there",
-  "do we have", "what are", "why is", "where", "when",
-];
-
-const WORK_APP_PHRASES = [
-  "work app", "crm", "legacy", "open today", "traditional", "dashboard", "go to work",
-];
-
-function detectIntent(text: string): { type: "navigate"; path: string } | { type: "lens"; lens: LensType } | { type: "action" } | { type: "falkon" } {
-  const lower = text.toLowerCase().trim();
-
-  if (WORK_APP_PHRASES.some(p => lower.includes(p))) {
-    return { type: "navigate", path: "/properties" };
-  }
-  if (isFalkonFormationIntent(text)) return { type: "falkon" };
-
-  const isQuery = QUERY_STARTERS.some(s => lower.startsWith(s));
-  if (isQuery) {
-    for (const { keywords, lens } of LENS_MAP) {
-      if (keywords.some(k => {
-        try { return new RegExp(k).test(lower); } catch { return lower.includes(k); }
-      })) return { type: "lens", lens };
-    }
-    return { type: "lens", lens: "portfolio" };
-  }
-  for (const { keywords, lens } of LENS_MAP) {
-    if (keywords.some(k => {
-      try { return new RegExp(k).test(lower); } catch { return lower.includes(k); }
-    })) {
-      const hasDataVerb = ["show", "open", "see", "view", "check", "pull up", "display"].some(v => lower.includes(v));
-      if (hasDataVerb) return { type: "lens", lens };
-    }
-  }
-  return { type: "action" };
-}
 
 // ─── Falkon mode ──────────────────────────────────────────────────────────────
 
 type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
 
-function deriveFalkonMode(health?: { gatewayMode?: string; overallHealth?: string }): FalkonMode {
-  // Use the actual gateway connection mode (from falkon_connections.mode),
-  // NOT the peer network health. A healthy peer network does NOT mean the
-  // gateway S2S session exists or has been verified.
-  const mode = health?.gatewayMode;
-  if (!mode || mode === "OFF" || mode === "SHADOW") return "SHADOW";
-  if (mode === "ASSISTED") return "ASSISTED";
-  if (mode === "LIVE") return "LIVE";
+function deriveFalkonMode(health?: { gatewayMode?: string }): FalkonMode {
+  const m = health?.gatewayMode;
+  if (m === "ASSISTED") return "ASSISTED";
+  if (m === "LIVE") return "LIVE";
   return "SHADOW";
 }
 
-const FALKON_MODE_STYLES: Record<FalkonMode, { bg: string; text: string; dot: string }> = {
-  SHADOW:   { bg: "bg-white/5 border border-white/10",            text: "text-white/38",     dot: "bg-white/30" },
-  ASSISTED: { bg: "bg-[#B4FF44]/8 border border-[#B4FF44]/20",   text: "text-[#B4FF44]/80", dot: "bg-[#B4FF44]" },
-  LIVE:     { bg: "bg-[#22C55E]/8 border border-[#22C55E]/20",   text: "text-[#22C55E]/80", dot: "bg-[#22C55E]" },
+const MODE_STYLE: Record<FalkonMode, { bg: string; text: string; dot: string }> = {
+  SHADOW:   { bg: "bg-white/5 border border-white/10",          text: "text-white/35",     dot: "bg-white/25" },
+  ASSISTED: { bg: "bg-[#B4FF44]/8 border border-[#B4FF44]/20", text: "text-[#B4FF44]/80", dot: "bg-[#B4FF44] animate-pulse" },
+  LIVE:     { bg: "bg-[#22C55E]/8 border border-[#22C55E]/18", text: "text-[#22C55E]/80", dot: "bg-[#22C55E] animate-pulse" },
 };
 
-// ─── Ambient messages ─────────────────────────────────────────────────────────
+// ─── Panel intent detection ───────────────────────────────────────────────────
 
-const AMBIENT_MSGS = [
-  "Evaluating active job margins…",
-  "Checking vendor COI status…",
-  "Syncing Falkon network peers…",
-  "Scanning for overdue invoices…",
-  "Monitoring crew GPS signals…",
-  "Reviewing autopilot conditions…",
-  "Verifying evidence gates…",
-  "Watching unit readiness…",
+const PANEL_MAP: Array<{ panel: PanelType; label: string; patterns: string[] }> = [
+  { panel: "map",    label: "Live Map",  patterns: ["live map","crew map","show map","open map","where are crews","crew location","gps","map"] },
+  { panel: "kanban", label: "Job Board", patterns: ["job board","kanban","open board","show board","the board","show jobs","open jobs","jobs board"] },
+  { panel: "money",  label: "Money",     patterns: ["money","open money","show money","financials","invoices","billing","revenue","receivables","open invoices"] },
 ];
 
-// ─── Try Asking cards (the 4 shown in seed) ───────────────────────────────────
+const BRAIN_LENS_TO_PANEL: Record<string, PanelType> = {
+  map: "map", crew_map: "map",
+  timeline: "kanban", turn_timeline: "kanban",
+  money: "money", budget_breakdown: "money", invoice_detail: "money",
+};
 
-const TRY_ASKING: Array<{
-  label: string;
-  icon: typeof DollarSign;
-  iconColor: string;
-  query: string;
-  lens?: LensType;
-}> = [
-  {
-    label: "Most pressing jobs today",
-    icon: Zap,
-    iconColor: "#F59E0B",
-    query: "Most pressing jobs today",
-    lens: "portfolio",
-  },
-  {
-    label: "Live crew map",
-    icon: MapPin,
-    iconColor: "#22C55E",
-    query: "Show live crew map",
-    lens: "map",
-  },
-  {
-    label: "Units needing invoices",
-    icon: DollarSign,
-    iconColor: "#B4FF44",
-    query: "Show units needing invoices",
-    lens: "money",
-  },
-  {
-    label: "Create an invoice",
-    icon: FileText,
-    iconColor: "#6366F1",
-    query: "Create an invoice",
-  },
-];
+function detectPanelIntent(text: string): { panel: PanelType; label: string } | null {
+  const lower = text.toLowerCase().trim();
+  for (const { panel, label, patterns } of PANEL_MAP) {
+    if (patterns.some(p => lower.includes(p))) return { panel, label };
+  }
+  return null;
+}
 
-// ─── Thread sub-components ────────────────────────────────────────────────────
+const PANEL_ICONS: Record<PanelType, string> = { map: "📍", kanban: "📋", money: "💰" };
+
+// ─── Greeting ─────────────────────────────────────────────────────────────────
+
+function timeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning.";
+  if (h < 17) return "Good afternoon.";
+  return "Good evening.";
+}
+
+// ─── API helper ───────────────────────────────────────────────────────────────
+
+async function apiFetch(path: string, opts?: RequestInit): Promise<any> {
+  const res = await fetch(path, { ...opts, credentials: "same-origin" });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => "")}`);
+  return res.json();
+}
+
+// ─── Bubble components ────────────────────────────────────────────────────────
+
+function UserBubble({ text }: { text: string }) {
+  return (
+    <div className="flex justify-end mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+      <div className="max-w-[80%] bg-[#B4FF44] text-[#07101E] rounded-[16px] rounded-br-[4px] px-4 py-2.5 shadow-[0_4px_16px_rgba(180,255,68,0.18)]">
+        <p className="text-[13.5px] font-semibold leading-relaxed">{text}</p>
+      </div>
+    </div>
+  );
+}
 
 function ThinkingBubble() {
   return (
     <div className="flex items-end gap-2 mb-3">
-      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/25 grid place-items-center shrink-0">
-        <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
+      <div className="w-[20px] h-[20px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
+        <HaloRing className="w-[10px] h-[10px] text-[#B4FF44]" />
       </div>
-      <div className="bg-[#0D1E33] border border-white/7 rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1.5">
+      <div className="bg-[#0D1E33] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1.5">
         {[0, 1, 2].map(i => (
-          <div key={i} className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/50"
+          <div key={i} className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/45"
             style={{ animation: `hcBounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
         ))}
       </div>
@@ -312,96 +188,27 @@ function ThinkingBubble() {
   );
 }
 
-function HaloBubble({ text }: { text: string }) {
-  return (
-    <div className="flex items-end gap-2 mb-3 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/25 grid place-items-center shrink-0">
-        <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
-      </div>
-      <div className="max-w-[84%] bg-[#0C1B30] border border-white/7 rounded-[16px] rounded-bl-[4px] px-4 py-3 shadow-sm">
-        <p className="text-[13.5px] text-white/80 leading-relaxed">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function UserBubble({ text }: { text: string }) {
-  return (
-    <div className="flex justify-end mb-3 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-      <div className="max-w-[80%] bg-[#B4FF44] text-[#07101E] rounded-[16px] rounded-br-[4px] px-4 py-3 shadow-[0_4px_16px_rgba(180,255,68,0.22)]">
-        <p className="text-[13.5px] font-semibold leading-relaxed">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function WalkResultCard({ items, summary }: { items: { id: string; description: string }[]; summary: string }) {
-  return (
-    <div className="bg-[#0A1628] border border-[#B4FF44]/18 rounded-[16px] px-4 py-4 mb-3">
-      <div className="flex items-center gap-2.5 mb-3">
-        <div className="w-7 h-7 rounded-[9px] bg-[#B4FF44]/12 border border-[#B4FF44]/25 grid place-items-center">
-          <Footprints className="w-3.5 h-3.5 text-[#B4FF44]" />
-        </div>
-        <div>
-          <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-[#B4FF44]/75">Walk Capture</div>
-          <div className="text-[11.5px] text-white/45">{items.length} item{items.length !== 1 ? "s" : ""} recorded</div>
-        </div>
-      </div>
-      <div className="space-y-1.5 mb-3">
-        {items.slice(0, 3).map(item => (
-          <div key={item.id} className="flex items-center gap-2 text-[12.5px] text-white/65">
-            <div className="w-1 h-1 rounded-full bg-[#B4FF44]/50 shrink-0" />
-            {item.description}
-          </div>
-        ))}
-        {items.length > 3 && <div className="text-[11px] text-white/30">+{items.length - 3} more items</div>}
-      </div>
-      <button
-        onClick={() => window.open("/walk", "_blank", "noopener")}
-        className="w-full text-center text-[12px] font-bold text-[#B4FF44]/60 hover:text-[#B4FF44]/90 py-2 border border-[#B4FF44]/12 rounded-[10px] transition-colors"
-      >
-        Open Walk app to create jobs ↗
-      </button>
-    </div>
-  );
-}
-
-// ─── HaloAnswerBubble — brain-grounded response with sources & follow-ups ─────
-
 function HaloAnswerBubble({
-  text,
-  sources,
-  followUps,
-  shadowLabel,
-  onFollowUp,
+  text, sources, followUps, onFollowUp,
 }: {
   text: string;
   sources?: Array<{ label: string; value: string }>;
   followUps?: string[];
-  shadowLabel?: string;
   onFollowUp: (q: string) => void;
 }) {
   return (
-    <div className="mb-3 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-      {shadowLabel && (
-        <div className="flex items-center gap-1.5 mb-1.5 ml-[30px]">
-          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 border border-amber-500/25 text-amber-400 uppercase tracking-wider">
-            SHADOW
-          </span>
-          <span className="text-[10px] text-amber-400/65">Proposed — not executed</span>
-        </div>
-      )}
+    <div className="mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
       <div className="flex items-end gap-2">
-        <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/25 grid place-items-center shrink-0">
-          <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
+        <div className="w-[20px] h-[20px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
+          <HaloRing className="w-[10px] h-[10px] text-[#B4FF44]" />
         </div>
-        <div className={`max-w-[85%] rounded-[16px] rounded-bl-[4px] px-4 py-3 shadow-sm ${shadowLabel ? "bg-amber-950/40 border border-amber-500/20" : "bg-[#0C1B30] border border-white/7"}`}>
-          <p className="text-[13.5px] text-white/82 leading-relaxed">{text}</p>
+        <div className="max-w-[85%] bg-[#0C1B30] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3 shadow-sm">
+          <p className="text-[13.5px] text-white/80 leading-relaxed whitespace-pre-wrap">{text}</p>
           {sources && sources.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 pt-2 border-t border-white/6">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 pt-2 border-t border-white/[0.05]">
               {sources.map((s, i) => (
-                <span key={i} className="text-[10px] text-white/35">
-                  <span className="text-white/22">{s.label}:</span> {s.value}
+                <span key={i} className="text-[10px] text-white/28">
+                  <span className="text-white/18">{s.label}:</span> {s.value}
                 </span>
               ))}
             </div>
@@ -409,12 +216,12 @@ function HaloAnswerBubble({
         </div>
       </div>
       {followUps && followUps.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap mt-1.5 ml-[30px]">
-          {followUps.map((q, i) => (
+        <div className="flex gap-1.5 flex-wrap mt-1.5 ml-[28px]">
+          {followUps.slice(0, 3).map((q, i) => (
             <button
               key={i}
               onClick={() => onFollowUp(q)}
-              className="text-[11px] font-medium text-white/42 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/7 hover:text-white/70 hover:bg-white/[0.07] transition-all active:scale-[0.96]"
+              className="text-[11px] font-medium text-white/38 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/6 hover:text-white/65 hover:bg-white/[0.07] transition-all active:scale-[0.96]"
             >
               {q}
             </button>
@@ -425,13 +232,28 @@ function HaloAnswerBubble({
   );
 }
 
-// ─── ActionPlanCard — ASSISTED auto-execution + approval card ────────────────
+function PanelOpenedChip({
+  panel, label, onReopen,
+}: {
+  panel: PanelType; label: string; onReopen: () => void;
+}) {
+  return (
+    <div className="flex mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+      <button
+        onClick={onReopen}
+        className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all active:scale-[0.97]"
+      >
+        <span className="text-[12px]">{PANEL_ICONS[panel]}</span>
+        <span className="text-[11.5px] text-white/45 font-medium">{label} — tap to reopen</span>
+      </button>
+    </div>
+  );
+}
+
+// ─── ActionPlanCard ───────────────────────────────────────────────────────────
 
 function ActionPlanCard({
-  msg,
-  falkonMode,
-  onExecute,
-  onDecline,
+  msg, falkonMode, onExecute, onDecline,
 }: {
   msg: { plan: ActionPlanData; status: string; result?: string };
   falkonMode: FalkonMode;
@@ -441,93 +263,69 @@ function ActionPlanCard({
   const isShadow = falkonMode === "SHADOW";
   const isBlock = msg.plan.risk === "block";
 
-  if (msg.status === "executing") {
-    return (
-      <div className="flex items-center gap-2.5 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-        <Loader2 className="w-3.5 h-3.5 text-[#B4FF44] animate-spin shrink-0" />
-        <div>
-          <span className="text-[12.5px] text-[#B4FF44]/80 font-medium">Executing…</span>
-          <p className="text-[11px] text-white/35 mt-0.5">{msg.plan.description}</p>
-        </div>
+  if (msg.status === "executing") return (
+    <div className="flex items-center gap-2.5 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+      <Loader2 className="w-3.5 h-3.5 text-[#B4FF44] animate-spin shrink-0" />
+      <div>
+        <span className="text-[12.5px] text-[#B4FF44]/80 font-medium">Executing…</span>
+        <p className="text-[11px] text-white/32 mt-0.5">{msg.plan.description}</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (msg.status === "done") {
-    return (
-      <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-        <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
-        <div>
-          <span className="text-[12.5px] text-[#22C55E]/90 font-medium">Done</span>
-          <p className="text-[11px] text-white/40 mt-0.5">{msg.result ?? msg.plan.description}</p>
-        </div>
+  if (msg.status === "done") return (
+    <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+      <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
+      <div>
+        <span className="text-[12.5px] text-[#22C55E]/90 font-medium">Done</span>
+        <p className="text-[11px] text-white/38 mt-0.5">{msg.result ?? msg.plan.description}</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (msg.status === "error") {
-    return (
-      <div className="flex items-center gap-2.5 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-        <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
-        <span className="text-[12.5px] text-[#E11D48]/85">Action failed — try again or handle manually.</span>
-      </div>
-    );
-  }
+  if (msg.status === "error") return (
+    <div className="flex items-center gap-2.5 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[13px] px-4 py-3 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+      <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
+      <span className="text-[12.5px] text-[#E11D48]/82">Action failed — try again or handle manually.</span>
+    </div>
+  );
 
-  if (msg.status === "declined") {
-    return (
-      <div className="flex items-center gap-1.5 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-        <span className="text-[11.5px] text-white/25">Cancelled — no changes made.</span>
-      </div>
-    );
-  }
+  if (msg.status === "declined") return (
+    <div className="mb-3"><span className="text-[11.5px] text-white/22">Cancelled — nothing changed.</span></div>
+  );
 
   // pending
   const riskColor = isBlock ? "#E11D48" : msg.plan.risk === "review" ? "#F59E0B" : "#B4FF44";
-  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "NEEDS APPROVAL" : isShadow ? "SHADOW" : "READY";
-  const borderCls = isShadow
-    ? "bg-amber-950/30 border-amber-500/20"
-    : isBlock
-    ? "bg-[#E11D48]/8 border-[#E11D48]/20"
-    : "bg-[#0A1628] border-white/8";
+  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "REVIEW" : isShadow ? "SHADOW" : "READY";
 
   return (
-    <div className={`rounded-[16px] px-4 py-3.5 mb-2.5 border ${borderCls} hc-msg`} style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-      <div className="flex items-center gap-2 mb-2.5">
-        <span
-          className="text-[9px] font-bold tracking-[0.18em] uppercase px-2 py-0.5 rounded border"
-          style={{ background: `${riskColor}15`, borderColor: `${riskColor}30`, color: riskColor }}
-        >
+    <div className="rounded-[14px] border border-white/8 px-4 py-3.5 mb-3 hc-in"
+      style={{ background: isBlock ? "rgba(225,29,72,0.06)" : isShadow ? "rgba(245,158,11,0.05)" : "rgba(10,22,40,0.9)", animation: "hcIn 0.2s ease-out both" }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[9px] font-bold tracking-[0.16em] uppercase px-2 py-0.5 rounded border"
+          style={{ background: `${riskColor}12`, borderColor: `${riskColor}28`, color: riskColor }}>
           {riskLabel}
         </span>
         {!isShadow && !isBlock && falkonMode === "ASSISTED" && (
-          <span className="text-[10px] text-white/25">Falkon ASSISTED</span>
+          <span className="text-[10px] text-white/22">Falkon ASSISTED</span>
         )}
       </div>
       <p className="text-[13px] text-white/75 leading-relaxed mb-3">{msg.plan.description}</p>
       {!isBlock && !isShadow && (
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onExecute}
-            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all"
-          >
+          <button type="button" onClick={onExecute}
+            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
             {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
           </button>
-          <button
-            type="button"
-            onClick={onDecline}
-            className="h-9 px-4 rounded-[10px] bg-white/5 border border-white/8 text-[12px] text-white/45 hover:text-white/70 hover:bg-white/8 active:scale-[0.97] transition-all"
-          >
+          <button type="button" onClick={onDecline}
+            className="h-9 px-4 rounded-[10px] bg-white/5 border border-white/8 text-[12px] text-white/42 hover:text-white/65 hover:bg-white/8 active:scale-[0.97] transition-all">
             Cancel
           </button>
         </div>
       )}
       {(isShadow || isBlock) && (
-        <p className="text-[11px] text-white/28 mt-1">
-          {isShadow
-            ? "Switch to ASSISTED mode to execute this action."
-            : "Contact your administrator to enable this action."}
+        <p className="text-[11px] text-white/25 mt-1">
+          {isShadow ? "Switch to ASSISTED mode to execute." : "Contact your administrator."}
         </p>
       )}
     </div>
@@ -541,58 +339,50 @@ export default function HaloCommand() {
   const qc = useQueryClient();
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 } });
-  const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 15_000 } });
+  const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 15_000 } });
+  const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 20_000 } });
   const { data: health } = useFalkonHealth();
   const parseVoice = useParseVoice();
 
-  // ── Thread (module-level persistence across navigations) ───────────────────
+  // ── Thread ────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<TMsg[]>([]);
-
-  // ── Input & overlay state ─────────────────────────────────────────────────
   const [input, setInput] = useState("");
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [voiceInitial, setVoiceInitial] = useState<string | undefined>(undefined);
-  const [falkonOpen, setFalkonOpen] = useState(false);
-  const [falkonText, setFalkonText] = useState("");
-  const [walkOpen, setWalkOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
 
-  // ── Brain conversation ─────────────────────────────────────────────────────
+  // ── Brain conversation ────────────────────────────────────────────────────
   const [conversationId, setConversationId] = useState<string | null>(() => {
     try { return sessionStorage.getItem("halo_convo_id"); } catch { return null; }
   });
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[] | null>(null);
-  // False until the conversation is validated server-side; gates submission to
-  // prevent write races during init and new-chat creation.
   const [brainReady, setBrainReady] = useState(false);
 
-  // ── Ambient ───────────────────────────────────────────────────────────────
-  const [ambientIdx, setAmbientIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT_MSGS.length), 8000);
-    return () => clearInterval(t);
+  // ── Panels ────────────────────────────────────────────────────────────────
+  const [activePanel, setActivePanel] = useState<PanelType | null>(null);
+
+  // ── Overlays ──────────────────────────────────────────────────────────────
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
+
+  // ── Scroll ────────────────────────────────────────────────────────────────
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollDown = useCallback(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
-  // ── Init brain conversation + history restore ──────────────────────────────
+  // ── Brain init + history restore ──────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
-        // Fetch suggested prompts (endpoint also returns conversations list, but
-        // we intentionally ignore it — we honour the session-stored ID only).
         const data = await apiFetch("/api/command/conversations");
         if (cancelled) return;
         if (data.suggestedPrompts) setSuggestedPrompts(data.suggestedPrompts);
 
-        // If a valid session-scoped conversation ID is already stored, use it.
-        // Otherwise create a brand-new conversation for this session.
-        let convoId = conversationId; // initialised from sessionStorage
+        let convoId = conversationId;
         if (!convoId) {
           const created = await apiFetch("/api/command/conversations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ role: "executive" }),
           });
           if (!cancelled && created?.conversation?.id) {
@@ -602,272 +392,183 @@ export default function HaloCommand() {
           }
         }
 
-        // Always validate the stored conversation against the server and restore
-        // its persisted history. Skipping this based on in-memory state would
-        // allow a prior-session thread to bleed into a newly authenticated one.
         if (convoId) {
           try {
-            const msgData = await apiFetch(`/api/command/conversations/${convoId}/messages?limit=40`);
+            const msgData = await apiFetch(`/api/command/conversations/${convoId}/messages?limit=30`);
             if (cancelled) return;
-            const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: { id: string; role: string; content: string; meta?: { type?: string; lensKind?: string; shadowLabel?: string } | null }) => {
-              if (m.role === "user") {
-                return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
-              }
-              if (m.role === "assistant" && m.content) {
-                return [{
-                  id: `r-${m.id}`,
-                  kind: "halo-answer" as const,
-                  text: m.content,
-                  shadowLabel: m.meta?.shadowLabel ?? undefined,
-                }];
-              }
+            const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: any) => {
+              if (m.role === "user") return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
+              if (m.role === "assistant" && m.content) return [{ id: `r-${m.id}`, kind: "halo-answer" as const, text: m.content }];
               return [];
             });
-            // DB is the source of truth — overwrite in-memory state.
             setMessages(restored);
-          } catch (restoreErr) {
-            if (cancelled) return;
-            // Stale conversation (session rotated) — discard the prior-session
-            // thread, clear the stored ID, and create a fresh conversation.
-            if (restoreErr instanceof Error && restoreErr.message.startsWith("404")) {
+          } catch (e: any) {
+            if (e?.message?.startsWith("404")) {
               setMessages([]);
               try { sessionStorage.removeItem("halo_convo_id"); } catch {}
               setConversationId(null);
-              try {
-                const fresh = await apiFetch("/api/command/conversations", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ role: "executive" }),
-                });
-                if (!cancelled && fresh?.conversation?.id) {
-                  const freshId: string = fresh.conversation.id;
-                  setConversationId(freshId);
-                  try { sessionStorage.setItem("halo_convo_id", freshId); } catch {}
-                }
-              } catch { /* non-fatal */ }
             }
-            // Other errors: non-fatal, keep current state
           }
         }
-      } catch { /* non-fatal — brain degrades gracefully */ }
+      } catch { /* non-fatal */ }
     }
     init().finally(() => { if (!cancelled) setBrainReady(true); });
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Briefing injection on first load ──────────────────────────────────────
-  // Runs once when brainReady becomes true. If the thread is still empty
-  // (no history restored) fetches the daily briefing and injects it as the
-  // first message. A ref prevents double-injection on StrictMode remounts.
-  const briefingInjectedRef = useRef(false);
-  useEffect(() => {
-    if (!brainReady || briefingInjectedRef.current) return;
-    briefingInjectedRef.current = true;
-    apiFetch("/api/command/briefing")
-      .then((data: BriefingData) => {
-        setMessages(prev => {
-          // Skip injection if history was restored — don't overwrite real messages
-          if (prev.some(m => m.kind !== "briefing")) return prev;
-          return [{ id: `briefing-${data.date}`, kind: "briefing" as const, data }];
-        });
-      })
-      .catch(() => { /* non-fatal — briefing is a bonus, not required */ });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brainReady]);
+  // ── Open a panel from chat ────────────────────────────────────────────────
+  const openPanel = useCallback((panel: PanelType, label: string, fromMessage?: boolean) => {
+    setActivePanel(panel);
+    if (fromMessage) {
+      setMessages(prev => [...prev, {
+        id: `panel-${Date.now()}`, kind: "panel-opened" as const, panel, label,
+      }]);
+      scrollDown();
+    }
+  }, [scrollDown]);
 
-  // ── Briefing 60s auto-refresh (visibility-aware) ──────────────────────────
-  useEffect(() => {
-    if (!brainReady) return;
-    const refreshBriefing = () => {
-      if (document.hidden) return;
-      apiFetch("/api/command/briefing")
-        .then((data: BriefingData) => {
-          setMessages(prev => {
-            if (prev.length === 0 || prev[0].kind !== "briefing") return prev;
-            // Replace the briefing in-place, keep the same id for React stability
-            return [{ id: prev[0].id, kind: "briefing" as const, data }, ...prev.slice(1)];
-          });
-        })
-        .catch(() => {});
-    };
-    const interval = setInterval(refreshBriefing, 60_000);
-    const onVisibilityChange = () => { if (!document.hidden) refreshBriefing(); };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brainReady]);
-
-  // ── Scroll ────────────────────────────────────────────────────────────────
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
-  }, []);
-
-  // ── Submit handler ────────────────────────────────────────────────────────
-  const handleSubmit = async (text?: string) => {
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(async (text?: string) => {
     if (!brainReady) return;
     const raw = (text ?? input).trim();
     if (!raw) return;
     setInput("");
 
-    const userId = `user-${Date.now()}`;
-    const thinkId = `think-${Date.now()}`;
-
+    const userId = `u-${Date.now()}`;
+    const thinkId = `t-${Date.now()}`;
     setMessages(prev => [...prev,
       { id: userId, kind: "user-msg" as const, text: raw },
       { id: thinkId, kind: "thinking" as const },
     ]);
-    scrollToBottom();
+    scrollDown();
 
-    const intent = detectIntent(raw);
-
-    // Navigation and Falkon are immediate — no AI call needed
-    if (intent.type === "navigate") {
-      setMessages(prev => prev.filter(m => m.id !== thinkId));
-      navigate(intent.path);
+    // ── Check for panel intent first ─────────────────────────────────────
+    const panelIntent = detectPanelIntent(raw);
+    if (panelIntent) {
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId
+          ? { id: thinkId, kind: "halo-answer" as const, text: `Opening ${panelIntent.label}.` }
+          : m
+      ));
+      openPanel(panelIntent.panel, panelIntent.label, true);
+      scrollDown();
       return;
     }
-    if (intent.type === "falkon") {
-      setMessages(prev => prev.filter(m => m.id !== thinkId));
-      setFalkonText(raw);
-      setFalkonOpen(true);
-      return;
-    }
 
-    // ── Brain path (primary) ─────────────────────────────────────────────────
-    const convoId = conversationId;
+    // ── Brain path ────────────────────────────────────────────────────────
+    let convoId = conversationId;
+    let brainResult: any = null;
+
     if (convoId) {
-      let activeConvoId = convoId;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let brainResult: any = null;
-
       try {
-        brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        brainResult = await apiFetch(`/api/command/conversations/${convoId}/ask`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: raw, role: "executive" }),
         });
-      } catch (brainErr) {
-        // Stale conversation (session rotated) — discard prior-session messages,
-        // create fresh conversation, and retry the ask once.
-        if (brainErr instanceof Error && brainErr.message.startsWith("404")) {
+      } catch (e: any) {
+        if (e?.message?.startsWith("404")) {
           setMessages([]);
           try { sessionStorage.removeItem("halo_convo_id"); } catch {}
           setConversationId(null);
           try {
             const fresh = await apiFetch("/api/command/conversations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ role: "executive" }),
             });
             if (fresh?.conversation?.id) {
-              activeConvoId = fresh.conversation.id;
-              setConversationId(activeConvoId);
-              try { sessionStorage.setItem("halo_convo_id", activeConvoId); } catch {}
-              brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+              convoId = fresh.conversation.id;
+              setConversationId(convoId);
+              try { sessionStorage.setItem("halo_convo_id", convoId!); } catch {}
+              brainResult = await apiFetch(`/api/command/conversations/${convoId}/ask`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: raw, role: "executive" }),
               });
             }
-          } catch { /* fall through to legacy */ }
+          } catch { /* fall through */ }
         }
-        // Other errors: brainResult stays null → fall through to legacy
+      }
+    }
+
+    if (brainResult) {
+      // Brain says to open a panel via lensKind
+      if (brainResult.type === "lens" && brainResult.lensKind) {
+        const panel = BRAIN_LENS_TO_PANEL[brainResult.lensKind as string];
+        if (panel) {
+          const meta = PANEL_MAP.find(p => p.panel === panel);
+          const label = meta?.label ?? brainResult.lensKind;
+          setMessages(prev => prev.map(m =>
+            m.id === thinkId
+              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Opening ${label}.`, followUps: brainResult.suggestedFollowUps }
+              : m
+          ));
+          openPanel(panel, label, true);
+          scrollDown();
+          return;
+        }
       }
 
-      if (brainResult) {
-        if (brainResult.type === "lens" && brainResult.lensKind) {
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "lens" as const, lensType: brainResult.lensKind as LensType, query: brainResult.entityId ?? raw }
-              : m
-          ));
-          if (brainResult.text) {
-            setMessages(prev => [...prev, {
-              id: `ans-${Date.now()}`,
-              kind: "halo-answer" as const,
-              text: brainResult.text,
-              sources: brainResult.sources,
-              followUps: brainResult.suggestedFollowUps,
-            }]);
-          }
-        } else if (brainResult.type === "voice_action") {
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, shadowLabel: brainResult.shadowLabel, followUps: brainResult.suggestedFollowUps }
-              : m
-          ));
-
-          // ── ASSISTED action routing ───────────────────────────────────────
-          const plan = brainResult.actionPlan as ActionPlanData | undefined;
-          if (plan) {
-            const planId = `plan-${Date.now()}`;
-            if (plan.risk === "auto" && falkonMode === "ASSISTED") {
-              // Auto-execute immediately — inject executing card, fire API
-              setMessages(prev => [...prev, {
-                id: planId, kind: "action-plan" as const, plan, status: "executing" as const,
-              }]);
-              scrollToBottom();
-              try {
-                const execResult = await apiFetch("/api/command/actions/execute", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(plan),
-                });
-                setMessages(prev => prev.map(m =>
-                  m.id === planId ? { ...m as any, status: "done" as const, result: execResult.result } : m
-                ));
-              } catch {
-                setMessages(prev => prev.map(m =>
-                  m.id === planId ? { ...m as any, status: "error" as const } : m
-                ));
+      // voice_action with action plan
+      if (brainResult.type === "voice_action") {
+        setMessages(prev => prev.map(m =>
+          m.id === thinkId
+            ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, followUps: brainResult.suggestedFollowUps }
+            : m
+        ));
+        const plan = brainResult.actionPlan as ActionPlanData | undefined;
+        const falkonMode = deriveFalkonMode(health);
+        if (plan) {
+          const planId = `plan-${Date.now()}`;
+          if (plan.risk === "auto" && falkonMode === "ASSISTED") {
+            setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "executing" as const }]);
+            scrollDown();
+            try {
+              const r = await apiFetch("/api/command/actions/execute", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(plan),
+              });
+              const llData = parseLiveLinkResult(r.result);
+              if (llData) {
+                setMessages(prev => [
+                  ...prev.map(m => m.id === planId ? { ...m as any, status: "done" as const } : m),
+                  { id: `ll-${Date.now()}`, kind: "live-link-card" as const, data: llData },
+                ]);
+              } else {
+                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
               }
-            } else {
-              // Review, block, or SHADOW — show pending approval card
-              setMessages(prev => [...prev, {
-                id: planId, kind: "action-plan" as const, plan, status: "pending" as const,
-              }]);
+            } catch {
+              setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
             }
           } else {
-            // Fallback: legacy voice parse for ConfirmCard
-            try {
-              const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
-              if (vr?.actions?.length > 0) {
-                setMessages(prev => [...prev, {
-                  id: `conf-${Date.now()}`,
-                  kind: "confirmation" as const,
-                  logId: (vr as any).logId ?? "",
-                  actions: vr.actions,
-                }]);
-              }
-            } catch { /* non-fatal */ }
+            setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
           }
         } else {
-          // type: 'answer' or 'error'
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps, shadowLabel: brainResult.shadowLabel }
-              : m
-          ));
+          // Fallback to legacy voice parse
+          try {
+            const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+            if (vr?.actions?.length > 0) {
+              setMessages(prev => [...prev, {
+                id: `conf-${Date.now()}`, kind: "confirmation" as const,
+                logId: (vr as any).logId ?? "", actions: vr.actions,
+              }]);
+            }
+          } catch { /* non-fatal */ }
         }
-        scrollToBottom();
+        scrollDown();
         return;
       }
-    }
 
-    // ── Legacy path (no conversation yet, or brain failed) ───────────────────
-    if (intent.type === "lens") {
-      await new Promise(r => setTimeout(r, 340));
+      // Standard answer or error
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "lens" as const, lensType: intent.lens, query: raw } : m
+        m.id === thinkId
+          ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps }
+          : m
       ));
-      scrollToBottom();
+      scrollDown();
       return;
     }
+
+    // ── Fallback (no brain) ───────────────────────────────────────────────
     try {
       const result = await parseVoice.mutateAsync({ data: { transcript: raw } });
       if (result?.actions?.length > 0) {
@@ -877,111 +578,40 @@ export default function HaloCommand() {
             : m
         ));
       } else {
-        const lower = raw.toLowerCase();
-        const isDataQ = QUERY_STARTERS.some(s => lower.startsWith(s));
         setMessages(prev => prev.map(m =>
           m.id === thinkId
-            ? isDataQ
-              ? { id: thinkId, kind: "lens" as const, lensType: "portfolio" as const, query: raw }
-              : { id: thinkId, kind: "halo-response" as const, text: `Try a command: "Create invoice for [property]", "Schedule job [ID] Thursday", or say "show" to view any data.` }
+            ? { id: thinkId, kind: "halo-answer" as const, text: "Try a command like \"send invoice for [property]\" or ask a question about your operations." }
             : m
         ));
       }
     } catch {
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "error" as const, text: "Something went wrong. Check your connection and try again." } : m
+        m.id === thinkId ? { id: thinkId, kind: "error" as const, text: "Connection error — try again." } : m
       ));
     }
-    scrollToBottom();
-  };
+    scrollDown();
+  }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const falkonMode = deriveFalkonMode(health);
-  const modeStyle = FALKON_MODE_STYLES[falkonMode];
+  const modeStyle = MODE_STYLE[falkonMode];
   const unread = today?.unreadNotifications ?? 0;
-  const nowCount = today?.feed?.filter((c: FeedCardType) => c.tier === "now").length ?? 0;
-  const pendingCount = (autopilot ?? []).filter(a => a.status === "pending").length;
+  const nowCount = (today?.feed ?? []).filter((c: any) => c.tier === "now").length;
+  const pendingCount = (autopilot ?? []).filter((a: any) => a.status === "pending").length;
   const totalNeeds = nowCount + pendingCount;
+  const hasThread = messages.some(m => m.kind === "user-msg");
 
-  // Seed state = no content yet. Briefing counts as content — show thread layout.
-  const hasThread = messages.some(m => m.kind === "user-msg" || m.kind === "briefing");
-
-  // ── Falkon Control Center (admin) ─────────────────────────────────────────
-  const [controlOpen, setControlOpen] = useState(false);
-  const isShadow = falkonMode === "SHADOW";
-
-  // ── Render thread message ─────────────────────────────────────────────────
+  // ── Message renderer ──────────────────────────────────────────────────────
   const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
-      case "decision-packet":
-        return (
-          <DecisionPacket card={msg.card}
-            shadowMode={isShadow}
-            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
-            onResolved={() => {
-              setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Decision recorded." }]);
-            }}
-          />
-        );
-      case "autopilot-packet":
-        return (
-          <DecisionPacket autopilot={msg.action}
-            shadowMode={isShadow}
-            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
-            onResolved={() => {
-              setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Autopilot action recorded." }]);
-            }}
-          />
-        );
-      case "user-msg":
-        return <UserBubble text={msg.text} />;
-      case "thinking":
-        return <ThinkingBubble />;
-      case "halo-response":
-        return <HaloBubble text={msg.text} />;
-      case "halo-answer":
-        return (
-          <HaloAnswerBubble
-            text={msg.text}
-            sources={msg.sources}
-            followUps={msg.followUps}
-            shadowLabel={msg.shadowLabel}
-            onFollowUp={handleSubmit}
-          />
-        );
-      case "lens":
-        return <LensCard lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
-      case "confirmation":
-        return (
-          <ConfirmCard logId={msg.logId} actions={msg.actions}
-            shadowMode={isShadow}
-            onConfirmed={text => {
-              setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
-              qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-            }}
-            onCancelled={() => {
-              setMessages(prev => prev.map(m =>
-                m.id === msg.id ? { id: msg.id, kind: "halo-response", text: "Cancelled — nothing was changed." } : m
-              ));
-            }}
-          />
-        );
-      case "success":
-        return (
-          <div className="flex items-center gap-2.5 bg-[#22C55E]/8 border border-[#22C55E]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-            <CheckCircle2 className="w-[14px] h-[14px] text-[#22C55E] shrink-0" />
-            <span className="text-[13px] text-[#22C55E]/85">{msg.text}</span>
-          </div>
-        );
-      case "error":
-        return (
-          <div className="flex items-center gap-2.5 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-            <AlertCircle className="w-[14px] h-[14px] text-[#E11D48] shrink-0" />
-            <span className="text-[13px] text-[#E11D48]/85">{msg.text}</span>
-          </div>
-        );
+      case "user-msg": return <UserBubble text={msg.text} />;
+      case "thinking": return <ThinkingBubble />;
+      case "halo-answer": return (
+        <HaloAnswerBubble
+          text={msg.text} sources={msg.sources} followUps={msg.followUps}
+          onFollowUp={handleSubmit}
+        />
+      );
       case "action-plan": {
         const planMsg = msg;
         return (
@@ -992,85 +622,110 @@ export default function HaloCommand() {
               setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "executing" as const } : m));
               try {
                 const r = await apiFetch("/api/command/actions/execute", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(planMsg.plan),
                 });
-                setMessages(prev => prev.map(m =>
-                  m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m
-                ));
+                const llData = parseLiveLinkResult(r.result);
+                if (llData) {
+                  setMessages(prev => [
+                    ...prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const } : m),
+                    { id: `ll-${Date.now()}`, kind: "live-link-card" as const, data: llData },
+                  ]);
+                } else {
+                  setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m));
+                }
                 qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
               } catch {
-                setMessages(prev => prev.map(m =>
-                  m.id === planMsg.id ? { ...m as any, status: "error" as const } : m
-                ));
+                setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "error" as const } : m));
               }
             }}
-            onDecline={() => {
-              setMessages(prev => prev.map(m =>
-                m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
-              ));
-            }}
+            onDecline={() => setMessages(prev => prev.map(m =>
+              m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
+            ))}
           />
         );
       }
-      case "walk-result":
-        return <WalkResultCard items={msg.items} summary={msg.summary} />;
-      case "briefing":
+      case "confirmation": return (
+        <ConfirmCard
+          logId={msg.logId} actions={msg.actions} shadowMode={falkonMode === "SHADOW"}
+          onConfirmed={text => {
+            setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
+            qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          }}
+          onCancelled={() => setMessages(prev => prev.map(m =>
+            m.id === msg.id ? { id: msg.id, kind: "halo-answer", text: "Cancelled — nothing was changed." } : m
+          ))}
+        />
+      );
+      case "panel-opened": return (
+        <PanelOpenedChip panel={msg.panel} label={msg.label} onReopen={() => setActivePanel(msg.panel)} />
+      );
+      case "success": return (
+        <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/15 rounded-[12px] px-4 py-2.5 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+          <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
+          <span className="text-[13px] text-[#22C55E]/82">{msg.text}</span>
+        </div>
+      );
+      case "live-link-card":
         return (
-          <BriefingCard
+          <LiveLinkCard
             data={msg.data}
-            shadowMode={falkonMode === "SHADOW"}
-            onPrompt={handleSubmit}
+            onRevoke={async (token) => {
+              const route = msg.data.kind === "pm_link" ? "/api/pm-links" : "/api/crew-checkin-links";
+              await apiFetch(`${route}/${token}`, { method: "DELETE" }).catch(() => {});
+              setMessages(prev => prev.filter(m => m.id !== msg.id));
+            }}
           />
         );
-      default:
-        return null;
+      case "error": return (
+        <div className="flex items-center gap-2.5 bg-[#E11D48]/7 border border-[#E11D48]/15 rounded-[12px] px-4 py-2.5 mb-3 hc-in" style={{ animation: "hcIn 0.2s ease-out both" }}>
+          <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
+          <span className="text-[13px] text-[#E11D48]/82">{msg.text}</span>
+        </div>
+      );
+      default: return null;
     }
   };
+
+  // Prompt chips (seed + thread)
+  const promptChips = suggestedPrompts?.slice(0, 3) ?? [
+    "What needs my attention?",
+    "Open live map",
+    "Show unpaid invoices",
+  ];
 
   return (
     <>
       <style>{KEYFRAMES}</style>
-
-      {/* Full-screen container */}
       <div className="min-h-[100dvh] h-[100dvh] bg-[#080D17] flex flex-col overflow-hidden">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <header className="flex items-center gap-2.5 px-4 pt-[calc(10px+env(safe-area-inset-top))] pb-3 shrink-0">
-          <img
-            src={haloLogo}
-            alt="HALO"
-            className="h-[22px] w-auto shrink-0"
-            style={{ filter: "brightness(0) invert(1) opacity(0.88)" }}
-          />
-
+        <header className="flex items-center gap-2 px-4 pt-[calc(10px+env(safe-area-inset-top))] pb-3 shrink-0">
+          <img src={haloLogo} alt="HALO" className="h-[20px] w-auto shrink-0"
+            style={{ filter: "brightness(0) invert(1) opacity(0.82)" }} />
           <div className="flex-1" />
 
           {/* Needs-you indicator */}
           {totalNeeds > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48]" style={{ animation: "hcBounce 1.8s ease-in-out infinite" }} />
-              <span className="text-[10px] font-bold text-[#E11D48]/85">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/18">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48]" style={{ animation: "hcBounce 2s ease-in-out infinite" }} />
+              <span className="text-[10px] font-bold text-[#E11D48]/80">{totalNeeds}</span>
             </div>
           )}
 
-          {/* Falkon mode — clickable for admins → opens Control Center */}
+          {/* Falkon mode badge */}
           <button
             onClick={() => setControlOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.14em] ${modeStyle.bg} ${modeStyle.text} hover:opacity-80 active:scale-[0.95] transition-all`}
-            title="Open Falkon Control Center"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.12em] ${modeStyle.bg} ${modeStyle.text} hover:opacity-80 active:scale-[0.95] transition-all`}
           >
-            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${falkonMode !== "SHADOW" ? "animate-pulse" : ""}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot}`} />
             {falkonMode}
           </button>
 
-          <FalkonNetworkPulse />
-
-          {/* Notifications */}
+          {/* Bell */}
           <button
             onClick={() => setNotifOpen(true)}
-            className="relative w-9 h-9 rounded-full grid place-items-center bg-white/5 border border-white/8 text-white/42 hover:text-white/72 hover:bg-white/8 transition-all active:scale-[0.94]"
+            className="relative w-9 h-9 rounded-full grid place-items-center bg-white/[0.05] border border-white/8 text-white/38 hover:text-white/65 hover:bg-white/[0.08] transition-all active:scale-[0.94]"
           >
             <Bell className="w-[14px] h-[14px]" strokeWidth={1.8} />
             {unread > 0 && (
@@ -1080,341 +735,155 @@ export default function HaloCommand() {
             )}
           </button>
 
-          {/* More */}
+          {/* Menu */}
           <button
-            onClick={() => setMoreOpen(true)}
-            className="w-9 h-9 rounded-full grid place-items-center bg-white/5 border border-white/8 text-white/42 hover:text-white/72 hover:bg-white/8 transition-all active:scale-[0.94]"
+            onClick={() => setMenuOpen(true)}
+            className="w-9 h-9 rounded-full grid place-items-center bg-white/[0.05] border border-white/8 text-white/38 hover:text-white/65 hover:bg-white/[0.08] transition-all active:scale-[0.94]"
           >
             <LayoutGrid className="w-[14px] h-[14px]" strokeWidth={1.8} />
           </button>
         </header>
 
-        {/* ── Content area (seed OR thread) ─────────────────────────────── */}
+        {/* ── Content ─────────────────────────────────────────────────────── */}
         {!hasThread ? (
-          /* ─── SEED STATE: Fixed centered welcome ─────────────────────── */
-          <div className="flex-1 flex flex-col items-center justify-center px-5 pb-2 overflow-hidden">
-            {/* Glowing halo ring */}
-            <div
-              className="mb-7 hc-seed-item"
-              style={{ animation: "hcSeedFade 0.5s ease-out 0.05s both" }}
-            >
-              <div
-                className="w-[72px] h-[72px] rounded-full bg-[#B4FF44]/8 border border-[#B4FF44]/20 grid place-items-center"
-                style={{ animation: "hcGlow 3.5s ease-in-out infinite" }}
-              >
-                <HaloRing className="w-[32px] h-[32px] text-[#B4FF44]" />
+          /* SEED STATE */
+          <div className="flex-1 flex flex-col items-center justify-center px-5 pb-4 overflow-hidden">
+            {/* Ring */}
+            <div className="mb-7" style={{ animation: "hcIn 0.4s ease-out 0.05s both" }}>
+              <div className="w-[68px] h-[68px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
+                style={{ animation: "hcGlow 3.5s ease-in-out infinite" }}>
+                <HaloRing className="w-[30px] h-[30px] text-[#B4FF44]" />
               </div>
             </div>
 
             {/* Greeting */}
-            <div
-              className="text-center mb-2 hc-seed-item"
-              style={{ animation: "hcSeedFade 0.5s ease-out 0.12s both" }}
-            >
-              <h1 className="text-[36px] font-bold text-white leading-none tracking-[-0.02em] mb-2">
-                Hi, Team.
+            <div className="text-center mb-1" style={{ animation: "hcIn 0.4s ease-out 0.12s both" }}>
+              <h1 className="text-[34px] font-bold text-white leading-none tracking-[-0.02em]">
+                {timeGreeting()}
               </h1>
-              <p className="text-[14px] text-white/35 font-medium">
+              <p className="text-[13.5px] text-white/32 mt-2 font-medium">
                 {falkonMode === "ASSISTED"
-                  ? "Auto-pilot active. Safe actions execute automatically."
-                  : "Ask me anything. I'll handle it."}
+                  ? "Auto-pilot active — safe actions execute automatically."
+                  : "Ask me anything about your operations."}
               </p>
-              {falkonMode === "ASSISTED" && (
-                <div className="flex items-center justify-center gap-1.5 mt-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#B4FF44] animate-pulse" />
-                  <span className="text-[10.5px] font-bold tracking-[0.14em] text-[#B4FF44]/65 uppercase">Falkon ASSISTED</span>
-                </div>
-              )}
             </div>
 
-            {/* Big command input */}
-            <div
-              className="w-full max-w-sm mt-6 mb-6 hc-seed-item"
-              style={{ animation: "hcSeedFade 0.5s ease-out 0.20s both" }}
-            >
-              <div className="relative flex items-center bg-white/[0.052] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-white/15 transition-colors focus-within:border-[#B4FF44]/30 focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.35),0_0_0_1px_rgba(180,255,68,0.12)] focus-within:bg-white/[0.065]">
-                {/* Mic */}
-                <button
-                  onClick={() => { setVoiceInitial(undefined); setVoiceOpen(true); }}
-                  className="ml-3 w-8 h-8 rounded-full grid place-items-center text-white/28 hover:text-[#B4FF44]/70 hover:bg-[#B4FF44]/8 transition-all active:scale-[0.92] shrink-0"
-                >
-                  <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
-                </button>
-
-                {/* Input */}
-                <input
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                  placeholder="Ask HALO anything…"
-                  className="flex-1 h-[54px] bg-transparent px-3 text-[14.5px] text-white placeholder:text-white/22 focus:outline-none"
-                />
-
-                {/* Send */}
-                <button
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || parseVoice.isPending}
-                  className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-35 disabled:scale-100 shrink-0"
-                >
-                  {parseVoice.isPending ? (
-                    <Loader2 className="w-[13px] h-[13px] animate-spin" />
-                  ) : (
-                    <ChevronRight className="w-[15px] h-[15px]" strokeWidth={2.5} />
-                  )}
-                </button>
+            {/* Critical alerts — at most 2 lines, no cards */}
+            {(nowCount > 0 || pendingCount > 0) && (
+              <div className="mt-4 text-center space-y-1" style={{ animation: "hcIn 0.4s ease-out 0.18s both" }}>
+                {nowCount > 0 && (
+                  <p className="text-[12.5px]">
+                    <span className="text-[#E11D48]/90 font-semibold">{nowCount} item{nowCount !== 1 ? "s" : ""}</span>
+                    <span className="text-white/35"> need immediate attention</span>
+                  </p>
+                )}
+                {pendingCount > 0 && (
+                  <p className="text-[12.5px]">
+                    <span className="text-[#F59E0B]/90 font-semibold">{pendingCount} autopilot action{pendingCount !== 1 ? "s" : ""}</span>
+                    <span className="text-white/35"> waiting for review</span>
+                  </p>
+                )}
               </div>
+            )}
+
+            {/* Composer */}
+            <div className="w-full max-w-sm mt-7 mb-5" style={{ animation: "hcIn 0.4s ease-out 0.22s both" }}>
+              <ComposerInput
+                value={input}
+                onChange={setInput}
+                onSubmit={() => handleSubmit()}
+                onVoice={() => setVoiceOpen(true)}
+                busy={parseVoice.isPending}
+              />
             </div>
 
-            {/* Try Asking label */}
-            <div
-              className="w-full max-w-sm hc-seed-item"
-              style={{ animation: "hcSeedFade 0.5s ease-out 0.28s both" }}
-            >
-              <div className="text-[9.5px] font-bold tracking-[0.22em] uppercase text-white/22 mb-3 text-center">
-                Try Asking
-              </div>
-
-              {/* 2×2 grid of prompt cards — static or brain-driven */}
-              <div className="grid grid-cols-2 gap-2.5">
-                {suggestedPrompts
-                  ? suggestedPrompts.slice(0, 4).map((label, i) => {
-                      const fallback = TRY_ASKING[i];
-                      const Icon = fallback?.icon ?? Sparkles;
-                      const iconColor = fallback?.iconColor ?? "#B4FF44";
-                      return (
-                        <button
-                          key={label}
-                          onClick={() => handleSubmit(label)}
-                          className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.038] border border-white/7 text-left hover:bg-white/[0.06] hover:border-white/12 transition-all active:scale-[0.97]"
-                        >
-                          <div
-                            className="w-7 h-7 rounded-[9px] grid place-items-center"
-                            style={{ background: `${iconColor}15`, border: `1px solid ${iconColor}25` }}
-                          >
-                            <Icon className="w-3.5 h-3.5" style={{ color: iconColor }} />
-                          </div>
-                          <span className="text-[12.5px] text-white/55 leading-snug font-medium">{label}</span>
-                        </button>
-                      );
-                    })
-                  : TRY_ASKING.map(card => {
-                      const Icon = card.icon;
-                      return (
-                        <button
-                          key={card.label}
-                          onClick={() => {
-                            if (card.lens) {
-                              setMessages([
-                                { id: `u-${Date.now()}`, kind: "user-msg" as const, text: card.query },
-                                { id: `l-${Date.now()}`, kind: "lens" as const, lensType: card.lens, query: card.query },
-                              ]);
-                            } else {
-                              handleSubmit(card.query);
-                            }
-                          }}
-                          className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.038] border border-white/7 text-left hover:bg-white/[0.06] hover:border-white/12 transition-all active:scale-[0.97]"
-                        >
-                          <div
-                            className="w-7 h-7 rounded-[9px] grid place-items-center"
-                            style={{ background: `${card.iconColor}15`, border: `1px solid ${card.iconColor}25` }}
-                          >
-                            <Icon className="w-3.5 h-3.5" style={{ color: card.iconColor }} />
-                          </div>
-                          <span className="text-[12.5px] text-white/55 leading-snug font-medium">{card.label}</span>
-                        </button>
-                      );
-                    })}
+            {/* Prompt chips */}
+            <div className="w-full max-w-sm" style={{ animation: "hcIn 0.4s ease-out 0.30s both" }}>
+              <div className="text-[9.5px] font-bold tracking-[0.2em] uppercase text-white/18 mb-2.5 text-center">Suggestions</div>
+              <div className="flex flex-col gap-1.5">
+                {promptChips.map((chip, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSubmit(chip)}
+                    className="text-left text-[12.5px] text-white/40 px-4 py-2.5 rounded-[12px] bg-white/[0.034] border border-white/[0.06] hover:bg-white/[0.058] hover:text-white/60 transition-all active:scale-[0.98]"
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         ) : (
-          /* ─── THREAD STATE ───────────────────────────────────────────── */
+          /* THREAD STATE */
           <>
-            {/* Thread scroll area */}
             <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2 overscroll-none">
               {messages.map(msg => (
-                <div key={msg.id} className="hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
-                  {renderMsg(msg)}
-                </div>
+                <div key={msg.id}>{renderMsg(msg)}</div>
               ))}
-
-              {/* Inline follow-up chips — only show after a HALO answer with suggestions */}
-              {(() => {
-                const last = [...messages].reverse().find(m => m.kind === "halo-answer");
-                const followUps = last?.kind === "halo-answer" ? last.followUps : undefined;
-                if (!followUps || followUps.length === 0) return null;
-                return (
-                  <div className="flex gap-2 flex-wrap mt-1 mb-1">
-                    {followUps.slice(0, 3).map((p: string) => (
-                      <button
-                        key={p}
-                        onClick={() => handleSubmit(p)}
-                        className="text-[11px] font-medium text-white/35 px-3 py-1.5 rounded-full bg-white/[0.028] border border-white/6 hover:text-white/60 hover:bg-white/[0.05] transition-all active:scale-[0.96]"
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-
               <div ref={bottomRef} className="h-3" />
             </div>
 
-            {/* Ambient strip */}
-            <div className="px-4 py-2 flex items-center gap-2.5 border-t border-white/[0.04] shrink-0">
-              <div className="flex gap-[3px] shrink-0">
-                {[0, 1, 2].map(i => (
-                  <div key={i} className="w-[3px] h-[9px] rounded-full bg-[#B4FF44]"
-                    style={{ animation: `hcAmbient 2.2s ease-in-out ${i * 0.35}s infinite` }} />
-                ))}
-              </div>
-              <span className="text-[10.5px] text-white/22 font-medium flex-1 truncate">{AMBIENT_MSGS[ambientIdx]}</span>
-
-              {/* New chat — creates a fresh persisted conversation */}
-              <button
-                disabled={!brainReady}
-                onClick={async () => {
-                  setBrainReady(false);
-                  setMessages([]);
-                  setConversationId(null);
-                  try { sessionStorage.removeItem("halo_convo_id"); } catch {}
-                  try {
-                    const created = await apiFetch("/api/command/conversations", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ role: "executive" }),
-                    });
-                    if (created?.conversation?.id) {
-                      const newId: string = created.conversation.id;
-                      setConversationId(newId);
-                      try { sessionStorage.setItem("halo_convo_id", newId); } catch {}
-                    }
-                  } catch { /* non-fatal */ }
-                  setBrainReady(true);
-                }}
-                className="text-[10px] text-white/18 hover:text-white/45 flex items-center gap-1 transition-colors px-1.5 py-1 rounded-md hover:bg-white/5 disabled:opacity-30"
-              >
-                <X className="w-3 h-3" /> New chat
-              </button>
-            </div>
-
-            {/* Command bar */}
-            <div className="px-4 pt-2.5 pb-2 shrink-0 bg-[#080D17] border-t border-white/[0.05]">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setVoiceInitial(undefined); setVoiceOpen(true); }}
-                  className="w-11 h-11 rounded-full bg-[#B4FF44]/8 border border-[#B4FF44]/20 grid place-items-center text-[#B4FF44] hover:bg-[#B4FF44]/15 transition-all active:scale-[0.92] shrink-0"
-                >
-                  <Mic className="w-[16px] h-[16px]" strokeWidth={2} />
-                </button>
-
-                <div className="relative flex-1">
-                  <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-[#B4FF44]/38 pointer-events-none" />
-                  <input
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                    placeholder="Ask HALO anything…"
-                    className="w-full h-11 rounded-full bg-white/5 border border-white/8 pl-[32px] pr-4 text-[13.5px] text-white placeholder:text-white/22 focus:outline-none focus:border-[#B4FF44]/35 focus:ring-1 focus:ring-[#B4FF44]/12 focus:bg-white/6 transition-all"
-                  />
-                </div>
-
-                {input.trim() ? (
-                  <button
-                    onClick={() => handleSubmit()}
-                    disabled={!brainReady || parseVoice.isPending}
-                    className="w-11 h-11 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-55 shrink-0"
-                  >
-                    {parseVoice.isPending ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setWalkOpen(true)}
-                    className="w-11 h-11 rounded-full bg-white/5 border border-white/8 grid place-items-center text-white/38 hover:text-[#B4FF44] hover:border-[#B4FF44]/25 hover:bg-[#B4FF44]/7 transition-all active:scale-[0.92] shrink-0"
-                    title="Walk Mode"
-                  >
-                    <Footprints className="w-[16px] h-[16px]" strokeWidth={2} />
-                  </button>
-                )}
-              </div>
-
-              {/* Quick lens chips */}
-              <div className="flex gap-2 mt-2.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                {(
-                  [
-                    { label: "Money",     lens: "money"     as LensType, query: "Show money overview" },
-                    { label: "Jobs",      lens: "timeline"  as LensType, query: "Show job timeline" },
-                    { label: "Crew",      lens: "network"   as LensType, query: "Show crew and dispatch" },
-                    { label: "Portfolio", lens: "portfolio" as LensType, query: "Portfolio overview" },
-                    { label: "Evidence",  lens: "evidence"  as LensType, query: "Show photo evidence" },
-                    { label: "Map",       lens: "map"       as LensType, query: "Live crew map" },
-                  ] as const
-                ).map(chip => (
-                  <button
-                    key={chip.label}
-                    onClick={() => {
-                      setMessages(prev => [...prev,
-                        { id: `u-${Date.now()}`, kind: "user-msg", text: chip.query },
-                        { id: `l-${Date.now()}`, kind: "lens", lensType: chip.lens, query: chip.query },
-                      ]);
-                      scrollToBottom();
-                    }}
-                    className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/7 text-[10.5px] font-bold text-white/35 hover:text-white/65 hover:bg-white/8 transition-all active:scale-[0.95]"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
+            {/* Thread composer */}
+            <div className="px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-white/[0.04] shrink-0">
+              <ComposerInput
+                value={input}
+                onChange={setInput}
+                onSubmit={() => handleSubmit()}
+                onVoice={() => setVoiceOpen(true)}
+                busy={parseVoice.isPending}
+              />
             </div>
           </>
         )}
-
-        {/* Safe-area pad at bottom */}
-        <div className="shrink-0 bg-[#080D17]" style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
 
-      {/* ── Overlays ──────────────────────────────────────────────────────── */}
-      <ArrivalDetection />
+      {/* ── Panels ──────────────────────────────────────────────────────────── */}
+      <LiveMapPanel open={activePanel === "map"} onClose={() => setActivePanel(null)} />
+      <KanbanPanel  open={activePanel === "kanban"} onClose={() => setActivePanel(null)} />
+      <MoneyPanel   open={activePanel === "money"} onClose={() => setActivePanel(null)} />
 
-      <VoiceCaptureSheet
-        open={voiceOpen}
-        onOpenChange={setVoiceOpen}
-        initialText={voiceInitial}
-      />
-
-      <AskFalkonSheet
-        open={falkonOpen}
-        onOpenChange={setFalkonOpen}
-        initialText={falkonText}
-      />
-
-      <NotificationsDrawer
-        open={notifOpen}
-        onOpenChange={setNotifOpen}
-      />
-
-      <MoreMenuSheet
-        open={moreOpen}
-        onOpenChange={setMoreOpen}
-      />
-
-      {walkOpen && (
-        <WalkModeOverlay
-          onClose={() => setWalkOpen(false)}
-          onSendToHalo={(items, summary) => {
-            setMessages(prev => [...prev, {
-              id: `walk-${Date.now()}`,
-              kind: "walk-result",
-              items,
-              summary,
-            }]);
-            scrollToBottom();
-          }}
-        />
-      )}
-
+      {/* ── Overlays ────────────────────────────────────────────────────────── */}
+      <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
+      <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
+      <MinimalMenuSheet open={menuOpen} onOpenChange={setMenuOpen} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
+  );
+}
+
+// ─── Shared composer ──────────────────────────────────────────────────────────
+
+function ComposerInput({
+  value, onChange, onSubmit, onVoice, busy,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  onVoice: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="relative flex items-center bg-white/[0.052] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-white/14 transition-colors focus-within:border-[#B4FF44]/28 focus-within:bg-white/[0.065]">
+      <button
+        onClick={onVoice}
+        className="ml-3 w-8 h-8 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/8 transition-all active:scale-[0.92] shrink-0"
+      >
+        <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
+      </button>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
+        placeholder="Ask HALO anything…"
+        className="flex-1 h-[52px] bg-transparent px-3 text-[14px] text-white placeholder:text-white/20 focus:outline-none"
+      />
+      <button
+        onClick={onSubmit}
+        disabled={!value.trim() || busy}
+        className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.12)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-30 disabled:scale-100 shrink-0"
+      >
+        {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <Send className="w-[13px] h-[13px]" strokeWidth={2.2} />}
+      </button>
+    </div>
   );
 }

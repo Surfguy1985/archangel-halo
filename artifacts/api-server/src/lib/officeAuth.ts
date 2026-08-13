@@ -175,6 +175,10 @@ const PUBLIC_PREFIXES = [
   "/.well-known/",
   // Falkon Network Phase 1: public capability catalog (external peers need to discover HALO)
   "/falkon/network/capabilities",
+  // PM live view — token-validated, property-scoped, sent via SMS to property managers
+  "/live/",
+  // Crew check-in — one-tap GPS check-in/checkout via a texted link, no login needed
+  "/checkin/",
 ];
 
 // Walk app routes are gated by their OWN passcode (separate from the office

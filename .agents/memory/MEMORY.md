@@ -75,7 +75,8 @@
 - [HALO card modules](halo-card-modules.md) — invoice pay-flow state machine, projected-vs-pushed invoice dedupe, TWO BoardCardModules copies, type="button" inside dialog form.
 - [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.
 - [HALO Falkon waybill cards](halo-falkon-waybill.md) — FLK codes + volt dot strips derived on read from lane/column; required spec fields; strip push: prefix before hashing.
-- [HALO chat-first OS](halo-chat-first-os.md) — HaloCommand is the front door; actionPlan+risk in BrainResponse; ASSISTED auto-executes "auto" risk, shows ApprovalCard for "review", blocks "block"; auto-promote SHADOW→ASSISTED fires inside verify/all after all 7 gates pass.
+- [HALO chat-first OS](halo-chat-first-os.md) — panels summon via PanelType state; FalkonControlCenter is onClose-only (conditional render); Layout stripped to ← header only; voice path does NOT detect panel intents (known gap).
+- [HALO PM live links + crew check-in links](halo-pm-links.md) — brain generates secure texted links; pm_link.generate + crew_checkin_link.generate in dispatchAutoAction; /live/ and /checkin/ in PUBLIC_PREFIXES; parseLiveLinkResult in HaloCommand.
 - [HALO Presentation Mode](halo-presentation-mode.md) — More-sheet toggle seeds/removes a double-marker demo property; narrated ?present=1 walkthrough; never single-marker teardown.
 - [HALO card create/move contract](halo-card-create-contract.md) — checklist must be {id,text,done} objects (strings 400); drag gate mirrors server by cardKey prefix, never template type.
 - [HALO card clear-to-history](halo-card-clear-history.md) — trash icon snapshots cards into client_card_history (idempotent, prefix-validated), archived override hides any family; CSV route keeps formula-injection guard.

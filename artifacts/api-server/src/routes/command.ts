@@ -32,6 +32,8 @@ import {
   vendorsTable,
   cleaningChecklistsTable,
   jobChecklistsTable,
+  pmLiveLinksTable,
+  crewCheckinLinksTable,
 } from "@workspace/db";
 import { falkonConnectionsTable } from "@workspace/db/schema";
 import {
@@ -1044,7 +1046,12 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
     }
 
     // risk === "auto" in ASSISTED mode — route to appropriate handler
-    const result = await dispatchAutoAction(capability as string | undefined, params as Record<string, unknown>, description as string);
+    const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
+    const proto = req.get("x-forwarded-proto") ?? req.protocol;
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : `${proto}://${host}`;
+    const result = await dispatchAutoAction(capability as string | undefined, params as Record<string, unknown>, description as string, baseUrl);
     res.json({ ok: true, executed: true, result });
   } catch (err) {
     logger.error({ err }, "command: action execute failed");
@@ -1060,6 +1067,7 @@ async function dispatchAutoAction(
   capability: string | undefined,
   _params: Record<string, unknown>,
   description: string,
+  baseUrl = "",
 ): Promise<string> {
   switch (capability) {
     case "note.log":
@@ -1078,6 +1086,94 @@ async function dispatchAutoAction(
 
     case "status.query":
       return description;
+
+    // ── PM Live Link ─────────────────────────────────────────────────────────
+    case "pm_link.generate": {
+      const { propertyName, expiresInHours = 24, permissions } = _params as Record<string, unknown>;
+
+      // Fuzzy-match property by name
+      const props = await db.select({ id: propertiesTable.id, name: propertiesTable.name })
+        .from(propertiesTable)
+        .where(eq(propertiesTable.status, "active"));
+
+      const lower = String(propertyName ?? "").toLowerCase();
+      const match = props.find(p => p.name.toLowerCase().includes(lower) || lower.includes(p.name.toLowerCase().split(" ")[0]!));
+
+      if (!match) {
+        return `No active property found matching "${propertyName}". Try using the exact property name.`;
+      }
+
+      const { randomBytes } = await import("crypto");
+      const token = "pmlink_" + randomBytes(12).toString("hex");
+      const expiresAt = new Date(Date.now() + Number(expiresInHours) * 3_600_000);
+      const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      await db.insert(pmLiveLinksTable).values({
+        token,
+        propertyId: match.id,
+        permissions: (permissions as { map: boolean; kanban: boolean; money: boolean } | undefined)
+          ?? { map: true, kanban: true, money: false },
+        expiresAt,
+        label: `sent ${today}`,
+      });
+
+      const url = `${baseUrl}/live/${token}`;
+      const expTime = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const smsText =
+        `Hi 👋 Here's your daily update for ${match.name}:\n\n` +
+        `Crew status, field photos & work notes:\n${url}\n\n` +
+        `(Link expires today at ${expTime})`;
+
+      return JSON.stringify({
+        type: "live_link",
+        propertyName: match.name,
+        url,
+        token,
+        smsText,
+        expiresAt: expiresAt.toISOString(),
+      });
+    }
+
+    // ── Crew Check-in Link ───────────────────────────────────────────────────
+    case "crew_checkin_link.generate": {
+      const { crewName, expiresInDays = 90 } = _params as Record<string, unknown>;
+
+      const crews = await db.select({ id: crewsTable.id, name: crewsTable.name })
+        .from(crewsTable)
+        .where(eq(crewsTable.active, true));
+
+      const lower = String(crewName ?? "").toLowerCase();
+      const match = crews.find(c => c.name.toLowerCase().includes(lower) || lower.includes(c.name.toLowerCase().split(" ")[0]!));
+
+      if (!match) {
+        return `No active crew member found matching "${crewName}".`;
+      }
+
+      const { randomBytes } = await import("crypto");
+      const token = "crew_" + randomBytes(12).toString("hex");
+      const expiresAt = new Date(Date.now() + Number(expiresInDays) * 86_400_000);
+
+      await db.insert(crewCheckinLinksTable).values({
+        token,
+        crewId: match.id,
+        expiresAt,
+        label: `${match.name} — check-in link`,
+      });
+
+      const url = `${baseUrl}/checkin/${token}`;
+      const firstName = match.name.split(" ")[0];
+      const smsText =
+        `Hi ${firstName} 👋 Here's your HALO check-in link:\n${url}\n\nBookmark it and tap when you arrive or leave.`;
+
+      return JSON.stringify({
+        type: "crew_link",
+        crewName: match.name,
+        url,
+        token,
+        smsText,
+        expiresAt: expiresAt.toISOString(),
+      });
+    }
 
     default:
       // Generic safe acknowledgment for auto-risk actions not yet individually mapped.

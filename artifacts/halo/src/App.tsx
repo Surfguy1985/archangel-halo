@@ -33,6 +33,8 @@ import Catalog from "./pages/Catalog";
 import Wings from "./pages/Wings";
 import FalkonNetwork from "./pages/FalkonNetwork";
 import HaloCommand from "./pages/HaloCommand";
+import PMliveView from "./pages/PMliveView";
+import CrewCheckinPage from "./pages/CrewCheckinPage";
 import NotFound from "@/pages/not-found";
 import { OfficeGate } from "./components/OfficeGate";
 
@@ -133,6 +135,14 @@ function App() {
             <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
+            {/* PM Live View — secure token-scoped daily property update, texted by office */}
+            <Route path="/live/:token">
+              {(params) => <PMliveView token={params.token} />}
+            </Route>
+            {/* Crew Check-in — one-tap GPS check-in/checkout, no login needed */}
+            <Route path="/checkin/:token">
+              {(params) => <CrewCheckinPage token={params.token} />}
+            </Route>
             {/* /today redirects to the chat-first OS */}
             <Route path="/today">
               {() => { window.location.replace("/"); return null; }}
