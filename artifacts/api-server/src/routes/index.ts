@@ -42,6 +42,7 @@ import falkonRouter from "./falkon";
 import { falkonWebhookRouter } from "./falkonWebhook";
 import { falkonAdminRouter } from "./falkonAdmin";
 import { falkonNetworkRouter } from "./falkonNetwork";
+import commandRouter from "./command";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,6 @@ router.use(falkonRouter);
 router.use(falkonWebhookRouter);
 router.use(falkonAdminRouter);
 router.use(falkonNetworkRouter);
+router.use(commandRouter);
 
 export default router;

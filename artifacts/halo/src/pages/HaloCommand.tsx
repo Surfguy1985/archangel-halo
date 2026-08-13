@@ -83,11 +83,23 @@ type TMsg =
   | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "walk-result"; items: { id: string; description: string }[]; summary: string };
+  | { id: string; kind: "walk-result"; items: { id: string; description: string }[]; summary: string }
+  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string };
 
 // ─── Module-level thread persistence ─────────────────────────────────────────
 
-let _savedThread: TMsg[] | null = null;
+// Messages always start empty — DB is the authoritative source, restored on init.
+
+// ─── API fetch helper ─────────────────────────────────────────────────────────
+
+async function apiFetch(path: string, options?: RequestInit): Promise<any> {
+  const res = await fetch(path, {
+    ...options,
+    credentials: "same-origin",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => "")}`);
+  return res.json();
+}
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
@@ -343,6 +355,65 @@ function WalkResultCard({ items, summary }: { items: { id: string; description: 
   );
 }
 
+// ─── HaloAnswerBubble — brain-grounded response with sources & follow-ups ─────
+
+function HaloAnswerBubble({
+  text,
+  sources,
+  followUps,
+  shadowLabel,
+  onFollowUp,
+}: {
+  text: string;
+  sources?: Array<{ label: string; value: string }>;
+  followUps?: string[];
+  shadowLabel?: string;
+  onFollowUp: (q: string) => void;
+}) {
+  return (
+    <div className="mb-3 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+      {shadowLabel && (
+        <div className="flex items-center gap-1.5 mb-1.5 ml-[30px]">
+          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 border border-amber-500/25 text-amber-400 uppercase tracking-wider">
+            SHADOW
+          </span>
+          <span className="text-[10px] text-amber-400/65">Proposed — not executed</span>
+        </div>
+      )}
+      <div className="flex items-end gap-2">
+        <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/25 grid place-items-center shrink-0">
+          <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
+        </div>
+        <div className={`max-w-[85%] rounded-[16px] rounded-bl-[4px] px-4 py-3 shadow-sm ${shadowLabel ? "bg-amber-950/40 border border-amber-500/20" : "bg-[#0C1B30] border border-white/7"}`}>
+          <p className="text-[13.5px] text-white/82 leading-relaxed">{text}</p>
+          {sources && sources.length > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 pt-2 border-t border-white/6">
+              {sources.map((s, i) => (
+                <span key={i} className="text-[10px] text-white/35">
+                  <span className="text-white/22">{s.label}:</span> {s.value}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {followUps && followUps.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap mt-1.5 ml-[30px]">
+          {followUps.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => onFollowUp(q)}
+              className="text-[11px] font-medium text-white/42 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/7 hover:text-white/70 hover:bg-white/[0.07] transition-all active:scale-[0.96]"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloCommand() {
@@ -356,8 +427,7 @@ export default function HaloCommand() {
   const parseVoice = useParseVoice();
 
   // ── Thread (module-level persistence across navigations) ───────────────────
-  const [messages, setMessages] = useState<TMsg[]>(() => _savedThread ?? []);
-  useEffect(() => { _savedThread = messages; }, [messages]);
+  const [messages, setMessages] = useState<TMsg[]>([]);
 
   // ── Input & overlay state ─────────────────────────────────────────────────
   const [input, setInput] = useState("");
@@ -369,11 +439,101 @@ export default function HaloCommand() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // ── Brain conversation ─────────────────────────────────────────────────────
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    try { return sessionStorage.getItem("halo_convo_id"); } catch { return null; }
+  });
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[] | null>(null);
+  // False until the conversation is validated server-side; gates submission to
+  // prevent write races during init and new-chat creation.
+  const [brainReady, setBrainReady] = useState(false);
+
   // ── Ambient ───────────────────────────────────────────────────────────────
   const [ambientIdx, setAmbientIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT_MSGS.length), 8000);
     return () => clearInterval(t);
+  }, []);
+
+  // ── Init brain conversation + history restore ──────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      try {
+        // Fetch suggested prompts (endpoint also returns conversations list, but
+        // we intentionally ignore it — we honour the session-stored ID only).
+        const data = await apiFetch("/api/command/conversations");
+        if (cancelled) return;
+        if (data.suggestedPrompts) setSuggestedPrompts(data.suggestedPrompts);
+
+        // If a valid session-scoped conversation ID is already stored, use it.
+        // Otherwise create a brand-new conversation for this session.
+        let convoId = conversationId; // initialised from sessionStorage
+        if (!convoId) {
+          const created = await apiFetch("/api/command/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: "executive" }),
+          });
+          if (!cancelled && created?.conversation?.id) {
+            convoId = created.conversation.id;
+            setConversationId(convoId);
+            try { sessionStorage.setItem("halo_convo_id", convoId!); } catch {}
+          }
+        }
+
+        // Always validate the stored conversation against the server and restore
+        // its persisted history. Skipping this based on in-memory state would
+        // allow a prior-session thread to bleed into a newly authenticated one.
+        if (convoId) {
+          try {
+            const msgData = await apiFetch(`/api/command/conversations/${convoId}/messages?limit=40`);
+            if (cancelled) return;
+            const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: { id: string; role: string; content: string; meta?: { type?: string; lensKind?: string; shadowLabel?: string } | null }) => {
+              if (m.role === "user") {
+                return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
+              }
+              if (m.role === "assistant" && m.content) {
+                return [{
+                  id: `r-${m.id}`,
+                  kind: "halo-answer" as const,
+                  text: m.content,
+                  shadowLabel: m.meta?.shadowLabel ?? undefined,
+                }];
+              }
+              return [];
+            });
+            // DB is the source of truth — overwrite in-memory state.
+            setMessages(restored);
+          } catch (restoreErr) {
+            if (cancelled) return;
+            // Stale conversation (session rotated) — discard the prior-session
+            // thread, clear the stored ID, and create a fresh conversation.
+            if (restoreErr instanceof Error && restoreErr.message.startsWith("404")) {
+              setMessages([]);
+              try { sessionStorage.removeItem("halo_convo_id"); } catch {}
+              setConversationId(null);
+              try {
+                const fresh = await apiFetch("/api/command/conversations", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ role: "executive" }),
+                });
+                if (!cancelled && fresh?.conversation?.id) {
+                  const freshId: string = fresh.conversation.id;
+                  setConversationId(freshId);
+                  try { sessionStorage.setItem("halo_convo_id", freshId); } catch {}
+                }
+              } catch { /* non-fatal */ }
+            }
+            // Other errors: non-fatal, keep current state
+          }
+        }
+      } catch { /* non-fatal — brain degrades gracefully */ }
+    }
+    init().finally(() => { if (!cancelled) setBrainReady(true); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Scroll ────────────────────────────────────────────────────────────────
@@ -384,6 +544,7 @@ export default function HaloCommand() {
 
   // ── Submit handler ────────────────────────────────────────────────────────
   const handleSubmit = async (text?: string) => {
+    if (!brainReady) return;
     const raw = (text ?? input).trim();
     if (!raw) return;
     setInput("");
@@ -392,19 +553,19 @@ export default function HaloCommand() {
     const thinkId = `think-${Date.now()}`;
 
     setMessages(prev => [...prev,
-      { id: userId, kind: "user-msg", text: raw },
-      { id: thinkId, kind: "thinking" },
+      { id: userId, kind: "user-msg" as const, text: raw },
+      { id: thinkId, kind: "thinking" as const },
     ]);
     scrollToBottom();
 
     const intent = detectIntent(raw);
 
+    // Navigation and Falkon are immediate — no AI call needed
     if (intent.type === "navigate") {
       setMessages(prev => prev.filter(m => m.id !== thinkId));
       navigate(intent.path);
       return;
     }
-
     if (intent.type === "falkon") {
       setMessages(prev => prev.filter(m => m.id !== thinkId));
       setFalkonText(raw);
@@ -412,42 +573,125 @@ export default function HaloCommand() {
       return;
     }
 
+    // ── Brain path (primary) ─────────────────────────────────────────────────
+    const convoId = conversationId;
+    if (convoId) {
+      let activeConvoId = convoId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let brainResult: any = null;
+
+      try {
+        brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: raw, role: "executive" }),
+        });
+      } catch (brainErr) {
+        // Stale conversation (session rotated) — discard prior-session messages,
+        // create fresh conversation, and retry the ask once.
+        if (brainErr instanceof Error && brainErr.message.startsWith("404")) {
+          setMessages([]);
+          try { sessionStorage.removeItem("halo_convo_id"); } catch {}
+          setConversationId(null);
+          try {
+            const fresh = await apiFetch("/api/command/conversations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ role: "executive" }),
+            });
+            if (fresh?.conversation?.id) {
+              activeConvoId = fresh.conversation.id;
+              setConversationId(activeConvoId);
+              try { sessionStorage.setItem("halo_convo_id", activeConvoId); } catch {}
+              brainResult = await apiFetch(`/api/command/conversations/${activeConvoId}/ask`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: raw, role: "executive" }),
+              });
+            }
+          } catch { /* fall through to legacy */ }
+        }
+        // Other errors: brainResult stays null → fall through to legacy
+      }
+
+      if (brainResult) {
+        if (brainResult.type === "lens" && brainResult.lensKind) {
+          setMessages(prev => prev.map(m =>
+            m.id === thinkId
+              ? { id: thinkId, kind: "lens" as const, lensType: brainResult.lensKind as LensType, query: raw }
+              : m
+          ));
+          if (brainResult.text) {
+            setMessages(prev => [...prev, {
+              id: `ans-${Date.now()}`,
+              kind: "halo-answer" as const,
+              text: brainResult.text,
+              sources: brainResult.sources,
+              followUps: brainResult.suggestedFollowUps,
+            }]);
+          }
+        } else if (brainResult.type === "voice_action") {
+          setMessages(prev => prev.map(m =>
+            m.id === thinkId
+              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, shadowLabel: brainResult.shadowLabel, followUps: brainResult.suggestedFollowUps }
+              : m
+          ));
+          // Also call voice parse so ConfirmCard can execute the action
+          try {
+            const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+            if (vr?.actions?.length > 0) {
+              setMessages(prev => [...prev, {
+                id: `conf-${Date.now()}`,
+                kind: "confirmation" as const,
+                logId: (vr as any).logId ?? "",
+                actions: vr.actions,
+              }]);
+            }
+          } catch { /* non-fatal */ }
+        } else {
+          // type: 'answer' or 'error'
+          setMessages(prev => prev.map(m =>
+            m.id === thinkId
+              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps, shadowLabel: brainResult.shadowLabel }
+              : m
+          ));
+        }
+        scrollToBottom();
+        return;
+      }
+    }
+
+    // ── Legacy path (no conversation yet, or brain failed) ───────────────────
     if (intent.type === "lens") {
       await new Promise(r => setTimeout(r, 340));
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "lens", lensType: intent.lens, query: raw } : m
+        m.id === thinkId ? { id: thinkId, kind: "lens" as const, lensType: intent.lens, query: raw } : m
       ));
       scrollToBottom();
       return;
     }
-
-    // Action → voice parse
     try {
       const result = await parseVoice.mutateAsync({ data: { transcript: raw } });
       if (result?.actions?.length > 0) {
         setMessages(prev => prev.map(m =>
           m.id === thinkId
-            ? { id: thinkId, kind: "confirmation", logId: (result as any).logId ?? (result as any).id ?? "", actions: result.actions }
+            ? { id: thinkId, kind: "confirmation" as const, logId: (result as any).logId ?? "", actions: result.actions }
             : m
         ));
       } else {
-        // Friendly fallback: surface as portfolio lens for queries, else helpful note
         const lower = raw.toLowerCase();
         const isDataQ = QUERY_STARTERS.some(s => lower.startsWith(s));
         setMessages(prev => prev.map(m =>
           m.id === thinkId
             ? isDataQ
-              ? { id: thinkId, kind: "lens", lensType: "portfolio", query: raw }
-              : {
-                  id: thinkId, kind: "halo-response",
-                  text: `I understood that — try phrasing it as a command: "Create invoice for [property]", "Schedule job [ID] Thursday", or "Send [crew name] a live job link." You can also say "show" to pull up any data view.`,
-                }
+              ? { id: thinkId, kind: "lens" as const, lensType: "portfolio" as const, query: raw }
+              : { id: thinkId, kind: "halo-response" as const, text: `Try a command: "Create invoice for [property]", "Schedule job [ID] Thursday", or say "show" to view any data.` }
             : m
         ));
       }
     } catch {
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "error", text: "Something went wrong. Check your connection and try again." } : m
+        m.id === thinkId ? { id: thinkId, kind: "error" as const, text: "Something went wrong. Check your connection and try again." } : m
       ));
     }
     scrollToBottom();
@@ -493,6 +737,16 @@ export default function HaloCommand() {
         return <ThinkingBubble />;
       case "halo-response":
         return <HaloBubble text={msg.text} />;
+      case "halo-answer":
+        return (
+          <HaloAnswerBubble
+            text={msg.text}
+            sources={msg.sources}
+            followUps={msg.followUps}
+            shadowLabel={msg.shadowLabel}
+            onFollowUp={handleSubmit}
+          />
+        );
       case "lens":
         return <LensCard lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
       case "confirmation":
@@ -663,35 +917,56 @@ export default function HaloCommand() {
                 Try Asking
               </div>
 
-              {/* 2×2 grid of prompt cards */}
+              {/* 2×2 grid of prompt cards — static or brain-driven */}
               <div className="grid grid-cols-2 gap-2.5">
-                {TRY_ASKING.map(card => {
-                  const Icon = card.icon;
-                  return (
-                    <button
-                      key={card.label}
-                      onClick={() => {
-                        if (card.lens) {
-                          setMessages([
-                            { id: `u-${Date.now()}`, kind: "user-msg", text: card.query },
-                            { id: `l-${Date.now()}`, kind: "lens", lensType: card.lens, query: card.query },
-                          ]);
-                        } else {
-                          handleSubmit(card.query);
-                        }
-                      }}
-                      className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.038] border border-white/7 text-left hover:bg-white/[0.06] hover:border-white/12 transition-all active:scale-[0.97]"
-                    >
-                      <div
-                        className="w-7 h-7 rounded-[9px] grid place-items-center"
-                        style={{ background: `${card.iconColor}15`, border: `1px solid ${card.iconColor}25` }}
-                      >
-                        <Icon className="w-3.5 h-3.5" style={{ color: card.iconColor }} />
-                      </div>
-                      <span className="text-[12.5px] text-white/55 leading-snug font-medium">{card.label}</span>
-                    </button>
-                  );
-                })}
+                {suggestedPrompts
+                  ? suggestedPrompts.slice(0, 4).map((label, i) => {
+                      const fallback = TRY_ASKING[i];
+                      const Icon = fallback?.icon ?? Sparkles;
+                      const iconColor = fallback?.iconColor ?? "#B4FF44";
+                      return (
+                        <button
+                          key={label}
+                          onClick={() => handleSubmit(label)}
+                          className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.038] border border-white/7 text-left hover:bg-white/[0.06] hover:border-white/12 transition-all active:scale-[0.97]"
+                        >
+                          <div
+                            className="w-7 h-7 rounded-[9px] grid place-items-center"
+                            style={{ background: `${iconColor}15`, border: `1px solid ${iconColor}25` }}
+                          >
+                            <Icon className="w-3.5 h-3.5" style={{ color: iconColor }} />
+                          </div>
+                          <span className="text-[12.5px] text-white/55 leading-snug font-medium">{label}</span>
+                        </button>
+                      );
+                    })
+                  : TRY_ASKING.map(card => {
+                      const Icon = card.icon;
+                      return (
+                        <button
+                          key={card.label}
+                          onClick={() => {
+                            if (card.lens) {
+                              setMessages([
+                                { id: `u-${Date.now()}`, kind: "user-msg" as const, text: card.query },
+                                { id: `l-${Date.now()}`, kind: "lens" as const, lensType: card.lens, query: card.query },
+                              ]);
+                            } else {
+                              handleSubmit(card.query);
+                            }
+                          }}
+                          className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.038] border border-white/7 text-left hover:bg-white/[0.06] hover:border-white/12 transition-all active:scale-[0.97]"
+                        >
+                          <div
+                            className="w-7 h-7 rounded-[9px] grid place-items-center"
+                            style={{ background: `${card.iconColor}15`, border: `1px solid ${card.iconColor}25` }}
+                          >
+                            <Icon className="w-3.5 h-3.5" style={{ color: card.iconColor }} />
+                          </div>
+                          <span className="text-[12.5px] text-white/55 leading-snug font-medium">{card.label}</span>
+                        </button>
+                      );
+                    })}
               </div>
             </div>
           </div>
@@ -734,10 +1009,29 @@ export default function HaloCommand() {
               </div>
               <span className="text-[10.5px] text-white/22 font-medium flex-1 truncate">{AMBIENT_MSGS[ambientIdx]}</span>
 
-              {/* Clear thread */}
+              {/* New chat — creates a fresh persisted conversation */}
               <button
-                onClick={() => setMessages([])}
-                className="text-[10px] text-white/18 hover:text-white/45 flex items-center gap-1 transition-colors px-1.5 py-1 rounded-md hover:bg-white/5"
+                disabled={!brainReady}
+                onClick={async () => {
+                  setBrainReady(false);
+                  setMessages([]);
+                  setConversationId(null);
+                  try { sessionStorage.removeItem("halo_convo_id"); } catch {}
+                  try {
+                    const created = await apiFetch("/api/command/conversations", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ role: "executive" }),
+                    });
+                    if (created?.conversation?.id) {
+                      const newId: string = created.conversation.id;
+                      setConversationId(newId);
+                      try { sessionStorage.setItem("halo_convo_id", newId); } catch {}
+                    }
+                  } catch { /* non-fatal */ }
+                  setBrainReady(true);
+                }}
+                className="text-[10px] text-white/18 hover:text-white/45 flex items-center gap-1 transition-colors px-1.5 py-1 rounded-md hover:bg-white/5 disabled:opacity-30"
               >
                 <X className="w-3 h-3" /> New chat
               </button>
@@ -767,7 +1061,7 @@ export default function HaloCommand() {
                 {input.trim() ? (
                   <button
                     onClick={() => handleSubmit()}
-                    disabled={parseVoice.isPending}
+                    disabled={!brainReady || parseVoice.isPending}
                     className="w-11 h-11 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-55 shrink-0"
                   >
                     {parseVoice.isPending ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}

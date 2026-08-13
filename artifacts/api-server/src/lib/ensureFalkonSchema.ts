@@ -280,6 +280,42 @@ const STATEMENTS: string[] = [
   // every restart and on databases that already have the column.
   `ALTER TABLE crew_dispatch_assignments
      ADD COLUMN IF NOT EXISTS move_reminder_sent_at timestamptz`,
+
+  // ── HALO Command: persistent conversation threads ─────────────────────────
+  `CREATE TABLE IF NOT EXISTS halo_conversations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type text,
+    entity_id text,
+    title text,
+    role text DEFAULT 'executive',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS halo_conversation_messages (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id uuid NOT NULL REFERENCES halo_conversations(id) ON DELETE CASCADE,
+    role text NOT NULL,
+    content text NOT NULL DEFAULT '',
+    tool_calls jsonb,
+    meta jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS halo_convo_entity_idx
+   ON halo_conversations (entity_type, entity_id)
+   WHERE entity_type IS NOT NULL`,
+
+  `CREATE INDEX IF NOT EXISTS halo_convo_msgs_convo_created_idx
+   ON halo_conversation_messages (conversation_id, created_at)`,
+
+  // ── Add actor_token for per-session thread isolation ─────────────────────
+  `ALTER TABLE halo_conversations
+   ADD COLUMN IF NOT EXISTS actor_token text NOT NULL DEFAULT ''`,
+
+  `CREATE INDEX IF NOT EXISTS halo_convo_actor_idx
+   ON halo_conversations (actor_token)
+   WHERE actor_token != ''`,
 ];
 
 // ---------------------------------------------------------------------------
