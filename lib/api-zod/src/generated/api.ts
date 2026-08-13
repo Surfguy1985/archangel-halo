@@ -3602,7 +3602,16 @@ export const ListJobBoardResponseItem = zod.object({
   "status": zod.string().describe('pending | approved | declined'),
   "sentAt": zod.string().nullish(),
   "respondedAt": zod.string().nullish()
-}))
+})),
+  "paymentRequest": zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "total": zod.number(),
+  "status": zod.string(),
+  "memo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}).nullish()
 })
 export const ListJobBoardResponse = zod.array(ListJobBoardResponseItem)
 

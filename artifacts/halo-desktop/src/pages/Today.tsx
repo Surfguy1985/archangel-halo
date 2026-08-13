@@ -9,7 +9,7 @@ import { useQueryClient} from "@tanstack/react-query";
 import { useToast} from "@/hooks/use-toast";
 import { useLocation} from "wouter";
 import { AutopilotActions} from "@/components/AutopilotActions";
-import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown, Zap, Network} from "lucide-react";
+import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown, Zap, Network, CalendarDays} from "lucide-react";
 import { QuickJobDialog} from "@/components/QuickJobDialog";
 
 function entityRoute(entityType?: string | null, entityId?: string | null): string | null {
@@ -137,9 +137,12 @@ export default function Today() {
   const pendingFalkonCount = (falkonRequests ?? []).length;
 
   // Work happening at each property today: in-progress jobs + jobs scheduled for today.
-  const todayByProperty = useMemo(() => {
+  const todayStr = useMemo(() => {
     const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const todayByProperty = useMemo(() => {
     const active = (jobs ?? []).filter(
       j => j.status === "in_progress" || (j.status === "scheduled" && j.scheduledOn === todayStr),
     );
@@ -386,35 +389,46 @@ export default function Today() {
                     <span className="text-xs text-muted-foreground font-mono">{group.jobs.length}</span>
                   </div>
                   <div className="space-y-2">
-                    {group.jobs.map(job => (
-                      <div
-                        key={job.id}
-                        onClick={() => navigate(`/jobs/${job.id}`)}
-                        data-testid={`today-job-${job.id}`}
-                        className="group flex items-center gap-4 p-3.5 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] transition-colors cursor-pointer"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-foreground text-sm truncate">
-                            {job.description || job.category || job.jobNo}
-                          </p>
-                          <p className="text-muted-foreground text-xs truncate mt-0.5">
-                            {[
-                              job.unitNo ? `Unit ${job.unitNo}` : null,
-                              job.crewLeaderName ?? "Unassigned",
-                              job.scheduledTime ?? null,
-                            ].filter(Boolean).join(" · ")}
-                          </p>
+                    {group.jobs.map(job => {
+                      const dispatchDay = job.scheduledOn ?? todayStr;
+                      return (
+                        <div
+                          key={job.id}
+                          onClick={() => navigate(`/jobs/${job.id}`)}
+                          data-testid={`today-job-${job.id}`}
+                          className="group flex items-center gap-4 p-3.5 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] transition-colors cursor-pointer"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-foreground text-sm truncate">
+                              {job.description || job.category || job.jobNo}
+                            </p>
+                            <p className="text-muted-foreground text-xs truncate mt-0.5">
+                              {[
+                                job.unitNo ? `Unit ${job.unitNo}` : null,
+                                job.crewLeaderName ?? "Unassigned",
+                                job.scheduledTime ?? null,
+                              ].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${
+                            job.status === "in_progress"
+                              ? "bg-[var(--gold-light)] text-black"
+                              : "bg-sky-100 text-sky-800"
+                          }`}>
+                            {job.status === "in_progress" ? "In progress" : "Scheduled"}
+                          </span>
+                          <button
+                            type="button"
+                            title="View dispatch for this day"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/calendar?view=dispatch&day=${dispatchDay}`); }}
+                            className="shrink-0 w-7 h-7 grid place-items-center rounded-full text-muted-foreground hover:bg-black/10 hover:text-sky-700 transition-colors"
+                          >
+                            <CalendarDays className="w-4 h-4" />
+                          </button>
+                          <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                         </div>
-                        <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${
-                          job.status === "in_progress"
-                            ? "bg-[var(--gold-light)] text-black"
-                            : "bg-sky-100 text-sky-800"
-                        }`}>
-                          {job.status === "in_progress" ? "In progress" : "Scheduled"}
-                        </span>
-                        <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}

@@ -12006,6 +12006,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/JobBroadcastInfo"
+        paymentRequest:
+          nullable: true
+          type: object
+          properties:
+            id:
+              type: string
+            requestNo:
+              type: string
+            total:
+              type: number
+            status:
+              type: string
+            memo:
+              type: ["string", "null"]
+            sentAt:
+              type: ["string", "null"]
+            paidAt:
+              type: ["string", "null"]
+          required: [id, requestNo, total, status]
     JobBoardInvoiceInfo:
       type: object
       required: [id, invoiceNo, total, status]

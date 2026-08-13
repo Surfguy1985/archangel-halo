@@ -2903,6 +2903,15 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
+export interface JobBoardCardPaymentRequest {
+  id: string;
+  requestNo: string;
+  total: number;
+  status: string;
+  memo?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
+}
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2915,6 +2924,7 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  paymentRequest?: JobBoardCardPaymentRequest | null;
 }
 
 export interface CrewPayInput {
@@ -8019,3 +8029,14 @@ export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
 
+export interface PortalServicesCatalogItem {
+  service: string;
+  unit?: string | null;
+  rate: number;
+  category?: string | null;
+}
+
+export interface PortalServicesResponse {
+  catalog: PortalServicesCatalogItem[];
+  byJob: Record<string, string[]>;
+}

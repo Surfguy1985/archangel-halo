@@ -487,9 +487,21 @@ export default function PropertyDetail() {
             )
           ) : null}
           {(job.flexDueBy || job.scheduledOn) && (
-            <span className="flex items-center gap-1.5" data-testid={`job-due-${job.id}`}>
-              <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
-            </span>
+            job.scheduledOn ? (
+              <button
+                type="button"
+                title="View dispatch for this day"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/calendar?view=dispatch&day=${job.scheduledOn}`); }}
+                className="flex items-center gap-1.5 hover:text-sky-600 transition-colors"
+                data-testid={`job-due-${job.id}`}
+              >
+                <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5" data-testid={`job-due-${job.id}`}>
+                <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
+              </span>
+            )
           )}
           {job.crewLeaderName && (
             <span className="flex items-center gap-1.5">
