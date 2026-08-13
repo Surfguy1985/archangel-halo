@@ -2,15 +2,18 @@
  * Falkon Ops — S2S Gateway Client.
  *
  * Signs every outbound request to the Falkon gateway with HALO's Ed25519
- * private key and the canonical HALO-Signature scheme.  All methods are
- * SHADOW-safe: they include X-Falkon-Mode and never throw to callers.
+ * private key using Falkon's canonical enterprise signing contract:
  *
- * Signing scheme:
- *   signingString = "${clientId}.${unixSeconds}.${sha256hex(requestBody)}"
- *   HALO-Signature: <base64(ed25519_sign(privateKey, signingString))>
+ *   signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + sha256hex(rawBody)
+ *   X-Falkon-Signature: base64url-no-padding Ed25519 signature
+ *
+ * Empty-body requests (GET, DELETE with no body) use sha256hex("") as the
+ * body hash. Timestamp is Unix epoch in MILLISECONDS (not seconds).
+ *
+ * Legacy HALO-* signing headers are removed. Never log the private key.
  */
 
-import { createHash, sign as edSign } from "node:crypto";
+import { createHash, sign as edSign, randomUUID } from "node:crypto";
 import { db } from "@workspace/db";
 import { falkonConnectionsTable } from "@workspace/db/schema";
 import { getSigningKey } from "./falkonIdentity";
@@ -86,20 +89,58 @@ export interface GatewayCapabilitiesResult {
 }
 
 // ---------------------------------------------------------------------------
-// Core signing + fetch
+// Canonical Ed25519 signing — Falkon enterprise contract
 // ---------------------------------------------------------------------------
+
+/**
+ * base64url without padding (RFC 4648 §5, no '=').
+ * This is what Falkon's canonical contract requires for X-Falkon-Signature.
+ */
+function base64urlNopad(buf: Buffer): string {
+  return buf.toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
 
 function sha256hex(data: string): string {
   return createHash("sha256").update(data, "utf8").digest("hex");
 }
 
-function buildSignature(timestampSec: number, bodyHash: string): string | null {
+/**
+ * Build an X-Falkon-Signature for a request.
+ *
+ * Contract:
+ *   signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + sha256hex(rawBody)
+ *   signature     = Ed25519(privateKey, signingString)   [base64url, no padding]
+ *
+ * Returns null when the private key is unavailable (e.g. identity not yet
+ * initialised). Callers still send the request without the header — the
+ * gateway will reject it with 401, which is the correct behaviour.
+ *
+ * SECURITY: never log signingString or privateKey values.
+ */
+function buildOutboundSignature(
+  timestampMs: number,
+  nonce: string,
+  bodyHash: string,
+): string | null {
   const key = getSigningKey();
   if (!key) return null;
-  const signingString = `${CLIENT_ID}.${timestampSec}.${bodyHash}`;
-  const sigBuf = edSign(null, Buffer.from(signingString, "utf8"), key);
-  return sigBuf.toString("base64");
+  const signingString = `${CLIENT_ID}\n${timestampMs}\n${nonce}\n${bodyHash}`;
+  try {
+    const sigBuf = edSign(null, Buffer.from(signingString, "utf8"), key);
+    return base64urlNopad(sigBuf);
+  } catch {
+    // Signing failures must not propagate — return null so the request is
+    // sent without a signature, giving the gateway a 401 to reject cleanly.
+    return null;
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Core signed fetch
+// ---------------------------------------------------------------------------
 
 async function gatewayFetch<T>(
   path: string,
@@ -111,20 +152,26 @@ async function gatewayFetch<T>(
   },
 ): Promise<{ data: T | null; error: FalkonGatewayError | null }> {
   const method = options.method ?? "GET";
+  // Use empty string for no-body requests — sha256("") is the canonical body hash.
   const rawBody = options.body !== undefined ? JSON.stringify(options.body) : "";
-  const ts = Math.floor(Date.now() / 1000);
   const bodyHash = sha256hex(rawBody);
-  const signature = buildSignature(ts, bodyHash);
+
+  // Timestamp in MILLISECONDS (Falkon canonical contract)
+  const timestampMs = Date.now();
+  // Fresh nonce per request for replay prevention
+  const nonce = randomUUID();
+  const signature = buildOutboundSignature(timestampMs, nonce, bodyHash);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "HALO-Client-Id": CLIENT_ID,
-    "HALO-Tenant": TENANT,
-    "HALO-Partner-Id": PARTNER_ID,
-    "HALO-Timestamp": String(ts),
+    "X-Falkon-Client-Id": CLIENT_ID,
+    "X-Falkon-Timestamp": String(timestampMs),
+    "X-Falkon-Nonce": nonce,
     "X-Falkon-Mode": options.mode,
   };
-  if (signature) headers["HALO-Signature"] = signature;
+  if (signature) {
+    headers["X-Falkon-Signature"] = signature;
+  }
 
   try {
     const resp = await fetch(`${GATEWAY_ORIGIN}${path}`, {
@@ -134,7 +181,6 @@ async function gatewayFetch<T>(
       signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
     });
 
-    // Track usage
     void trackUsageCall(path, options.mode, resp.ok ? 0 : 1).catch(() => {});
 
     if (!resp.ok) {
@@ -150,7 +196,7 @@ async function gatewayFetch<T>(
       };
     }
 
-    const data = await resp.json().catch(() => ({ ok: true })) as T;
+    const data = (await resp.json().catch(() => ({ ok: true }))) as T;
     return { data, error: null };
   } catch (err: any) {
     const isTimeout = err?.name === "TimeoutError" || err?.code === "ABORT_ERR";
@@ -191,7 +237,7 @@ async function trackUsageCall(
             updated_at = now()`,
     );
   } catch {
-    /* silent — don't break gateway calls over meter failures */
+    /* silent — meter failures must never break gateway calls */
   }
 }
 
@@ -204,6 +250,8 @@ function pathToCapability(path: string): string {
   if (path.includes("/twins/vendors")) return "vendor-registry";
   if (path.includes("/capabilities")) return "system";
   if (path.includes("/ping")) return "system";
+  if (path.includes("/trust")) return "system";
+  if (path.includes("/events/ingest")) return "system";
   return "system";
 }
 
@@ -222,6 +270,33 @@ export async function gatewayHealth(): Promise<GatewayHealthResult> {
     return { ok: false, status: error.message };
   }
   return data ?? { ok: true, status: "ok" };
+}
+
+export async function submitTrustBinding(trustDocUrl: string, publicKeyPem: string): Promise<{
+  ok: boolean;
+  falkonPublicKeyPem?: string;
+  body?: unknown;
+}> {
+  const mode = await getEffectiveMode();
+  const { data, error } = await gatewayFetch<{
+    ok: boolean;
+    falkonPublicKeyPem?: string;
+  }>(`/partners/${CLIENT_ID}/trust`, {
+    method: "PUT",
+    body: {
+      clientId: CLIENT_ID,
+      partnerId: PARTNER_ID,
+      trustDocUrl,
+      publicKeyPem,
+      spec: "falkon-trust/v1",
+    },
+    mode,
+    timeoutMs: 15_000,
+  });
+  if (error) {
+    return { ok: false };
+  }
+  return { ok: data?.ok ?? false, falkonPublicKeyPem: data?.falkonPublicKeyPem, body: data };
 }
 
 export async function registerCallback(webhookUrl: string): Promise<GatewayCallbackResult> {
@@ -253,7 +328,6 @@ export async function runShadowExecution(payload: {
   unitLabel?: string;
   jobId?: string;
 }): Promise<GatewayShadowExecutionResult> {
-  const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayShadowExecutionResult>(
     `/partners/${CLIENT_ID}/shadow/execute`,
     {
@@ -264,7 +338,7 @@ export async function runShadowExecution(payload: {
         pipeline: "make-ready",
         payload: { ...payload, _shadow: true },
       },
-      mode: "SHADOW", // always SHADOW for test execution
+      mode: "SHADOW", // always SHADOW for test executions
     },
   );
   if (error) {
@@ -277,6 +351,9 @@ export async function runShadowExecution(payload: {
 export async function gatewayPing(nonce?: string): Promise<GatewayPingResult> {
   const mode = await getEffectiveMode();
   const t0 = Date.now();
+  const callbackBase = process.env.REPLIT_DOMAINS
+    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]!.trim()}`
+    : "";
   const { data, error } = await gatewayFetch<GatewayPingResult>(
     `/partners/${CLIENT_ID}/ping`,
     {
@@ -284,10 +361,13 @@ export async function gatewayPing(nonce?: string): Promise<GatewayPingResult> {
       body: {
         partnerId: PARTNER_ID,
         ts: t0,
-        // Include nonce so Falkon echoes it back in the verify-ping callback.
-        // The nonce is server-generated in step 5 to authenticate the round-trip
-        // without requiring a pre-cached Ed25519 remote key.
-        ...(nonce ? { nonce, callbackUrl: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]!.trim()}` : ""}/api/falkon/webhook`, eventType: "partner.verify.ping" } : {}),
+        ...(nonce
+          ? {
+              nonce,
+              callbackUrl: `${callbackBase}/api/falkon/webhook`,
+              eventType: "partner.verify.ping",
+            }
+          : {}),
       },
       mode,
       timeoutMs: 5_000,
@@ -426,11 +506,48 @@ export async function registerCapabilities(capabilities: {
   return data ?? { ok: true };
 }
 
+/**
+ * Deliver a single event to Falkon's event-ingestion endpoint.
+ * Falls back to webhookUrl if eventIngestUrl is not configured.
+ * Signs with Ed25519 canonical scheme.
+ * Returns whether delivery succeeded.
+ */
+export async function ingestEvent(
+  ingestUrl: string,
+  eventBody: Record<string, unknown>,
+): Promise<boolean> {
+  const rawBody = JSON.stringify(eventBody);
+  const bodyHash = sha256hex(rawBody);
+  const timestampMs = Date.now();
+  const nonce = randomUUID();
+  const signature = buildOutboundSignature(timestampMs, nonce, bodyHash);
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Falkon-Client-Id": CLIENT_ID,
+    "X-Falkon-Timestamp": String(timestampMs),
+    "X-Falkon-Nonce": nonce,
+  };
+  if (signature) headers["X-Falkon-Signature"] = signature;
+
+  try {
+    const resp = await fetch(ingestUrl, {
+      method: "POST",
+      headers,
+      body: rawBody,
+      signal: AbortSignal.timeout(10_000),
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getEffectiveMode(): Promise<string> {
+export async function getEffectiveMode(): Promise<string> {
   try {
     const rows = await db
       .select({ mode: falkonConnectionsTable.mode })

@@ -28,6 +28,9 @@
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO Falkon Ops Phase 0](halo-falkon-phase0.md) — 5 new tables (falkon_connections/events/inbound_events/policies/falkon_units); property_units name was taken by CMS site-map table so twin table is falkon_units.
 - [HALO Falkon Phase 1](halo-falkon-phase1.md) — Ed25519 identity, S2S gateway, 12-phase make-ready, 22-cap registry, webhook fail-closed, gated mode promotion; db lib must be rebuilt before typecheck.
+- [HALO Falkon S2S signing](halo-falkon-s2s-signing.md) — canonical X-Falkon-* headers, ms timestamp, nonce, base64url-no-pad Ed25519; inbound verification order; nonce table; remote key cached step 2.
+- [HALO Falkon mode badge](halo-falkon-mode-badge.md) — deriveFalkonMode must read gatewayMode (DB mode), NOT overallHealth (peer health); both HaloCommand files.
+- [HALO Falkon ASSISTED gate](halo-falkon-assisted-gate.md) — checkAssistedGate() for consequential actions; LIVE mode blocked from promote endpoint; eventIngestUrl column added.
 - [HALO Base44 sync](halo-base44-sync.md) — 15-min scheduler pull from legacy Base44 into 8 HALO tables; id mapping in base44_sync_map; price_items needs manual SELECT+UPDATE (expression index).
 - [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush helper in lib/pushNotification.ts; wired to office messages only; walk + emergency + offer push not yet wired.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.

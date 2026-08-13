@@ -4,12 +4,36 @@
  * GET  /.well-known/falkon-trust.json  — HALO's trust document (public)
  * POST /api/falkon/webhook             — Inbound events from Falkon gateway
  *
- * Both are public (no passcode gate).
- * Webhook requests are verified against Falkon's Ed25519 public key
- * and deduplicated via the `falkon_webhook_nonces` table.
+ * Both routes are public (no office-passcode gate).
+ *
+ * WEBHOOK VERIFICATION (fail-closed):
+ *
+ *   Primary path — Falkon Ed25519 canonical contract:
+ *     Headers: X-Falkon-Client-Id, X-Falkon-Timestamp (epoch ms),
+ *              X-Falkon-Nonce (UUID), X-Falkon-Signature (base64url-no-pad)
+ *     signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + sha256hex(rawBody)
+ *     Verified against Falkon's cached Ed25519 public key (falkon_remote_identity).
+ *
+ *   Fallback path — HMAC-SHA256 (transition only, if webhookSecret is set
+ *     and no remote Ed25519 key is cached):
+ *     Headers: X-Falkon-Timestamp (ms), X-Falkon-Signature: v1=<hex>
+ *     msg = timestampMs + "." + rawBody
+ *
+ *   Rejection rules:
+ *     - Missing signature header                     → 401
+ *     - No remote Ed25519 key AND no webhookSecret   → 401
+ *     - Timestamp outside ±5-minute window           → 400
+ *     - Signature mismatch                           → 401
+ *     - DB error on nonce claim                      → 500 (sender retries)
+ *
+ * TRUST DOCUMENT:
+ *   Production-safe: uses REPLIT_DOMAINS for stable URL.
+ *   Contains only public material (public key PEM, URLs, spec).
+ *   Never exposes private key, webhook secret, or credentials.
  */
 
 import { Router } from "express";
+import { createHash, verify as edVerify, timingSafeEqual, createHmac } from "node:crypto";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { buildTrustDoc } from "../lib/falkonIdentity";
@@ -22,12 +46,18 @@ export const falkonWebhookRouter = Router();
 // ---------------------------------------------------------------------------
 
 falkonWebhookRouter.get("/.well-known/falkon-trust.json", (req, res) => {
-  const origin = getBaseUrl(req);
-  const doc = buildTrustDoc(origin);
+  const baseUrl = getProductionBaseUrl();
+  const doc = buildTrustDoc(baseUrl);
   if (!doc) {
     return res.status(503).json({ error: "Identity not yet initialised" });
   }
-  res.set("Cache-Control", "public, max-age=3600");
+  // Public doc — cache for 1 hour, allow CORS for Falkon gateway reads
+  res.set({
+    "Content-Type": "application/json",
+    "Cache-Control": "public, max-age=3600, s-maxage=3600",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET",
+  });
   return res.json(doc);
 });
 
@@ -37,62 +67,83 @@ falkonWebhookRouter.get("/.well-known/falkon-trust.json", (req, res) => {
 
 falkonWebhookRouter.post("/falkon/webhook", async (req, res) => {
   try {
+    const rawBody: string = req.rawBody ?? JSON.stringify(req.body ?? {});
     const body = req.body as Record<string, unknown>;
+
+    // ── Identity fields ────────────────────────────────────────────────────
+    // jti may come from the JSON body or be synthesised from a UUID nonce
     const jti = (body.jti ?? body.eventId ?? body.id) as string | undefined;
     const eventType = body.eventType as string | undefined;
-    const payload = body.payload as Record<string, unknown> | undefined;
-    const ts = (body.timestamp ?? body.ts) as number | string | undefined;
-    const sigHeader = req.headers["falkon-signature"] as string | undefined;
+    const payload = (body.payload ?? body) as Record<string, unknown>;
 
     if (!jti || !eventType) {
       return res.status(400).json({ error: "Missing jti or eventType" });
     }
 
-    // ── Timestamp validation (±5-minute window) ─────────────────────────────
-    // Prevents replay of old captured-but-valid signed events.
-    // The 24-hour nonce retention further blocks replays within that window.
-    const tsVal = ts !== undefined ? Number(ts) : NaN;
-    if (!Number.isFinite(tsVal)) {
-      logger.warn({ jti, eventType }, "falkon webhook: missing or non-numeric timestamp — rejected");
+    // ── Canonical header extraction ────────────────────────────────────────
+    const xClientId   = req.headers["x-falkon-client-id"]  as string | undefined;
+    const xTimestamp  = req.headers["x-falkon-timestamp"]  as string | undefined;
+    const xNonce      = req.headers["x-falkon-nonce"]      as string | undefined;
+    const xSignature  = req.headers["x-falkon-signature"]  as string | undefined;
+
+    // Legacy header names (kept for backward compat during migration window)
+    const legacyTs    = req.headers["halo-timestamp"]       as string | undefined;
+    const legacySig   = req.headers["halo-signature"]       as string | undefined;
+    const legacyFalkonSig = req.headers["falkon-signature"] as string | undefined;
+
+    const effectiveTimestamp = xTimestamp ?? legacyTs;
+    const effectiveNonce     = xNonce ?? jti; // fall back to jti as nonce
+
+    // ── Timestamp freshness — ±5 minute window ─────────────────────────────
+    if (!effectiveTimestamp || isNaN(Number(effectiveTimestamp))) {
+      logger.warn({ jti, eventType }, "falkon webhook: missing or invalid timestamp — rejected");
       return res.status(400).json({ error: "Missing or invalid timestamp" });
     }
-    const tsMs = tsVal > 1_000_000_000_000 ? tsVal : tsVal * 1_000; // handle s or ms
+    const tsRaw = Number(effectiveTimestamp);
+    // Auto-detect seconds vs milliseconds
+    const tsMs = tsRaw < 1_000_000_000_000 ? tsRaw * 1_000 : tsRaw;
     const skew = Math.abs(Date.now() - tsMs);
-    const MAX_SKEW_MS = 5 * 60 * 1_000; // 5 minutes
-    if (skew > MAX_SKEW_MS) {
-      logger.warn({ jti, eventType, skewMs: skew }, "falkon webhook: timestamp outside ±5min window — rejected");
+    if (skew > 5 * 60_000) {
+      logger.warn({ jti, eventType, skewMs: skew }, "falkon webhook: timestamp outside ±5min — rejected");
       return res.status(400).json({ error: "Timestamp outside acceptable window" });
     }
 
-    // ── Ed25519 signature verification ─────────────────────────────────────
-    // Every inbound event is fully authenticated. Step 2 (trust-binding) caches
-    // Falkon's public key before step 5 (ping round-trip) runs; the step-5
-    // prerequisite check enforces this ordering.
-    const rawBody = req.rawBody ?? JSON.stringify(body);
-    const sigVerified = await verifyFalkonSignature(rawBody, sigHeader);
+    // ── Signature verification ─────────────────────────────────────────────
+    const sigVerified = await verifyInboundSignature({
+      rawBody,
+      xClientId,
+      xTimestamp: String(tsMs),
+      xNonce: effectiveNonce,
+      xSignature,
+      legacySig: legacySig ?? legacyFalkonSig,
+    });
+
     if (!sigVerified) {
       logger.warn({ jti, eventType }, "falkon webhook: signature verification failed — rejected");
       return res.status(401).json({ error: "Invalid Falkon signature" });
     }
 
     // ── Nonce deduplication ────────────────────────────────────────────────
-    const isDupe = await claimNonce(jti);
+    // Use X-Falkon-Nonce if present, else jti — both are unique per event
+    const nonceKey = xNonce ?? jti;
+    const isDupe = await claimNonce(nonceKey);
     if (isDupe) {
-      logger.info({ jti }, "falkon webhook: duplicate nonce, already processed");
+      logger.info({ jti }, "falkon webhook: duplicate nonce — already processed");
       return res.json({ ok: true, deduplicated: true });
     }
 
-    // ── Store inbound event ────────────────────────────────────────────────
+    // ── Store inbound event (column names from falkon_inbound_events schema) ──
     await db.execute(
       sql`INSERT INTO falkon_inbound_events
-            (id, event_type, jti, payload, received_at, processed, created_at)
+            (id, falkon_event_id, event_type, payload, status, created_at)
           VALUES
-            (gen_random_uuid(), ${eventType}, ${jti},
-             ${JSON.stringify(body)}::jsonb, now(), false, now())`,
+            (gen_random_uuid(), ${jti}, ${eventType},
+             ${JSON.stringify(body)}::jsonb, 'pending', now())
+          ON CONFLICT (falkon_event_id) DO NOTHING`,
     );
 
-    // ── Route to handler ───────────────────────────────────────────────────
-    void dispatchEvent(jti, eventType, payload ?? {}).catch((err) => {
+    // ── Dispatch to handler ────────────────────────────────────────────────
+    void dispatchEvent(jti, eventType, payload).catch((err) => {
       logger.error({ err, jti, eventType }, "falkon webhook: dispatch error");
     });
 
@@ -104,75 +155,139 @@ falkonWebhookRouter.post("/falkon/webhook", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Signature verification using Falkon's cached Ed25519 public key
+// Signature verification
 // ---------------------------------------------------------------------------
 
+interface VerifyArgs {
+  rawBody: string;
+  xClientId: string | undefined;
+  xTimestamp: string;
+  xNonce: string | undefined;
+  xSignature: string | undefined;
+  legacySig: string | undefined;
+}
+
 /**
- * Verify inbound Falkon Ed25519 signature.
- * FAIL CLOSED — always rejects when the signature is absent, invalid, or
- * cannot be verified against the cached Falkon Ed25519 remote key.
+ * Verify inbound Falkon signature. Fail-closed on all error paths.
  *
- * Step 2 (trust-binding) caches Falkon's public key before step 5
- * (ping round-trip) runs, so every inbound event is fully authenticated.
- * There is no bootstrap exception.
+ * 1. If X-Falkon-Signature is present and a remote Ed25519 key is cached →
+ *    verify Ed25519 using the canonical signing string.
+ *
+ * 2. Else if a webhookSecret is configured →
+ *    verify HMAC-SHA256 fallback (transition period only).
+ *
+ * 3. If neither is available → reject (cannot verify → 401).
  */
-async function verifyFalkonSignature(
-  rawBody: string,
-  sigHeader: string | undefined,
-): Promise<boolean> {
-  if (!sigHeader) {
-    logger.warn("falkon webhook: missing FALKON-SIGNATURE header — rejected");
-    return false;
+async function verifyInboundSignature(args: VerifyArgs): Promise<boolean> {
+  const { rawBody, xClientId, xTimestamp, xNonce, xSignature, legacySig } = args;
+
+  // ── Attempt 1: Ed25519 canonical verification ─────────────────────────
+  if (xSignature) {
+    try {
+      const remoteKey = await getRemotePublicKey();
+      if (remoteKey) {
+        const bodyHash = sha256hex(rawBody);
+        // signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + bodyHash
+        // If clientId or nonce headers are missing, reconstruct from available data
+        const clientId = xClientId ?? "";
+        const nonce    = xNonce    ?? "";
+        const signingString = `${clientId}\n${xTimestamp}\n${nonce}\n${bodyHash}`;
+
+        // Decode base64url-no-pad signature
+        const sigBuf = base64urlDecode(xSignature);
+        const msgBuf = Buffer.from(signingString, "utf8");
+
+        const ok = edVerify(null, msgBuf, remoteKey, sigBuf);
+        if (ok) return true;
+
+        // Signature is present but fails → hard reject (don't fall through to HMAC)
+        logger.warn("falkon webhook: Ed25519 signature mismatch");
+        return false;
+      }
+      // No remote key yet — fall through to HMAC
+    } catch (err) {
+      logger.error({ err }, "falkon webhook: Ed25519 verification threw");
+      return false;
+    }
   }
 
+  // ── Attempt 2: HMAC-SHA256 fallback ───────────────────────────────────
+  const hmacSig = legacySig ?? xSignature;
+  if (hmacSig) {
+    try {
+      const secret = await getWebhookSecret();
+      if (secret) {
+        // Legacy scheme: v1=hmac(secret, timestampMs + "." + rawBody)
+        const msg = `${xTimestamp}.${rawBody}`;
+        const expected = "v1=" + createHmac("sha256", secret).update(msg).digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(hmacSig);
+        if (a.length === b.length && timingSafeEqual(a, b)) return true;
+      }
+    } catch (err) {
+      logger.error({ err }, "falkon webhook: HMAC verification threw");
+    }
+  }
+
+  // ── Nothing worked ────────────────────────────────────────────────────
+  logger.warn({
+    hasXSig: !!xSignature,
+    hasLegacySig: !!legacySig,
+  }, "falkon webhook: no valid signature — rejected");
+  return false;
+}
+
+async function getRemotePublicKey(): Promise<string | null> {
   try {
     const row = await db.execute(
       sql`SELECT public_key_pem FROM falkon_remote_identity ORDER BY fetched_at DESC LIMIT 1`,
     );
-    const key = ((row as any).rows?.[0] ?? (row as any)[0])?.public_key_pem as string | undefined;
-
-    if (!key) {
-      // No remote key on file at all — cannot verify. Fail closed.
-      logger.warn("falkon webhook: no remote identity cached — rejected; run trust-binding (step 2) first");
-      return false;
-    }
-
-    const sigBuf = Buffer.from(sigHeader, "base64");
-    const bodyBuf = Buffer.from(rawBody, "utf8");
-    const { verify: edVerify } = await import("node:crypto");
-    return edVerify(null, bodyBuf, key, sigBuf);
-  } catch (err) {
-    logger.error({ err }, "falkon webhook: signature verification threw");
-    return false;
+    return ((row as any).rows?.[0] ?? (row as any)[0])?.public_key_pem as string ?? null;
+  } catch {
+    return null;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Nonce claim — returns true if already seen (duplicate)
-// ---------------------------------------------------------------------------
+async function getWebhookSecret(): Promise<string | null> {
+  try {
+    const row = await db.execute(
+      sql`SELECT webhook_secret FROM falkon_connections LIMIT 1`,
+    );
+    return ((row as any).rows?.[0] ?? (row as any)[0])?.webhook_secret as string ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function sha256hex(data: string): string {
+  return createHash("sha256").update(data, "utf8").digest("hex");
+}
 
 /**
- * Atomically claim a nonce JTI for replay prevention.
- *
- * Returns `true` if the JTI was already seen (duplicate — caller should
- * return 200 deduplicated).
- *
- * THROWS on any database error. Callers must NOT catch this and accept the
- * event — a DB failure must produce a 5xx so the sender retries, rather than
- * silently accepting an event without a durable replay claim.
+ * Decode base64url (with or without padding) to a Buffer.
  */
-async function claimNonce(jti: string): Promise<boolean> {
+function base64urlDecode(s: string): Buffer {
+  // Replace URL-safe chars and add padding
+  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
+  const mod4 = padded.length % 4;
+  const b64 = mod4 ? padded + "=".repeat(4 - mod4) : padded;
+  return Buffer.from(b64, "base64");
+}
+
+// ---------------------------------------------------------------------------
+// Nonce claim
+// ---------------------------------------------------------------------------
+
+async function claimNonce(nonce: string): Promise<boolean> {
   const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
   const result = await db.execute(
     sql`INSERT INTO falkon_webhook_nonces (id, jti, received_at, expires_at)
-        VALUES (gen_random_uuid(), ${jti}, now(), ${expiresAt}::timestamptz)
+        VALUES (gen_random_uuid(), ${nonce}, now(), ${expiresAt}::timestamptz)
         ON CONFLICT (jti) DO NOTHING
         RETURNING id`,
   );
   const rows = (result as any).rows ?? (result as any);
-  const inserted = Array.isArray(rows) ? rows.length : 0;
-  // ON CONFLICT DO NOTHING returns no rows on conflict
-  return inserted === 0;
+  return Array.isArray(rows) ? rows.length === 0 : true;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,12 +301,7 @@ async function dispatchEvent(
 ): Promise<void> {
   logger.info({ jti, eventType }, "falkon webhook: dispatching event");
 
-  // Verify-ping nonce correlation: Falkon echoes back the nonce we sent in step 5.
-  // The callback has already passed Ed25519 verification (step 2 cached the key),
-  // so we trust the nonce value in the payload. Write callbackNonce so the step-5
-  // polling loop can detect it. Fail silently if the nonce doesn't match (e.g.
-  // stale/replayed verify-ping from a previous session) — the connection just
-  // won't be marked verified.
+  // ── Verify-ping round-trip (step 5) ─────────────────────────────────────
   if (eventType === "partner.verify.ping" || eventType === "verify.ping") {
     const callbackNonce = (payload.nonce ?? (payload as any).body?.nonce) as string | undefined;
     if (callbackNonce) {
@@ -203,17 +313,19 @@ async function dispatchEvent(
                 updated_at = now()
             WHERE verification_steps->>'pendingNonce' = ${callbackNonce}`,
       );
-      logger.info({ callbackNonce: callbackNonce.slice(0, 8) },
-        "falkon webhook: verify-ping callbackNonce written");
+      logger.info(
+        { callbackNonce: callbackNonce.slice(0, 8) },
+        "falkon webhook: verify-ping callbackNonce written",
+      );
     } else {
       logger.warn({ eventType }, "falkon webhook: verify-ping received without nonce");
     }
   }
 
-  // Sync twin updates from Falkon
+  // ── Twin sync — property ─────────────────────────────────────────────────
   if (eventType === "twin.property.updated") {
     const externalId = payload.externalId as string | undefined;
-    const falkonId = payload.falkonPropertyId as string | undefined;
+    const falkonId   = payload.falkonPropertyId as string | undefined;
     if (externalId && falkonId) {
       await db.execute(
         sql`UPDATE properties
@@ -223,9 +335,10 @@ async function dispatchEvent(
     }
   }
 
+  // ── Twin sync — unit ─────────────────────────────────────────────────────
   if (eventType === "twin.unit.updated") {
     const externalId = payload.externalId as string | undefined;
-    const falkonId = payload.falkonUnitId as string | undefined;
+    const falkonId   = payload.falkonUnitId  as string | undefined;
     if (externalId && falkonId) {
       await db.execute(
         sql`UPDATE falkon_units
@@ -235,19 +348,18 @@ async function dispatchEvent(
     }
   }
 
-  // ── Inbound capability request — insert into cross_requests for office review
+  // ── Inbound capability request → office approval queue ──────────────────
   if (eventType === "capability.request") {
-    const correlationId = (payload.correlationId ?? jti) as string;
-    const capabilityId = payload.capabilityId as string | undefined;
-    const summary = payload.summary as string | undefined;
-    const requester = payload.requester as Record<string, unknown> | undefined;
-    const sharedData = payload.sharedData as unknown;
-    const externalRef = (payload.externalRef ?? payload.jti ?? jti) as string;
+    const correlationId  = (payload.correlationId ?? jti) as string;
+    const capabilityId   = payload.capabilityId  as string | undefined;
+    const summary        = payload.summary        as string | undefined;
+    const requester      = payload.requester      as Record<string, unknown> | undefined;
+    const sharedData     = payload.sharedData     as unknown;
+    const externalRef    = (payload.externalRef ?? payload.jti ?? jti) as string;
 
     if (!capabilityId) {
       logger.warn({ jti }, "falkon webhook: capability.request missing capabilityId — skipping");
     } else {
-      // Resolve peerId from requester domain (best-effort)
       const requesterDomain = ((requester?.domain ?? requester?.trustDocUrl) as string | undefined)
         ?.replace(/^https?:\/\//, "")
         .split("/")[0];
@@ -276,7 +388,7 @@ async function dispatchEvent(
             VALUES
               (gen_random_uuid(), 'inbound',
                ${peerRow?.id ? `${peerRow.id}` : null}::uuid,
-               ${peerRow?.name ?? (requester?.businessName as string) ?? requesterDomain ?? 'Unknown'},
+               ${peerRow?.name ?? (requester?.businessName as string) ?? requesterDomain ?? "Unknown"},
                ${capabilityId},
                ${correlationId},
                ${externalRef},
@@ -289,15 +401,34 @@ async function dispatchEvent(
             ON CONFLICT (correlation_id) DO NOTHING`,
       );
 
-      logger.info({ jti, correlationId, capabilityId }, "falkon webhook: inbound capability.request stored for approval");
+      logger.info(
+        { jti, correlationId, capabilityId },
+        "falkon webhook: inbound capability.request stored for approval",
+      );
     }
   }
 
-  // Mark event processed
+  // ── Vendor/crew compliance update ────────────────────────────────────────
+  if (eventType === "vendor.compliance.updated" || eventType === "twin.vendor.updated") {
+    const externalId = payload.externalId as string | undefined;
+    const complianceStatus = payload.complianceStatus as string | undefined;
+    const falkonTier = payload.tier as string | undefined;
+    if (externalId) {
+      await db.execute(
+        sql`UPDATE crews
+            SET falkon_compliance_status = COALESCE(${complianceStatus ?? null}, falkon_compliance_status),
+                falkon_tier = COALESCE(${falkonTier ?? null}, falkon_tier),
+                updated_at = now()
+            WHERE id = ${externalId}::uuid`,
+      );
+    }
+  }
+
+  // ── Mark event processed ────────────────────────────────────────────────
   await db.execute(
     sql`UPDATE falkon_inbound_events
-        SET processed = true, processed_at = now()
-        WHERE jti = ${jti}`,
+        SET status = 'processed', processed_at = now()
+        WHERE falkon_event_id = ${jti}`,
   );
 }
 
@@ -305,10 +436,18 @@ async function dispatchEvent(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getBaseUrl(req: import("express").Request): string {
-  const domain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
-  if (domain) return `https://${domain}`;
-  const host = req.headers.host ?? "localhost";
-  const proto = req.headers["x-forwarded-proto"] ?? "https";
-  return `${proto}://${host}`;
+/**
+ * Returns the stable production base URL.
+ * Prefers REPLIT_DOMAINS (production domain) over request Host header for
+ * trust document stability — the trust doc URL must not change between
+ * deploys or the gateway will reject the trust binding.
+ */
+function getProductionBaseUrl(): string {
+  const domains = process.env.REPLIT_DOMAINS;
+  if (domains) {
+    const primary = domains.split(",")[0]!.trim();
+    return `https://${primary}`;
+  }
+  // Fallback for local dev
+  return "https://archangel-halo.replit.app";
 }

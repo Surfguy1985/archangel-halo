@@ -93,19 +93,27 @@ router.get("/falkon/connection", async (_req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /falkon/connect
-// Body: { partnerKey: string; webhookUrl: string; webhookSecret: string }
+// Body: {
+//   webhookUrl:     string  (required — Falkon sends events here)
+//   partnerKey?:    string  (optional — hashed for evidence endpoint gating)
+//   webhookSecret?: string  (optional — HMAC fallback only; not needed for Ed25519)
+//   eventIngestUrl?: string (optional — Falkon's dedicated event-ingestion endpoint)
+// }
 // ---------------------------------------------------------------------------
 router.post("/falkon/connect", async (req, res) => {
   try {
-    const { partnerKey, webhookUrl, webhookSecret } = req.body ?? {};
-    if (!partnerKey || !webhookUrl || !webhookSecret) {
-      return res.status(400).json({ error: "partnerKey, webhookUrl, and webhookSecret are required" });
+    const { partnerKey, webhookUrl, webhookSecret, eventIngestUrl } = req.body ?? {};
+    if (!webhookUrl) {
+      return res.status(400).json({ error: "webhookUrl is required" });
     }
     if (!/^https:\/\//i.test(webhookUrl)) {
       return res.status(400).json({ error: "webhookUrl must be HTTPS" });
     }
+    if (eventIngestUrl && !/^https:\/\//i.test(eventIngestUrl)) {
+      return res.status(400).json({ error: "eventIngestUrl must be HTTPS" });
+    }
 
-    const apiKeyHash = hashKey(String(partnerKey));
+    const apiKeyHash = partnerKey ? hashKey(String(partnerKey)) : null;
     const now = new Date();
 
     // Upsert — one connection row per HALO deployment.
@@ -121,9 +129,9 @@ router.post("/falkon/connect", async (req, res) => {
       await db
         .update(falkonConnectionsTable)
         .set({
-          apiKeyHash,
+          ...(apiKeyHash ? { apiKeyHash } : {}),
           webhookUrl: String(webhookUrl),
-          webhookSecret: String(webhookSecret),
+          ...(webhookSecret ? { webhookSecret: String(webhookSecret) } : {}),
           // Reset all partner identity fields
           falkonOrgId: null,
           partnerClientId: null,
@@ -139,13 +147,19 @@ router.post("/falkon/connect", async (req, res) => {
           trustDocVerifiedAt: null,
           capabilitiesRegisteredAt: null,
           updatedAt: now,
-        })
+        } as any)
         .where(eq(falkonConnectionsTable.id, existing.id));
+      // Store eventIngestUrl in a separate column if present
+      if (eventIngestUrl) {
+        await db.execute(
+          sql`UPDATE falkon_connections SET event_ingest_url = ${eventIngestUrl}, updated_at = now()
+              WHERE id = ${existing.id}::uuid`,
+        );
+      }
       // Wipe the cached remote identity key so verification cannot use a stale key.
       await db.execute(sql`DELETE FROM falkon_remote_identity WHERE TRUE`);
       // Cancel any pending outbox events from the previous connection —
       // delivering them to a new partner would be incorrect.
-      // falkon_events has no updated_at column, so we update only status.
       await db.execute(
         sql`UPDATE falkon_events SET status = 'cancelled'
             WHERE status IN ('pending', 'failed')`,
@@ -153,13 +167,19 @@ router.post("/falkon/connect", async (req, res) => {
     } else {
       // Brand-new connections start in SHADOW + pending — same as reconnect.
       await db.insert(falkonConnectionsTable).values({
-        apiKeyHash,
+        ...(apiKeyHash ? { apiKeyHash } : {}),
         webhookUrl: String(webhookUrl),
-        webhookSecret: String(webhookSecret),
+        ...(webhookSecret ? { webhookSecret: String(webhookSecret) } : {}),
         mode: "SHADOW",
         status: "pending",
         connectedAt: now,
-      });
+      } as any);
+      if (eventIngestUrl) {
+        await db.execute(
+          sql`UPDATE falkon_connections SET event_ingest_url = ${eventIngestUrl}, updated_at = now()
+              WHERE id = (SELECT id FROM falkon_connections ORDER BY created_at DESC LIMIT 1)`,
+        );
+      }
     }
 
     const conn = await getConnection();
@@ -494,7 +514,8 @@ router.post("/falkon/ping", async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /falkon/inbound/:eventType
-// Receives signed Falkon → HALO events.  Verifies HMAC, stores, processes.
+// Receives signed Falkon → HALO events.
+// Verification: Ed25519 primary (X-Falkon-* headers) + HMAC fallback.
 // ---------------------------------------------------------------------------
 router.post("/falkon/inbound/:eventType", async (req, res) => {
   try {
@@ -505,22 +526,78 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
       return res.status(503).json({ error: "Falkon integration is not active" });
     }
 
-    if (!conn.webhookSecret) {
-      return res.status(500).json({ error: "Integration misconfigured — no secret" });
+    const rawBody: string = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
+
+    // ── Header extraction (canonical X-Falkon-* or legacy HALO-*) ──────────
+    const xTimestamp = req.headers["x-falkon-timestamp"] as string | undefined;
+    const xNonce     = req.headers["x-falkon-nonce"]     as string | undefined;
+    const xSig       = req.headers["x-falkon-signature"] as string | undefined;
+    const xClientId  = req.headers["x-falkon-client-id"] as string | undefined;
+    // Legacy header fallbacks (transition period only)
+    const legacyTs   = req.headers["halo-timestamp"] as string | undefined;
+    const legacySig  = req.headers["halo-signature"]  as string | undefined;
+
+    const effectiveTs  = xTimestamp ?? legacyTs;
+    const effectiveSig = xSig ?? legacySig;
+
+    if (!effectiveTs || !effectiveSig) {
+      return res.status(401).json({ error: "Missing signature headers" });
     }
 
-    // Verify HMAC signature
-    const tsHeader = req.headers["halo-timestamp"] as string | undefined;
-    const sigHeader = req.headers["halo-signature"] as string | undefined;
-    const rawBody = JSON.stringify(req.body ?? {});
+    // ── Timestamp freshness ──────────────────────────────────────────────────
+    const tsRaw = Number(effectiveTs);
+    if (isNaN(tsRaw)) return res.status(400).json({ error: "Invalid timestamp" });
+    const tsMs = tsRaw < 1_000_000_000_000 ? tsRaw * 1_000 : tsRaw;
+    if (Math.abs(Date.now() - tsMs) > 5 * 60_000) {
+      return res.status(400).json({ error: "Timestamp outside ±5-minute window" });
+    }
 
-    if (!verifyFalkonSignature(conn.webhookSecret, tsHeader, sigHeader, rawBody)) {
-      logger.warn({ eventType }, "falkon: inbound signature verification failed");
+    // ── Signature verification (Ed25519 primary → HMAC fallback) ────────────
+    let sigValid = false;
+
+    // Try Ed25519 first
+    if (xSig) {
+      try {
+        const remoteKeyRow = await db.execute(
+          sql`SELECT public_key_pem FROM falkon_remote_identity ORDER BY fetched_at DESC LIMIT 1`,
+        );
+        const remoteKey = (
+          (remoteKeyRow as any).rows?.[0] ??
+          (Array.isArray(remoteKeyRow) ? remoteKeyRow[0] : undefined)
+        )?.public_key_pem as string | undefined;
+
+        if (remoteKey) {
+          const { createHash, verify: edVerify } = await import("node:crypto");
+          const bodyHash = createHash("sha256").update(rawBody, "utf8").digest("hex");
+          const sigStr = `${xClientId ?? ""}\n${String(tsMs)}\n${xNonce ?? ""}\n${bodyHash}`;
+          // Decode base64url signature
+          const padded = xSig.replace(/-/g, "+").replace(/_/g, "/");
+          const mod4 = padded.length % 4;
+          const sigBuf = Buffer.from(mod4 ? padded + "=".repeat(4 - mod4) : padded, "base64");
+          sigValid = edVerify(null, Buffer.from(sigStr, "utf8"), remoteKey, sigBuf);
+          if (!sigValid) {
+            logger.warn({ eventType }, "falkon inbound: Ed25519 mismatch — hard reject");
+            return res.status(401).json({ error: "Invalid Falkon signature" });
+          }
+        }
+        // No remote key yet → fall through to HMAC
+      } catch {
+        return res.status(500).json({ error: "Signature verification error" });
+      }
+    }
+
+    // HMAC fallback (only when no remote Ed25519 key is cached)
+    if (!sigValid && conn.webhookSecret) {
+      sigValid = verifyFalkonSignature(conn.webhookSecret, String(tsMs), effectiveSig, rawBody);
+    }
+
+    if (!sigValid) {
+      logger.warn({ eventType, hasSecret: !!conn.webhookSecret }, "falkon: inbound signature failed");
       return res.status(401).json({ error: "Invalid signature" });
     }
 
-    // Deduplicate by Falkon-assigned event ID
-    const falkonEventId = req.body?.eventId ?? req.body?.id ?? null;
+    // ── Deduplicate by Falkon-assigned event ID or nonce ─────────────────────
+    const falkonEventId = xNonce ?? req.body?.eventId ?? req.body?.id ?? null;
     if (falkonEventId) {
       const [dup] = await db
         .select({ id: falkonInboundEventsTable.id })
@@ -530,7 +607,7 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
       if (dup) return res.json({ ok: true, duplicate: true });
     }
 
-    // Store the inbound event
+    // ── Store the inbound event ────────────────────────────────────────────
     await db.insert(falkonInboundEventsTable).values({
       falkonEventId: falkonEventId ? String(falkonEventId) : undefined,
       eventType,
@@ -539,7 +616,6 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
       processedAt: new Date(),
     });
 
-    // Acknowledge immediately — heavy processing would be async
     return res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "POST /falkon/inbound/:eventType failed");

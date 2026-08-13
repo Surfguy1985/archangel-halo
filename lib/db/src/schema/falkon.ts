@@ -36,6 +36,11 @@ export const falkonConnectionsTable = pgTable("falkon_connections", {
   /** URL HALO POSTs signed callbacks to. */
   webhookUrl: text("webhook_url"),
   /**
+   * Falkon's dedicated event-ingestion endpoint (preferred over webhookUrl
+   * for outbox delivery when available). Populated via /falkon/connect.
+   */
+  eventIngestUrl: text("event_ingest_url"),
+  /**
    * HMAC-SHA256 signing secret for outbound callbacks.
    * Stored encrypted when FALKON_CREDENTIAL_ENCRYPTION_KEY is set in env.
    */

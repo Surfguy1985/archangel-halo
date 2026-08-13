@@ -203,10 +203,14 @@ function detectIntent(text: string): { type: "navigate"; path: string } | { type
 
 type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
 
-function deriveFalkonMode(health?: { overallHealth?: string }): FalkonMode {
-  if (!health || health.overallHealth === "no_peers" || health.overallHealth === "loading") return "SHADOW";
-  if (health.overallHealth === "degraded") return "SHADOW";
-  if (health.overallHealth === "healthy") return "ASSISTED";
+function deriveFalkonMode(health?: { gatewayMode?: string; overallHealth?: string }): FalkonMode {
+  // Use the actual gateway connection mode (from falkon_connections.mode),
+  // NOT the peer network health. A healthy peer network does NOT mean the
+  // gateway S2S session exists or has been verified.
+  const mode = health?.gatewayMode;
+  if (!mode || mode === "OFF" || mode === "SHADOW") return "SHADOW";
+  if (mode === "ASSISTED") return "ASSISTED";
+  if (mode === "LIVE") return "LIVE";
   return "SHADOW";
 }
 

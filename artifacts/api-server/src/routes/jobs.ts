@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
+import { emitFalkonEvent } from "../lib/falkonEmit";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   db,
@@ -217,6 +218,16 @@ router.post("/jobs", async (req, res): Promise<void> => {
     })
     .returning();
   const { propName, crewName } = await lookups();
+  // Emit Falkon event (fire-and-forget — never blocks the response)
+  void emitFalkonEvent("job.created", "job", row!.id, {
+    jobId: row!.id,
+    jobNo: row!.jobNo,
+    propertyId: row!.propertyId,
+    unitNo: row!.unitNo,
+    description: row!.description,
+    scheduledOn: row!.scheduledOn,
+    scheduleType: row!.scheduleType,
+  });
   res
     .status(201)
     .json(CreateJobResponse.parse(decorateJob(row, propName, crewName)));
@@ -1034,6 +1045,17 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
     return;
   }
   if (crewLeaderId) await autoSendLiveLink(id, "scheduled");
+  // Emit Falkon event (fire-and-forget)
+  if (crewLeaderId) {
+    void emitFalkonEvent("crew.dispatched", "job", id, {
+      jobId: id,
+      jobNo: result.job.jobNo,
+      propertyId: result.job.propertyId,
+      unitNo: result.job.unitNo,
+      crewLeaderId,
+      scheduledOn,
+    });
+  }
   const { propName, crewName } = await lookups();
   res.json(
     DispatchJobResponse.parse(decorateJob(result.job, propName, crewName)),

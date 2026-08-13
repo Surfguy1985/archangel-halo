@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { limits } from "../lib/rateLimit";
+import { emitFalkonEvent } from "../lib/falkonEmit";
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
 import {
@@ -1540,6 +1541,19 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
         body.note ??
         body.label ??
         (body.lat != null ? `${body.lat}, ${body.lng}` : null),
+    });
+  }
+  // Emit Falkon event (fire-and-forget — never blocks the response)
+  if (!deduped && row!) {
+    const evType = kind === "checkout" ? "crew.checked_out" : "crew.checked_in";
+    void emitFalkonEvent(evType as any, "crew", crew.id, {
+      crewId: crew.id,
+      crewName: crew.name,
+      jobId: row!.jobId ?? null,
+      kind,
+      lat: row!.lat ?? null,
+      lng: row!.lng ?? null,
+      checkinId: row!.id,
     });
   }
   res.status(201).json(

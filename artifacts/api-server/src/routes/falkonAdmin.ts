@@ -49,6 +49,7 @@ import {
   syncUnitTwin,
   syncVendorTwin,
   registerCapabilities,
+  submitTrustBinding,
   CLIENT_ID,
   GATEWAY_ORIGIN,
 } from "../lib/falkonGateway";
@@ -103,7 +104,9 @@ falkonAdminRouter.post("/falkon/admin/verify/1-health-check", async (req, res) =
   }
 });
 
-// Step 2 — Trust binding: submit our Ed25519 public key to the gateway
+// Step 2 — Trust binding: submit our Ed25519 public key to the gateway.
+// Uses signed gatewayFetch (X-Falkon-Signature) so HALO authenticates itself
+// to the gateway. Previous version used raw unsigned fetch — that is now fixed.
 falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) => {
   try {
     const publicKeyPem = getPublicKeyPem();
@@ -111,43 +114,37 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
       return res.status(503).json({ error: "Ed25519 identity not yet initialised" });
     }
 
-    const trustDocUrl = `${ARCHANGEL_BASE_URL}/.well-known/falkon-trust.json`;
+    const productionDomains = process.env.REPLIT_DOMAINS;
+    const primaryDomain = productionDomains
+      ? `https://${productionDomains.split(",")[0]!.trim()}`
+      : ARCHANGEL_BASE_URL;
+    const trustDocUrl = `${primaryDomain}/.well-known/falkon-trust.json`;
 
-    const resp = await fetch(`${GATEWAY_ORIGIN}/partners/${CLIENT_ID}/trust`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: CLIENT_ID,
-        partnerId: "archangel-halo",
-        trustDocUrl,
-        publicKeyPem,
-        spec: "falkon-trust/v1",
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-
-    const ok = resp.ok;
-    const body = await resp.json().catch(() => ({}));
+    // Use signed gatewayFetch — HALO proves its identity via Ed25519 signature
+    const { ok, falkonPublicKeyPem, body } = await submitTrustBinding(trustDocUrl, publicKeyPem);
 
     await setVerifStep("step2", {
       ok,
       trustDocUrl,
       publicKeyPem: publicKeyPem.slice(0, 80) + "…",
       ts: Date.now(),
+      signedRequest: true,
     });
 
     if (ok) {
-      // Cache Falkon's returned public key for webhook verification
-      const falkonPublicKey = (body as any)?.falkonPublicKeyPem;
-      if (falkonPublicKey) {
+      // Cache Falkon's returned public key for inbound webhook verification
+      if (falkonPublicKeyPem) {
         await db.execute(
           sql`INSERT INTO falkon_remote_identity
                 (id, partner_id, public_key_pem, algorithm, fetched_at, trust_doc_url, created_at)
               VALUES
-                (gen_random_uuid(), 'falkon-gateway', ${falkonPublicKey},
+                (gen_random_uuid(), 'falkon-gateway', ${falkonPublicKeyPem},
                  'Ed25519', now(), ${GATEWAY_ORIGIN}, now())
               ON CONFLICT DO NOTHING`,
         );
+        logger.info("falkon: Falkon gateway Ed25519 public key cached for webhook verification");
+      } else {
+        logger.warn("falkon: trust binding succeeded but Falkon did not return a public key — webhook verify will fall back to HMAC");
       }
 
       await db.execute(
@@ -157,7 +154,7 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
       );
     }
 
-    return res.json({ ok, step: 2, trustDocUrl, body });
+    return res.json({ ok, step: 2, trustDocUrl, signedRequest: true, body });
   } catch (err: any) {
     logger.error({ err }, "falkon verify step 2 failed");
     return res.status(500).json({ error: err.message });
@@ -703,10 +700,13 @@ falkonAdminRouter.get("/falkon/admin/inbound-events", async (req, res) => {
   }
 });
 
-// Mode ladder: only these transitions are allowed
+// Mode ladder: SHADOW → ASSISTED only.
+// LIVE mode is never auto-promoted from this UI — it requires a separate
+// explicit Falkon partnership enablement process. Blocking LIVE here prevents
+// accidental autonomous execution from this admin surface.
 const MODE_LADDER: Record<string, string> = {
   SHADOW: "ASSISTED",
-  ASSISTED: "LIVE",
+  // ASSISTED → LIVE intentionally absent: LIVE requires explicit Falkon enablement
 };
 
 falkonAdminRouter.post("/falkon/admin/eligibility/promote", async (req, res) => {
@@ -716,12 +716,22 @@ falkonAdminRouter.post("/falkon/admin/eligibility/promote", async (req, res) => 
 
     const currentMode = conn.mode ?? "SHADOW";
     const targetMode = req.body?.targetMode as string | undefined;
+
+    // Hard stop: LIVE mode is never permitted from this endpoint
+    if (targetMode === "LIVE") {
+      return res.status(400).json({
+        error: "LIVE mode requires a separate explicit Falkon partnership enablement process. This endpoint only promotes to ASSISTED.",
+        currentMode,
+        allowedTarget: MODE_LADDER[currentMode] ?? null,
+      });
+    }
+
     const promoteTo = targetMode ?? MODE_LADDER[currentMode];
 
     // Gate 1: target mode must be the next rung on the ladder
     if (!promoteTo || MODE_LADDER[currentMode] !== promoteTo) {
       return res.status(400).json({
-        error: `Invalid promotion: ${currentMode} → ${promoteTo ?? "?"} is not an allowed transition. Mode must advance SHADOW → ASSISTED → LIVE.`,
+        error: `Invalid promotion: ${currentMode} → ${promoteTo ?? "?"} is not an allowed transition. Only SHADOW → ASSISTED is permitted.`,
         currentMode,
         allowedTarget: MODE_LADDER[currentMode] ?? null,
       });
