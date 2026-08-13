@@ -155,7 +155,20 @@ import { ser } from "../lib/serialize";
 import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
 import { ensurePropertiesGeocoded } from "../lib/geocode";
 
+import { crewPortalExposed } from "../lib/crewCheckinCore";
+
 const router: IRouter = Router();
+
+router.use((req, res, next) => {
+  if (crewPortalExposed(process.env)) {
+    next();
+    return;
+  }
+  res.status(410).json({
+    error: "The crew portal is retired. Use your check-in link.",
+    code: "crew_portal_retired",
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Password login — no link needed.

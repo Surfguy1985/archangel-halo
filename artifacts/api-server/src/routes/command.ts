@@ -46,6 +46,7 @@ import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
 import { authorizeAction, primaryRole } from "../lib/enforcerCore";
+import { mintCrewToken } from "../lib/crewCheckinCore";
 
 const router: IRouter = Router();
 
@@ -1121,18 +1122,19 @@ async function dispatchAutoAction(
         return `No active crew member found matching "${crewName}".`;
       }
 
-      const { randomBytes } = await import("crypto");
-      const token = "crew_" + randomBytes(12).toString("hex");
+      const minted = mintCrewToken();
       const expiresAt = new Date(Date.now() + Number(expiresInDays) * 86_400_000);
 
       await db.insert(crewCheckinLinksTable).values({
-        token,
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
         crewId: match.id,
         expiresAt,
         label: `${match.name} — check-in link`,
       });
 
-      const url = `${baseUrl}/checkin/${token}`;
+      const url = `${baseUrl}/checkin/${minted.token}`;
       const firstName = match.name.split(" ")[0];
       const smsText =
         `Hi ${firstName} 👋 Here's your HALO check-in link:\n${url}\n\nBookmark it and tap when you arrive or leave.`;
@@ -1141,7 +1143,7 @@ async function dispatchAutoAction(
         type: "crew_link",
         crewName: match.name,
         url,
-        token,
+        token: minted.token,
         smsText,
         expiresAt: expiresAt.toISOString(),
       });

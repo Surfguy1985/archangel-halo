@@ -49,11 +49,24 @@ export const pmLinkAuditTable = pgTable("pm_link_audit", {
 
 export const crewCheckinLinksTable = pgTable("crew_checkin_links", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** Legacy plaintext or `h:<token_hash>` placeholder — never the live bearer for new rows. */
   token: text("token").unique().notNull(),
+  tokenHash: text("token_hash").unique(),
+  tokenPrefix: text("token_prefix"),
   crewId: uuid("crew_id").notNull(),
   /** e.g. "Marcus — check-in link" */
   label: text("label"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),
+});
+
+export const crewCheckinAuditTable = pgTable("crew_checkin_audit", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  linkId: uuid("link_id").notNull(),
+  action: text("action").notNull(), // created | accessed | checkin | checkout | location | revoked | denied
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  ipHash: text("ip_hash"),
+  detail: jsonb("detail").$type<Record<string, unknown>>(),
 });

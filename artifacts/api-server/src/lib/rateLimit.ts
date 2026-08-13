@@ -90,6 +90,10 @@ export const limits = {
   pmChat: rateLimit({ limit: 30, windowMs: 5 * 60_000 }),
   /** PM live view bundle */
   pmView: rateLimit({ limit: 60, windowMs: 60_000 }),
+  /** Crew check-in page load */
+  checkinView: rateLimit({ limit: 60, windowMs: 60_000 }),
+  /** Check-in / check-out taps — human speed; scripts 429 */
+  checkinWrite: rateLimit({ limit: 20, windowMs: 60_000 }),
 };
 
 /**
