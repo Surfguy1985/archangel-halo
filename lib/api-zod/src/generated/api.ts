@@ -3602,16 +3602,7 @@ export const ListJobBoardResponseItem = zod.object({
   "status": zod.string().describe('pending | approved | declined'),
   "sentAt": zod.string().nullish(),
   "respondedAt": zod.string().nullish()
-})),
-  "paymentRequest": zod.union([zod.object({
-  "id": zod.string(),
-  "requestNo": zod.string(),
-  "total": zod.number(),
-  "status": zod.string(),
-  "memo": zod.string().nullish(),
-  "sentAt": zod.string().nullish(),
-  "paidAt": zod.string().nullish()
-}), zod.null()]).optional()
+}))
 })
 export const ListJobBoardResponse = zod.array(ListJobBoardResponseItem)
 
@@ -4359,19 +4350,7 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)'),
-  "unitNo": zod.string().nullish(),
-  "photos": zod.array(zod.object({
-  "id": zod.string(),
-  "url": zod.string(),
-  "phase": zod.string().nullish(),
-  "note": zod.string().nullish()
-})).optional().describe('Before/after photos for this crew\'s current job'),
-  "services": zod.array(zod.object({
-  "id": zod.string(),
-  "service": zod.string(),
-  "done": zod.boolean()
-})).optional().describe('Line items / services this crew is completing today')
+})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)')
 })
 export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
 
@@ -6584,13 +6563,6 @@ export const GetPortalResponse = zod.object({
   "leaderId": zod.string().nullish(),
   "leaderName": zod.string().nullish()
 }),
-  "approvedWalks": zod.array(zod.object({
-  "jobId": zod.string(),
-  "jobNo": zod.string().nullish(),
-  "propertyName": zod.string().nullish(),
-  "unitNo": zod.string().nullish(),
-  "approvedAt": zod.string()
-})).optional(),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
   "kind": zod.string().nullish().describe('job | event'),
@@ -7044,7 +7016,6 @@ export const ListPortalJobsResponseItem = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string().nullish(),
-  "scheduledOn": zod.string().nullish().describe('YYYY-MM-DD scheduled date for this job; null if unscheduled'),
   "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
   "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
   "lineItems": zod.array(zod.object({
@@ -7458,26 +7429,6 @@ export const GetPortalEarningsResponse = zod.object({
   "heldAt": zod.string(),
   "releasedAt": zod.string().nullish()
 }))
-})
-
-
-/**
- * @summary Master payout service catalog and per-job eligible services for this crew
- */
-export const GetPortalServicesParams = zod.object({
-  "token": zod.coerce.string()
-})
-
-export const GetPortalServicesResponseCatalogItem = zod.object({
-  "service": zod.string(),
-  "unit": zod.string().nullish(),
-  "rate": zod.number(),
-  "category": zod.string().nullish()
-})
-
-export const GetPortalServicesResponse = zod.object({
-  "catalog": zod.array(GetPortalServicesResponseCatalogItem),
-  "byJob": zod.record(zod.string(), zod.array(zod.string()))
 })
 
 
@@ -12820,18 +12771,7 @@ export const GetClientBoardMapResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)'),
-  "photos": zod.array(zod.object({
-  "id": zod.string(),
-  "url": zod.string(),
-  "phase": zod.string().nullish(),
-  "note": zod.string().nullish()
-})).optional().describe('Before/after photos for this crew\'s current job'),
-  "services": zod.array(zod.object({
-  "id": zod.string(),
-  "service": zod.string(),
-  "done": zod.boolean()
-})).optional().describe('Line items / services this crew is completing today')
+})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)')
 })),
   "happenings": zod.array(zod.object({
   "at": zod.string(),

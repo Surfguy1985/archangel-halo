@@ -40,21 +40,4 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
-  /** @nullable */
-  unitNo?: string | null;
-  /** Before/after photos for this crew's current job */
-  photos?: {
-    id: string;
-    url: string;
-    /** @nullable */
-    phase?: string | null;
-    /** @nullable */
-    note?: string | null;
-  }[];
-  /** Line items / services this crew is completing today */
-  services?: {
-    id: string;
-    service: string;
-    done: boolean;
-  }[];
 }

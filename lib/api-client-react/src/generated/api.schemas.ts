@@ -2903,19 +2903,6 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
-export interface JobBoardPaymentRequest {
-  id: string;
-  requestNo: string;
-  total: number;
-  status: string;
-  /** @nullable */
-  memo?: string | null;
-  /** @nullable */
-  sentAt?: string | null;
-  /** @nullable */
-  paidAt?: string | null;
-}
-
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2928,8 +2915,6 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
-  /** @nullable */
-  paymentRequest?: JobBoardPaymentRequest | null;
 }
 
 export interface CrewPayInput {
@@ -4951,8 +4936,6 @@ export interface PortalJob {
   unitNo?: string | null;
   /** @nullable */
   status?: string | null;
-  /** YYYY-MM-DD scheduled date; null if unscheduled @nullable */
-  scheduledOn?: string | null;
   /** True when this crew's latest check-in for this job is newer than any checkout (currently on site) */
   checkedIn?: boolean;
   /** True when this crew has checked out of this job (a checkout exists at/after the latest check-in) */
@@ -5301,24 +5284,12 @@ export interface PortalUnseen {
   pay: number;
 }
 
-export interface ApprovedWalk {
-  jobId: string;
-  /** @nullable */
-  jobNo?: string | null;
-  /** @nullable */
-  propertyName?: string | null;
-  /** @nullable */
-  unitNo?: string | null;
-  approvedAt: string;
-}
-
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
   emergencyOffers: PortalEmergencyOffer[];
   unseen: PortalUnseen;
-  approvedWalks?: ApprovedWalk[];
 }
 
 export interface PortalEmergencyCommitResult {
@@ -5350,20 +5321,6 @@ export interface PortalEarnings {
   payableTotal: number;
   paidTotal: number;
   holds: PortalEarningsHold[];
-}
-
-export interface PortalServicesCatalogItem {
-  service: string;
-  /** @nullable */
-  unit?: string | null;
-  rate: number;
-  /** @nullable */
-  category?: string | null;
-}
-
-export interface PortalServices {
-  catalog: PortalServicesCatalogItem[];
-  byJob: Record<string, string[]>;
 }
 
 export interface EmergencyCandidate {
