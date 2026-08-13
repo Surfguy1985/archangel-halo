@@ -78,6 +78,8 @@ export type FalkonEventType =
   | "schedule.created"
   | "schedule.reminder"
   | "schedule.cancelled"
+  // Make-ready pipeline
+  | "make_ready.phase_advanced"
   // System
   | "ping";
 

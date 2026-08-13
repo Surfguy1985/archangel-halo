@@ -513,6 +513,62 @@ export async function registerCapabilities(capabilities: {
   return data ?? { ok: true };
 }
 
+export interface GatewayPhaseTransitionResult {
+  ok: boolean;
+  recorded?: boolean;
+}
+
+/**
+ * Report a make-ready phase transition to the Falkon gateway.
+ *
+ * Called by advanceExecution in ASSISTED / LIVE mode so Falkon's copy of the
+ * execution stays in sync with HALO's. Never called in SHADOW mode — local
+ * writes only there.
+ *
+ * Fire-and-forget safe: callers should not await the error path.
+ */
+export async function reportPhaseTransition(params: {
+  executionId: string;
+  jobId: string | null;
+  propertyId: string;
+  unitLabel: string;
+  fromPhase: string;
+  toPhase: string;
+  completed: boolean;
+  gates: unknown[];
+}): Promise<GatewayPhaseTransitionResult> {
+  const mode = await getEffectiveMode();
+  const { data, error } = await gatewayFetch<GatewayPhaseTransitionResult>(
+    `/partners/${CLIENT_ID}/make-ready/transitions`,
+    {
+      method: "POST",
+      body: {
+        partnerId: PARTNER_ID,
+        tenant: TENANT,
+        executionId: params.executionId,
+        jobId: params.jobId,
+        propertyId: params.propertyId,
+        unitLabel: params.unitLabel,
+        fromPhase: params.fromPhase,
+        toPhase: params.toPhase,
+        completed: params.completed,
+        gates: params.gates,
+        _schema: "halo-falkon/v2",
+      },
+      mode,
+      timeoutMs: 8_000,
+    },
+  );
+  if (error) {
+    logger.warn(
+      { err: error, executionId: params.executionId, toPhase: params.toPhase },
+      "falkon: reportPhaseTransition failed",
+    );
+    return { ok: false };
+  }
+  return data ?? { ok: true, recorded: true };
+}
+
 /**
  * Deliver a single event to Falkon's event-ingestion endpoint.
  * Falls back to webhookUrl if eventIngestUrl is not configured.

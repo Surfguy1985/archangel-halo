@@ -24,6 +24,8 @@ import {
   falkonUnitsTable,
 } from "@workspace/db/schema";
 import { logger } from "./logger";
+import { emitFalkonEvent } from "./falkonEmit";
+import { reportPhaseTransition, getEffectiveMode } from "./falkonGateway";
 
 // ---------------------------------------------------------------------------
 // Phase definitions
@@ -433,6 +435,47 @@ export async function advanceExecution(
              ${JSON.stringify({ gates, gatesPass: gates.length, mode: exec.mode_at_start })}::jsonb,
              now())`,
     );
+
+    // In ASSISTED / LIVE mode: report the phase transition to the Falkon
+    // gateway and queue a make_ready.phase_advanced outbox event.
+    // SHADOW mode: local writes only — skip both.
+    const gatewayMode = await getEffectiveMode();
+    if (gatewayMode === "ASSISTED" || gatewayMode === "LIVE") {
+      // Fire-and-forget — a delivery failure must never break the advance.
+      void reportPhaseTransition({
+        executionId,
+        jobId: exec.job_id ?? null,
+        propertyId: exec.property_id,
+        unitLabel: exec.unit_label ?? "",
+        fromPhase: currentPhase,
+        toPhase: nextPhase,
+        completed,
+        gates,
+      }).catch((err) =>
+        logger.warn(
+          { err, executionId, toPhase: nextPhase },
+          "falkon: reportPhaseTransition threw unexpectedly",
+        ),
+      );
+
+      // Outbox event — delivered asynchronously by the scheduler.
+      await emitFalkonEvent(
+        "make_ready.phase_advanced",
+        "unit",
+        exec.unit_id ?? null,
+        {
+          executionId,
+          jobId: exec.job_id ?? null,
+          propertyId: exec.property_id,
+          unitLabel: exec.unit_label ?? "",
+          fromPhase: currentPhase,
+          toPhase: nextPhase,
+          completed,
+          gatesPass: gates.length,
+          mode: gatewayMode,
+        },
+      );
+    }
 
     return {
       advanced: true,
