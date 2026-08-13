@@ -27,6 +27,7 @@ import {
 import { smsEnabled, sendSms } from "../lib/sms";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
+import { isUniqueViolation } from "../lib/dbErrors";
 
 const router: IRouter = Router();
 
@@ -73,15 +74,6 @@ async function notifyForemanOfPendingMove(opts: {
 }
 
 const FINISHED = new Set(["complete", "paid", "cancelled"]);
-
-// Postgres unique-index violation. Drizzle wraps the pg error (DrizzleQueryError),
-// so the code may live on the error itself OR on its `cause`.
-export function isUniqueViolation(e: unknown): boolean {
-  const code =
-    (e as { code?: string })?.code ??
-    ((e as { cause?: { code?: string } })?.cause?.code);
-  return code === "23505";
-}
 
 type ChecklistItem = { id: string; text: string; done: boolean };
 

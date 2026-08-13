@@ -597,13 +597,7 @@ router.delete("/price-items/:id", async (req, res): Promise<void> => {
 
 // Drizzle sometimes wraps the pg error — the unique-violation code can live on
 // err.code OR err.cause.code depending on the driver path.
-function isPriceItemDuplicate(e: unknown): boolean {
-  if (typeof e !== "object" || e === null) return false;
-  const code =
-    (e as { code?: string }).code ??
-    ((e as { cause?: { code?: string } }).cause?.code);
-  return code === "23505";
-}
+import { isUniqueViolation as isPriceItemDuplicate } from "../lib/dbErrors";
 
 const duplicatePriceItemError = (service: string) =>
   `"${service}" is already on this property's price list. Edit the existing entry instead — two entries with the same name would make price autofill unpredictable.`;

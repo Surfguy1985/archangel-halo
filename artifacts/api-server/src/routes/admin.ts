@@ -48,6 +48,7 @@ import {
   GetClientBoardPushQuickPicksResponse,
 } from "@workspace/api-zod";
 import { raiseClientCard } from "../lib/clientBoard";
+import { isUniqueViolation } from "../lib/dbErrors";
 import {
   buildInvoiceModule,
   pickInvoiceForPush,
@@ -74,15 +75,6 @@ const STATUSES = new Set(["active", "paused", "cancelled"]);
 const ROLES = new Set(["admin", "member", "guest"]);
 
 class SeatError extends Error {}
-
-function isUniqueViolation(e: unknown): boolean {
-  return (
-    typeof e === "object" &&
-    e !== null &&
-    ("code" in e && (e as { code?: string }).code === "23505" ||
-      /duplicate key/i.test((e as Error).message ?? ""))
-  );
-}
 
 function escHtml(s: string): string {
   return s

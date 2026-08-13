@@ -40,6 +40,7 @@ import {
   GetCrewBankStatusResponse,
 } from "@workspace/api-zod";
 import { completeJsonWithImage } from "../lib/ai";
+import { isUniqueViolation } from "../lib/dbErrors";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { recomputeJobFinancials } from "../lib/jobFinance";
@@ -49,16 +50,6 @@ import { jobLabelMap } from "../lib/jobLabels";
 import { raiseClientCard, completeClientCard } from "../lib/clientBoard";
 
 const router: IRouter = Router();
-
-// Postgres unique-violation guard (crew_payouts_paid_crew_job_uq et al).
-function isUniqueViolation(e: unknown): boolean {
-  return (
-    typeof e === "object" &&
-    e !== null &&
-    ("code" in e && (e as { code?: string }).code === "23505" ||
-      ("cause" in e && isUniqueViolation((e as { cause?: unknown }).cause)))
-  );
-}
 
 function confirmationNo(prefix: string): string {
   return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;

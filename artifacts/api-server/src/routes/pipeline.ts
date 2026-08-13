@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAutoEmails } from "../lib/emailPolicy";
+import { isUniqueViolation } from "../lib/dbErrors";
 import { desc, eq, asc, and } from "drizzle-orm";
 import {
   db,
@@ -599,12 +600,6 @@ router.get("/bids", async (req, res): Promise<void> => {
     ),
   );
 });
-
-// Drizzle wraps pg errors — unique-violation checks must read err.code OR err.cause.code.
-function isUniqueViolation(err: unknown): boolean {
-  const e = err as { code?: string; cause?: { code?: string } };
-  return e?.code === "23505" || e?.cause?.code === "23505";
-}
 
 router.post("/bids", async (req, res): Promise<void> => {
   const body = CreateBidBody.parse(req.body);

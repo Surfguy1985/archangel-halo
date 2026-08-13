@@ -55,7 +55,8 @@ import {
   getJobChecklistType,
   type JobChecklistType,
 } from "../lib/jobChecklists";
-import { seedChecklist, jobShortLabel, isUniqueViolation } from "./dispatchBoard";
+import { seedChecklist, jobShortLabel } from "./dispatchBoard";
+import { isUniqueViolation } from "../lib/dbErrors";
 import { sendExpoPush } from "../lib/pushNotification";
 import {
   GetPortalDispatchParams,
