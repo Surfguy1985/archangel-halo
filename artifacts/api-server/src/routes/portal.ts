@@ -3419,6 +3419,7 @@ router.post(
             checklist,
             pendingJobId: null,
             moveRequestedAt: null,
+            moveReminderSentAt: null,
             updatedAt: new Date(),
           })
           .where(
@@ -3457,6 +3458,7 @@ router.post(
           status: "assigned",
           pendingJobId: null,
           moveRequestedAt: null,
+          moveReminderSentAt: null,
           updatedAt: new Date(),
         })
         .where(

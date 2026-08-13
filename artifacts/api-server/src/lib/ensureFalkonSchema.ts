@@ -274,6 +274,12 @@ const STATEMENTS: string[] = [
       'HALO''s first Falkon Network peer — entity formation, compliance, and LLC services.',
       now(), now())
    ON CONFLICT (domain) DO NOTHING`,
+
+  // ── Dispatch: move-reminder dedup column ─────────────────────────────────
+  // Idempotent startup migration for the foreman-nudge scheduler. Safe on
+  // every restart and on databases that already have the column.
+  `ALTER TABLE crew_dispatch_assignments
+     ADD COLUMN IF NOT EXISTS move_reminder_sent_at timestamptz`,
 ];
 
 // ---------------------------------------------------------------------------

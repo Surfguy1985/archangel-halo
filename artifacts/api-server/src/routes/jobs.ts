@@ -694,7 +694,12 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
       .where(eq(crewDispatchAssignmentsTable.jobId, id));
     await tx
       .update(crewDispatchAssignmentsTable)
-      .set({ status: "assigned", pendingJobId: null, moveRequestedAt: null })
+      .set({
+        status: "assigned",
+        pendingJobId: null,
+        moveRequestedAt: null,
+        moveReminderSentAt: null,
+      })
       .where(eq(crewDispatchAssignmentsTable.pendingJobId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.jobId, id));
     await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.jobId, id));

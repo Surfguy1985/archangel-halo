@@ -18,6 +18,7 @@ import { sendCampaignStepEmail } from "../routes/pipeline";
 import { getAutoEmails } from "./emailPolicy";
 import { logger } from "./logger";
 import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
+import { nudgeStaleForemanMoves } from "./foremanMoveNudge";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -45,6 +46,8 @@ let lastNoncePurge = 0;
 // New-card digests to clients: at most one email per account per hour.
 const CLIENT_CARD_DIGEST_MS = 60 * 60 * 1000;
 let lastClientCardDigest = 0;
+
+const FOREMAN_NUDGE_MS = 15 * 60 * 1000;
 let lastWingsBriefDate: string | null = null;
 
 function nowInEastern(): {
@@ -332,6 +335,12 @@ async function tick(): Promise<void> {
     await sendClientCardDigests();
   }
 
+  if (stamp - lastForemanNudge >= FOREMAN_NUDGE_MS) {
+    lastForemanNudge = stamp;
+    // nudgeStaleForemanMoves never throws; it logs its own failures.
+    await nudgeStaleForemanMoves();
+  }
+
   if (stamp - lastUrgentCheck >= URGENT_CHECK_MS) {
     lastUrgentCheck = stamp;
     try {
@@ -387,3 +396,5 @@ export function startScheduler(): void {
     "Email scheduler started",
   );
 }
+
+let lastForemanNudge = 0;

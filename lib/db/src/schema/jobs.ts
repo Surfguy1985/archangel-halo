@@ -228,6 +228,11 @@ export const crewDispatchAssignmentsTable = pgTable(
     checklist: jsonb("checklist").notNull().default([]),
     pendingJobId: uuid("pending_job_id"),
     moveRequestedAt: timestamp("move_requested_at", { withTimezone: true }),
+    // Set (atomically, claim-before-send) once the scheduler sends a reminder
+    // ping to the foreman. Clears to null when the move resolves (approve/decline).
+    moveReminderSentAt: timestamp("move_reminder_sent_at", {
+      withTimezone: true,
+    }),
     // PM approval of HALO Walk findings — set when the property manager approves
   // walk-captured work from the client board. Drives the gold flash on the
   // office job board so crews know this job has been greenlit by the client.
