@@ -7758,6 +7758,57 @@ export const ListCrewInvoicesResponse = zod.array(ListCrewInvoicesResponseItem)
 
 
 /**
+ * @summary All crew invoices across every crew — for the office A/P queue
+ */
+export const GetCrewInvoiceQueueQueryParams = zod.object({
+  "status": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional()
+})
+
+export const GetCrewInvoiceQueueResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish().describe('Human label for the linked job (job no + property + unit)'),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+}).and(zod.object({
+  "crewName": zod.string()
+}))
+export const GetCrewInvoiceQueueResponse = zod.array(GetCrewInvoiceQueueResponseItem)
+
+
+/**
  * @summary Admin review action on a crew-submitted invoice
  */
 export const ReviewCrewInvoiceParams = zod.object({

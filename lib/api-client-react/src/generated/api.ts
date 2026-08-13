@@ -145,6 +145,7 @@ import type {
   CrewInput,
   CrewInvoice,
   CrewInvoiceInput,
+  CrewInvoiceQueueItem,
   CrewInvoiceReviewInput,
   CrewMapPin,
   CrewMessage,
@@ -186,6 +187,7 @@ import type {
   GetBankReconciliationParams,
   GetCalendarParams,
   GetCashFlowReportParams,
+  GetCrewInvoiceQueueParams,
   GetProfitAndLossParams,
   GetTaxReportParams,
   GetWalkTargetParams,
@@ -17493,6 +17495,90 @@ export function useListCrewInvoices<TData = Awaited<ReturnType<typeof listCrewIn
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCrewInvoicesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCrewInvoiceQueueUrl = (params?: GetCrewInvoiceQueueParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/crew-invoice-queue?${stringifiedParams}` : `/api/crew-invoice-queue`
+}
+
+/**
+ * @summary All crew invoices across every crew — for the office A/P queue
+ */
+export const getCrewInvoiceQueue = async (params?: GetCrewInvoiceQueueParams, options?: RequestInit): Promise<CrewInvoiceQueueItem[]> => {
+
+  return customFetch<CrewInvoiceQueueItem[]>(getGetCrewInvoiceQueueUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewInvoiceQueueQueryKey = (params?: GetCrewInvoiceQueueParams,) => {
+    return [
+    `/api/crew-invoice-queue`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCrewInvoiceQueueQueryOptions = <TData = Awaited<ReturnType<typeof getCrewInvoiceQueue>>, TError = ErrorType<unknown>>(params?: GetCrewInvoiceQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewInvoiceQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewInvoiceQueueQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewInvoiceQueue>>> = ({ signal }) => getCrewInvoiceQueue(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewInvoiceQueue>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewInvoiceQueueQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewInvoiceQueue>>>
+export type GetCrewInvoiceQueueQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All crew invoices across every crew — for the office A/P queue
+ */
+
+export function useGetCrewInvoiceQueue<TData = Awaited<ReturnType<typeof getCrewInvoiceQueue>>, TError = ErrorType<unknown>>(
+ params?: GetCrewInvoiceQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewInvoiceQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewInvoiceQueueQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -5692,6 +5692,10 @@ export interface CrewInvoice {
   items: CrewInvoiceItem[];
 }
 
+export type CrewInvoiceQueueItem = CrewInvoice & {
+  crewName: string;
+};
+
 export interface LedgerAccount {
   id: string;
   code: string;
@@ -7889,6 +7893,17 @@ export type CompletePortalLineItem200 = {
   ok: boolean;
   /** True when this completion finished the whole job and moved it to Done */
   jobCompleted: boolean;
+};
+
+export type GetCrewInvoiceQueueParams = {
+/**
+ * submitted | approved | needs_corrections | paid — omit for all
+ */
+status?: string;
+/**
+ * Filter by crew name (case-insensitive, partial match)
+ */
+search?: string;
 };
 
 export type ListLedgerAccounts200 = {

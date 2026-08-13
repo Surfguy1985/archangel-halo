@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { InboundTab} from "./Payments/InboundTab";
 import { OutboundTab} from "./Payments/OutboundTab";
+import { CrewAPTab } from "./Payments/CrewAPTab";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2});
@@ -112,12 +113,16 @@ export default function Payments() {
         <TabsList className="flex gap-2 p-1 bg-white border border-border shadow-sm rounded-none max-w-fit">
           <TabsTrigger value="inbound" className="rounded-none font-bold text-xs px-6 py-2 data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white">Requests & Receiving</TabsTrigger>
           <TabsTrigger value="outbound" className="rounded-none font-bold text-xs px-6 py-2 data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white">Crew Payouts</TabsTrigger>
+          <TabsTrigger value="crew-ap" className="rounded-none font-bold text-xs px-6 py-2 data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white" data-testid="tab-crew-ap">Crew A/P</TabsTrigger>
         </TabsList>
         <TabsContent value="inbound" className="mt-6 space-y-4">
           <InboundTab />
         </TabsContent>
         <TabsContent value="outbound" className="mt-6 space-y-4">
           <OutboundTab />
+        </TabsContent>
+        <TabsContent value="crew-ap" className="mt-6 space-y-4">
+          <CrewAPTab />
         </TabsContent>
       </Tabs>
     </div>

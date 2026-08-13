@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, gte, lt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -63,6 +63,7 @@ import {
   GetCrewWorkHistoryParams,
   GetCrewWorkHistoryResponse,
   ListCrewInvoicesResponse,
+  GetCrewInvoiceQueueResponse,
   ReviewCrewInvoiceParams,
   ReviewCrewInvoiceBody,
   ReviewCrewInvoiceResponse,
@@ -818,6 +819,78 @@ router.get("/crews/:id/invoices", async (req, res): Promise<void> => {
         jobLabel: inv.jobId ? (labels.get(inv.jobId) ?? null) : null,
         items: items
           .filter((it) => it.invoiceId === inv.id)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((it) => ser(it)),
+      })),
+    ),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Crew A/P queue — all crew invoices across every crew (office view)
+// ---------------------------------------------------------------------------
+router.get("/crew-invoice-queue", async (req, res): Promise<void> => {
+  const statusFilter = typeof req.query.status === "string" ? req.query.status : null;
+  const searchRaw = typeof req.query.search === "string" ? req.query.search.trim() : null;
+
+  // Build joined query: crew_invoices ⨝ crews
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (statusFilter) {
+    conditions.push(eq(crewInvoicesTable.status, statusFilter));
+  }
+
+  const rows = await db
+    .select({
+      invoice: crewInvoicesTable,
+      crewName: crewsTable.name,
+    })
+    .from(crewInvoicesTable)
+    .innerJoin(crewsTable, eq(crewsTable.id, crewInvoicesTable.crewId))
+    .where(
+      and(
+        ...(conditions.length ? conditions : [sql`1=1`]),
+        searchRaw
+          ? ilike(crewsTable.name, `%${searchRaw}%`)
+          : undefined,
+      ),
+    )
+    // needs_corrections last; submitted first, then approved, paid — newest within each group
+    .orderBy(
+      sql`CASE ${crewInvoicesTable.status}
+        WHEN 'submitted' THEN 1
+        WHEN 'approved'  THEN 2
+        WHEN 'paid'      THEN 3
+        ELSE 4 END`,
+      desc(crewInvoicesTable.createdAt),
+    );
+
+  const invoiceIds = rows.map((r) => r.invoice.id);
+  const allItems =
+    invoiceIds.length > 0
+      ? await db
+          .select()
+          .from(crewInvoiceItemsTable)
+          .where(inArray(crewInvoiceItemsTable.invoiceId, invoiceIds))
+      : [];
+
+  const labels = await jobLabelMap(
+    rows.map((r) => r.invoice.jobId).filter((v): v is string => !!v),
+  );
+
+  const itemsByInvoice = new Map<string, typeof allItems>();
+  for (const it of allItems) {
+    const list = itemsByInvoice.get(it.invoiceId) ?? [];
+    list.push(it);
+    itemsByInvoice.set(it.invoiceId, list);
+  }
+
+  res.json(
+    GetCrewInvoiceQueueResponse.parse(
+      rows.map(({ invoice: inv, crewName }) => ({
+        ...ser(inv),
+        crewName,
+        jobLabel: inv.jobId ? (labels.get(inv.jobId) ?? null) : null,
+        items: (itemsByInvoice.get(inv.id) ?? [])
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((it) => ser(it)),
       })),

@@ -5552,6 +5552,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /crew-invoice-queue:
+    get:
+      operationId: getCrewInvoiceQueue
+      tags: [crew-portal]
+      summary: All crew invoices across every crew — for the office A/P queue
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, description: "submitted | approved | needs_corrections | paid — omit for all" }
+        - name: search
+          in: query
+          required: false
+          schema: { type: string, description: "Filter by crew name (case-insensitive, partial match)" }
+      responses:
+        "200":
+          description: Queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewInvoiceQueueItem"
+
   /crew-invoices/{id}:
     patch:
       operationId: reviewCrewInvoice
@@ -14376,6 +14400,14 @@ components:
           type: ["string", "null"]
           description: "Storage path of the client-generated invoice PDF (from presigned upload); when set, a document + message attachment are created."
         pdfName: { type: ["string", "null"] }
+    CrewInvoiceQueueItem:
+      allOf:
+        - $ref: "#/components/schemas/CrewInvoice"
+        - type: object
+          required: [crewName]
+          properties:
+            crewName: { type: string }
+
     CrewInvoiceItem:
       type: object
       required: [id, dateOfWork, typeOfWork, qty, unitPrice, amount]
