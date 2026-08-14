@@ -698,10 +698,58 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
       }
 
       // — Path B: standalone job (no matching unit card) ————————————————
-      const propertyId =
+      let existing = await lookupMap("crew_jobs", bid);
+      let propertyId =
         (await resolveUnitPropertyId(rec.unit_id)) ??
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
+
+      // RESCUE 1 — last known placement. If this crew_job was already filed
+      // into HALO on an earlier run (before its unit vanished upstream), the
+      // existing job row remembers the property. A dead unit_id must not
+      // orphan a record we have already placed correctly.
+      if (!propertyId && existing) {
+        const prev = await db
+          .select({ propertyId: jobsTable.propertyId })
+          .from(jobsTable)
+          .where(eq(jobsTable.id, existing))
+          .limit(1);
+        if (prev[0] && prev[0].propertyId) {
+          // The job is already filed. It may have been created by the
+          // unit-card path (its own jobNo, board progress), so patch only the
+          // payment fields — exactly like Path A — instead of overwriting it.
+          const patch: Record<string, unknown> = { crewRate };
+          if (crewLeaderId) patch.crewLeaderId = crewLeaderId;
+          if (paid) {
+            patch.boardStatus = "completed";
+            patch.status = "complete";
+          }
+          await db.update(jobsTable).set(patch).where(eq(jobsTable.id, existing));
+          updated++;
+          continue;
+        }
+        // Map points at a job that no longer exists — treat as unmapped.
+        existing = null;
+      }
+
+      // RESCUE 2 — infer from the crew's other work that day. Only accepted
+      // when it is unambiguous: every HALO job for this crew on this date is
+      // at ONE property. Anything ambiguous stays unplaced — never guess.
+      const workDate = toDateStr(rec.date ?? rec.scheduled_date);
+      if (!propertyId && crewLeaderId && workDate) {
+        const sameDay = await db
+          .select({ propertyId: jobsTable.propertyId })
+          .from(jobsTable)
+          .where(
+            and(
+              eq(jobsTable.crewLeaderId, crewLeaderId),
+              eq(jobsTable.scheduledOn, workDate),
+            ),
+          );
+        const distinct = [...new Set(sameDay.map((r) => r.propertyId).filter(Boolean))];
+        if (distinct.length === 1) propertyId = distinct[0] as string;
+      }
+
       if (!propertyId) { noteSkip("crew_jobs", bid, "unresolved_property"); continue; }
 
       let unitNo: string | null = null;
@@ -715,19 +763,21 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
       }
       const services = Array.isArray(rec.services_completed) ? rec.services_completed : [];
       const jobNo = String(rec.job_no ?? rec.jobNo ?? `B44-CJ-${bid.slice(-6)}`);
+      // Only write unitNo when we actually resolved one — a dead unit_id must
+      // not blank the label a previous run (or the office) already stored.
+      const resolvedUnitNo: string | null = unitNo ?? rec.unit_no ?? null;
       const payload = {
         jobNo,
         propertyId,
-        unitNo: unitNo ?? rec.unit_no ?? null,
         category: services[0] ?? null,
         description: services.length > 0 ? services.join(", ") : null,
         status: paid ? "complete" : "open",
         crewLeaderId: crewLeaderId ?? null,
-        scheduledOn: toDateStr(rec.date ?? rec.scheduled_date),
+        scheduledOn: workDate,
         crewRate,
         boardStatus: paid ? "completed" : "filled",
+        ...(resolvedUnitNo || !existing ? { unitNo: resolvedUnitNo } : {}),
       };
-      const existing = await lookupMap("crew_jobs", bid);
       if (existing) {
         await db.update(jobsTable).set(payload).where(eq(jobsTable.id, existing));
         updated++;

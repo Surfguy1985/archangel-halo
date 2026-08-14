@@ -71,3 +71,11 @@ Accessors return copies — never hand out the live array.
 - `price_items` fans out per property (N upstream items × M properties), so its count far exceeds the upstream count.
 
 **Why map table:** Adding `base44Id` columns to every production table is invasive and pollutes read models. The side-table approach is fully reversible.
+
+## Crew-job rescue fallbacks (unresolved property)
+When a crew_job's unit_id points at a unit gone from the upstream payload, syncCrewJobs no longer skips blindly. Order:
+1. Existing crew_jobs sync-map entry → the already-filed HALO job remembers the property; patch payment fields only (Path-A style, never overwrite jobNo/boardStatus downward).
+2. Unambiguous inference: all HALO jobs for that crew on the same scheduledOn date at exactly ONE property → use it. Ambiguous = stay unplaced.
+3. Otherwise noteSkip("crew_jobs", …, "unresolved_property") — visible via totalSkipped/unplaced, never guessed.
+**Why:** two paid Work App jobs were dropped every run even though their HALO job rows already existed — the unresolved_property guard ran before the own-mapping lookup.
+Also: a dead unit_id must not blank unitNo on update (unitNo only written when resolved or on insert).
