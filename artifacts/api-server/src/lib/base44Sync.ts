@@ -56,55 +56,20 @@ function b44Id(rec: Record<string, any>): string | null {
 }
 
 /** Read the HALO UUID we previously assigned to a Base44 entity. */
-/**
- * An upstream row the sync could not place — missing id, unresolvable property,
- * and so on.
- *
- * These guards used to `continue` silently, so rows the Work App was still
- * serving (including paid crew jobs) disappeared on every run with no error, no
- * log and no count: the sync reported a clean success while quietly dropping
- * them. They are collected per run and rolled into the result instead.
- */
-export interface SyncSkip {
-  resource: string;
-  base44Id: string | null;
-  reason: string;
-}
+// Skip accounting (noteSkip & friends) lives in base44SyncSkips.ts so the
+// behaviour is locked in by unit tests without a database. Every guard clause
+// in the sync functions below must call noteSkip — never a bare `continue` —
+// or upstream rows silently vanish (undetected for 881 runs once already).
+import {
+  foldSkipsIntoResources,
+  getLastSyncSkips,
+  getSkipSummary,
+  noteSkip,
+  resetSkips,
+  type SyncSkip,
+} from "./base44SyncSkips";
 
-/**
- * Cap on retained skip detail. Counts are always exact; only the per-row detail
- * is bounded, so a malformed or vastly expanded snapshot can't pin every skipped
- * row in memory and dump it into the status response.
- */
-const MAX_SKIP_DETAIL = 200;
-
-let skipLog: SyncSkip[] = [];
-let skipCount = 0;
-let skipByResource: Record<string, number> = {};
-let skipByReason: Record<string, number> = {};
-
-function resetSkips(): void {
-  skipLog = [];
-  skipCount = 0;
-  skipByResource = {};
-  skipByReason = {};
-}
-
-function noteSkip(resource: string, base44Id: string | null, reason: string): void {
-  skipCount += 1;
-  skipByResource[resource] = (skipByResource[resource] ?? 0) + 1;
-  const key = `${resource}:${reason}`;
-  skipByReason[key] = (skipByReason[key] ?? 0) + 1;
-  if (skipLog.length < MAX_SKIP_DETAIL) skipLog.push({ resource, base44Id, reason });
-}
-
-/**
- * Unplaced rows from the most recent run, for the sync status surface.
- * Returns copies — callers must not be able to mutate operational state.
- */
-export function getLastSyncSkips(): SyncSkip[] {
-  return skipLog.map((s) => ({ ...s }));
-}
+export { getLastSyncSkips, type SyncSkip };
 
 async function lookupMap(resource: string, base44id: string): Promise<string | null> {
   const rows = await db
@@ -1244,7 +1209,7 @@ export function getBase44SyncHealth(now = new Date()): SyncHealth {
     stale: lastSyncResult?.totalStale ?? 0,
     unplaced: lastSyncResult?.totalSkipped ?? 0,
     unplacedDetail: getLastSyncSkips(),
-    unplacedDetailTruncated: (lastSyncResult?.totalSkipped ?? 0) > skipLog.length,
+    unplacedDetailTruncated: (lastSyncResult?.totalSkipped ?? 0) > getLastSyncSkips().length,
     result: lastSyncResult,
   };
 }
@@ -1442,17 +1407,15 @@ export async function runBase44Sync(opts?: {
     // Fold unplaced rows into the per-resource stats so they show up next to
     // the counts they were missing from. Driven by the exact counters, not the
     // capped detail list.
-    for (const [resource, count] of Object.entries(skipByResource)) {
-      const bucket = (resources[resource] ??= { created: 0, updated: 0, errors: 0 });
-      bucket.skipped = (bucket.skipped ?? 0) + count;
-    }
-    if (skipCount > 0) {
+    const totalSkipped = foldSkipsIntoResources(resources);
+    if (totalSkipped > 0) {
+      const skips = getSkipSummary();
       logger.warn(
         {
-          total: skipCount,
-          byReason: skipByReason,
-          sample: skipLog.slice(0, 20),
-          detailTruncated: skipCount > skipLog.length,
+          total: skips.total,
+          byReason: skips.byReason,
+          sample: getLastSyncSkips().slice(0, 20),
+          detailTruncated: skips.detailTruncated,
         },
         "base44 sync: upstream rows could not be placed into HALO",
       );
@@ -1468,7 +1431,7 @@ export async function runBase44Sync(opts?: {
       totalUpdated: ingest.totalUpdated,
       totalStale: ingest.totalStale,
       totalErrors: ingest.totalErrors + compatErrors,
-      totalSkipped: skipCount,
+      totalSkipped: getSkipSummary().total,
     });
     await persistRun(result);
     logger.info(
@@ -1494,7 +1457,7 @@ export async function runBase44Sync(opts?: {
       totalUpdated: 0,
       totalStale: 0,
       totalErrors: 1,
-      totalSkipped: skipCount,
+      totalSkipped: getSkipSummary().total,
     });
     await persistRun(result);
     return result;
