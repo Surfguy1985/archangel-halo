@@ -3488,10 +3488,20 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
     return;
   }
   const propertyId = account.propertyId;
+
+  // Resolve viewer to enforce financial permission server-side.
+  // Guests and viewers without the 'invoices' permission receive
+  // zeroed invoice fields — the query is still run for unit/job KPIs.
+  const viewer = await resolveViewer(req, propertyId);
+  const hasFinancialAccess = viewer.permissions.includes("invoices");
+
   const [jobs, requests, invoices, mappedUnits, { byUnit: unitStatuses }] = await Promise.all([
     db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
     db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
-    db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
+    // Only fetch invoices when the viewer is entitled; skip the query otherwise.
+    hasFinancialAccess
+      ? db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId))
+      : Promise.resolve([] as (typeof invoicesTable.$inferSelect)[]),
     db
       .select({ label: propertyUnitsTable.label })
       .from(propertyUnitsTable)
@@ -3507,14 +3517,22 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
       .map((j) => j.scheduledOn!)
       .filter((d) => d >= new Date(now).toISOString().slice(0, 10))
       .sort()[0] ?? null;
-  const unpaid = invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled");
-  const outstanding = unpaid.reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
-  const overdue = unpaid
-    .filter((i) => i.dueAt && i.dueAt.getTime() < now)
-    .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
-  const paidLast30 = invoices
-    .filter((i) => i.status === "paid" && i.paidAt && now - i.paidAt.getTime() < 30 * DAY)
-    .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+
+  // Financial aggregates — zeroed for viewers without the invoices permission.
+  let outstanding = 0;
+  let overdue = 0;
+  let paidLast30 = 0;
+  if (hasFinancialAccess) {
+    const unpaid = invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled");
+    outstanding = unpaid.reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+    overdue = unpaid
+      .filter((i) => i.dueAt && i.dueAt.getTime() < now)
+      .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+    paidLast30 = invoices
+      .filter((i) => i.status === "paid" && i.paidAt && now - i.paidAt.getTime() < 30 * DAY)
+      .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+  }
+
   // Unit health from the same status source as the Units page (/unit-map):
   // union of mapped units and units seen in HALO data, each colored by
   // computeUnitStatuses (red/yellow/green keyed by normalized unit label).
@@ -3563,11 +3581,20 @@ router.get("/client/:token/briefing", async (req, res): Promise<void> => {
   const DAY = 86_400_000;
   const now = Date.now();
 
+  // Resolve viewer so financial items can be enforced server-side.
+  // Guests and viewers without the 'invoices' permission receive a briefing
+  // with invoice-category items omitted and budget amounts redacted.
+  const viewer = await resolveViewer(req, propertyId);
+  const hasFinancialAccess = viewer.permissions.includes("invoices");
+
   const [prop, jobs, requests, invoices] = await Promise.all([
     db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1),
     db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
     db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
-    db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
+    // Only fetch invoices for entitled viewers.
+    hasFinancialAccess
+      ? db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId))
+      : Promise.resolve([] as (typeof invoicesTable.$inferSelect)[]),
   ]);
   const jobIds = jobs.map((j) => j.id);
   const checkins = jobIds.length
@@ -3607,12 +3634,14 @@ router.get("/client/:token/briefing", async (req, res): Promise<void> => {
       entityId: r.id,
       actionLabel: null,
       actionKey: null,
-      amount: r.budgetEstimate ?? null,
+      // Budget estimates are financial data — only expose to entitled viewers.
+      amount: hasFinancialAccess ? (r.budgetEstimate ?? null) : null,
       customerImpact: true,
     });
   }
 
-  // Overdue invoices
+  // Overdue invoices — only visible to viewers with financial access.
+  // The invoices array is already empty for non-entitled viewers (skipped query above).
   for (const i of invoices.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled" && inv.dueAt && inv.dueAt.getTime() < now)) {
     const late = Math.floor((now - i.dueAt!.getTime()) / DAY);
     items.push({

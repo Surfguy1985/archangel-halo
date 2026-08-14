@@ -1,24 +1,18 @@
 /**
  * Halo One — the client / property-manager conversational home.
  *
- * FIXED SEED: opens with a centered full-screen welcome matching the premium
- * near-black HALO design language — glowing ring, "Hi." greeting, one large
- * rounded command composer, four Try Asking cards scoped to the PM's role.
+ * FULL PARITY update:
+ * - Premium seed screen with property-name greeting & auto-loaded morning brief strip
+ * - Six inline client-safe lenses (brief / unit-detail / crew-arrival / evidence /
+ *   blocker / financial / map) rendered WITHOUT board navigation
+ * - Intent routing: detectClientIntent() classifies input and dispatches the right card
+ * - Voice input via Web Speech API (useSpeechInput hook)
+ * - Conversation history hydrated from GET /client/:token/concierge/history on mount
+ * - Board stays as explicit fallback (nav bar second position)
  *
- * THREAD: once the PM sends a message the seed fades and the conversation fills
- * the screen. All existing board actions (approve, decline, dispatch, pay) remain
- * fully functional through the ConciergeChat SSE endpoint and ConfirmCard chips.
- *
- * Role safety: every PM-facing action goes through the existing
- * /api/client/:token/concierge endpoint with HMAC sessions. Consequential
- * mutations only execute after the PM taps a confirm chip (jti claimed in DB
- * pre-execution). Vendor/crew surfaces are NOT exposed here.
- *
- * "Board" nav: a bottom strip exposes Chat (active) and Board (the full rails
- * board, units, map, hub). Nothing is removed — the existing board is one tap
- * away.
- *
- * Thread persists at module level across navigations.
+ * Role safety: every PM-facing mutation goes through the existing
+ * /api/client/:token/concierge endpoint with HMAC sessions.
+ * Lens components ONLY fetch from /client/:token/* endpoints — no office API calls.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -27,15 +21,18 @@ import {
   useGetClientBoard,
   useDispatchClientBoardAction,
   getGetClientBoardQueryKey,
-  getGetClientPmBoardQueryKey,
+  useGetClientBriefing,
+  getGetClientBriefingQueryKey,
   type ClientBoardCardView,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { useBoardEvents } from '@workspace/board-ui';
+import { useSpeechInput } from '@/hooks/useSpeechInput';
 import {
   Mic,
+  MicOff,
   Send,
   Loader2,
   CheckCircle2,
@@ -50,16 +47,38 @@ import {
   CheckSquare,
   FileText,
   X,
-  Footprints,
   MapPin,
   BookOpen,
   Users,
   Bell,
+  Camera,
+  Clock,
 } from 'lucide-react';
+
+// Lens components
+import { ClientBriefCard } from '@/components/halo/ClientBriefCard';
+import { UnitDetailCard } from '@/components/halo/UnitDetailCard';
+import { CrewArrivalCard } from '@/components/halo/CrewArrivalCard';
+import { ClientEvidenceCard } from '@/components/halo/ClientEvidenceCard';
+import { UnitBlockerCard } from '@/components/halo/UnitBlockerCard';
+import { ClientFinancialCard } from '@/components/halo/ClientFinancialCard';
+import { ClientMapCard } from '@/components/halo/ClientMapCard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Chip = { id: string; label: string; summary: string; confirmToken: string; expiresAt: string };
+
+type ClientIntent =
+  | { kind: 'brief' }
+  | { kind: 'unit-detail'; label: string }
+  | { kind: 'crew-arrival' }
+  | { kind: 'evidence'; label?: string }
+  | { kind: 'blocker'; label: string }
+  | { kind: 'request-work'; label: string }
+  | { kind: 'financial' }
+  | { kind: 'map' }
+  | { kind: 'board' }
+  | { kind: 'concierge' };
 
 type TMsg =
   | { id: string; kind: 'user'; text: string }
@@ -68,12 +87,20 @@ type TMsg =
   | { id: string; kind: 'success'; text: string }
   | { id: string; kind: 'error'; text: string }
   | { id: string; kind: 'needs-you' }
-  | { id: string; kind: 'happening-now' };
+  | { id: string; kind: 'happening-now' }
+  | { id: string; kind: 'lens-brief' }
+  | { id: string; kind: 'lens-unit'; label: string }
+  | { id: string; kind: 'lens-crew' }
+  | { id: string; kind: 'lens-evidence'; label?: string }
+  | { id: string; kind: 'lens-blocker'; label: string }
+  | { id: string; kind: 'lens-financial' }
+  | { id: string; kind: 'lens-map' };
 
 // ─── Module-level thread persistence ─────────────────────────────────────────
 
 let _savedThread: TMsg[] | null = null;
 let _savedToken: string | null = null;
+const _hydratedFor = new Set<string>(); // prevent re-fetch on in-app navigation
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
@@ -102,6 +129,10 @@ const KEYFRAMES = `
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
+@keyframes h1MicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(228,29,72,0.35); }
+  50%       { box-shadow: 0 0 0 6px rgba(228,29,72,0); }
+}
 @media (prefers-reduced-motion: reduce) {
   .h1-msg, .h1-seed { animation: none !important; }
 }
@@ -118,46 +149,66 @@ const AMBIENT_MSGS = [
   'Scanning for pending approvals…',
 ];
 
-// ─── Try Asking cards (client-scoped) ─────────────────────────────────────────
+// ─── Intent detection ─────────────────────────────────────────────────────────
 
-type TryAskCard = {
-  label: string;
-  sub: string;
-  icon: typeof DollarSign;
-  iconColor: string;
-  query: string;
-};
+function detectClientIntent(input: string): ClientIntent {
+  const t = input.toLowerCase().trim();
 
-const CLIENT_TRY_ASKING: TryAskCard[] = [
-  {
-    label: "What needs my approval?",
-    sub: "Decisions waiting on you",
-    icon: CheckSquare,
-    iconColor: "#E11D48",
-    query: "What needs my approval right now?",
-  },
-  {
-    label: "Status of my units",
-    sub: "Turns, occupancy & active jobs",
-    icon: Home,
-    iconColor: "#3B82F6",
-    query: "What's the status of my units?",
-  },
-  {
-    label: "Who's on site today?",
-    sub: "Active crews and check-ins",
-    icon: Users,
-    iconColor: "#22C55E",
-    query: "Who's on site at my property today?",
-  },
-  {
-    label: "Submit a work request",
-    sub: "Log a new maintenance need",
-    icon: Wrench,
-    iconColor: "#F59E0B",
-    query: "I need to submit a work request",
-  },
-];
+  // Board navigation explicit requests
+  if (/\b(open|show|go to|see|view)\b.*\bboard\b|\bboard\b.*(open|show|view)/.test(t) ||
+      t === 'board') {
+    return { kind: 'board' };
+  }
+
+  // Financial
+  if (/\b(spend|spent|cost|total|invoice|financial|budget|paid|outstanding|overdue|money|dollar)\b/.test(t)) {
+    return { kind: 'financial' };
+  }
+
+  // Map
+  if (/\b(map|location|where.*property|property.*map|show.*map)\b/.test(t)) {
+    return { kind: 'map' };
+  }
+
+  // Crew arrival
+  if (/\b(crew|arrived|check[\s-]?in|on[\s-]?site|there yet|show up|checked in)\b/.test(t) &&
+      !/unit\s+\w+/.test(t)) {
+    return { kind: 'crew-arrival' };
+  }
+
+  // Evidence / photos
+  if (/\b(photo|before|after|evidence|picture|image|pic)\b/.test(t)) {
+    const unitMatch = t.match(/unit\s+([a-z0-9\-]+)/i) ?? t.match(/\b([0-9]{3,4}[a-z]?)\b/);
+    return { kind: 'evidence', label: unitMatch?.[1] };
+  }
+
+  // Blocker / what's preventing
+  if (/\b(prevent|block|hold|delay|why.*not ready|what.*stop|barrier|obstacle|issue)\b/.test(t)) {
+    const unitMatch = t.match(/unit\s+([a-z0-9\-]+)/i) ?? t.match(/\b([0-9]{3,4}[a-z]?)\b/);
+    if (unitMatch) return { kind: 'blocker', label: unitMatch[1] };
+  }
+
+  // Unit detail — "show me unit 312" / "unit 312 status"
+  const unitMatch = t.match(/unit\s+([a-z0-9\-]+)/i) ??
+    (t.includes('show') || t.includes('status') || t.includes('what') || t.includes('tell')
+      ? t.match(/\b([0-9]{3,4}[a-z]?)\b/) : null);
+  if (unitMatch) {
+    const label = unitMatch[1];
+    // request-work sub-intent
+    if (/\b(request|submit|need.*work|work.*request|fix|repair|replace)\b/.test(t)) {
+      return { kind: 'request-work', label };
+    }
+    return { kind: 'unit-detail', label };
+  }
+
+  // Brief
+  if (/\b(brief|briefing|morning|today|priority|urgent|delay|move[\s-]?in|risk)\b/.test(t)) {
+    return { kind: 'brief' };
+  }
+
+  // Default: pass through to concierge
+  return { kind: 'concierge' };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -265,14 +316,8 @@ function UserBubble({ text }: { text: string }) {
 // ─── Needs You inline summary ─────────────────────────────────────────────────
 
 function NeedsYouInline({
-  cards,
-  token,
-  onAsk,
-}: {
-  cards: ClientBoardCardView[];
-  token: string;
-  onAsk: (text: string) => void;
-}) {
+  cards, token, onAsk,
+}: { cards: ClientBoardCardView[]; token: string; onAsk: (text: string) => void }) {
   const dispatch = useDispatchClientBoardAction();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -290,15 +335,15 @@ function NeedsYouInline({
         qc.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
         toast({ title: r.message ?? 'Done' });
       }
-    } catch (e: any) {
-      toast({ title: e?.data?.error ?? 'Something went wrong', variant: 'destructive' });
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string } };
+      toast({ title: err?.data?.error ?? 'Something went wrong', variant: 'destructive' });
     } finally {
       setActing(p => { const n = { ...p }; delete n[k]; return n; });
     }
   };
 
   const visible = cards.filter(c => !resolved.has(c.cardKey ?? '')).slice(0, 4);
-
   if (visible.length === 0) {
     return (
       <div className="flex items-center gap-3 bg-[#22C55E]/6 border border-[#22C55E]/12 rounded-[14px] px-4 py-3 mb-3">
@@ -356,45 +401,55 @@ function NeedsYouInline({
   );
 }
 
-// ─── Happening Now strip ──────────────────────────────────────────────────────
+// ─── Compact brief strip (seed state top item) ─────────────────────────────────
 
-function HappeningNow({
-  cards,
-  onNavigate,
-}: {
-  cards: ClientBoardCardView[];
-  onNavigate: () => void;
-}) {
-  const active = cards.filter(c => c.lane && c.lane !== 'done' && !c.needsAction);
-  const byLane = active.reduce<Record<string, number>>((acc, c) => {
-    const l = c.lane ?? 'other'; acc[l] = (acc[l] ?? 0) + 1; return acc;
-  }, {});
-  const groups = Object.entries(byLane).sort(([a], [b]) => {
-    const order = ['in_progress', 'scheduled', 'review', 'requested', 'alerts'];
-    return (order.indexOf(a) ?? 99) - (order.indexOf(b) ?? 99);
-  }).slice(0, 3);
+const FINANCIAL_BRIEF_CATEGORIES = new Set(['Invoices']);
 
-  if (groups.length === 0) return (
-    <div className="flex items-center gap-2.5 bg-white/[0.022] border border-white/5 rounded-[13px] px-4 py-3 mb-3">
-      <span className="text-[12px] text-white/28">No active operations right now.</span>
-    </div>
+function CompactBriefStrip({ token, permissions, onAsk }: { token: string; permissions: string[]; onAsk: (q: string) => void }) {
+  const hasFinancialAccess = permissions.includes('invoices') || permissions.includes('financial');
+  const { data, isLoading } = useGetClientBriefing(token, {
+    query: { queryKey: getGetClientBriefingQueryKey(token) },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-[11px] bg-white/[0.03] border border-white/6 mb-5">
+        <Loader2 className="w-3 h-3 text-[#B4FF44]/40 animate-spin shrink-0" />
+        <span className="text-[11px] text-white/28">Checking for urgent items…</span>
+      </div>
+    );
+  }
+
+  const filtered = (data?.items ?? []).filter(
+    item => hasFinancialAccess || !FINANCIAL_BRIEF_CATEGORIES.has(item.category)
   );
+  const top = filtered[0];
+  if (!top) return null;
+
+  const isUrgent = top.urgency >= 75;
+  const accentColor = isUrgent ? '#E11D48' : '#F59E0B';
 
   return (
-    <div className="space-y-1.5 mb-3">
-      {groups.map(([lane, count]) => {
-        const color = getLaneColor(lane);
-        const label = ({ in_progress: 'In Progress', scheduled: 'Scheduled', review: 'Under Review', requested: 'Requested', alerts: 'Alert' })[lane] ?? lane.replace(/_/g, ' ');
-        return (
-          <button key={lane} onClick={onNavigate}
-            className="w-full flex items-center gap-3 bg-white/[0.025] border border-white/5 rounded-[12px] px-4 py-3 hover:bg-white/[0.04] transition-colors active:scale-[0.98]">
-            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 5px ${color}55` }} />
-            <span className="text-[12.5px] text-white/68 font-medium flex-1 text-left">{count} {count === 1 ? 'item' : 'items'} — {label}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-white/18 shrink-0" />
-          </button>
-        );
-      })}
-    </div>
+    <button
+      onClick={() => onAsk(`Tell me about: ${top.title}`)}
+      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-[12px] border mb-5 text-left hover:bg-white/[0.03] transition-colors active:scale-[0.98]"
+      style={{
+        background: `${accentColor}06`,
+        borderColor: `${accentColor}20`,
+      }}
+    >
+      <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+        style={{ background: accentColor, animation: isUrgent ? 'h1Pulse 1.8s ease-in-out infinite' : 'none' }} />
+      <div className="flex-1 min-w-0">
+        <span className="text-[11.5px] font-semibold leading-snug" style={{ color: `${accentColor}CC` }}>
+          {top.title}
+        </span>
+        {top.body && (
+          <span className="text-[10.5px] text-white/30 ml-1.5">{top.body}</span>
+        )}
+      </div>
+      <ChevronRight className="w-3 h-3 shrink-0 mt-0.5" style={{ color: `${accentColor}50` }} />
+    </button>
   );
 }
 
@@ -421,6 +476,47 @@ function SectionLabel({ label, count, accent }: { label: string; count?: number;
   );
 }
 
+// ─── Try Asking cards (client-scoped, per spec) ───────────────────────────────
+
+type TryAskCard = {
+  label: string;
+  sub: string;
+  icon: typeof DollarSign;
+  iconColor: string;
+  queryFn: (firstActiveUnit?: string) => string;
+};
+
+const CLIENT_TRY_ASKING: TryAskCard[] = [
+  {
+    label: "What could delay tomorrow's move-ins?",
+    sub: "Move-in risk & blockers",
+    icon: AlertCircle,
+    iconColor: "#E11D48",
+    queryFn: () => "What could delay tomorrow's move-ins?",
+  },
+  {
+    label: "Show me a unit",
+    sub: "Unit status & crew",
+    icon: Home,
+    iconColor: "#3B82F6",
+    queryFn: (unit) => unit ? `Show me Unit ${unit}` : "Show me the status of my units",
+  },
+  {
+    label: "Show before/after photos",
+    sub: "Evidence & job progress",
+    icon: Camera,
+    iconColor: "#8B5CF6",
+    queryFn: () => "Show me the before and after photos",
+  },
+  {
+    label: "Has the crew arrived?",
+    sub: "Active crews & check-ins",
+    icon: Users,
+    iconColor: "#22C55E",
+    queryFn: () => "Has the crew arrived?",
+  },
+];
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloOne() {
@@ -440,7 +536,7 @@ export default function HaloOne() {
     qc.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
   });
 
-  // Thread
+  // Thread — restored from module-level cache on in-app nav
   const [messages, setMessages] = useState<TMsg[]>(() => {
     if (_savedToken === token && _savedThread) return _savedThread;
     return [];
@@ -448,10 +544,41 @@ export default function HaloOne() {
 
   useEffect(() => { _savedThread = messages; _savedToken = token; }, [messages, token]);
 
-  // Input
+  // Conversation history hydration from server (once per token per session)
+  useEffect(() => {
+    if (!token || _hydratedFor.has(token)) return;
+    const sessionToken = typeof localStorage !== 'undefined'
+      ? localStorage.getItem(`halo_client_session_${token}`) : null;
+    if (!sessionToken) return; // guest sessions skip hydration
+    _hydratedFor.add(token);
+
+    fetch(`/api/client/${token}/concierge/history`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then((data: { messages?: Array<{ id: string; role: string; content: string; chips?: Chip[] }> } | null) => {
+        if (!data?.messages?.length) return;
+        const hydrated: TMsg[] = data.messages.map(m => ({
+          id: m.id,
+          kind: m.role === 'user' ? 'user' : 'assistant',
+          text: m.content,
+          ...(m.role === 'assistant' && m.chips?.length ? { chips: m.chips } : {}),
+        } as TMsg));
+        setMessages(prev => {
+          // Only prepend if thread is still empty (avoid clobbering user's session)
+          if (prev.length > 0) return prev;
+          return hydrated;
+        });
+      });
+  }, [token]);
+
+  // Input state
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   // Ambient
   const [ambientIdx, setAmbientIdx] = useState(0);
@@ -465,16 +592,70 @@ export default function HaloOne() {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
   }, []);
 
-  // Send to concierge
+  // ─── Speech input ────────────────────────────────────────────────────────────
+
+  const { listening, start: startListening, stop: stopListening, supported: speechSupported } = useSpeechInput({
+    onResult: (transcript) => {
+      setVoiceError(null);
+      setInput(transcript);
+      // Auto-submit after short delay so user sees the transcript
+      setTimeout(() => send(transcript), 120);
+    },
+    onError: (msg) => {
+      setVoiceError(msg);
+      setTimeout(() => setVoiceError(null), 4000);
+    },
+  });
+
+  const handleMicClick = useCallback(() => {
+    if (listening) { stopListening(); return; }
+    setVoiceError(null);
+    startListening();
+  }, [listening, startListening, stopListening]);
+
+  // ─── Send message ─────────────────────────────────────────────────────────────
+
   const send = useCallback(async (text: string) => {
     const msg = text.trim();
     if (!msg || busy) return;
     setInput('');
     setBusy(true);
 
+    // Detect intent and dispatch inline lens or concierge
+    const intent = detectClientIntent(msg);
+
     const uid = `u-${Date.now()}`;
     const aid = `a-${Date.now()}`;
 
+    if (intent.kind === 'board') {
+      setMessages(prev => [...prev, { id: uid, kind: 'user', text: msg }]);
+      scrollToBottom();
+      setBusy(false);
+      setLocation(`/${token}/board`);
+      return;
+    }
+
+    if (intent.kind !== 'concierge') {
+      // Render inline lens
+      let lensMsg: TMsg;
+      switch (intent.kind) {
+        case 'brief': lensMsg = { id: aid, kind: 'lens-brief' }; break;
+        case 'unit-detail': lensMsg = { id: aid, kind: 'lens-unit', label: intent.label }; break;
+        case 'crew-arrival': lensMsg = { id: aid, kind: 'lens-crew' }; break;
+        case 'evidence': lensMsg = { id: aid, kind: 'lens-evidence', label: intent.label }; break;
+        case 'blocker': lensMsg = { id: aid, kind: 'lens-blocker', label: intent.label }; break;
+        case 'request-work': lensMsg = { id: aid, kind: 'lens-unit', label: intent.label }; break;
+        case 'financial': lensMsg = { id: aid, kind: 'lens-financial' }; break;
+        case 'map': lensMsg = { id: aid, kind: 'lens-map' }; break;
+        default: lensMsg = { id: aid, kind: 'lens-brief' };
+      }
+      setMessages(prev => [...prev, { id: uid, kind: 'user', text: msg }, lensMsg]);
+      scrollToBottom();
+      setBusy(false);
+      return;
+    }
+
+    // Concierge SSE path
     setMessages(prev => [...prev,
       { id: uid, kind: 'user', text: msg },
       { id: aid, kind: 'thinking', status: 'Thinking…' },
@@ -522,11 +703,12 @@ export default function HaloOne() {
           const dataLine = raw.split('\n').find(l => l.startsWith('data: '));
           if (!eventLine || !dataLine) continue;
           const event = eventLine.slice(7).trim();
-          let data: any = null;
+          let data: unknown = null;
           try { data = JSON.parse(dataLine.slice(6)); } catch { continue; }
-          if (event === 'status') update(m => ({ ...m, kind: 'thinking', status: data.text }));
+          const d = data as Record<string, unknown>;
+          if (event === 'status') update(m => ({ ...m, kind: 'thinking', status: String(d.text) }));
           if (event === 'delta') {
-            accumulated += data.text;
+            accumulated += String(d.text);
             update(m =>
               m.kind === 'thinking'
                 ? { id: aid, kind: 'assistant', text: accumulated }
@@ -535,7 +717,7 @@ export default function HaloOne() {
           }
           if (event === 'chips') {
             update(m =>
-              m.kind === 'assistant' ? { ...m, chips: data.chips as Chip[] } : m
+              m.kind === 'assistant' ? { ...m, chips: (d.chips as Chip[]) } : m
             );
           }
         }
@@ -551,7 +733,7 @@ export default function HaloOne() {
       setBusy(false);
       scrollToBottom();
     }
-  }, [busy, token, scrollToBottom]);
+  }, [busy, token, scrollToBottom, setLocation]);
 
   // Confirm chip
   const handleConfirmChip = async (chip: Chip) => {
@@ -586,7 +768,12 @@ export default function HaloOne() {
   const unreadMessages = board?.unreadMessages ?? 0;
   const permissions = board?.viewer?.permissions ?? [];
 
+  // First active unit for dynamic seed card label
+  const firstActiveUnit = cards.find(c => c.unitNo && c.lane !== 'done')?.unitNo ?? undefined;
+
   const hasThread = messages.some(m => m.kind === 'user');
+
+  // ─── Render messages ──────────────────────────────────────────────────────────
 
   const renderMsg = (msg: TMsg): React.ReactNode => {
     switch (msg.kind) {
@@ -595,13 +782,6 @@ export default function HaloOne() {
           <div className="mb-4">
             <SectionLabel label="Needs You" count={needsYouCards.length} accent={needsYouCards.length > 0 ? '#E11D48' : undefined} />
             <NeedsYouInline cards={needsYouCards} token={token} onAsk={text => { setInput(text); send(text); }} />
-          </div>
-        );
-      case 'happening-now':
-        return (
-          <div className="mb-4">
-            <SectionLabel label="Happening Now" count={happeningCards.length} />
-            <HappeningNow cards={happeningCards} onNavigate={() => setLocation(`/${token}/board`)} />
           </div>
         );
       case 'user': return <UserBubble text={msg.text} />;
@@ -622,11 +802,40 @@ export default function HaloOne() {
             <span className="text-[13px] text-[#E11D48]/85">{msg.text}</span>
           </div>
         );
+      // ── Lens messages ────────────────────────────────────────────────────────
+      case 'lens-brief':
+        return <ClientBriefCard token={token} topN={5} permissions={permissions} onAsk={q => send(q)} />;
+      case 'lens-unit':
+        return (
+          <UnitDetailCard
+            unitLabel={msg.label}
+            cards={cards}
+            token={token}
+            permissions={permissions}
+          />
+        );
+      case 'lens-crew':
+        return <CrewArrivalCard cards={cards} />;
+      case 'lens-evidence':
+        return <ClientEvidenceCard unitLabel={msg.label} cards={cards} />;
+      case 'lens-blocker':
+        return <UnitBlockerCard unitLabel={msg.label} cards={cards} token={token} permissions={permissions} onAsk={q => send(q)} />;
+      case 'lens-financial':
+        return <ClientFinancialCard token={token} permissions={permissions} />;
+      case 'lens-map':
+        return (
+          <ClientMapCard
+            token={token}
+            permissions={permissions}
+            onNavigateMap={() => setLocation(`/${token}/map`)}
+          />
+        );
       default: return null;
     }
   };
 
-  // Loading / Error
+  // ─── Loading / Error ──────────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <>
@@ -668,6 +877,8 @@ export default function HaloOne() {
   const h = new Date().getHours();
   const timeGreet = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 
+  // ─── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <>
       <style>{KEYFRAMES}</style>
@@ -707,32 +918,38 @@ export default function HaloOne() {
         {/* ── Content ─────────────────────────────────────────────────────── */}
         {!hasThread ? (
           /* ─── SEED STATE ──────────────────────────────────────────────── */
-          <div className="flex-1 flex flex-col items-center justify-center px-5 pb-2 overflow-hidden">
+          <div className="flex-1 flex flex-col items-center justify-center px-5 pb-2 overflow-y-auto">
             {/* Glowing ring */}
-            <div className="mb-6 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.05s both' }}>
-              <div className="w-[68px] h-[68px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
+            <div className="mb-5 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.05s both' }}>
+              <div className="w-[64px] h-[64px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
                 style={{ animation: 'h1Glow 3.5s ease-in-out infinite' }}>
-                <HaloRingIcon className="w-[30px] h-[30px] text-[#B4FF44]" />
+                <HaloRingIcon className="w-[28px] h-[28px] text-[#B4FF44]" />
               </div>
             </div>
 
-            {/* Greeting */}
-            <div className="text-center mb-2 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.12s both' }}>
-              <h1 className="text-[34px] font-bold text-white leading-none tracking-[-0.02em] mb-2">
+            {/* Greeting with property name */}
+            <div className="text-center mb-4 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.12s both' }}>
+              <h1 className="text-[30px] font-bold text-white leading-none tracking-[-0.02em] mb-1.5">
                 {timeGreet}.
               </h1>
+              <p className="text-[13px] text-[#B4FF44]/60 font-semibold truncate max-w-[260px]">{propertyName}</p>
               {needsYouCards.length > 0 ? (
-                <p className="text-[13.5px] text-white/38 font-medium">
+                <p className="text-[12.5px] text-white/35 font-medium mt-1">
                   {needsYouCards.length} decision{needsYouCards.length !== 1 ? 's' : ''} waiting for you.
                 </p>
               ) : (
-                <p className="text-[13.5px] text-white/38 font-medium">Your property command center.</p>
+                <p className="text-[12.5px] text-white/35 font-medium mt-1">Your property command center.</p>
               )}
             </div>
 
+            {/* Compact brief strip — top urgent item */}
+            <div className="w-full max-w-sm h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.17s both' }}>
+              <CompactBriefStrip token={token} permissions={permissions} onAsk={q => send(q)} />
+            </div>
+
             {/* Status chips */}
-            <div className="flex items-center gap-2 mb-7 flex-wrap justify-center h1-seed"
-              style={{ animation: 'h1SeedIn 0.5s ease-out 0.18s both' }}>
+            <div className="flex items-center gap-2 mb-6 flex-wrap justify-center h1-seed"
+              style={{ animation: 'h1SeedIn 0.5s ease-out 0.20s both' }}>
               {needsYouCards.length > 0 ? (
                 <div className="flex items-center gap-1.5 bg-[#E11D48]/8 border border-[#E11D48]/16 rounded-full px-3 py-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48]" style={{ animation: 'h1Pulse 1.8s ease-in-out infinite' }} />
@@ -752,7 +969,7 @@ export default function HaloOne() {
             </div>
 
             {/* Big command input */}
-            <div className="w-full max-w-sm mb-6 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.22s both' }}>
+            <div className="w-full max-w-sm mb-5 h1-seed" style={{ animation: 'h1SeedIn 0.5s ease-out 0.24s both' }}>
               <div className="relative flex items-center bg-white/[0.048] border border-white/10 rounded-[18px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.30)] hover:border-white/15 transition-all focus-within:border-[#B4FF44]/30 focus-within:bg-white/[0.062]">
                 <Sparkles className="ml-4 w-[13px] h-[13px] text-[#B4FF44]/35 shrink-0 pointer-events-none" />
                 <input
@@ -762,6 +979,21 @@ export default function HaloOne() {
                   placeholder="Ask Halo One anything…"
                   className="flex-1 h-[54px] bg-transparent px-3 text-[14px] text-white placeholder:text-white/20 focus:outline-none"
                 />
+                {/* Mic button */}
+                {speechSupported && (
+                  <button
+                    onClick={handleMicClick}
+                    aria-label="Start voice input"
+                    className={`mr-1.5 w-8 h-8 rounded-full grid place-items-center transition-all active:scale-[0.94] shrink-0 ${
+                      listening
+                        ? 'bg-[#E11D48] text-white'
+                        : 'bg-white/8 text-white/40 hover:bg-white/12 hover:text-white/65'
+                    }`}
+                    style={listening ? { animation: 'h1MicPulse 1s ease-in-out infinite' } : undefined}
+                  >
+                    {listening ? <MicOff className="w-[13px] h-[13px]" /> : <Mic className="w-[13px] h-[13px]" />}
+                  </button>
+                )}
                 <button
                   onClick={() => { if (input.trim()) send(input); }}
                   disabled={!input.trim() || busy}
@@ -770,6 +1002,10 @@ export default function HaloOne() {
                   {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <ChevronRight className="w-[15px] h-[15px]" strokeWidth={2.5} />}
                 </button>
               </div>
+              {/* Voice error */}
+              {voiceError && (
+                <div className="mt-1.5 text-[11px] text-[#E11D48]/70 text-center">{voiceError}</div>
+              )}
             </div>
 
             {/* Try Asking */}
@@ -780,8 +1016,9 @@ export default function HaloOne() {
               <div className="grid grid-cols-2 gap-2.5">
                 {CLIENT_TRY_ASKING.map(card => {
                   const Icon = card.icon;
+                  const queryText = card.queryFn(firstActiveUnit);
                   return (
-                    <button key={card.label} onClick={() => send(card.query)}
+                    <button key={card.label} onClick={() => send(queryText)}
                       className="flex flex-col items-start gap-2.5 p-4 rounded-[16px] bg-white/[0.035] border border-white/7 text-left hover:bg-white/[0.055] hover:border-white/12 transition-all active:scale-[0.97]">
                       <div className="w-7 h-7 rounded-[9px] grid place-items-center"
                         style={{ background: `${card.iconColor}12`, border: `1px solid ${card.iconColor}22` }}>
@@ -800,16 +1037,12 @@ export default function HaloOne() {
         ) : (
           /* ─── THREAD STATE ───────────────────────────────────────────── */
           <>
-            {/* Show decision inbox and happening now if there's activity */}
-            {(needsYouCards.length > 0 || happeningCards.length > 0) && messages.length === 1 && (
+            {/* Decision inbox if there's activity */}
+            {needsYouCards.length > 0 && messages.length === 1 && (
               <div className="px-4 pt-3 pb-0 shrink-0">
-                {needsYouCards.length > 0 && (
-                  <div>
-                    <SectionLabel label="Needs You" count={needsYouCards.length} accent="#E11D48" />
-                    <NeedsYouInline cards={needsYouCards.slice(0, 2)} token={token}
-                      onAsk={t => { setInput(t); send(t); }} />
-                  </div>
-                )}
+                <SectionLabel label="Needs You" count={needsYouCards.length} accent="#E11D48" />
+                <NeedsYouInline cards={needsYouCards.slice(0, 2)} token={token}
+                  onAsk={t => { setInput(t); send(t); }} />
               </div>
             )}
 
@@ -824,7 +1057,7 @@ export default function HaloOne() {
               {/* Follow-up suggestions */}
               {messages.length > 0 && messages[messages.length - 1]?.kind !== 'thinking' && (
                 <div className="flex gap-2 flex-wrap mt-2 mb-1">
-                  {["What needs approval?", "Show active jobs", "Invoice status", "Who's on site?"].map(p => (
+                  {["What could delay move-ins?", "Has the crew arrived?", "Show before/after photos", "What's the spend?"].map(p => (
                     <button key={p} onClick={() => send(p)}
                       className="text-[11px] font-medium text-white/30 px-3 py-1.5 rounded-full bg-white/[0.025] border border-white/5 hover:text-white/55 hover:bg-white/[0.045] transition-all active:scale-[0.96]">
                       {p}
@@ -852,6 +1085,10 @@ export default function HaloOne() {
 
             {/* Command bar */}
             <div className="px-4 pt-2.5 pb-2 shrink-0 bg-[#070C16] border-t border-white/[0.05]">
+              {/* Voice error */}
+              {voiceError && (
+                <div className="mb-1.5 text-[11px] text-[#E11D48]/70 text-center">{voiceError}</div>
+              )}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-[#B4FF44]/35 pointer-events-none" />
@@ -862,6 +1099,22 @@ export default function HaloOne() {
                     className="w-full h-11 rounded-full bg-white/5 border border-white/8 pl-[30px] pr-4 text-[13.5px] text-white placeholder:text-white/22 focus:outline-none focus:border-[#B4FF44]/32 focus:ring-1 focus:ring-[#B4FF44]/10 disabled:opacity-50 transition-all"
                   />
                 </div>
+                {/* Mic button */}
+                {speechSupported && (
+                  <button
+                    onClick={handleMicClick}
+                    aria-label="Start voice input"
+                    disabled={busy}
+                    className={`w-11 h-11 rounded-full grid place-items-center transition-all active:scale-[0.94] disabled:opacity-50 shrink-0 ${
+                      listening
+                        ? 'bg-[#E11D48] text-white'
+                        : 'bg-white/5 border border-white/8 text-white/40 hover:text-white/65 hover:bg-white/8'
+                    }`}
+                    style={listening ? { animation: 'h1MicPulse 1s ease-in-out infinite' } : undefined}
+                  >
+                    {listening ? <MicOff className="w-[14px] h-[14px]" /> : <Mic className="w-[14px] h-[14px]" />}
+                  </button>
+                )}
                 <button onClick={() => { if (input.trim()) send(input); }} disabled={!input.trim() || busy}
                   className="w-11 h-11 rounded-full bg-white grid place-items-center text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-38 disabled:scale-100 shrink-0">
                   {busy ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}
@@ -871,7 +1124,7 @@ export default function HaloOne() {
           </>
         )}
 
-        {/* ── Bottom nav: Chat | Board ──────────────────────────────────── */}
+        {/* ── Bottom nav: Chat | Board | [Map] | [Hub] ─────────────────── */}
         <div className="shrink-0 flex items-center border-t border-white/[0.05] bg-[#070C16] pb-[env(safe-area-inset-bottom)]">
           <button className="flex-1 flex flex-col items-center gap-1 py-2.5 text-[#B4FF44]">
             <div className="relative">
