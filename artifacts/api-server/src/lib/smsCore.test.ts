@@ -1,12 +1,20 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  isAccountSid,
+  isApiKeySid,
+  isDialableE164,
   phonesMatch,
+  pickTwilioIdentity,
+  sanitizeSenderNumber,
   smsBlastAllowed,
   toE164,
   twilioSignaturePayload,
   verifyTwilioSignature,
 } from "./smsCore";
+
+const AC = "AC" + "0".repeat(32);
+const SK = "SK" + "1".repeat(32);
 
 describe("comms.sms helpers", () => {
   it("normalizes US numbers to E.164", () => {
@@ -18,6 +26,46 @@ describe("comms.sms helpers", () => {
   it("matches phones on the last 10 digits", () => {
     expect(phonesMatch("2145550100", "+1 (214) 555-0100")).toBe(true);
     expect(phonesMatch("2145550100", "2145550199")).toBe(false);
+  });
+
+  it("rejects sending numbers that are not dialable E.164", () => {
+    expect(isDialableE164("+12145550100")).toBe(true);
+    // 19 digits — longer than E.164 allows, so it must not be used as a From.
+    expect(isDialableE164("+1234567890123456789")).toBe(false);
+    expect(isDialableE164("2145550100")).toBe(false);
+    expect(isDialableE164(null)).toBe(false);
+  });
+
+  it("refuses to normalize an untrustworthy sending number", () => {
+    expect(sanitizeSenderNumber("(844) 321-0763")).toBe("+18443210763");
+    expect(sanitizeSenderNumber("+18443210763")).toBe("+18443210763");
+    // 19 digits: toE164 would salvage the last 10 and invent a number the
+    // account does not own, so this must be rejected outright.
+    expect(sanitizeSenderNumber("1844321076312345678")).toBeNull();
+    expect(sanitizeSenderNumber("555-0100")).toBeNull();
+    expect(sanitizeSenderNumber("   ")).toBeNull();
+    expect(sanitizeSenderNumber(undefined)).toBeNull();
+  });
+
+  it("distinguishes Account SIDs from API Key SIDs", () => {
+    expect(isAccountSid(AC)).toBe(true);
+    expect(isAccountSid(SK)).toBe(false);
+    expect(isApiKeySid(SK)).toBe(true);
+    expect(isApiKeySid("MP123456")).toBe(false);
+  });
+
+  it("recovers Twilio identifiers from crossed connector fields", () => {
+    // Well-formed bag.
+    expect(pickTwilioIdentity({ account_sid: AC, api_key: SK })).toEqual({
+      accountSid: AC,
+      apiKeySid: SK,
+    });
+    // An API Key SID filed under account_sid, with junk under api_key.
+    expect(pickTwilioIdentity({ account_sid: SK, api_key: "MP123456" })).toEqual({
+      accountSid: null,
+      apiKeySid: SK,
+    });
+    expect(pickTwilioIdentity({})).toEqual({ accountSid: null, apiKeySid: null });
   });
 
   it("caps blast size", () => {

@@ -734,7 +734,30 @@ textarea:focus:not(:focus-visible) {
 }
 .site-twin-unit.hot { background: #B4FF44; color: #1A1C1A; box-shadow: 0 0 24px rgba(180,255,68,0.45); }
 .site-twin-unit em { font-style: normal; font-size: 9px; font-weight: 700; opacity: 0.7; }
-.site-twin-map { border-radius: 20px; overflow: hidden; min-height: 280px; }
+.site-twin-map { position: relative; border-radius: 20px; overflow: hidden; min-height: 280px; }
+.site-twin-map.moving .leaflet-container { cursor: crosshair; }
+.site-twin-hud-actions { display: flex; align-items: center; gap: 8px; }
+.site-twin-movepin {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  border-radius: 999px; padding: 7px 12px; font-size: 11.5px; font-weight: 800; cursor: pointer;
+  border: 1px solid rgba(180,255,68,0.4); background: rgba(180,255,68,0.12); color: #B4FF44;
+}
+.site-twin-movepin[aria-pressed="true"] { background: #B4FF44; color: #1A1C1A; border-color: #B4FF44; }
+/* Sits above Leaflet's control panes (z-index 1000). */
+.site-twin-pinbar {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 1200;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 11px; border-radius: 14px;
+  background: rgba(12,14,12,0.92); border: 1px solid rgba(180,255,68,0.35);
+  backdrop-filter: blur(8px);
+}
+.site-twin-pinbar p { flex: 1; min-width: 130px; margin: 0; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.72); }
+.site-twin-pinbar button {
+  border-radius: 999px; padding: 6px 12px; font-size: 11.5px; font-weight: 800; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06); color: #fff;
+}
+.site-twin-pinbar button.go { background: #B4FF44; color: #1A1C1A; border-color: #B4FF44; }
+.site-twin-pinbar button:disabled { opacity: 0.45; cursor: not-allowed; }
 .site-twin-roster { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .site-twin-crew {
   text-align: left; display: flex; gap: 10px; align-items: flex-start;

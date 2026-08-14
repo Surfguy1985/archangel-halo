@@ -6,6 +6,7 @@
 - [HALO Command Architecture](halo-command-architecture.md) — "/" renders HaloCommand (conversational OS); Today at "/today"; command components + falkonNetwork needed in both apps; useListVendors/useParseWalkVoice don't exist in API client.
 - [Drizzle pg error codes](halo-drizzle-error-codes.md) — drizzle wraps pg errors; 23505 checks must read err.code OR err.cause.code (bare err.code silently misses → 500s).
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
+- [HALO Twilio credentials](halo-twilio-credentials.md) — resolve AC/SK SIDs by shape not field name; recover missing Account SID from the API key; never validate a From number with toE164.
 - [HALO SMS sending](halo-sms-sending.md) — sendSms(to, body) is POSITIONAL and never throws; check .ok, gate on smsEnabled() before minting, undo records if the send fails.
 - [Dev DB lineage divergence](halo-dev-db-divergence.md) — dev DB and schema code can hold different table generations; diff + row-count before any drizzle push, force would drop live data.
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.

@@ -1,11 +1,11 @@
 /**
  * Site Twin — isometric unit plate + live crew GPS snapped to an apartment.
  */
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Polygon, TileLayer, useMap } from "react-leaflet";
-import { divIcon } from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { divIcon, type Marker as LeafletMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Loader2, Radio, X } from "lucide-react";
+import { Loader2, MapPin, Radio, X } from "lucide-react";
 
 const LIME = "#B4FF44";
 const CHARCOAL = "#1A1C1A";
@@ -58,6 +58,8 @@ type TwinPayload = {
   };
 };
 
+type LatLng = { lat: number; lng: number };
+
 function gpsAgeLabel(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -91,13 +93,42 @@ function crewIcon(hot: boolean, initial: string) {
   });
 }
 
+/** The site anchor itself — lime and lifted while it is being repositioned. */
+function siteIcon(moving: boolean) {
+  const body = moving ? LIME : "rgba(26,28,26,0.92)";
+  const trim = moving ? CHARCOAL : LIME;
+  return divIcon({
+    className: "",
+    html: `<div style="width:32px;height:44px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45));${moving ? "cursor:grab;" : ""}">
+      <svg width="32" height="44" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 40C15 40 27 25 27 15A12 12 0 0 0 3 15C3 25 15 40 15 40Z" fill="${body}" stroke="${trim}" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="15" cy="15" r="4.5" fill="${trim}"/>
+      </svg>
+    </div>`,
+    iconSize: [32, 44],
+    iconAnchor: [16, 42],
+  });
+}
+
 function Fit({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
+  const seeded = useRef(false);
   useEffect(() => {
-    map.setView([lat, lng], 18);
+    // First paint frames the site; later pin saves must not yank the operator's zoom.
+    map.setView([lat, lng], seeded.current ? map.getZoom() : 18);
+    seeded.current = true;
     const t = setTimeout(() => map.invalidateSize(), 80);
     return () => clearTimeout(t);
   }, [map, lat, lng]);
+  return null;
+}
+
+function PickPoint({ enabled, onPick }: { enabled: boolean; onPick: (p: LatLng) => void }) {
+  useMapEvents({
+    click(e) {
+      if (enabled) onPick({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
   return null;
 }
 
@@ -117,6 +148,9 @@ export function SiteTwin({
   const [selectedCrew, setSelectedCrew] = useState<string | null>(null);
   const [laying, setLaying] = useState(false);
   const [countDraft, setCountDraft] = useState("");
+  const [moving, setMoving] = useState(false);
+  const [pinDraft, setPinDraft] = useState<LatLng | null>(null);
+  const [savingPin, setSavingPin] = useState(false);
 
   const load = async () => {
     try {
@@ -131,9 +165,15 @@ export function SiteTwin({
 
   useEffect(() => {
     void load();
+  }, [propertyId]);
+
+  // Polling is paused while the pin is being repositioned so a refresh can't
+  // stomp the operator's in-progress placement.
+  useEffect(() => {
+    if (moving) return;
     const id = setInterval(() => void load(), 8_000);
     return () => clearInterval(id);
-  }, [propertyId]);
+  }, [propertyId, moving]);
 
   useEffect(() => {
     const n = data?.setup?.expectedUnits || data?.setup?.inferredUnits || data?.property.units || 0;
@@ -142,11 +182,20 @@ export function SiteTwin({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // A pin save is already in flight and cannot be recalled — refuse to
+      // imply it was discarded.
+      if (savingPin) return;
+      if (moving) {
+        setMoving(false);
+        setPinDraft(null);
+        return;
+      }
+      onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, moving, savingPin]);
 
   const layUnits = async () => {
     if (laying) return;
@@ -169,6 +218,28 @@ export function SiteTwin({
     }
   };
 
+  const savePin = async () => {
+    if (!pinDraft || savingPin) return;
+    setSavingPin(true);
+    try {
+      const r = await fetch(`/api/properties/${propertyId}/gps`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: pinDraft.lat, longitude: pinDraft.lng }),
+      });
+      if (!r.ok) throw new Error(`Could not move the pin (${r.status})`);
+      setMoving(false);
+      setPinDraft(null);
+      // Server drops its footprint cache on save, so the plate re-derives here.
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not move the pin");
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
   const active = useMemo(() => {
     if (!data?.crews.length) return null;
     return data.crews.find((c) => c.id === selectedCrew) ?? data.crews[0];
@@ -177,7 +248,11 @@ export function SiteTwin({
   const hotUnit = active?.unitId ?? null;
 
   const live = (data?.setup?.freshGps ?? 0) > 0 || data?.crews.some((c) => gpsFresh(c.at));
-  const kicker = !data?.ready ? "SITE TWIN · PIN GPS" : live ? "SITE TWIN · LIVE" : "SITE TWIN · LAST SEEN";
+  const kicker = !data?.ready ? "SITE TWIN · PIN GPS" : moving ? "SITE TWIN · MOVING PIN" : live ? "SITE TWIN · LIVE" : "SITE TWIN · LAST SEEN";
+
+  const sitePin: LatLng | null =
+    pinDraft ??
+    (data?.latitude != null && data?.longitude != null ? { lat: data.latitude, lng: data.longitude } : null);
 
   return (
     <div className="site-twin" role="dialog" aria-label="Site twin">
@@ -187,9 +262,32 @@ export function SiteTwin({
           <h2>{data?.headline ?? `${data?.property.name ?? "Site"} — acquiring plate`}</h2>
           <p className="site-twin-sub">{data?.property.name}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close site twin" className="site-twin-close">
-          <X size={18} />
-        </button>
+        <div className="site-twin-hud-actions">
+          {data?.ready && (
+            <button
+              type="button"
+              className="site-twin-movepin"
+              aria-pressed={moving}
+              disabled={savingPin}
+              onClick={() => {
+                setMoving((v) => !v);
+                setPinDraft(null);
+              }}
+            >
+              <MapPin size={14} />
+              {moving ? "Done moving" : "Move pin"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={savingPin}
+            aria-label="Close site twin"
+            className="site-twin-close"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </header>
 
       {!data && !err && (
@@ -256,7 +354,7 @@ export function SiteTwin({
               )}
           </section>
 
-          <section className="site-twin-map">
+          <section className={`site-twin-map ${moving ? "moving" : ""}`}>
             <MapContainer
               center={[data.latitude, data.longitude]}
               zoom={18}
@@ -268,10 +366,25 @@ export function SiteTwin({
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               />
               <Fit lat={data.latitude} lng={data.longitude} />
+              <PickPoint enabled={moving} onPick={setPinDraft} />
               {data.footprint?.ring && data.footprint.ring.length > 2 && (
                 <Polygon
                   positions={data.footprint.ring.map((p) => [p.lat, p.lng] as [number, number])}
                   pathOptions={{ color: LIME, weight: 2, fillColor: LIME, fillOpacity: 0.12 }}
+                />
+              )}
+              {sitePin && (
+                <Marker
+                  position={[sitePin.lat, sitePin.lng]}
+                  icon={siteIcon(moving)}
+                  draggable={moving}
+                  zIndexOffset={-500}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const ll = (e.target as LeafletMarker).getLatLng();
+                      setPinDraft({ lat: ll.lat, lng: ll.lng });
+                    },
+                  }}
                 />
               )}
               {data.crews.map((c) =>
@@ -285,6 +398,29 @@ export function SiteTwin({
                 ) : null,
               )}
             </MapContainer>
+
+            {moving && (
+              <div className="site-twin-pinbar">
+                <p>
+                  {pinDraft
+                    ? "Pin moved. Save to re-snap the plate and crew GPS."
+                    : "Drag the pin — or tap the right spot on the roof."}
+                </p>
+                <button
+                  type="button"
+                  disabled={savingPin}
+                  onClick={() => {
+                    setMoving(false);
+                    setPinDraft(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="button" className="go" disabled={!pinDraft || savingPin} onClick={() => void savePin()}>
+                  {savingPin ? "Saving…" : "Save pin"}
+                </button>
+              </div>
+            )}
           </section>
 
           <aside className="site-twin-roster">
