@@ -53,6 +53,7 @@ import estimatesRouter from "./estimates";
 import smsOfficeRouter, { twilioWebhookRouter } from "./sms";
 import voiceEodRouter from "./voiceEod";
 import exchangeRouter from "./exchange";
+import intelligenceRouter from "./intelligence";
 import falkonTestHelperRouter from "./falkonTestHelper";
 
 const router: IRouter = Router();
@@ -156,5 +157,6 @@ router.use(estimatesRouter);
 router.use(smsOfficeRouter);
 router.use(voiceEodRouter);
 router.use(exchangeRouter);
+router.use(intelligenceRouter);
 
 export default router;

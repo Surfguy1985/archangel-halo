@@ -14,7 +14,7 @@ import { useLocation } from "wouter";
 import {
   Paperclip, ArrowUp, Bell, MoreHorizontal, Loader2,
   CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
-  List, CalendarDays, Users, Mic, LayoutGrid,
+  List, CalendarDays, Users, Mic, LayoutGrid, BrainCircuit, MessageSquare,
 } from "lucide-react";
 
 import {
@@ -38,6 +38,7 @@ import { KanbanPanel } from "@/components/panels/KanbanPanel";
 import { MoneyPanel } from "@/components/panels/MoneyPanel";
 import { LiveLinkCard, type LiveLinkData } from "@/components/LiveLinkCard";
 import { useFalkonHealth } from "@/lib/falkonNetwork";
+import { HaloIntelligenceView } from "@/components/HaloIntelligenceView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -743,6 +744,18 @@ export default function HaloCommand() {
   // ── Panels ────────────────────────────────────────────────────────────────
   const [activePanel, setActivePanel] = useState<PanelType | null>(null);
 
+  // ── View mode — persisted so the user's preference survives navigation ───
+  const [isIntelView, setIsIntelView] = useState<boolean>(() => {
+    try { return localStorage.getItem("halo_view") === "intel"; } catch { return false; }
+  });
+  const toggleView = useCallback(() => {
+    setIsIntelView(v => {
+      const next = !v;
+      try { localStorage.setItem("halo_view", next ? "intel" : "chat"); } catch {}
+      return next;
+    });
+  }, []);
+
   // ── Overlays ──────────────────────────────────────────────────────────────
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -1043,6 +1056,13 @@ export default function HaloCommand() {
     scrollDown();
   }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown, navigate]);
 
+  // ── Intel view submit — switches to chat then sends ─────────────────────
+  const handleIntelAsk = useCallback((text: string) => {
+    setIsIntelView(false);
+    try { localStorage.setItem("halo_view", "chat"); } catch {}
+    void handleSubmit(text);
+  }, [handleSubmit]);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const falkonMode = deriveFalkonMode(health);
   const modeStyle = MODE_STYLE[falkonMode];
@@ -1306,6 +1326,21 @@ export default function HaloCommand() {
             <LayoutGrid className="w-[15px] h-[15px]" strokeWidth={1.8} />
           </button>
 
+          {/* View mode toggle — chat ↔ intelligence */}
+          <button
+            type="button"
+            onClick={toggleView}
+            className="w-8 h-8 rounded-full grid place-items-center transition-all active:scale-95"
+            style={{ color: isIntelView ? "#B4FF44" : "rgba(255,255,255,0.32)" }}
+            aria-label={isIntelView ? "Switch to Chat" : "Switch to Intelligence view"}
+            title={isIntelView ? "Back to Chat" : "Intelligence view"}
+          >
+            {isIntelView
+              ? <MessageSquare className="w-[15px] h-[15px]" strokeWidth={1.8} />
+              : <BrainCircuit  className="w-[15px] h-[15px]" strokeWidth={1.8} />
+            }
+          </button>
+
           {/* Falkon mode — minimal pill */}
           <button
             onClick={() => setControlOpen(true)}
@@ -1355,7 +1390,14 @@ export default function HaloCommand() {
         </header>
 
         {/* ── Content ─────────────────────────────────────────────────────── */}
-        {!hasThread ? (
+        {isIntelView ? (
+          <HaloIntelligenceView
+            onAsk={handleIntelAsk}
+            input={input}
+            onInputChange={setInput}
+            busy={parseVoice.isPending}
+          />
+        ) : !hasThread ? (
 
           /* ── SEED STATE ─────────────────────────────────────────────────── */
           <div
