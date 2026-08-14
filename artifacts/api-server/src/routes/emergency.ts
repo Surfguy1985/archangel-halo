@@ -30,6 +30,7 @@ import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger } from "../lib/ledger";
 import { logger } from "../lib/logger";
+import { pushToCrews } from "../lib/pushNotification";
 
 const router: IRouter = Router();
 
@@ -340,6 +341,12 @@ router.post("/jobs/:id/emergency/ping", async (req, res): Promise<void> => {
         );
     }
   }
+
+  pushToCrews(crews, {
+    title: "🚨 Emergency offer",
+    body: `${propLabel || "A property"} needs you ASAP. Pay $${pay.toFixed(0)} + $${bonus.toFixed(0)} bonus — first to accept gets it.`,
+    data: { kind: "emergency", jobId: id },
+  });
 
   const jobLabel = [job.jobNo, job.category].filter(Boolean).join(" · ");
   await db.insert(activitiesTable).values({

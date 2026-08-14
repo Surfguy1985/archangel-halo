@@ -1,3 +1,6 @@
+- [HALO GPS Finder + Site Twin](halo-site-twin.md) — Pulse pin FAB + property edit search/drop-pin GPS; Site Twin snaps crew phone GPS onto georeferenced unit boxes with a live UNIT title.
+- [HALO Property Pulse](halo-property-pulse.md) — `/pulse` is the optional Property Pulse tablet dashboard (live properties/jobs/crew GPS + Base44 sync + Twilio status); HUD grid opens it; autopilot SMS pings crew/admin once per local day.
+- [HALO Jarvis Grok OS](halo-jarvis-grok.md) — `/` is Grok-style HALO Command; CRM at `/ops` (mobile) / `/properties` (desktop); compound `actionPlans[]`; executors in jarvisDispatch.ts; Claude snapshot must include roster names/units.
 - [HALO Command Architecture](halo-command-architecture.md) — "/" renders HaloCommand (conversational OS); Today at "/today"; command components + falkonNetwork needed in both apps; useListVendors/useParseWalkVoice don't exist in API client.
 - [Drizzle pg error codes](halo-drizzle-error-codes.md) — drizzle wraps pg errors; 23505 checks must read err.code OR err.cause.code (bare err.code silently misses → 500s).
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
@@ -32,7 +35,7 @@
 - [HALO Falkon mode badge](halo-falkon-mode-badge.md) — deriveFalkonMode must read gatewayMode (DB mode), NOT overallHealth (peer health); both HaloCommand files.
 - [HALO Falkon ASSISTED gate](halo-falkon-assisted-gate.md) — checkAssistedGate() for consequential actions; LIVE mode blocked from promote endpoint; eventIngestUrl column added.
 - [HALO Base44 sync](halo-base44-sync.md) — 15-min scheduler pull from legacy Base44 into 8 HALO tables; id mapping in base44_sync_map; price_items needs manual SELECT+UPDATE (expression index).
-- [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush helper in lib/pushNotification.ts; wired to office messages only; walk + emergency + offer push not yet wired.
+- [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush/pushToCrewId helpers; wired to office messages, walk approval, emergency ping, and job-offer broadcast.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.
 - [HALO bank analysis](halo-bank-analysis.md) — /plaid/analysis caches per item+days, invalidated on connect/disconnect; parse refresh flag manually (coerce.boolean bug); UI Re-analyze is one-shot.

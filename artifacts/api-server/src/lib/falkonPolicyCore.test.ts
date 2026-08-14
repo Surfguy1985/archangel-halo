@@ -144,6 +144,14 @@ describe("direct API classification (bypass surface)", () => {
     expect(isConsequentialAction("weather.risk_scan")).toBe(false);
   });
 
+  it("treats Jarvis notes and reminders as non-writes", () => {
+    expect(actionFromChatCapability("note.log")).toBe("note.log");
+    expect(actionFromChatCapability("reminder.set")).toBe("reminder.set");
+    expect(isConsequentialAction("note.log")).toBe(false);
+    expect(actionFromChatCapability("supply.order")).toBe("job.create");
+    expect(actionFromChatCapability("comms.sms")).toBe("comms.sms");
+  });
+
   it("keeps catalog lookup, estimate drafts, and schedule recommend as non-writes", () => {
     expect(classifyMutation("POST", "/catalog/lookup")).toEqual({ skip: true });
     expect(classifyMutation("POST", "/estimates/from-evidence")).toEqual({ skip: true });
@@ -160,6 +168,9 @@ describe("direct API classification (bypass surface)", () => {
       consequential: true,
     });
     expect(classifyMutation("GET", "/sms/recent")).toEqual({ skip: true });
+    expect(classifyMutation("GET", "/sms/status")).toEqual({ skip: true });
+    expect(classifyMutation("GET", "/geo/search")).toEqual({ skip: true });
+    expect(classifyMutation("POST", "/sms/admin")).toMatchObject({ action: "comms.sms", consequential: true });
   });
 
   it("classifies briefing persist as ops.eod_briefing", () => {

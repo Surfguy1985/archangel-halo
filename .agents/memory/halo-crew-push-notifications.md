@@ -17,10 +17,11 @@ description: Expo push notification setup for the crew mobile app — token stor
 
 ## Events currently wired for push
 1. Office → crew message (`crew.ts` POST `/crews/:id/messages`) — title "📨 New message from office"
+2. Walk approval (`clientBoard.ts` `walk.approve` + `clientAccess.ts` `approve_walk`) — title "✅ Walk approved — work is a go"
+3. Emergency ping (`emergency.ts` POST `/jobs/:id/emergency/ping`) — title "🚨 Emergency offer"
+4. Job offer broadcast (`jobboard.ts` `sendBroadcasts`) — title "📬 New job offer"
 
-## Events NOT yet wired (future work)
-- Walk approval (`clientBoard.ts` walk_approved activity insert) — card shown in Today tab but no push
-- Emergency ping send (`emergency.ts`) — SMS only, not push
+Helpers: `sendExpoPush`, `pushToCrews`, `pushToCrewId` in `lib/pushNotification.ts` (best-effort, never throw).
 
 ## Client registration hook
 - `artifacts/halo-crew/hooks/usePushNotifications.ts`

@@ -104,6 +104,9 @@ export default function Payments() {
         <div>
           <h1 className="text-4xl font-display font-bold text-[var(--secondary)]">Payments Hub</h1>
           <p className="text-muted-foreground font-mono mt-1 text-sm">Request, receive, and route money instantly.</p>
+          <p className="text-[11px] text-muted-foreground mt-2 max-w-xl">
+            Card and ACH charges post to the HALO ledger today. Bank instant-verify and Cybrid ACH rails are not live yet — recorded payouts still settle the books.
+          </p>
         </div>
       </header>
 

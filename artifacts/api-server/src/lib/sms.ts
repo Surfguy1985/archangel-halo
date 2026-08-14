@@ -135,3 +135,14 @@ export async function sendSms(to: string, body: string): Promise<SendSmsResult> 
     return { ok: false, error: "SMS send failed" };
   }
 }
+
+/** Safe status for the Pulse HUD — never returns tokens or full numbers. */
+export async function smsPublicStatus(): Promise<{ configured: boolean; fromLast4: string | null }> {
+  const s = await getTwilioSettings();
+  const configured = !!(s && s.phoneNumber && (s.authToken || (s.apiKey && s.apiKeySecret)));
+  const digits = (s?.phoneNumber ?? "").replace(/\D/g, "");
+  return {
+    configured,
+    fromLast4: configured && digits.length >= 4 ? digits.slice(-4) : null,
+  };
+}

@@ -25,6 +25,7 @@ import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { syncExpenseLedger } from "../lib/ledger";
 import { recomputeJobFinancials } from "../lib/jobFinance";
+import { pushToCrews } from "../lib/pushNotification";
 import {
   ListJobBoardResponse,
   BroadcastJobParams,
@@ -667,6 +668,19 @@ async function sendBroadcasts(
         });
     }
     sentNames.push(crew.name);
+  }
+
+  if (toSend.length > 0) {
+    const [prop] = await db
+      .select({ name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, job.propertyId));
+    const jobLabel = [job.jobNo, job.category].filter(Boolean).join(" · ");
+    pushToCrews(toSend, {
+      title: "📬 New job offer",
+      body: `${jobLabel}${prop?.name ? ` at ${prop.name}` : ""} — open your portal to accept.`,
+      data: { kind: "offer", jobId: id },
+    });
   }
 
   if (

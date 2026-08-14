@@ -15,8 +15,14 @@ import {
   crewsTable,
   crewCheckinsTable,
   crewPaymentsTable,
+  contactsTable,
+  vendorsTable,
+  inventoryItemsTable,
+  catalogItemsTable,
+  calendarEventsTable,
+  workRequestsTable,
 } from "@workspace/db";
-import { eq, isNull, and, inArray, gte, sql } from "drizzle-orm";
+import { eq, and, inArray, gte } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
@@ -44,9 +50,19 @@ export interface BusinessSnapshot {
     id: string;
     name: string;
     city: string;
+    address?: string;
     units: number;
     status: string;
   }>;
+  roster?: {
+    crews: Array<{ id: string; name: string; trade: string; phone: boolean }>;
+    contacts: Array<{ name: string; role: string; phone: boolean; propertyId: string | null }>;
+    vendors: Array<{ id: string; name: string; trade: string }>;
+    inventory: Array<{ name: string; qty: number; vendor: string | null }>;
+    catalog: string[];
+  };
+  calendar?: Array<{ title: string; date: string }>;
+  pendingRequests?: number;
   jobs: {
     total: number;
     open: number;
@@ -55,10 +71,13 @@ export interface BusinessSnapshot {
     overBudget: number;
     recentOpen: Array<{
       id: string;
+      jobNo?: string;
       unitNo: string | null;
       propertyId: string;
+      propertyName?: string;
       status: string;
       boardStatus: string;
+      scheduledOn?: string | null;
     }>;
   };
   invoices: {
@@ -112,6 +131,8 @@ export interface BrainResponse {
   suggestedFollowUps?: string[];
   /** Set when type === 'voice_action' — structured action plan for ASSISTED auto-execution or approval */
   actionPlan?: ActionPlan;
+  /** Compound missions (AND / then / also). First step is also mirrored in actionPlan. */
+  actionPlans?: ActionPlan[];
 }
 
 export interface ConversationMessage {
@@ -123,12 +144,15 @@ export interface ConversationMessage {
 
 export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSnapshot> {
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const horizon = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14);
+  const horizonStr = `${horizon.getFullYear()}-${pad(horizon.getMonth() + 1)}-${pad(horizon.getDate())}`;
   // Local midnight for today — used as a string for the date columns
   const todayMidnight = new Date(`${todayStr}T00:00:00`);
   const scope = snapshotPropertyScope(identity);
 
-  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }] =
+  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }, contactsRaw, vendorsRaw, inventoryRaw, catalogRaw, calendarRaw, requestsRaw] =
     await Promise.all([
       db.select().from(propertiesTable),
       db.select().from(jobsTable),
@@ -148,6 +172,12 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
         inArray(crewPaymentsTable.status, ["pending", "held"]),
       ),
       computeQueues(),
+      db.select({ name: contactsTable.name, role: contactsTable.role, phone: contactsTable.phone, propertyId: contactsTable.propertyId }).from(contactsTable),
+      db.select({ id: vendorsTable.id, name: vendorsTable.name, trade: vendorsTable.trade }).from(vendorsTable),
+      db.select({ name: inventoryItemsTable.name, qty: inventoryItemsTable.qty, preferredVendor: inventoryItemsTable.preferredVendor }).from(inventoryItemsTable),
+      db.select({ service: catalogItemsTable.service }).from(catalogItemsTable),
+      db.select({ title: calendarEventsTable.title, eventDate: calendarEventsTable.eventDate }).from(calendarEventsTable),
+      db.select({ id: workRequestsTable.id, status: workRequestsTable.status }).from(workRequestsTable),
     ]);
 
   const props = filterPropertiesByScope(propsRaw, scope);
@@ -187,6 +217,11 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
 
   // Unique crew IDs that checked in today
   const uniqueCheckedIn = new Set(todayCheckins.map((c) => c.crewId)).size;
+  const propName = new Map(props.map((p) => [p.id, p.name]));
+  const scopedContacts = filterBySnapshotScope(contactsRaw, scope);
+  const upcomingCal = calendarRaw
+    .filter((e) => e.eventDate >= todayStr && e.eventDate <= horizonStr)
+    .slice(0, 12);
 
   // Falkon mode
   let falkonMode = "SHADOW";
@@ -214,21 +249,52 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
       id: p.id,
       name: p.name,
       city: p.city ?? "",
+      address: p.address ?? "",
       units: p.units ?? 0,
       status: p.status ?? "active",
     })),
+    roster: {
+      crews: (scope.mode === "tenant" ? crews : []).filter((c) => c.active !== false).slice(0, 40).map((c) => ({
+        id: c.id,
+        name: c.name,
+        trade: c.trade ?? "",
+        phone: Boolean(c.phone),
+      })),
+      contacts: scopedContacts.slice(0, 40).map((c) => ({
+        name: c.name,
+        role: c.role ?? "",
+        phone: Boolean(c.phone),
+        propertyId: c.propertyId ?? null,
+      })),
+      vendors: (scope.mode === "tenant" ? vendorsRaw : []).slice(0, 30).map((v) => ({
+        id: v.id,
+        name: v.name,
+        trade: v.trade ?? "",
+      })),
+      inventory: (scope.mode === "tenant" ? inventoryRaw : []).slice(0, 30).map((i) => ({
+        name: i.name,
+        qty: i.qty ?? 0,
+        vendor: i.preferredVendor ?? null,
+      })),
+      catalog: catalogRaw.map((c) => c.service).filter(Boolean).slice(0, 40),
+    },
+    calendar: upcomingCal.map((e) => ({ title: e.title, date: e.eventDate })),
+    pendingRequests: requestsRaw.filter((r) => r.status === "pending").length,
     jobs: {
       total: jobs.length,
       open: openJobs.length,
       overdue: overdueJobs.length,
       uncrewed: uncrewedJobs.length,
       overBudget: overBudgetJobs.length,
-      recentOpen: openJobs.slice(0, 8).map((j) => ({
+      recentOpen: openJobs.slice(0, 20).map((j) => ({
         id: j.id,
+        jobNo: j.jobNo,
         unitNo: j.unitNo ?? null,
         propertyId: j.propertyId,
+        propertyName: propName.get(j.propertyId) ?? "",
         status: j.status,
         boardStatus: j.boardStatus,
+        scheduledOn: j.scheduledOn ?? null,
       })),
     },
     invoices: {
@@ -302,7 +368,23 @@ export function buildSystemPrompt(
         : `\n\nSECURITY: You may discuss ONLY property id(s) ${snapshot.snapshotScope.propertyIds.join(", ")}. The snapshot already excludes every other site. If asked about another property, say you cannot see it.`
       : "";
 
-  return `You are HALO, an expert AI chief-of-staff for a property-maintenance and make-ready contracting business. You have access to live business data and assist with operational decisions, financial analysis, crew management, and work coordination.
+  const roster = snapshot.roster ?? { crews: [], contacts: [], vendors: [], inventory: [], catalog: [] };
+  const calendar = snapshot.calendar ?? [];
+  const pendingRequests = snapshot.pendingRequests ?? 0;
+
+  const crewLines = roster.crews
+    .map((c) => `${c.name}${c.trade ? ` — ${c.trade}` : ""}${c.phone ? " (SMS ready)" : ""}`)
+    .join("\n");
+  const contactLines = roster.contacts
+    .slice(0, 20)
+    .map((c) => `${c.name}${c.role ? ` (${c.role})` : ""}${c.phone ? " — phone on file" : ""}`)
+    .join("\n");
+  const vendorLines = roster.vendors.map((v) => `${v.name}${v.trade ? ` — ${v.trade}` : ""}`).join("\n");
+  const jobLines = snapshot.jobs.recentOpen
+    .map((j) => `${j.jobNo ?? "Job"} · Unit ${j.unitNo ?? "—"} · ${j.propertyName ?? ""} · ${j.status}${j.scheduledOn ? ` · ${j.scheduledOn}` : ""}`)
+    .join("\n");
+
+  return `You are HALO — Jarvis for Archangel Operations. You are the mission-control AI for a property-maintenance and make-ready contractor. Claude runs this brain. Every number below is live HALO data. You never invent people, units, vendors, or phone numbers that are not in the snapshot.
 
 Role: ${role} — ${roleDesc}
 ${shadowNote}${scopeNote}
@@ -310,10 +392,31 @@ ${shadowNote}${scopeNote}
 ## Live Business Snapshot (${snapshot.date})
 Properties: ${snapshot.properties.length} | Open jobs: ${snapshot.jobs.open} | Crews: ${snapshot.crews.total} (${snapshot.crews.checkedInToday} checked in today)
 Economics: ${economicsCtx}
-Uncrewed jobs: ${snapshot.jobs.uncrewed} | Overdue jobs: ${snapshot.jobs.overdue}
+Uncrewed jobs: ${snapshot.jobs.uncrewed} | Overdue jobs: ${snapshot.jobs.overdue} | Pending work requests: ${pendingRequests}
 
 ## Properties
-${snapshot.properties.map((p) => `${p.name} (${p.city}) — ${p.units} units`).join("\n")}
+${snapshot.properties.map((p) => `${p.name} — ${p.city}${p.address ? `, ${p.address}` : ""} — ${p.units} units`).join("\n")}
+
+## Open jobs (match units here)
+${jobLines || "None open."}
+
+## Crew roster (use these exact names for SMS / schedule / crew links)
+${crewLines || "No crews in scope."}
+
+## Property contacts / PMs
+${contactLines || "No contacts in scope."}
+
+## Vendors
+${vendorLines || "No vendors."}
+
+## Inventory (on hand)
+${roster.inventory.map((i) => `${i.name} × ${i.qty}${i.vendor ? ` via ${i.vendor}` : ""}`).join("\n") || "Empty."}
+
+## Catalog services
+${roster.catalog.join(", ") || "None loaded."}
+
+## Calendar (next 14 days)
+${calendar.map((e) => `${e.date} — ${e.title}`).join("\n") || "Nothing scheduled."}
 
 ## Needs Attention
 ${attentionItems || "Nothing urgent right now."}
@@ -345,6 +448,8 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "why over budget" → reference margin data and expense context.
 - For "approve everything safe" → describe what autopilot would evaluate.
 - For action commands (create/schedule/send/approve) → describe the proposed action clearly and note if SHADOW mode is active.
+- Daily home is HALO chat. Property Pulse at /pulse is the only dashboard. Traditional CRM is the records fallback.
+- For "open pulse / property pulse / show pulse" → say you are opening Property Pulse. The client routes this locally; do not return a map lens.
 - For "open map / show map / live map / where are crews" → return type "lens" with lensKind "map".
 - For "job board / kanban / show jobs / open board" → return type "lens" with lensKind "timeline".
 - For "money / show money / financials / invoices / revenue / receivables" → return type "lens" with lensKind "money".
@@ -355,8 +460,20 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "look up catalog / price book / what do we charge for [service]" → return type "voice_action", capability "catalog.lookup", risk "auto", params.query = the service text. Text: "Looking that up in the HALO catalog — not creating a bid."
 - For "weather schedule / rain delay recommend / which jobs should we move" → return type "voice_action", capability "weather.schedule_recommend", risk "auto". Text: "I'll recommend safer days. Base44 still owns the schedule — nothing will be moved."
 - For "estimate from this / draft lines from the walk / bid from photos text" → return type "voice_action", capability "estimate.from_evidence", risk "auto", params.text = the pasted evidence if any. Text: "Drafting line items from evidence. This is not an invoice."
-- For "text the crew / SMS blast / send a text to [name]" → return type "voice_action", capability "comms.sms", risk "review". Text: "Outbound SMS needs Falkon approval in ASSISTED. I will not send until you approve."
+- For "text the crew / SMS blast / send a text to [name]" → return type "voice_action", capability "comms.sms", risk "review", params.crewName = exact roster name, params.body = the message. Text: "Outbound SMS needs Falkon approval in ASSISTED. I will not send until you approve."
 - For "call them for EOD / voice end of day / dial the crew" → return type "voice_action", capability "field.voice_eod", risk "review". Text: "Outbound EOD calls need Falkon approval. I will not auto-dial a batch."
+- For "make a note / log a note / remind me" → capability "note.log", risk "auto", params.body = the note, params.unitNo if mentioned.
+- For "set a reminder / remind me to / calendar this" → capability "reminder.set", risk "auto", params.title, params.date (YYYY-MM-DD; resolve tomorrow/today from snapshot.date), params.notes.
+- For "order [material] / source supplies / buy drywall" → capability "supply.order", risk "review", params.material, params.unitNo, params.propertyName, params.neededBy. HALO will match catalog + inventory + nearby vendors and draft a PM order request.
+- For "schedule [name] / install tomorrow / dispatch" → capability "crew.schedule", risk "review", params.crewName, params.unitNo, params.scheduledOn, params.propertyName.
+- For "send to the property manager / notify the PM / send the order to the PM" → capability "pm.notify", risk "review", params.propertyName, params.unitNo, params.message.
+- COMPOUND COMMANDS: when the user issues multiple tasks in one sentence (AND / then / also — e.g. "make a note to order drywall for unit 624 and text Kyann to schedule install for tomorrow"), you MUST:
+  1. type "voice_action"
+  2. text = a short mission brief listing every step you will run
+  3. actionPlans = an ordered array of steps, each with its own capability/params/risk
+  4. also set actionPlan to the FIRST step (back-compat)
+  Typical drywall-style mission: note.log (auto) → reminder.set (auto) → supply.order (review) → crew.schedule (review) → comms.sms (review) → crew_checkin_link.generate (auto) if they asked for a crew link.
+  Resolve names against the roster. Resolve "tomorrow" from snapshot.date. Resolve unit numbers against Open jobs. Never skip a stated action.
 - Always give 2–3 specific follow-up suggestions relevant to the current context.
 - Respond in JSON format exactly as specified. No markdown fences, no prose outside the JSON.`;
 }
@@ -395,7 +512,7 @@ export function buildSuggestedPrompts(
   if (prompts.length < 4) {
     const rolePrompts: Record<string, string[]> = {
       executive: ["What's my margin health?", "Brief me on all properties"],
-      field: ["Show live crew map", "Who checked in today?"],
+      field: ["Show live crew map", "Send a crew check-in link"],
       accounting: ["Show open receivables", "What crew pay is pending?"],
       pm: ["Show active jobs by property", "What's due this week?"],
       admin: ["Show Falkon connection status", "Run autopilot evaluation"],
@@ -423,22 +540,23 @@ const BRAIN_RESPONSE_SCHEMA = `{
   "actionPlan": {
     "description": "string — one sentence describing exactly what will happen",
     "risk": "auto" | "review" | "block",
-    "capability": "string — HALO operation key e.g. invoice.send, job.create, crew.schedule, expense.approve, payment.release, note.log",
+    "capability": "string — HALO operation key e.g. invoice.send, job.create, crew.schedule, comms.sms, supply.order, reminder.set, note.log, pm.notify, crew_checkin_link.generate",
     "params": {}
-  } | null
+  } | null,
+  "actionPlans": [actionPlan, ...] | null
 }
 
 Rules:
 - type "answer" → text response to a data query or question
 - type "lens" → user wants to see a visual data view; set lensKind to the most relevant lens
-- type "voice_action" → user wants to CREATE, SCHEDULE, SEND, APPROVE, or DELETE something; always include actionPlan
+- type "voice_action" → user wants to CREATE, SCHEDULE, SEND, APPROVE, NOTE, ORDER, or TEXT; always include actionPlan. For compound commands fill actionPlans with every step.
 - type "error" → only for missing data or genuine inability to answer
 - shadowLabel: if falkon mode is SHADOW and type is "voice_action", set to "SHADOW — proposed, not executed"
 - sources: cite 2–4 specific data points from the snapshot
 - suggestedFollowUps: always include 2–3 context-aware follow-up prompts
 - actionPlan.risk classification:
-    "auto"   → safe, non-financial, reversible: note.log, observation.log, draft creation, status queries
-    "review" → consequential: invoice.send, job.create, job.status.update, crew.schedule, expense.approve, change_order.create
+    "auto"   → safe, non-financial, reversible: note.log, observation.log, reminder.set, draft creation, status queries, crew_checkin_link.generate, pm_link.generate
+    "review" → consequential: invoice.send, job.create, job.status.update, crew.schedule, comms.sms, supply.order, pm.notify, expense.approve, change_order.create
     "block"  → irreversible or high-stakes: payment.release, record.delete, compliance.suspend, unit.ready`;
 
 // ─── Core multi-turn brain function ───────────────────────────────────────────
@@ -475,7 +593,7 @@ export async function runCommandBrain(
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: fullSystem,
       messages,
     });
@@ -498,8 +616,15 @@ export async function runCommandBrain(
     if (opts?.readOnly && parsed.type === "voice_action") {
       parsed.type = "answer";
       parsed.actionPlan = undefined;
+      parsed.actionPlans = undefined;
       parsed.shadowLabel = undefined;
     }
+
+    const plans = Array.isArray(parsed.actionPlans) && parsed.actionPlans.length > 0
+      ? parsed.actionPlans
+      : parsed.actionPlan
+        ? [parsed.actionPlan]
+        : undefined;
 
     return {
       type: parsed.type ?? "answer",
@@ -509,7 +634,8 @@ export async function runCommandBrain(
       shadowLabel: parsed.shadowLabel ?? undefined,
       sources: parsed.sources ?? undefined,
       suggestedFollowUps: parsed.suggestedFollowUps ?? undefined,
-      actionPlan: parsed.actionPlan ?? undefined,
+      actionPlan: plans?.[0] ?? parsed.actionPlan ?? undefined,
+      actionPlans: plans,
     };
   } catch (err) {
     logger.warn({ err }, "commandBrain: AI call failed");

@@ -221,10 +221,12 @@ export function VoiceCaptureDialog({
   open,
   onOpenChange,
   initialText,
+  onHeard,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialText?: string;
+  onHeard?: (transcript: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>("capture");
@@ -327,6 +329,11 @@ export function VoiceCaptureDialog({
     if (!text) return;
     recognitionRef.current?.stop();
     setListening(false);
+    if (onHeard) {
+      onHeard(text);
+      onOpenChange(false);
+      return;
+    }
     parse.mutate(
       { data: { transcript: text}},
       {

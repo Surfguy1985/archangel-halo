@@ -11,9 +11,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import {
   Paperclip, ArrowUp, Loader2, CheckCircle2, AlertCircle,
-  List, CalendarDays, Users, ExternalLink,
+  List, CalendarDays, Users, Mic, LayoutGrid, MapPin,
 } from "lucide-react";
 
 import {
@@ -180,6 +181,16 @@ const BRAIN_LENS_TO_PANEL: Record<string, PanelType> = {
 };
 
 const PANEL_ICONS: Record<PanelType, string> = { map: "📍", kanban: "📋", money: "💰" };
+
+function detectPulseIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    /\bproperty\s*pulse\b/.test(lower) ||
+    /\bopen\s+(the\s+)?pulse\b/.test(lower) ||
+    /\bshow\s+(the\s+)?pulse\b/.test(lower) ||
+    /\bgo\s+to\s+(the\s+)?pulse\b/.test(lower)
+  );
+}
 
 function detectPanelIntent(text: string): { panel: PanelType; label: string } | null {
   const lower = text.toLowerCase().trim();
@@ -374,10 +385,10 @@ function ActionPlanCard({ msg, falkonMode, onExecute, onDecline }: {
 // ─── Seed card data ───────────────────────────────────────────────────────────
 
 const SEED_CARDS = [
-  { Icon: List,         color: "#4F8EF5", bg: "rgba(79,142,245,0.12)",   prompt: "What are our most pressing jobs today?",    title: "What are our most pressing jobs today?",      desc: "Show me a prioritized list of urgent and important jobs." },
-  { Icon: CalendarDays, color: "#A78BFA", bg: "rgba(167,139,250,0.12)",  prompt: "What's on deck this week?",                 title: "What's on deck this week?",                   desc: "Show upcoming jobs and key deadlines." },
-  { Icon: Users,        color: "#2DD4BF", bg: "rgba(45,212,191,0.12)",   prompt: "What's the status of active operations?",   title: "What's the status of active operations?",     desc: "Get a summary of ongoing operations and progress." },
-  { Icon: ExternalLink, color: "#A78BFA", bg: "rgba(167,139,250,0.12)",  prompt: "Show me the Halo Work app",                 title: "Show me the Halo Work app",                   desc: "Open the connected Halo Work application." },
+  { Icon: LayoutGrid,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Property Pulse", title: "Property Pulse", desc: "Live sites, GPS, and crew pings." },
+  { Icon: List,         color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "What needs my attention right now?", title: "Mission brief", desc: "What is on fire this hour." },
+  { Icon: CalendarDays, color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Make a note to order drywall for unit 624 and text Kyann to schedule install for tomorrow", title: "Run a mission", desc: "Note, source, schedule, text." },
+  { Icon: Users,        color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Generate a check-in link for the crew on site today", title: "Crew link", desc: "Send a check-in link instantly." },
 ];
 
 function SeedCard({ card, onSubmit }: { card: typeof SEED_CARDS[number]; onSubmit: (s: string) => void }) {
@@ -420,7 +431,7 @@ function WingsIcon() {
 
 // ─── Shared composer ──────────────────────────────────────────────────────────
 
-function ComposerInput({ value, onChange, onSubmit, busy }: {
+function ComposerInput({ value, onChange, onSubmit, onVoice, busy }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
@@ -436,21 +447,24 @@ function ComposerInput({ value, onChange, onSubmit, busy }: {
       borderRadius: 16,
       boxShadow: focused ? "0 0 0 3px rgba(255,255,255,0.03), 0 8px 40px rgba(0,0,0,0.4)" : "0 4px 32px rgba(0,0,0,0.35)",
       transition: "all 0.18s ease",
-      padding: "6px 8px 6px 16px",
+      padding: "6px 8px 6px 10px",
     }}>
-      <Paperclip size={15} strokeWidth={2} style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }} />
+      <button type="button" onClick={onVoice} aria-label="Talk to HALO" style={{ width: 36, height: 36, borderRadius: "50%", color: "rgba(255,255,255,0.45)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <Mic size={16} strokeWidth={2} />
+      </button>
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        placeholder="Ask anything about Archangel Operations..."
-        style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 14.5, color: "rgba(255,255,255,0.88)", caretColor: "#B4FF44", padding: "10px 14px", minHeight: 44 }}
+        placeholder="Command HALO…"
+        style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 15, color: "rgba(255,255,255,0.9)", caretColor: "#B4FF44", padding: "10px 12px", minHeight: 44 }}
       />
+      <Paperclip size={14} strokeWidth={2} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0, marginRight: 8 }} />
       <button
         type="button" onClick={onSubmit} disabled={!value.trim() || busy}
-        style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, cursor: "pointer", background: value.trim() ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", display: "grid", placeItems: "center", color: value.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)", transition: "all 0.18s ease", opacity: busy ? 0.5 : 1 }}
+        style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, cursor: "pointer", background: value.trim() ? "#B4FF44" : "rgba(255,255,255,0.08)", border: "none", display: "grid", placeItems: "center", color: value.trim() ? "#07101E" : "rgba(255,255,255,0.3)", boxShadow: value.trim() ? "0 0 18px rgba(180,255,68,0.35)" : "none", transition: "all 0.18s ease", opacity: busy ? 0.5 : 1 }}
       >
         {busy ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={15} strokeWidth={2.2} />}
       </button>
@@ -462,6 +476,7 @@ function ComposerInput({ value, onChange, onSubmit, busy }: {
 
 export default function HaloCommand() {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
 
   const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 15_000 } });
   const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 20_000 } });
@@ -553,6 +568,14 @@ export default function HaloCommand() {
     ]);
     scrollDown();
 
+    if (detectPulseIntent(raw)) {
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: "Opening Property Pulse." } : m
+      ));
+      navigate("/pulse");
+      return;
+    }
+
     const panelIntent = detectPanelIntent(raw);
     if (panelIntent) {
       setMessages(prev => prev.map(m =>
@@ -615,10 +638,16 @@ export default function HaloCommand() {
         setMessages(prev => prev.map(m =>
           m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, followUps: brainResult.suggestedFollowUps } : m
         ));
-        const plan = brainResult.actionPlan as ActionPlanData | undefined;
+        const plans: ActionPlanData[] = Array.isArray(brainResult.actionPlans) && brainResult.actionPlans.length
+          ? brainResult.actionPlans
+          : brainResult.actionPlan
+            ? [brainResult.actionPlan as ActionPlanData]
+            : [];
         const falkonMode = deriveFalkonMode(health);
-        if (plan) {
-          const planId = `plan-${Date.now()}`;
+        if (plans.length) {
+          for (let i = 0; i < plans.length; i++) {
+            const plan = plans[i]!;
+            const planId = `plan-${Date.now()}-${i}`;
           if (plan.risk === "auto" && falkonMode === "ASSISTED") {
             setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "executing" as const }]);
             scrollDown();
@@ -652,6 +681,17 @@ export default function HaloCommand() {
           } else {
             setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
           }
+          }
+        } else {
+          try {
+            const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+            if (vr?.actions?.length > 0) {
+              setMessages(prev => [...prev, {
+                id: `conf-${Date.now()}`, kind: "confirmation" as const,
+                logId: (vr as any).logId ?? "", actions: vr.actions,
+              }]);
+            }
+          } catch { /* non-fatal */ }
         }
         scrollDown();
         return;
@@ -685,7 +725,7 @@ export default function HaloCommand() {
       ));
     }
     scrollDown();
-  }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown]);
+  }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown, navigate]);
 
   const falkonMode = deriveFalkonMode(health);
   const nowCount = (today?.feed ?? []).filter((c: any) => c.tier === "now").length;
@@ -693,8 +733,8 @@ export default function HaloCommand() {
   const hasThread = messages.some(m => m.kind === "user-msg");
 
   const promptChips = suggestedPrompts?.slice(0, 3) ?? [
+    "Open Property Pulse",
     "What needs my attention?",
-    "Open live map",
     "Show unpaid invoices",
   ];
 
@@ -813,7 +853,19 @@ export default function HaloCommand() {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      <div className="h-full flex flex-col bg-[#080D17]">
+      <div className="halo-void h-full flex flex-col">
+
+        <header className="flex items-center gap-2 px-6 pt-4 pb-2 shrink-0 relative z-10">
+          <span className="font-display text-white/80 text-[15px] font-semibold tracking-tight">HALO</span>
+          <span className="halo-hud text-[#B4FF44]/70 ml-2">Mission control</span>
+          <div className="flex-1" />
+          <button type="button" onClick={() => openPanel("map", "Live Map")} className="w-9 h-9 rounded-full grid place-items-center text-white/40 hover:text-[#B4FF44]" aria-label="Live map">
+            <MapPin className="w-4 h-4" />
+          </button>
+          <button type="button" onClick={() => navigate("/pulse")} className="w-9 h-9 rounded-full grid place-items-center text-[#B4FF44] hover:text-white" aria-label="Property Pulse">
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </header>
 
         {!hasThread ? (
           /* ── SEED STATE ─────────────────────────────────────────────────── */
@@ -827,15 +879,18 @@ export default function HaloCommand() {
 
               {/* Greeting */}
               <div className="text-center" style={{ animation: "dcIn 0.5s ease-out 0.1s both", marginBottom: 32 }}>
-                <h1 style={{
-                  fontSize: "clamp(38px, 4.5vw, 52px)", fontWeight: 600,
-                  color: "#fff", lineHeight: 1.1, letterSpacing: "-0.025em",
-                  marginBottom: 12,
+                <h1 className="font-display" style={{
+                  fontSize: "clamp(42px, 5vw, 64px)", fontWeight: 600,
+                  color: "#F4F7F9", lineHeight: 1.02, letterSpacing: "-0.04em",
+                  marginBottom: 10,
                 }}>
-                  Hi, Team.
+                  HALO
                 </h1>
-                <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
-                  Chat below to find out anything about Archangel Operations.
+                <p className="halo-hud" style={{ color: "rgba(180,255,68,0.7)", marginBottom: 12 }}>
+                  Mission control
+                </p>
+                <p style={{ fontSize: 15, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>
+                  Speak it. HALO sources, schedules, and texts on the backend.
                 </p>
                 {/* Inline urgent indicator */}
                 {(nowCount > 0 || pendingCount > 0) && (
@@ -909,7 +964,7 @@ export default function HaloCommand() {
       <MoneyPanel   open={activePanel === "money"}  onClose={() => setActivePanel(null)} />
 
       {/* Overlays */}
-      <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
+      <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} onHeard={(text) => { void handleSubmit(text); }} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
   );

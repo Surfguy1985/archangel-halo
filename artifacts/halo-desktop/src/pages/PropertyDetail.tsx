@@ -5,7 +5,7 @@ import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap} from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap, MapPin, Box} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -14,6 +14,8 @@ import { useState, useEffect} from "react";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
+import { GpsFinder } from "@/components/GpsFinder";
+import { SiteTwin } from "@/components/SiteTwin";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import { ImportPriceSheetDialog} from "@/components/ImportPriceSheetDialog";
 import { QuickJobDialog} from "@/components/QuickJobDialog";
@@ -32,6 +34,8 @@ export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const [gpsOpen, setGpsOpen] = useState(false);
+  const [twinOpen, setTwinOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -804,6 +808,18 @@ export default function PropertyDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setGpsOpen(true)}
+            className="flex items-center gap-2 bg-card text-[var(--ink)] px-4 py-2.5 rounded-full font-medium border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
+          >
+            <MapPin className="w-4 h-4" /> GPS
+          </button>
+          <button
+            onClick={() => setTwinOpen(true)}
+            className="flex items-center gap-2 bg-card text-[var(--ink)] px-4 py-2.5 rounded-full font-medium border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
+          >
+            <Box className="w-4 h-4" /> Site twin
+          </button>
+          <button
             onClick={() => setWizardOpen(true)}
             className="flex items-center gap-2 bg-[var(--gold-light,#B4FF44)] text-black px-5 py-2.5 rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:opacity-90 transition-opacity"
             data-testid="button-invoice-wizard"
@@ -820,6 +836,24 @@ export default function PropertyDetail() {
       </header>
 
       <InvoiceWizardDialog open={wizardOpen} onOpenChange={setWizardOpen} propertyId={id} propertyName={property.name} />
+      {gpsOpen && (
+        <div className="pulse-modal" onClick={() => setGpsOpen(false)}>
+          <div className="pulse-modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>GPS Finder · {property.name}</h3>
+            <GpsFinder propertyId={id} initialQuery={[property.address, property.city, property.name].filter(Boolean).join(", ")} />
+          </div>
+        </div>
+      )}
+      {twinOpen && (
+        <SiteTwin
+          propertyId={id}
+          onClose={() => setTwinOpen(false)}
+          onNeedPin={() => {
+            setTwinOpen(false);
+            setGpsOpen(true);
+          }}
+        />
+      )}
       {summaryJobId && (
         <JobSummaryDialog
           jobId={summaryJobId}

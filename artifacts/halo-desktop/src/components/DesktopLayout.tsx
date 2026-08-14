@@ -106,7 +106,10 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
+          <NavKicker label="Daily" />
           <NavItem href="/" icon={Sparkles} label="HALO" active={location === "/"} tourId="nav-today" />
+          <NavItem href="/pulse" icon={Briefcase} label="Pulse" active={location.startsWith("/pulse")} />
+          <NavKicker label="Records" />
           <NavItem
             href="/jobboard"
             icon={ClipboardList}
@@ -264,6 +267,11 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
           </DropdownMenu>
           {/* Command input — hidden on "/" (HaloCommand has its own composer) */}
           {location !== "/" && (
+            <p className="text-[10px] font-display font-bold tracking-[0.16em] uppercase text-muted-foreground shrink-0">
+              Records
+            </p>
+          )}
+          {location !== "/" && (
             <div data-tour="ask-halo" className="relative max-w-2xl flex-1">
               <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
               <input
@@ -313,10 +321,18 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
   );
 }
 
+function NavKicker({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-3 pb-0.5 h-0 overflow-hidden group-hover/side:h-auto opacity-0 group-hover/side:opacity-100 transition-opacity duration-150">
+      <span className="text-[9px] font-display font-bold tracking-[0.18em] uppercase text-white/35">{label}</span>
+    </div>
+  );
+}
+
 function NavItem({ href, icon: Icon, label, active, tourId}: { href: string, icon: any, label: string, active: boolean, tourId?: string}) {
   return (
-    <Link href={href} data-tour={tourId} title={label} className={`group flex items-center gap-3 px-3 py-2.5 rounded-none transition-all border-l-2 ${active ? "border-[var(--primary)] bg-[var(--muted)] text-foreground" : "border-transparent text-muted-foreground hover:bg-[var(--muted)]/50 hover:text-foreground hover:border-[var(--border)]"}`}>
-      <span className={`custom-icon shrink-0 ${active ? "bg-[var(--primary)] text-black" : "bg-[var(--border)] text-muted-foreground group-hover:text-[var(--primary)] group-hover:bg-[var(--muted)]"}`}>
+    <Link href={href} data-tour={tourId} title={label} className={`group flex items-center gap-3 px-3 py-2.5 rounded-md transition-all border-l-2 ${active ? "border-[#B4FF44] bg-[#B4FF44]/12 text-white" : "border-transparent text-white/55 hover:bg-white/8 hover:text-white"}`}>
+      <span className={`custom-icon shrink-0 ${active ? "bg-[#B4FF44] text-[#041029]" : "bg-white/10 text-white/70 group-hover:text-[#B4FF44] group-hover:bg-white/15"}`}>
         <Icon className="w-4 h-4" />
       </span>
       <span className="font-medium text-sm font-display whitespace-nowrap opacity-0 group-hover/side:opacity-100 transition-opacity duration-150">{label}</span>

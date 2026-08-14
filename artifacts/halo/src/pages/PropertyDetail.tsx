@@ -3,11 +3,13 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap, MessageSquare, MapPin, Box } from "lucide-react";
 import { useState } from "react";
 import { CommandSheet } from "@/components/command/CommandSheet";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
+import { GpsFinder } from "@/components/GpsFinder";
+import { SiteTwin } from "@/components/SiteTwin";
 import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
 import { ImportFromCatalogSheet } from "@/components/ImportFromCatalogSheet";
@@ -49,6 +51,8 @@ export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const [gpsOpen, setGpsOpen] = useState(false);
+  const [twinOpen, setTwinOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importCatalogOpen, setImportCatalogOpen] = useState(false);
@@ -177,6 +181,20 @@ export default function PropertyDetail() {
             {property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}
           </div>
         </div>
+        <button
+          onClick={() => setGpsOpen(true)}
+          aria-label="GPS finder"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-muted-foreground transition-transform active:scale-[0.9]"
+        >
+          <MapPin className="w-[16px] h-[16px]" />
+        </button>
+        <button
+          onClick={() => setTwinOpen(true)}
+          aria-label="Site twin"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-muted-foreground transition-transform active:scale-[0.9]"
+        >
+          <Box className="w-[16px] h-[16px]" />
+        </button>
         <button
           onClick={() => setEditOpen(true)}
           aria-label="Edit property"
@@ -762,6 +780,24 @@ export default function PropertyDetail() {
       )}
 
       <EditPropertySheet open={editOpen} onOpenChange={setEditOpen} property={property} />
+      {gpsOpen && (
+        <div className="pulse-modal" onClick={() => setGpsOpen(false)}>
+          <div className="pulse-modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>GPS Finder · {property.name}</h3>
+            <GpsFinder propertyId={id} initialQuery={[property.address, property.city, property.name].filter(Boolean).join(", ")} />
+          </div>
+        </div>
+      )}
+      {twinOpen && (
+        <SiteTwin
+          propertyId={id}
+          onClose={() => setTwinOpen(false)}
+          onNeedPin={() => {
+            setTwinOpen(false);
+            setGpsOpen(true);
+          }}
+        />
+      )}
       <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogSheet open={importCatalogOpen} onOpenChange={setImportCatalogOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />

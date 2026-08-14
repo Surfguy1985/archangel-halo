@@ -6,7 +6,8 @@
 import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
 import { db, crewsTable, haloSmsMessagesTable } from "@workspace/db";
-import { getTwilioSettings, sendSms, smsEnabled } from "../lib/sms";
+import { getTwilioSettings, sendSms, smsEnabled, smsPublicStatus } from "../lib/sms";
+import { getBusinessSettings } from "../lib/businessSettings";
 import {
   MAX_SMS_BODY,
   phonesMatch,
@@ -81,6 +82,45 @@ twilioWebhookRouter.post("/twilio/webhook", limits.checkinWrite, async (req, res
   });
 
   emptyTwiml(res);
+});
+
+officeRouter.get("/sms/status", async (_req, res): Promise<void> => {
+  const status = await smsPublicStatus();
+  res.json({ ok: true, ...status });
+});
+
+officeRouter.post("/sms/admin", async (req, res): Promise<void> => {
+  const body = typeof req.body?.body === "string" ? req.body.body.trim() : "";
+  if (!body || body.length > MAX_SMS_BODY) {
+    res.status(400).json({ error: "body is required" });
+    return;
+  }
+  if (!(await smsEnabled())) {
+    res.status(503).json({ error: "SMS not configured" });
+    return;
+  }
+  const settingsRow = await getBusinessSettings();
+  const destRaw = typeof req.body?.to === "string" && req.body.to.trim() ? req.body.to.trim() : (settingsRow.phone ?? "");
+  const dest = toE164(destRaw);
+  if (!dest) {
+    res.status(404).json({ error: "No admin phone on file — add it in business settings" });
+    return;
+  }
+  const twilio = await getTwilioSettings();
+  const result = await sendSms(destRaw, body);
+  await db.insert(haloSmsMessagesTable).values({
+    direction: "outbound",
+    crewId: null,
+    fromE164: toE164(twilio?.phoneNumber ?? "") ?? "unknown",
+    toE164: dest,
+    body,
+    status: result.ok ? "sent" : "failed",
+  });
+  if (!result.ok) {
+    res.status(502).json({ ok: false, error: result.error });
+    return;
+  }
+  res.json({ ok: true, capability: "comms.sms", toLast4: dest.slice(-4) });
 });
 
 officeRouter.post("/sms/send", async (req, res): Promise<void> => {

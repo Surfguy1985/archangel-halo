@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import todayRouter from "./today";
 import propertiesRouter from "./properties";
+import siteTwinRouter from "./siteTwin";
 import pipelineRouter from "./pipeline";
 import jobsRouter from "./jobs";
 import jobBoardRouter from "./jobboard";
@@ -90,6 +91,7 @@ router.use(falkonMutationGuard());
 
 router.use(healthRouter);
 router.use(todayRouter);
+router.use(siteTwinRouter);
 router.use(propertiesRouter);
 router.use(pipelineRouter);
 router.use(jobsRouter);

@@ -55,6 +55,7 @@ import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
 import { emitFalkonEvent } from "../lib/falkonEmit";
 import { startMakeReadyExecution } from "../lib/falkonMakeReady";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
+import { pushToCrewId } from "../lib/pushNotification";
 import { resolveViewer, notifyClientBoard, threadKeysFor, threadMessageDto } from "./clientBoard";
 import { hashPassword, newTempPassword, emailCredentials } from "./admin";
 import {
@@ -1049,6 +1050,7 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
   // double-click can't approve twice or create duplicate work requests.
   let status = 200;
   let payload: unknown = null;
+  const walkPush: Array<{ crewId: string; jobId: string; jobNo: string | null }> = [];
   await db.transaction(async (tx) => {
     const [card] = await tx
       .select()
@@ -1111,6 +1113,7 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
               kind: "walk_approved",
               body: `Walk findings approved for job ${walkJob.jobNo ?? jobId} — work is a go`,
             });
+            walkPush.push({ crewId: walkJob.crewLeaderId, jobId, jobNo: walkJob.jobNo ?? null });
           }
           // Falkon Ops: client-board walk approval also fires the resident-ready
           // signal so Falkon receives it regardless of which surface approves.
@@ -1417,6 +1420,14 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
       .returning();
     payload = ClientBoardCardActionResponse.parse(serCard(updated!));
   });
+  const walk = walkPush[0];
+  if (walk) {
+    void pushToCrewId(walk.crewId, {
+      title: "✅ Walk approved — work is a go",
+      body: `Walk findings approved for job ${walk.jobNo ?? walk.jobId}.`,
+      data: { kind: "walk_approved", jobId: walk.jobId },
+    });
+  }
   if (status === 200) emitBoardEvent(account.propertyId);
   res.status(status).json(payload);
 });

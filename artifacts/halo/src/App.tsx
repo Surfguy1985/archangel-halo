@@ -26,7 +26,20 @@ import CrewCheckinPage from "./pages/CrewCheckinPage";
 
 // Primary interface
 import HaloCommand from "./pages/HaloCommand";
+import PropertyPulse from "./pages/PropertyPulse";
 import { OfficeGate } from "./components/OfficeGate";
+import { OpsLayout } from "./components/OpsLayout";
+import Today from "./pages/Today";
+import Properties from "./pages/Properties";
+import Crews from "./pages/Crews";
+import CrewDetail from "./pages/CrewDetail";
+import Calendar from "./pages/Calendar";
+import Money from "./pages/Money";
+import JobBoard from "./pages/JobBoard";
+import Supply from "./pages/Supply";
+import Vendors from "./pages/Vendors";
+import Pipeline from "./pages/Pipeline";
+import Catalog from "./pages/Catalog";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -42,6 +55,16 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/** Traditional CRM shell — summoned from the HALO HUD. */
+function GatedOps({ children }: { children: React.ReactNode }) {
+  return (
+    <OfficeGate>
+      <SplashScreen />
+      <OpsLayout>{children}</OpsLayout>
+    </OfficeGate>
+  );
+}
 
 /** Wrap a page component with the office gate + stripped Layout chrome. */
 function GatedPage({ children }: { children: React.ReactNode }) {
@@ -108,6 +131,12 @@ function App() {
               </OfficeGate>
             </Route>
 
+            <Route path="/pulse">
+              <OfficeGate>
+                <PropertyPulse />
+              </OfficeGate>
+            </Route>
+
             {/* ── Operational deep-links ─────────────────────────────────
                 Accessible from the Settings menu item and from links in
                 emails / push notifications. Never surfaced in the chat UI.  */}
@@ -126,6 +155,42 @@ function App() {
             </Route>
             <Route path="/properties/:id">
               <GatedPage><PropertyDetail /></GatedPage>
+            </Route>
+            <Route path="/properties">
+              <GatedOps><Properties /></GatedOps>
+            </Route>
+            <Route path="/ops">
+              <GatedOps><Today /></GatedOps>
+            </Route>
+            <Route path="/today">
+              <GatedOps><Today /></GatedOps>
+            </Route>
+            <Route path="/crews/:id">
+              <GatedPage><CrewDetail /></GatedPage>
+            </Route>
+            <Route path="/crews">
+              <GatedOps><Crews /></GatedOps>
+            </Route>
+            <Route path="/calendar">
+              <GatedOps><Calendar /></GatedOps>
+            </Route>
+            <Route path="/money">
+              <GatedOps><Money /></GatedOps>
+            </Route>
+            <Route path="/jobboard">
+              <GatedOps><JobBoard /></GatedOps>
+            </Route>
+            <Route path="/supply">
+              <GatedOps><Supply /></GatedOps>
+            </Route>
+            <Route path="/vendors">
+              <GatedOps><Vendors /></GatedOps>
+            </Route>
+            <Route path="/pipeline">
+              <GatedOps><Pipeline /></GatedOps>
+            </Route>
+            <Route path="/catalog">
+              <GatedOps><Catalog /></GatedOps>
             </Route>
 
             {/* ── Catch-all: every unrecognised path → chat OS ──────────── */}

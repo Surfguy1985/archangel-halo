@@ -5,7 +5,7 @@ import {
   useCreateProperty,
   getListPropertiesQueryKey,
 } from "@workspace/api-client-react";
-import { MapPin, Loader2 } from "lucide-react";
+import { GpsFinder } from "@/components/GpsFinder";
 
 const fieldCls =
   "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
@@ -25,8 +25,6 @@ export function AddPropertySheet({
   const [units, setUnits] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [pinning, setPinning] = useState(false);
-  const [pinError, setPinError] = useState(false);
 
   const create = useCreateProperty();
 
@@ -38,32 +36,6 @@ export function AddPropertySheet({
     setUnits("");
     setAccessNotes("");
     setCoords(null);
-    setPinning(false);
-    setPinError(false);
-  };
-
-  const pinHere = () => {
-    if (coords) {
-      setCoords(null);
-      return;
-    }
-    if (!("geolocation" in navigator)) {
-      setPinError(true);
-      return;
-    }
-    setPinning(true);
-    setPinError(false);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setPinning(false);
-      },
-      () => {
-        setPinning(false);
-        setPinError(true);
-      },
-      { enableHighAccuracy: true, timeout: 20_000 },
-    );
   };
 
   const submit = () => {
@@ -153,37 +125,13 @@ export function AddPropertySheet({
               value={accessNotes}
               onChange={(e) => setAccessNotes(e.target.value)}
             />
-            <button
-              type="button"
-              onClick={pinHere}
-              disabled={pinning}
-              className={`w-full flex items-center justify-center gap-[8px] rounded-[18px] py-[12px] text-[14px] font-display font-bold border transition-transform active:scale-[0.98] ${
-                coords
-                  ? "text-[var(--ink)] bg-[var(--primary)] border-transparent shadow-[0_4px_14px_rgba(180,255,68,0.35)]"
-                  : "bg-card border-[var(--hairline)] text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
-              }`}
-            >
-              {pinning ? (
-                <Loader2 className="w-[16px] h-[16px] animate-spin" />
-              ) : (
-                <MapPin className="w-[16px] h-[16px]" />
-              )}
-              {coords
-                ? "Pinned to my current location — ON"
-                : pinning
-                  ? "Getting your location…"
-                  : "Pin to my current location"}
-            </button>
-            {coords && (
-              <div className="text-[12px] text-muted-foreground text-center -mt-[2px]">
-                On-site detection will recognize this exact spot.
-              </div>
-            )}
-            {pinError && (
-              <div className="text-[12.5px] text-destructive text-center -mt-[2px]">
-                Couldn't get your location. Allow location access and try again.
-              </div>
-            )}
+            <GpsFinder
+              initialQuery={[address, city, name].filter(Boolean).join(", ")}
+              onPinned={(p) => {
+                setCoords({ lat: p.lat, lng: p.lng });
+                if (p.address && !address.trim()) setAddress(p.address);
+              }}
+            />
           </div>
 
           <button

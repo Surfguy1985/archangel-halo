@@ -20,6 +20,7 @@ import { useEffect, useState} from "react";
 import { useLocation} from "wouter";
 import { useQueryClient} from "@tanstack/react-query";
 import { Trash2} from "lucide-react";
+import { GpsFinder } from "@/components/GpsFinder";
 import {
   useCreateProperty,
   useUpdateProperty,
@@ -98,6 +99,7 @@ export function AddPropertyDialog({
   const [city, setCity] = useState("");
   const [units, setUnits] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const create = useCreateProperty();
 
   useEffect(() => {
@@ -107,6 +109,7 @@ export function AddPropertyDialog({
       setCity("");
       setUnits("");
       setAccessNotes("");
+      setPin(null);
    }
  }, [open]);
 
@@ -121,6 +124,8 @@ export function AddPropertyDialog({
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
+          latitude: pin?.lat,
+          longitude: pin?.lng,
        },
      },
       {
@@ -192,6 +197,15 @@ export function AddPropertyDialog({
               placeholder="Lockbox, gate code, who to call"
               value={accessNotes}
               onChange={(e) => setAccessNotes(e.target.value)}
+            />
+          </Field>
+          <Field label="GPS — search or drop a pin">
+            <GpsFinder
+              initialQuery={[address, city, name].filter(Boolean).join(", ")}
+              onPinned={(p) => {
+                setPin({ lat: p.lat, lng: p.lng });
+                if (p.address && !address.trim()) setAddress(p.address);
+              }}
             />
           </Field>
         </div>
@@ -371,6 +385,12 @@ export function EditPropertyDialog({
                 placeholder="Lockbox, gate code, who to call"
                 value={accessNotes}
                 onChange={(e) => setAccessNotes(e.target.value)}
+              />
+            </Field>
+            <Field label="GPS — search or drop a pin">
+              <GpsFinder
+                propertyId={property.id}
+                initialQuery={[address, city, name].filter(Boolean).join(", ")}
               />
             </Field>
           </div>

@@ -45,6 +45,7 @@ import {
 import { resolveViewer, requireWriter, type Viewer } from "./clientBoard";
 import { completeText, completeJsonWithImage } from "../lib/ai";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { layoutUnitGrid } from "../lib/siteTwinCore";
 
 const router: IRouter = Router();
 const objectStorage = new ObjectStorageService();
@@ -544,26 +545,16 @@ async function handleGenerateGrid(req: Request, res: Response): Promise<void> {
     .where(eq(propertyUnitsTable.propertyId, scope.propertyId));
   const have = new Set(existing.map((u) => normUnit(u.label)));
   const startAt = Math.max(1, Math.round(parsed.data.startAt ?? 101));
-  const cols = Math.ceil(Math.sqrt(count * 1.6)); // wider than tall
-  const rows = Math.ceil(count / cols);
-  const gap = 0.012;
-  const w = (1 - gap * (cols + 1)) / cols;
-  const h = (1 - gap * (rows + 1)) / rows;
-  const values: (typeof propertyUnitsTable.$inferInsert)[] = [];
-  for (let i = 0; i < count; i++) {
-    const label = String(startAt + i);
-    if (have.has(normUnit(label))) continue;
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    values.push({
+  const values: (typeof propertyUnitsTable.$inferInsert)[] = layoutUnitGrid(count, startAt)
+    .filter((box) => !have.has(normUnit(box.label)))
+    .map((box) => ({
       propertyId: scope.propertyId,
-      label,
-      x: gap + col * (w + gap),
-      y: gap + row * (h + gap),
-      w,
-      h,
-    });
-  }
+      label: box.label,
+      x: box.x,
+      y: box.y,
+      w: box.w,
+      h: box.h,
+    }));
   if (values.length) await db.insert(propertyUnitsTable).values(values);
   res.json(GetUnitMapResponse.parse(await unitMapView(scope.propertyId, scope.viewer)));
 }

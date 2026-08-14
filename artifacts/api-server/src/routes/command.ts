@@ -59,6 +59,14 @@ import { authorizeAction, primaryRole } from "../lib/enforcerCore";
 import { mintCrewToken } from "../lib/crewCheckinCore";
 import { mintPmToken } from "../lib/pmLiveCore";
 import { filterBySnapshotScope, snapshotPropertyScope } from "../lib/commandSnapshotCore";
+import {
+  executeNoteLog,
+  executeReminderSet,
+  executeSupplyOrder,
+  executeCrewSms,
+  executeCrewSchedule,
+  executePmNotify,
+} from "../lib/jarvisDispatch";
 
 const router: IRouter = Router();
 
@@ -1158,14 +1166,29 @@ async function dispatchAutoAction(
   switch (capability) {
     case "note.log":
     case "observation.log":
-      return `Observation logged: "${description}"`;
+      return executeNoteLog(_params, description);
+
+    case "reminder.set":
+      return executeReminderSet(_params, description);
+
+    case "supply.order":
+    case "supply.source":
+      return executeSupplyOrder(_params, description);
+
+    case "comms.sms":
+    case "crew.notify":
+      return executeCrewSms(_params, description);
+
+    case "crew.schedule":
+    case "job.schedule":
+      return executeCrewSchedule(_params, description);
+
+    case "pm.notify":
+      return executePmNotify(_params, description, baseUrl);
 
     case "briefing.refresh":
     case "briefing.send":
       return "Briefing refreshed — check the daily briefing for the latest status.";
-
-    case "crew.notify":
-      return "Crew notification queued. They'll receive it on their next app open.";
 
     case "report.generate":
       return "Report queued. Open the Money lens to view the latest figures.";

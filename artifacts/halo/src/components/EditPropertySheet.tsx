@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
+import { GpsFinder } from "@/components/GpsFinder";
 import {
   useUpdateProperty,
   useDeleteProperty,
@@ -176,6 +177,7 @@ export function EditPropertySheet({
                 value={accessNotes}
                 onChange={(e) => setAccessNotes(e.target.value)}
               />
+              <GpsFinder propertyId={property.id} initialQuery={[address, city, name].filter(Boolean).join(", ")} />
             </div>
 
             <button

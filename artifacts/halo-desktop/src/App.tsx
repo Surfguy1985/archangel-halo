@@ -30,6 +30,7 @@ import Payments from "@/pages/Payments";
 import Admin from "@/pages/Admin";
 import AdminAccount from "@/pages/AdminAccount";
 import HaloCommand from "@/pages/HaloCommand";
+import PropertyPulse from "@/pages/PropertyPulse";
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
 import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
@@ -74,6 +75,14 @@ function App() {
             {/* ── /today → HALO Command (same as mobile) ───────────────── */}
             <Route path="/today">
               {() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/"); return null; }}
+            </Route>
+
+            {/* Property Pulse — full-bleed tablet dashboard (optional ops view) */}
+            <Route path="/pulse">
+              <OfficeGate>
+                <SplashScreen />
+                <PropertyPulse />
+              </OfficeGate>
             </Route>
 
             {/* ── All other routes — hub layout with sidebar ────────────── */}

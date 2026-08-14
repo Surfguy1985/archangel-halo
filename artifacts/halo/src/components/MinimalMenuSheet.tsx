@@ -12,6 +12,8 @@ import {
   Loader2,
   ChevronRight,
   X,
+  LayoutGrid,
+  Briefcase,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -118,6 +120,32 @@ export function MinimalMenuSheet({
                 <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
               </a>
             )}
+
+            <Link href="/pulse" onClick={close}>
+              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
+                <div className="w-8 h-8 rounded-full bg-[#B4FF44] grid place-items-center shrink-0">
+                  <Briefcase className="w-4 h-4 text-[#07101E]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-medium text-white/80">Property Pulse</div>
+                  <div className="text-[11.5px] text-white/35">Live map, sites, and crew pings</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+              </div>
+            </Link>
+
+            <Link href="/ops" onClick={close}>
+              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
+                <div className="w-8 h-8 rounded-full bg-white/[0.06] grid place-items-center shrink-0">
+                  <LayoutGrid className="w-4 h-4 text-white/40" />
+                </div>
+                <div className="flex-1 min-w-0">
+              <div className="text-[13.5px] font-medium text-white/80">Records</div>
+              <div className="text-[11.5px] text-white/35">Jobs, properties, money — expert fallback</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+              </div>
+            </Link>
 
             {/* Settings */}
             <Link href="/settings" onClick={close}>

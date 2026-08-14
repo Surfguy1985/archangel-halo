@@ -10,6 +10,8 @@ import {
   notificationsTable,
   activitiesTable,
   autopilotActionsTable,
+  calendarEventsTable,
+  haloSmsMessagesTable,
   type AutopilotAction,
 } from "@workspace/db";
 import { contactsTable } from "@workspace/db";
@@ -18,6 +20,10 @@ import { sendInvoiceReminderEmail } from "./email";
 import { logger } from "./logger";
 import { mintPortalToken, portalTokenColumns } from "./portalToken";
 import { enforceFalkonMutation } from "./falkonPolicy";
+import { getTwilioSettings, sendSms, smsEnabled } from "./sms";
+import { toE164 } from "./smsCore";
+import { adminPingBody, crewDayPingBody } from "./pulseCore";
+import { localYmd } from "./jarvisOpsCore";
 
 /**
  * Pick the billing email for a property: prefer a contact whose role mentions
@@ -48,6 +54,153 @@ async function alreadyNotified(kind: string, entityId: string): Promise<boolean>
     )
     .limit(1);
   return Boolean(existing);
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+/**
+ * One-shot daily SMS. Raises an in-app notification first, then texts if
+ * Twilio is configured and Falkon permits the worker send. Never throws.
+ */
+async function pingSms(opts: {
+  to: string;
+  body: string;
+  crewId?: string | null;
+  kind: string;
+  entityId: string;
+  title: string;
+}): Promise<"skip" | "notified" | "sent"> {
+  if (await alreadyNotified(opts.kind, opts.entityId)) return "skip";
+  await raise({
+    kind: opts.kind,
+    entityType: opts.crewId ? "crew" : "ops",
+    entityId: opts.entityId,
+    title: opts.title,
+    body: opts.body,
+  });
+  try {
+    if (!(await smsEnabled())) return "notified";
+    const gate = await enforceFalkonMutation({
+      action: "comms.sms",
+      actorChannel: "worker",
+      targetType: "sms",
+      targetId: opts.entityId,
+      payload: { kind: opts.kind },
+    });
+    if (!gate.decision.permitted) {
+      logger.info({ code: gate.decision.code, kind: opts.kind }, "autopilot sms blocked by Falkon");
+      return "notified";
+    }
+    const result = await sendSms(opts.to, opts.body);
+    const twilio = await getTwilioSettings();
+    await db.insert(haloSmsMessagesTable).values({
+      direction: "outbound",
+      crewId: opts.crewId ?? null,
+      fromE164: toE164(twilio?.phoneNumber ?? "") ?? "unknown",
+      toE164: toE164(opts.to) ?? opts.to,
+      body: opts.body,
+      status: result.ok ? "sent" : "failed",
+    });
+    if (!result.ok) {
+      logger.warn({ err: result.error, kind: opts.kind }, "autopilot sms failed");
+      return "notified";
+    }
+    return "sent";
+  } catch (err) {
+    logger.warn({ err, kind: opts.kind }, "autopilot sms errored");
+    return "notified";
+  }
+}
+
+async function runAutopilotSmsPings(): Promise<string[]> {
+  const out: string[] = [];
+  const today = localYmd(new Date());
+  const tom = new Date();
+  tom.setDate(tom.getDate() + 1);
+  const tomorrow = localYmd(tom);
+
+  const jobs = await db.select().from(jobsTable);
+  const live = jobs.filter((j) => !["complete", "paid", "cancelled"].includes(j.status));
+  const props = await db
+    .select({ id: propertiesTable.id, name: propertiesTable.name })
+    .from(propertiesTable);
+  const propName = (id: string) => props.find((p) => p.id === id)?.name ?? "a property";
+  const crews = await db
+    .select({ id: crewsTable.id, name: crewsTable.name, phone: crewsTable.phone })
+    .from(crewsTable);
+
+  for (const when of ["today", "tomorrow"] as const) {
+    const ymd = when === "today" ? today : tomorrow;
+    const byCrew = new Map<string, typeof live>();
+    for (const j of live) {
+      if (j.scheduledOn !== ymd || !j.crewLeaderId) continue;
+      const list = byCrew.get(j.crewLeaderId) ?? [];
+      list.push(j);
+      byCrew.set(j.crewLeaderId, list);
+    }
+    for (const [crewId, stops] of byCrew) {
+      const crew = crews.find((c) => c.id === crewId);
+      if (!crew?.phone) continue;
+      const body = crewDayPingBody({
+        crewFirst: firstName(crew.name),
+        when,
+        stops: stops.map((j) => ({
+          jobNo: j.jobNo,
+          unitNo: j.unitNo,
+          propertyName: propName(j.propertyId),
+        })),
+      });
+      const result = await pingSms({
+        to: crew.phone,
+        body,
+        crewId: crew.id,
+        kind: "sms_crew_reminder",
+        entityId: `${crew.id}:${when}:${ymd}`,
+        title: `Crew reminder — ${crew.name} ${when}`,
+      });
+      if (result !== "skip") out.push(result === "sent" ? `SMS ${crew.name} (${when})` : `Reminded office: ${crew.name} ${when}`);
+    }
+  }
+
+  const events = await db
+    .select()
+    .from(calendarEventsTable)
+    .where(eq(calendarEventsTable.eventDate, today));
+  for (const ev of events) {
+    if (!ev.crewId) continue;
+    if (await alreadyNotified("sms_crew_reminder", `${ev.crewId}:today:${today}`)) continue;
+    const crew = crews.find((c) => c.id === ev.crewId);
+    if (!crew?.phone) continue;
+    const result = await pingSms({
+      to: crew.phone,
+      body: `HALO: ${firstName(crew.name)}, reminder — ${ev.title} today.`,
+      crewId: crew.id,
+      kind: "sms_calendar_reminder",
+      entityId: `${ev.id}:${today}`,
+      title: `Calendar reminder — ${ev.title}`,
+    });
+    if (result !== "skip") out.push(result === "sent" ? `SMS calendar ${ev.title}` : `Calendar reminder queued: ${ev.title}`);
+  }
+
+  const uncrewed = live.filter((j) => !j.crewLeaderId);
+  const overdue = live.filter((j) => !!j.scheduledOn && j.scheduledOn < today);
+  const settings = await getBusinessSettings();
+  if ((uncrewed.length > 0 || overdue.length > 0) && settings.phone.trim()) {
+    const body = adminPingBody({ uncrewed: uncrewed.length, overdue: overdue.length });
+    const result = await pingSms({
+      to: settings.phone,
+      body,
+      crewId: null,
+      kind: "sms_admin_alert",
+      entityId: `admin:${today}`,
+      title: "Admin digest — uncrewed / behind",
+    });
+    if (result !== "skip") out.push(result === "sent" ? "SMS admin digest" : "Admin digest posted");
+  }
+
+  return out;
 }
 
 async function raise(opts: {
@@ -433,6 +586,9 @@ export async function runAutopilot(): Promise<string[]> {
         actions.push(body);
       }
     }
+
+    const smsActions = await runAutopilotSmsPings();
+    actions.push(...smsActions);
 
     // Auto-approve mode: execute freshly proposed actions immediately.
     if (autoApprove) {

@@ -305,6 +305,7 @@ const SAFE_PATHS: RegExp[] = [
   /^\/walks$/,
   /^\/walk-captures\//,
   /^\/weather\//,
+  /^\/geo\//,
   /^\/catalog\/lookup$/,
   /^\/estimates\//,
 ];
@@ -355,6 +356,9 @@ const CHAT_CAPABILITY_TO_ACTION: Record<string, ConsequentialActionName> = {
   "ops.eod_briefing": "ops.eod_briefing",
   "comms.sms": "comms.sms",
   "field.voice_eod": "field.voice_eod",
+  "job.schedule": "job.schedule",
+  "supply.order": "job.create",
+  "pm.notify": "generic.mutate",
 };
 
 const READ_CHAT_CAPABILITIES = new Set([
@@ -363,6 +367,12 @@ const READ_CHAT_CAPABILITIES = new Set([
   "catalog.lookup",
   "estimate.from_evidence",
   "status.query",
+  "note.log",
+  "observation.log",
+  "reminder.set",
+  "supply.source",
+  "briefing.refresh",
+  "crew_checkin_link.generate",
 ]);
 
 export function actionFromChatCapability(capability: string | undefined | null): string {

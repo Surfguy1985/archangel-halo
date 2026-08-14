@@ -73,6 +73,7 @@ import { emitBoardEvent } from "../lib/boardEvents";
 import { emitFalkonEvent } from "../lib/falkonEmit";
 import { startMakeReadyExecution } from "../lib/falkonMakeReady";
 import { deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
+import { pushToCrewId } from "../lib/pushNotification";
 
 // Every projected card gets a network waybill: the FLK code is deterministic
 // per cardKey, and the six-dot progress derives from the card's LANE — so a
@@ -1932,6 +1933,11 @@ const ACTIONS: Record<
           entityId: job.crewLeaderId,
           kind: "walk_approved",
           body: `Walk findings approved for job ${job.jobNo ?? jobId} — work is a go`,
+        });
+        void pushToCrewId(job.crewLeaderId, {
+          title: "✅ Walk approved — work is a go",
+          body: `Walk findings approved for job ${job.jobNo ?? jobId}.`,
+          data: { kind: "walk_approved", jobId },
         });
       }
       // Falkon Ops: resident-ready signal — the highest-value event in the

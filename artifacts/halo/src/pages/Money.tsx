@@ -694,6 +694,9 @@ function CrewPay() {
       >
         <Plus className="w-[20px] h-[20px]" /> Record crew payout
       </button>
+      <p className="text-[12px] text-muted-foreground mb-[16px] leading-relaxed">
+        Recorded payouts hit the ledger now. Bank instant-verify and Cybrid ACH are not live yet.
+      </p>
 
       {isLoading ? (
         <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />

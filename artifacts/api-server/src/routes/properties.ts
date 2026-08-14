@@ -67,6 +67,7 @@ import {
 } from "@workspace/api-zod";
 import { ser, serList } from "../lib/serialize";
 import { completeText, completeJson, completeJsonWithImage } from "../lib/ai";
+import { geocodePropertyNow } from "../lib/geocode";
 import {
   GeneratePropertyImageParams,
   GeneratePropertyImageResponse,
@@ -136,13 +137,17 @@ router.post("/properties", async (req, res): Promise<void> => {
         : {}),
     })
     .returning();
+  let created = row;
+  if (created && (created.latitude == null || created.longitude == null) && (created.address || created.city)) {
+    void geocodePropertyNow(created.id);
+  }
   // Kick off hero image generation in the background — never blocks creation.
-  if (row) {
-    generateAndStorePropertyImage(row.id).catch((err) =>
+  if (created) {
+    generateAndStorePropertyImage(created.id).catch((err) =>
       req.log.error({ err }, "Background property image generation failed"),
     );
   }
-  res.status(201).json(CreatePropertyResponse.parse(ser(row)));
+  res.status(201).json(CreatePropertyResponse.parse(ser(created)));
 });
 
 router.get("/properties/:id", async (req, res): Promise<void> => {
@@ -460,6 +465,9 @@ router.patch("/properties/:id", async (req, res): Promise<void> => {
   if (!row) {
     res.status(404).json({ error: "Property not found" });
     return;
+  }
+  if ((body.address || body.city) && (row.latitude == null || row.longitude == null)) {
+    void geocodePropertyNow(row.id);
   }
   res.json(UpdatePropertyResponse.parse(ser(row)));
 });
