@@ -55,7 +55,6 @@ function b44Id(rec: Record<string, any>): string | null {
   return (rec._id ?? rec.id ?? null) as string | null;
 }
 
-/** Read the HALO UUID we previously assigned to a Base44 entity. */
 // Skip accounting (noteSkip & friends) lives in base44SyncSkips.ts so the
 // behaviour is locked in by unit tests without a database. Every guard clause
 // in the sync functions below must call noteSkip — never a bare `continue` —
@@ -71,6 +70,7 @@ import {
 
 export { getLastSyncSkips, type SyncSkip };
 
+/** Read the HALO UUID we previously assigned to a Base44 entity. */
 async function lookupMap(resource: string, base44id: string): Promise<string | null> {
   const rows = await db
     .select({ haloId: base44SyncMapTable.haloId })

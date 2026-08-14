@@ -1,16 +1,53 @@
-import { ExternalLink, RefreshCw, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import {
+  ExternalLink,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
 const BASE44_URL = "https://wakeful-ready-track-flow.base44.app";
 const STATUS_URL = `${import.meta.env.BASE_URL}api/settings/sync-base44/status`;
 const SYNC_URL   = `${import.meta.env.BASE_URL}api/settings/sync-base44`;
 
+type UnplacedRow = {
+  resource: string;
+  base44Id: string | null;
+  reason: string;
+};
+
 type SyncStatus = {
   finishedAt: string;
   totalCreated: number;
   totalUpdated: number;
   totalErrors: number;
+  unplaced: number;
+  unplacedDetail: UnplacedRow[];
+  unplacedDetailTruncated: boolean;
 } | null;
+
+/**
+ * Both sync endpoints return `{ result, health }` (POST adds `ok`). Older
+ * builds returned the flat result, so accept either shape defensively.
+ */
+function parseSyncPayload(json: any): SyncStatus {
+  const result = json?.result ?? json;
+  if (!result?.finishedAt) return null;
+  const health = json?.health ?? {};
+  return {
+    finishedAt: result.finishedAt,
+    totalCreated: result.totalCreated ?? 0,
+    totalUpdated: result.totalUpdated ?? 0,
+    totalErrors: result.totalErrors ?? 0,
+    unplaced: health.unplaced ?? result.totalSkipped ?? 0,
+    unplacedDetail: Array.isArray(health.unplacedDetail) ? health.unplacedDetail : [],
+    unplacedDetailTruncated: health.unplacedDetailTruncated ?? false,
+  };
+}
 
 function fmtAgo(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -33,11 +70,15 @@ export default function WorkEmbed() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [tick, setTick]       = useState(0); // force re-render for "Xm ago"
+  const [showUnplaced, setShowUnplaced] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
       const r = await fetch(STATUS_URL);
-      if (r.ok) setStatus(await r.json());
+      if (r.ok) {
+        const parsed = parseSyncPayload(await r.json());
+        if (parsed) setStatus(parsed);
+      }
     } catch { /* silent */ }
   }, []);
 
@@ -56,8 +97,8 @@ export default function WorkEmbed() {
     try {
       const r = await fetch(SYNC_URL, { method: "POST" });
       if (!r.ok) throw new Error(`Sync failed (${r.status})`);
-      const result = await r.json();
-      setStatus(result);
+      const parsed = parseSyncPayload(await r.json());
+      if (parsed) setStatus(parsed);
     } catch (e: any) {
       setError(e?.message ?? "Sync failed");
     } finally {
@@ -65,8 +106,10 @@ export default function WorkEmbed() {
     }
   };
 
-  const hasErrors = (status?.totalErrors ?? 0) > 0;
-  const changed   = (status?.totalCreated ?? 0) + (status?.totalUpdated ?? 0);
+  const hasErrors   = (status?.totalErrors ?? 0) > 0;
+  const changed     = (status?.totalCreated ?? 0) + (status?.totalUpdated ?? 0);
+  const unplaced    = status?.unplaced ?? 0;
+  const hasUnplaced = unplaced > 0;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-8">
@@ -121,15 +164,19 @@ export default function WorkEmbed() {
             <div className="flex items-center gap-2">
               {hasErrors ? (
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              ) : hasUnplaced ? (
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               ) : (
                 <CheckCircle2 className="w-4 h-4 text-[var(--gold-light)] shrink-0" />
               )}
               <span className="text-sm text-white font-medium">
                 {hasErrors
                   ? `Last sync had ${status.totalErrors} error${status.totalErrors !== 1 ? "s" : ""}`
-                  : changed > 0
-                    ? `${changed} record${changed !== 1 ? "s" : ""} updated`
-                    : "Up to date — no changes"}
+                  : hasUnplaced
+                    ? `${unplaced} Work App record${unplaced !== 1 ? "s" : ""} not in HALO`
+                    : changed > 0
+                      ? `${changed} record${changed !== 1 ? "s" : ""} updated`
+                      : "Up to date — no changes"}
               </span>
               <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1 shrink-0">
                 <Clock className="w-3 h-3" />
@@ -142,20 +189,76 @@ export default function WorkEmbed() {
               {[
                 { label: "Created", val: status.totalCreated },
                 { label: "Updated", val: status.totalUpdated },
-                { label: "Errors",  val: status.totalErrors, danger: true },
-              ].map(({ label, val, danger }) => (
+                { label: "Errors",  val: status.totalErrors, tone: "danger" as const },
+                { label: "Not in HALO", val: unplaced, tone: "warn" as const },
+              ].map(({ label, val, tone }) => (
                 <span
                   key={label}
                   className={`px-3 py-1 rounded-full text-[11px] font-bold font-display ${
-                    danger && val > 0
+                    tone === "danger" && val > 0
                       ? "bg-red-500/20 text-red-400"
-                      : "bg-white/10 text-white/70"
+                      : tone === "warn" && val > 0
+                        ? "bg-amber-500/20 text-amber-400"
+                        : "bg-white/10 text-white/70"
                   }`}
                 >
                   {val} {label}
                 </span>
               ))}
             </div>
+
+            {/* Unplaced drill-in — Work App rows HALO couldn't store */}
+            {hasUnplaced && (
+              <div className="mt-1 rounded-xl border border-amber-500/30 bg-amber-500/10 overflow-hidden">
+                <button
+                  onClick={() => setShowUnplaced((v) => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-xs font-bold font-display text-amber-300 flex-1">
+                    {unplaced} record{unplaced !== 1 ? "s" : ""} the Work App is serving
+                    {" "}that HALO couldn't place
+                  </span>
+                  {showUnplaced ? (
+                    <ChevronUp className="w-4 h-4 text-amber-400 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-amber-400 shrink-0" />
+                  )}
+                </button>
+                {showUnplaced && (
+                  <div className="border-t border-amber-500/20 max-h-64 overflow-y-auto">
+                    {status.unplacedDetail.length === 0 ? (
+                      <p className="px-3 py-2.5 text-xs text-amber-200/70">
+                        Detail unavailable for this run — run "Sync now" to capture
+                        the per-record breakdown.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-amber-500/10">
+                        {status.unplacedDetail.map((row, i) => (
+                          <li key={`${row.resource}-${row.base44Id ?? i}`} className="px-3 py-2 flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold font-display uppercase tracking-wide text-amber-300">
+                                {row.resource}
+                              </span>
+                              <span className="text-[10px] font-mono text-amber-200/50 truncate">
+                                {row.base44Id ?? "no id"}
+                              </span>
+                            </div>
+                            <span className="text-xs text-amber-100/80">{row.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {status.unplacedDetailTruncated && (
+                      <p className="px-3 py-2 text-[11px] text-amber-200/60 border-t border-amber-500/10">
+                        Showing the first {status.unplacedDetail.length} of {unplaced} — the
+                        count above is exact.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
