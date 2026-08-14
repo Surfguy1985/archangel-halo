@@ -206,7 +206,8 @@ export function ReminderCard({ reminder, onDismiss, onSnooze }: ReminderCardProp
             type="button"
             onClick={() => void handleDismiss()}
             disabled={actionState === "dismissing" || actionState === "snoozing"}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-white text-[#0A0F1A] font-bold text-[12.5px] py-[10px] rounded-[12px] hover:bg-white/92 active:scale-[0.97] transition-all disabled:opacity-55"
+            aria-label={actionState === "dismissing" ? "Dismissing reminder…" : "Mark reminder done"}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-white text-[#0A0F1A] font-bold text-[12.5px] py-[10px] rounded-[12px] hover:bg-white/92 active:scale-[0.97] transition-all disabled:opacity-55 focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
           >
             {actionState === "dismissing"
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -219,7 +220,8 @@ export function ReminderCard({ reminder, onDismiss, onSnooze }: ReminderCardProp
               type="button"
               onClick={() => void handleSnooze()}
               disabled={actionState === "dismissing" || actionState === "snoozing"}
-              className="flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-[12px] text-[12.5px] font-medium text-white/45 active:scale-[0.97] transition-all disabled:opacity-55"
+              aria-label={actionState === "snoozing" ? "Snoozing reminder…" : "Snooze reminder 1 hour"}
+              className="flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-[12px] text-[12.5px] font-medium text-white/45 active:scale-[0.97] transition-all disabled:opacity-55 focus-visible:ring-2 focus-visible:ring-white/40 outline-none"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
             >
               {actionState === "snoozing"

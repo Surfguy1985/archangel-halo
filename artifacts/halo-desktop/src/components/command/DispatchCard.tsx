@@ -175,7 +175,8 @@ export function DispatchCard({ data, onConfirm, onCancel }: DispatchCardProps) {
             type="button"
             onClick={onCancel}
             disabled={state === "confirming"}
-            className="flex items-center justify-center px-4 py-[11px] rounded-[12px] text-[13px] text-white/40 font-medium active:scale-[0.97] transition-all"
+            aria-label="Cancel dispatch"
+            className="flex items-center justify-center px-4 py-[11px] rounded-[12px] text-[13px] text-white/40 font-medium active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-white/40 outline-none"
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             <X className="w-3.5 h-3.5" strokeWidth={2} />

@@ -3,7 +3,7 @@
  * Derives photos from board card projection. Full-screen overlay on tap.
  * Client-safe: no approve/reject actions, GPS/checklist badge only.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { type ClientBoardCardView, type ClientBoardPhoto } from '@workspace/api-client-react';
 import { Camera, X, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 
@@ -32,6 +32,19 @@ function splitPhases(photos: ClientBoardPhoto[]): { before: ClientBoardPhoto[]; 
 
 export function ClientEvidenceCard({ unitLabel, cards }: Props) {
   const [lightbox, setLightbox] = useState<{ photos: ClientBoardPhoto[]; idx: number } | null>(null);
+
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { closeLightbox(); return; }
+      if (e.key === 'ArrowLeft') setLightbox(l => l && l.idx > 0 ? { ...l, idx: l.idx - 1 } : l);
+      if (e.key === 'ArrowRight') setLightbox(l => l && l.idx < l.photos.length - 1 ? { ...l, idx: l.idx + 1 } : l);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, closeLightbox]);
 
   // Filter cards to those with photos and matching unit if specified
   const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -65,21 +78,39 @@ export function ClientEvidenceCard({ unitLabel, cards }: Props) {
   return (
     <>
       {lightbox && (
-        <div className="fixed inset-0 z-[200] bg-black/92 flex items-center justify-center" style={{ animation: 'h1MsgIn 0.15s ease-out both' }}>
-          <button onClick={() => setLightbox(null)}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors z-10">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo evidence viewer"
+          className="fixed inset-0 z-[200] bg-black/92 flex items-center justify-center"
+          style={{ animation: 'h1MsgIn 0.15s ease-out both' }}
+        >
+          <button
+            type="button"
+            onClick={closeLightbox}
+            aria-label="Close photo viewer"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors z-10 focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
+          >
             <X className="w-4 h-4" />
           </button>
-          <button onClick={() => setLightbox(l => l && l.idx > 0 ? { ...l, idx: l.idx - 1 } : l)}
+          <button
+            type="button"
+            onClick={() => setLightbox(l => l && l.idx > 0 ? { ...l, idx: l.idx - 1 } : l)}
             disabled={lightbox.idx === 0}
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors disabled:opacity-20">
+            aria-label="Previous photo"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors disabled:opacity-20 focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
+          >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <img src={lightbox.photos[lightbox.idx]?.url} alt="Job evidence"
+          <img src={lightbox.photos[lightbox.idx]?.url} alt={`Job evidence photo ${lightbox.idx + 1} of ${lightbox.photos.length}`}
             className="max-w-full max-h-[85dvh] rounded-xl object-contain" />
-          <button onClick={() => setLightbox(l => l && l.idx < l.photos.length - 1 ? { ...l, idx: l.idx + 1 } : l)}
+          <button
+            type="button"
+            onClick={() => setLightbox(l => l && l.idx < l.photos.length - 1 ? { ...l, idx: l.idx + 1 } : l)}
             disabled={lightbox.idx === lightbox.photos.length - 1}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors disabled:opacity-20">
+            aria-label="Next photo"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/20 transition-colors disabled:opacity-20 focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
+          >
             <ChevronRight className="w-5 h-5" />
           </button>
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">

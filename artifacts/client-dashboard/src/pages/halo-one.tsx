@@ -135,6 +135,8 @@ const KEYFRAMES = `
 }
 @media (prefers-reduced-motion: reduce) {
   .h1-msg, .h1-seed { animation: none !important; }
+  @keyframes h1Glow { 0%, 100% { opacity: 0.65; filter: none; } }
+  @keyframes h1Ambient { 0%, 100% { opacity: 0.35; transform: scaleY(0.8); } }
 }
 `;
 
@@ -997,6 +999,7 @@ export default function HaloOne() {
                 <button
                   onClick={() => { if (input.trim()) send(input); }}
                   disabled={!input.trim() || busy}
+                  aria-label="Send message"
                   className="mr-3 w-9 h-9 rounded-full grid place-items-center bg-white text-[#0A0F1A] shadow-[0_2px_12px_rgba(255,255,255,0.14)] hover:bg-white/92 active:scale-[0.94] transition-all disabled:opacity-32 disabled:scale-100 shrink-0"
                 >
                   {busy ? <Loader2 className="w-[13px] h-[13px] animate-spin" /> : <ChevronRight className="w-[15px] h-[15px]" strokeWidth={2.5} />}
@@ -1047,7 +1050,7 @@ export default function HaloOne() {
             )}
 
             {/* Thread */}
-            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2 overscroll-none">
+            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2 overscroll-none" aria-live="polite" aria-atomic="false">
               {messages.map(msg => (
                 <div key={msg.id} className="h1-msg" style={{ animation: 'h1MsgIn 0.22s ease-out both' }}>
                   {renderMsg(msg)}

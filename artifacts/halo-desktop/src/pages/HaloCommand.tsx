@@ -127,7 +127,10 @@ const KEYFRAMES = `
   0%,100%{filter:drop-shadow(0 0 6px rgba(212,134,12,0.55)) drop-shadow(0 0 18px rgba(212,134,12,0.25))}
   50%{filter:drop-shadow(0 0 14px rgba(255,208,96,0.8)) drop-shadow(0 0 36px rgba(255,208,96,0.38))}
 }
-@media(prefers-reduced-motion:reduce){.dc-in{animation:none!important}}
+@media(prefers-reduced-motion:reduce){
+  .dc-in{animation:none!important}
+  @keyframes haloAura{0%,100%{filter:none}}
+}
 `;
 
 // ─── BriefingCardThread — self-contained wrapper used inside renderMsg ────────
@@ -513,7 +516,7 @@ function ActionPlanCard({ msg, falkonMode, onExecute, onDecline }: {
       {!isBlock && !isShadow && (
         <div className="flex gap-2">
           <button type="button" onClick={onExecute}
-            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12.5px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
+            className="flex-1 h-9 rounded-[10px] bg-white text-[#07101E] text-[12.5px] font-bold hover:bg-white/92 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-white/60 outline-none">
             {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
           </button>
           <button type="button" onClick={onDecline}
@@ -1405,7 +1408,7 @@ export default function HaloCommand() {
         ) : (
           /* THREAD STATE */
           <>
-            <div className="flex-1 overflow-y-auto px-6 pt-5 pb-3 max-w-3xl mx-auto w-full">
+            <div className="flex-1 overflow-y-auto px-6 pt-5 pb-3 max-w-3xl mx-auto w-full" aria-live="polite" aria-atomic="false">
               {messages.map(msg => (
                 <div key={msg.id}>{renderMsg(msg)}</div>
               ))}

@@ -180,7 +180,10 @@ const KEYFRAMES = `
   50%{filter:drop-shadow(0 0 14px rgba(180,255,68,0.75)) drop-shadow(0 0 36px rgba(180,255,68,0.28))}
 }
 @keyframes hcScan { 0%{transform:translateY(-40%);opacity:0} 40%{opacity:.35} 100%{transform:translateY(140%);opacity:0} }
-@media(prefers-reduced-motion:reduce){.hc-in{animation:none!important}}
+@media(prefers-reduced-motion:reduce){
+  .hc-in{animation:none!important}
+  @keyframes haloAura{0%,100%{filter:none}}
+}
 `;
 
 // ─── Angel Halo Ring ──────────────────────────────────────────────────────────
@@ -649,8 +652,7 @@ function ActionPlanCard({
           <button
             type="button"
             onClick={onExecute}
-            className="flex-1 h-10 rounded-[11px] text-[13px] font-semibold transition-all active:scale-[0.97]"
-            style={{ background: "#B4FF44", color: "#07101E" }}
+            className="flex-1 h-10 rounded-[11px] text-[13px] font-semibold bg-white text-[#07101E] hover:bg-white/92 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
           >
             {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
           </button>
@@ -715,8 +717,7 @@ function MissionCard({
       {pending && !blocked && falkonMode !== "SHADOW" && (
         <div className="flex gap-2">
           <button type="button" onClick={onExecuteAll}
-            className="flex-1 h-10 rounded-[11px] text-[13px] font-semibold active:scale-[0.97]"
-            style={{ background: "#B4FF44", color: "#07101E" }}>
+            className="flex-1 h-10 rounded-[11px] text-[13px] font-semibold bg-white text-[#07101E] hover:bg-white/92 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-white/60 outline-none">
             {needsReview ? "Approve mission" : "Execute mission"}
           </button>
           <button type="button" onClick={onDecline}
@@ -1928,6 +1929,8 @@ export default function HaloCommand() {
           <>
             <div
               className="flex-1 overflow-y-auto overscroll-none"
+              aria-live="polite"
+              aria-atomic="false"
               style={{ padding: "20px 20px 8px" }}
             >
               {messages.map(msg => (

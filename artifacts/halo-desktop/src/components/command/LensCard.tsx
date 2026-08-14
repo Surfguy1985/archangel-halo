@@ -124,8 +124,9 @@ function PrimaryCTA({ label, icon: Icon = ArrowUpRight, onClick }: {
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-2 bg-white text-[#0A0F1A] font-bold text-[13px] py-[11px] rounded-[13px] hover:bg-white/92 active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(255,255,255,0.10)]"
+      className="w-full flex items-center justify-center gap-2 bg-white text-[#0A0F1A] font-bold text-[13px] py-[11px] rounded-[13px] hover:bg-white/92 active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(255,255,255,0.10)] focus-visible:ring-2 focus-visible:ring-white/60 outline-none"
     >
       {label}
       <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -137,8 +138,9 @@ function PrimaryCTA({ label, icon: Icon = ArrowUpRight, onClick }: {
 function SecondaryCTA({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-white/32 py-2 hover:text-white/55 transition-colors active:scale-[0.97]"
+      className="w-full flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-white/32 py-2 hover:text-white/55 transition-colors active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white/40 outline-none rounded-md"
     >
       {label}
       <ExternalLink className="w-3 h-3" />
@@ -402,10 +404,13 @@ function NetworkLens({ query: _q, onHandleSubmit }: { query?: string; onHandleSu
                     <div className="text-[12.5px] text-white/82 font-medium truncate">{c.name}</div>
                     <div className="text-[11px] text-white/35">{c.trade ?? c.role ?? "General"}</div>
                   </div>
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
-                    isIn ? "bg-[#22C55E]/12 text-[#22C55E]/80 border border-[#22C55E]/20"
-                         : "bg-white/5 text-white/30 border border-white/[0.08]"
-                  }`}>
+                  <div
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                      isIn ? "bg-[#22C55E]/12 text-[#22C55E]/80 border border-[#22C55E]/20"
+                           : "bg-white/5 text-white/30 border border-white/[0.08]"
+                    }`}
+                    aria-label={isIn ? `${c.name} is on site` : `${c.name} is available`}
+                  >
                     <div className={`w-1 h-1 rounded-full ${isIn ? "bg-[#22C55E]" : "bg-white/25"}`} />
                     {isIn ? "On Site" : "Available"}
                   </div>
@@ -456,7 +461,8 @@ function NetworkLens({ query: _q, onHandleSubmit }: { query?: string; onHandleSu
                   <div className="text-[10.5px] text-white/35">{v.trade ?? v.category ?? "Vendor"}</div>
                 </div>
                 <span className="text-[9px] font-bold px-2 py-1 rounded-full shrink-0"
-                  style={{ background: `${coi.color}18`, color: coi.color, border: `1px solid ${coi.color}30` }}>
+                  style={{ background: `${coi.color}18`, color: coi.color, border: `1px solid ${coi.color}30` }}
+                  aria-label={`COI status: ${coi.label}`}>
                   {coi.label}
                 </span>
                 {v.coiExpiresAt && (
