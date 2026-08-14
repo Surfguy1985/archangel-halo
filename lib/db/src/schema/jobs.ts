@@ -65,6 +65,23 @@ export const crewsTable = pgTable("crews", {
     .defaultNow(),
 });
 
+// Known name variants for a crew (e.g. "Bryce Beck" → the "Bryce Back" row).
+// Written when duplicate crew rows are merged so the Base44 sync stops
+// re-creating a fresh row for a spelling variant. alias is stored normalized
+// (lowercased, whitespace collapsed) and is unique.
+export const crewAliasesTable = pgTable(
+  "crew_aliases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crewId: uuid("crew_id").notNull(),
+    alias: text("alias").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("crew_aliases_alias_uq").on(t.alias)],
+);
+
 export const jobsTable = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobNo: text("job_no").notNull(),

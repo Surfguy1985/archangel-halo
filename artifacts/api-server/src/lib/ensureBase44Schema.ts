@@ -73,6 +73,18 @@ const STATEMENTS: string[] = [
      ON base44_evidence (property_name)`,
   `CREATE INDEX IF NOT EXISTS base44_evidence_kind_idx
      ON base44_evidence (kind)`,
+  // Known crew name variants recorded on merge (normalized, unique) so the
+  // sync's alias lookup never re-creates a merged spelling variant. Mirrors
+  // lib/db/migrations/0013_crew_aliases.sql for environments that have not
+  // run the migration yet.
+  `CREATE TABLE IF NOT EXISTS crew_aliases (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    crew_id uuid NOT NULL,
+    alias text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS crew_aliases_alias_uq
+     ON crew_aliases (alias)`,
 ];
 
 export async function ensureBase44Schema(): Promise<void> {

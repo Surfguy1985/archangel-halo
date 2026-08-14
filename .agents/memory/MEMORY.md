@@ -125,4 +125,5 @@
 - [HALO photo library](halo-photo-library.md) — office photo browser merges crew_photos + job photo activities; assign-to-card must validate paths against the library set (never trust client paths).
 - [HALO E2E mode-toggle suite](halo-e2e-mode-toggle-suite.md) — how to run the boundary suite live; guard 202s fire before route 403s; unscoped sub-router middleware gates the whole API; stale ASSISTED row blocks everything.
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).
+- [HALO crew de-duplication](halo-crew-dedupe.md) — crew_aliases + /crews/merge tooling; Base44 sync matches normalized name/alias and must never null contact fields or rename rows.
 - [HALO reminders system](halo-reminders.md) — reminders table + REST CRUD at /reminders; GET /today/briefing reads remindersTable directly (static imports, not dynamic); crew_checkins has no propertyId — filter by job IDs for client briefing.

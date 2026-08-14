@@ -28,6 +28,7 @@ import {
   contactsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { resolveCrewByNameOrAlias } from "./crewMerge";
 import { randomUUID } from "crypto";
 import { Base44ClientError, fetchBase44Snapshot } from "./base44Client";
 import { ensureBase44Schema } from "./ensureBase44Schema";
@@ -367,25 +368,36 @@ async function syncCrews(records: any[]): Promise<SyncStats> {
         hireDate: toDateStr(rec.hire_date ?? rec.hireDate ?? rec.start_date),
         role: rec.role ?? null,
       };
+      // Update guard: never null out contact fields HALO already has (Base44
+      // phones are often missing), and never rename an existing row — the
+      // office-maintained spelling wins over a Base44 variant ("Bryce Beck"
+      // must not overwrite the merged "Bryce Back" row).
+      const updateOf = (id: string) => {
+        const { name: _name, phone, email, hireDate, role, ...rest } = payload;
+        const set: Record<string, unknown> = { ...rest };
+        if (phone != null) set.phone = phone;
+        if (email != null) set.email = email;
+        if (hireDate != null) set.hireDate = hireDate;
+        if (role != null) set.role = role;
+        return db.update(crewsTable).set(set).where(eq(crewsTable.id, id));
+      };
       const existing = await lookupMap("crews", bid);
       if (existing) {
-        await db.update(crewsTable).set(payload).where(eq(crewsTable.id, existing));
+        await updateOf(existing);
         updated++;
       } else {
-        // Match by name first (phone is often null in Base44)
-        const byName = await db
-          .select({ id: crewsTable.id })
-          .from(crewsTable)
-          .where(eq(crewsTable.name, payload.name))
-          .limit(1);
-        const byPhone = !byName[0] && payload.phone
+        // Match by normalized name or a recorded alias first (phone is often
+        // null in Base44). Alias matching keeps a known spelling variant from
+        // creating a fresh duplicate row after a crew merge.
+        const byName = await resolveCrewByNameOrAlias(payload.name);
+        const byPhone = !byName && payload.phone
           ? await db.select({ id: crewsTable.id }).from(crewsTable)
               .where(eq(crewsTable.phone, payload.phone)).limit(1)
           : [];
-        const match = byName[0] ?? byPhone[0];
-        const haloId = match?.id ?? randomUUID();
-        if (match) {
-          await db.update(crewsTable).set(payload).where(eq(crewsTable.id, haloId));
+        const matchId = byName ?? byPhone[0]?.id ?? null;
+        const haloId = matchId ?? randomUUID();
+        if (matchId) {
+          await updateOf(haloId);
           updated++;
         } else {
           await db.insert(crewsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
