@@ -71,6 +71,70 @@ import {
 
 const router: IRouter = Router();
 
+// ─── Falkon gate: capability → consequential action mapping ─────────────────
+//
+// LINKAGE: capability strings originate in the brain's tool registry — the
+// system-prompt tool list in ../lib/commandBrain.ts (buildSystemPrompt) and
+// the executors in ../lib/jarvisDispatch.ts. Any NEW consequential capability
+// added there MUST also be added here, or `assertFalkonBoundary` will never
+// run for it.
+//
+// PASS-THROUGH SEMANTICS: a capability that is ABSENT from this map (or
+// explicitly mapped to `undefined`) is treated as NON-consequential and
+// passes the Falkon gate without any check, error, or log. Absence means
+// "allowed", not "blocked" — omissions fail open. When adding a new tool,
+// decide deliberately: consequential → map it to a ConsequentialAction;
+// read-only/low-risk → add it to the read-only section below so the choice
+// is visible in review rather than an accidental omission.
+const CAPABILITY_GATE_MAP = {
+  dispatch_crew:                "dispatch_crew",
+  "crew.assign":                "dispatch_crew",
+  "crew.dispatch":              "dispatch_crew",
+  "crew.reassign":              "reassign_crew",
+  "invoice.approve":            "approve_invoice",
+  "invoice.send":               "send_invoice",
+  "invoice.pay":                "pay_invoice",
+  "payment.record":             "pay_invoice",
+  "crew.pay":                   "pay_crew",
+  "payment.crew":               "pay_crew",
+  "walk.approve":               "approve_walk",
+  "change_order.approve":       "approve_change_order",
+  "bid.submit":                 "submit_bid",
+  // ── Phase 3: Exchange (consequential — always need ASSISTED approval) ──
+  "exchange.create_product":    "create_exchange_product",
+  "exchange.publish_listing":   "publish_listing",
+  "exchange.grant_entitlement": "grant_entitlement",
+  "exchange.activate":          "activate_exchange",
+  // ── Phase 3: Exchange (read-only — deliberately ungated) ───────────────
+  "exchange.list_products":     undefined,
+  "exchange.check_status":      undefined,
+} as const satisfies Record<string, ConsequentialAction | undefined>;
+
+// Capabilities that require explicit operator approval in ASSISTED mode are
+// exactly the ones that map to a ConsequentialAction — derived from the gate
+// map, not hand-kept, so the review set can never drift out of sync with it.
+const REVIEW_CAPABILITIES: ReadonlySet<string> = new Set(
+  Object.entries(CAPABILITY_GATE_MAP)
+    .filter(([, action]) => action !== undefined)
+    .map(([capability]) => capability),
+);
+
+// Compile-time exhaustiveness check: because CAPABILITY_GATE_MAP is declared
+// `as const`, MappedConsequentialAction is the literal union of the actions
+// actually present in the map. If a new ConsequentialAction is added to
+// falkonEmit.ts without wiring a capability here, Record<Mapped..., true>
+// is missing that key and the `satisfies` clause fails to compile, forcing
+// the map to be updated in lockstep.
+type MappedConsequentialAction = Exclude<
+  (typeof CAPABILITY_GATE_MAP)[keyof typeof CAPABILITY_GATE_MAP],
+  undefined
+>;
+const _assertAllConsequentialActionsMapped = {} as Record<
+  MappedConsequentialAction,
+  true
+> satisfies Record<ConsequentialAction, true>;
+void _assertAllConsequentialActionsMapped;
+
 // ─── Session actor extraction ─────────────────────────────────────────────────
 //
 // The office session cookie is a stateless signed token:
@@ -1054,14 +1118,8 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
       .limit(1);
     const falkonMode = _execConnRow?.mode ?? "SHADOW";
 
-    // Consequential capabilities require explicit operator approval in ASSISTED mode.
-    // Read-only capabilities (exchange.list_products, exchange.check_status, etc.) are auto.
-    const REVIEW_CAPABILITIES = new Set([
-      "dispatch_crew", "crew.assign", "crew.dispatch", "crew.reassign",
-      "invoice.approve", "invoice.send", "invoice.pay", "payment.record",
-      "crew.pay", "payment.crew", "walk.approve", "change_order.approve", "bid.submit",
-      "exchange.create_product", "exchange.publish_listing", "exchange.grant_entitlement", "exchange.activate",
-    ]);
+    // Consequential capabilities (REVIEW_CAPABILITIES, module scope) require
+    // explicit operator approval in ASSISTED mode; everything else is auto.
     const capStr = typeof capability === "string" ? capability : undefined;
     const risk: "review" | "auto" =
       falkonMode === "ASSISTED" && capStr && REVIEW_CAPABILITIES.has(capStr)
@@ -1081,36 +1139,13 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
       return;
     }
 
-    // risk === "auto" in ASSISTED mode — gate-check consequential capabilities first.
-    // Non-consequential capabilities (notes, briefings, reads) pass through immediately.
-    const CAPABILITY_GATE_MAP: Partial<Record<string, ConsequentialAction | undefined>> = {
-      dispatch_crew:                "dispatch_crew",
-      "crew.assign":                "dispatch_crew",
-      "crew.dispatch":              "dispatch_crew",
-      "crew.reassign":              "reassign_crew",
-      "invoice.approve":            "approve_invoice",
-      "invoice.send":               "send_invoice",
-      "invoice.pay":                "pay_invoice",
-      "payment.record":             "pay_invoice",
-      "crew.pay":                   "pay_crew",
-      "payment.crew":               "pay_crew",
-      "walk.approve":               "approve_walk",
-      "change_order.approve":       "approve_change_order",
-      "bid.submit":                 "submit_bid",
-      // ── Phase 3: Exchange (consequential — always need ASSISTED approval) ──
-      "exchange.create_product":    "create_exchange_product",
-      "exchange.publish_listing":   "publish_listing",
-      "exchange.grant_entitlement": "grant_entitlement",
-      "exchange.activate":          "activate_exchange",
-      // ── Phase 3: Exchange (read-only — no gate needed) ────────────────────
-      "exchange.list_products":     undefined,
-      "exchange.check_status":      undefined,
-    };
-
-    const consequentialAction = capability ? CAPABILITY_GATE_MAP[capability] : undefined;
+    // risk === "auto" in ASSISTED mode — gate-check consequential capabilities
+    // (CAPABILITY_GATE_MAP, module scope) first. Capabilities absent from the
+    // map pass through the gate immediately (see the map comment: fail-open).
+    const consequentialAction = capStr
+      ? (CAPABILITY_GATE_MAP as Record<string, ConsequentialAction | undefined>)[capStr]
+      : undefined;
     if (consequentialAction) {
-      // Centralized Falkon boundary — same gate every other surface uses.
-      // Loads mode + policy internally and fails closed on OFF.
       const reqParams = params as Record<string, unknown>;
       const amount   = typeof reqParams.amount   === "number" ? reqParams.amount   : undefined;
       const crewRate = typeof reqParams.crewRate === "number" ? reqParams.crewRate : undefined;
