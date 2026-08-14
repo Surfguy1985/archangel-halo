@@ -93,7 +93,7 @@ function actorToken(req: Request): string {
 
 router.get("/command/conversations", async (req, res): Promise<void> => {
   try {
-  const actor = actorToken(req);
+    const actor = actorToken(req);
     const [conversations, snapshot] = await Promise.all([
       db
         .select()
@@ -109,10 +109,8 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
       buildSnapshot(req.haloIdentity),
     ]);
 
-  const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
     const suggestedPrompts = buildSuggestedPrompts(snapshot, role);
-
-    const { entityType, entityId, title } = req.body ?? {};
 
     res.json({ conversations, suggestedPrompts });
   } catch (err) {
@@ -126,46 +124,42 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
 router.post("/command/conversations", async (req, res): Promise<void> => {
   try {
     const { entityType, entityId, title } = req.body ?? {};
-  const actor = actorToken(req);
-  const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
+    const actor = actorToken(req);
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
 
-  if (!message || typeof message !== "string" || !message.trim()) {
-    res.status(400).json({ error: "message is required" });
-    return;
-  }
-
-  try {
-    // Verify conversation exists AND belongs to this actor (404 avoids ID enumeration)
     const [conv] = await db
-      .select()
-      .from(haloConversationsTable)
-      .where(
-        and(
-          eq(haloConversationsTable.id, id),
-          eq(haloConversationsTable.actorToken, actor),
-        ),
-      )
-      .limit(1);
+      .insert(haloConversationsTable)
+      .values({
+        entityType: entityType ?? null,
+        entityId: entityId ?? null,
+        role,
+        title: title ?? null,
+        actorToken: actor,
+      })
+      .returning();
 
-    res.json({ conversation: conv, messages: [] });
+    res.json({ conversation: conv });
   } catch (err) {
-    logger.error({ err }, "command: get entity conversation failed");
-    res.status(500).json({ error: "Failed to load entity conversation" });
+    logger.error({ err }, "command: create conversation failed");
+    res.status(500).json({ error: "Failed to create conversation" });
   }
 });
 
-// ─── Core brain endpoint: multi-turn ask ─────────────────────────────────────
+// ─── Get messages for a conversation ─────────────────────────────────────────
+//
+// Returns the newest N messages in ascending order (oldest first) so the client
+// can render them chronologically. We fetch DESC then reverse to get recency-
+// capped history without skipping the latest context.
 
-router.post("/command/conversations/:id/ask", async (req, res): Promise<void> => {
-  const { id } = req.params;
-
-  const { message } = req.body ?? {};
-  const actor = actorToken(req);
+router.get("/command/conversations/:id/messages", async (req, res): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const actor = actorToken(req);
     const limit = Math.min(Number(req.query.limit ?? 50), 100);
 
     // Verify conversation belongs to this actor (404 to avoid ID enumeration)
     const [conv] = await db
-      .select()
+      .select({ id: haloConversationsTable.id })
       .from(haloConversationsTable)
       .where(
         and(
@@ -181,20 +175,12 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
     }
 
     // Fetch newest N messages then reverse for chronological display
-    const rows = await db.select({
-      id: activitiesTable.id,
-      kind: activitiesTable.kind,
-      body: activitiesTable.body,
-      entityType: activitiesTable.entityType,
-      entityId: activitiesTable.entityId,
-      createdAt: activitiesTable.createdAt,
-    })
-      .from(activitiesTable)
-      .where(conditions.length > 0 ? and(...conditions as [typeof conditions[0], ...typeof conditions]) : undefined)
-      .orderBy(desc(activitiesTable.createdAt))
-      .limit(100);
-
-    const { description, capability, params = {} } = req.body ?? {};
+    const rows = await db
+      .select()
+      .from(haloConversationMessagesTable)
+      .where(eq(haloConversationMessagesTable.conversationId, id))
+      .orderBy(desc(haloConversationMessagesTable.createdAt))
+      .limit(limit);
 
     res.json({ messages: rows.reverse() });
   } catch (err) {
@@ -208,8 +194,8 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
 router.get("/command/conversations/entity/:type/:entityId", async (req, res): Promise<void> => {
   try {
     const { type, entityId } = req.params;
-  const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
-  const actor = actorToken(req);
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
+    const actor = actorToken(req);
 
     // Try to find existing conversation owned by this actor
     const [existing] = await db
@@ -227,34 +213,20 @@ router.get("/command/conversations/entity/:type/:entityId", async (req, res): Pr
 
     if (existing) {
       // Fetch newest 50 messages (newest-first fetch, then reverse)
-    const rows = await db.select({
-      id: activitiesTable.id,
-      kind: activitiesTable.kind,
-      body: activitiesTable.body,
-      entityType: activitiesTable.entityType,
-      entityId: activitiesTable.entityId,
-      createdAt: activitiesTable.createdAt,
-    })
-      .from(activitiesTable)
-      .where(conditions.length > 0 ? and(...conditions as [typeof conditions[0], ...typeof conditions]) : undefined)
-      .orderBy(desc(activitiesTable.createdAt))
-      .limit(100);
-
-    const { description, capability, params = {} } = req.body ?? {};
+      const rows = await db
+        .select()
+        .from(haloConversationMessagesTable)
+        .where(eq(haloConversationMessagesTable.conversationId, existing.id))
+        .orderBy(desc(haloConversationMessagesTable.createdAt))
+        .limit(50);
       return res.json({ conversation: existing, messages: rows.reverse() }) as unknown as void;
     }
 
     // Create new entity conversation scoped to this actor
     const [conv] = await db
-      .select()
-      .from(haloConversationsTable)
-      .where(
-        and(
-          eq(haloConversationsTable.id, id),
-          eq(haloConversationsTable.actorToken, actor),
-        ),
-      )
-      .limit(1);
+      .insert(haloConversationsTable)
+      .values({ entityType: type, entityId, role, actorToken: actor })
+      .returning();
 
     res.json({ conversation: conv, messages: [] });
   } catch (err) {
@@ -267,8 +239,6 @@ router.get("/command/conversations/entity/:type/:entityId", async (req, res): Pr
 
 router.post("/command/conversations/:id/ask", async (req, res): Promise<void> => {
   const { id } = req.params;
-
-  const { message } = req.body ?? {};
   const { message } = req.body ?? {};
   const actor = actorToken(req);
   const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
@@ -420,32 +390,15 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
 
     // ── Attention items from feed (tier=now/today) ──────────────────────────
     const attentionFeed: FeedItem[] = feed.filter(f => f.tier === "now" || f.tier === "today").slice(0, 8);
-    const attentionItems = [
-      // From feed: now tier = critical, today tier = warn, week = info
-      ...feed.filter(f => f.tier === "now" || f.tier === "today" || f.tier === "week").map(f => ({
-        id: f.id,
-        label: f.title,
-        subtext: f.sub || undefined,
-        urgency: (f.tier === "now" ? "critical" : f.tier === "today" ? "warn" : "info") as UrgencyLevel,
-        queue: f.queue,
-        amount: f.amount ?? undefined,
-        entityType: f.entityType ?? undefined,
-        entityId: f.entityId ?? undefined,
-        action: f.actions?.[0] ? { label: f.actions[0].label, url: f.actions[0].action } : undefined,
-      })),
-      // Pending autopilot as info-level attention
-      ...pendingAutopilot.map(a => ({
-        id: `ap-${a.id}`,
-        label: a.title,
-        subtext: a.body,
-        urgency: "warn" as UrgencyLevel,
-        queue: "autopilot",
-        amount: undefined,
-        entityType: a.entityType ?? undefined,
-        entityId: a.entityId ?? undefined,
-        action: undefined,
-      })),
-    ];
+    const attentionItems = attentionFeed.map(f => ({
+      id: f.id,
+      label: f.title,
+      subtext: f.sub || undefined,
+      urgency: (f.tier === "now" ? "critical" : "warn") as "critical" | "warn" | "info",
+      entityType: f.entityType ?? undefined,
+      entityId: f.entityId ?? undefined,
+      action: f.actions?.[0] ? { label: f.actions[0].label, url: f.actions[0].action } : undefined,
+    }));
 
     // ── Approval items from pending autopilot actions ──────────────────────
     const approvalItems = pendingAutopilot.slice(0, 6).map(a => ({
@@ -513,13 +466,6 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
     const prompts = hour < 12
       ? ["Who's checked in today?", "Show invoices waiting for payment", "Any jobs over budget?", "Approve everything safe"]
       : ["What needs my attention?", "Show pending approvals", "How are we doing this month?", "Which jobs need crew?"];
-
-    const [{ feed: feedRaw }, pendingAutopilotRaw] = await Promise.all([
-      computeQueues(),
-      db.select().from(autopilotActionsTable)
-        .where(eq(autopilotActionsTable.status, "pending"))
-        .orderBy(desc(autopilotActionsTable.createdAt)),
-    ]);
 
     res.json({
       greeting: `${greetWord}. Here's what needs you.`,
@@ -639,9 +585,7 @@ router.get("/command/approvals", async (req, res): Promise<void> => {
 router.get("/command/lens/property-status/:propertyId", async (req, res): Promise<void> => {
   const { propertyId } = req.params;
   try {
-    const [property] = invoice.propertyId
-      ? await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, invoice.propertyId)).limit(1)
-      : [null];
+    const [property] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1);
     if (!property) { res.status(404).json({ error: "Property not found" }); return; }
 
     const jobs = await db.select({
@@ -668,9 +612,7 @@ router.get("/command/lens/property-status/:propertyId", async (req, res): Promis
       .reduce((s: number, r: { amount: number }) => s + r.amount, 0);
 
     // Today's crew check-ins
-    const crewOnSite = latestCheckin?.kind === "checkin"
-      ? { name: crew?.name ?? null, checkedInAt: latestCheckin.createdAt?.toISOString() ?? null }
-      : null;
+    let crewOnSite: Array<{ name: string | null; checkedInAt: string }> = [];
     if (jobIds.length > 0) {
       const checkins = await db.select({
         crewId: crewCheckinsTable.crewId,
@@ -731,16 +673,11 @@ router.get("/command/lens/property-status/:propertyId", async (req, res): Promis
 router.get("/command/lens/turn-timeline/:jobId", async (req, res): Promise<void> => {
   const { jobId } = req.params;
   try {
-    const [job] = await db.select({
-      id: jobsTable.id,
-      jobNo: jobsTable.jobNo,
-      unitNo: jobsTable.unitNo,
-      marginPct: jobsTable.marginPct,
-    }).from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
     if (!job) { res.status(404).json({ error: "Job not found" }); return; }
 
-    const [property] = invoice.propertyId
-      ? await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, invoice.propertyId)).limit(1)
+    const [property] = job.propertyId
+      ? await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, job.propertyId)).limit(1)
       : [null];
 
     const [crew] = job.crewLeaderId
@@ -764,10 +701,10 @@ router.get("/command/lens/turn-timeline/:jobId", async (req, res): Promise<void>
     const expenseRows = await db.select({ amount: expensesTable.amount })
       .from(expensesTable)
       .where(and(eq(expensesTable.jobId, jobId), eq(expensesTable.approvalStatus, "approved")));
-    const spent = expenses.reduce((s: number, e: { amount: number }) => s + e.amount, 0);
+    const spent = expenseRows.reduce((s: number, e: { amount: number }) => s + e.amount, 0);
 
     // Line items total (quoted)
-    const lineItems = await db.select({ service: jobLineItemsTable.service, rate: jobLineItemsTable.rate, qty: jobLineItemsTable.qty })
+    const lineItems = await db.select({ rate: jobLineItemsTable.rate, qty: jobLineItemsTable.qty })
       .from(jobLineItemsTable)
       .where(eq(jobLineItemsTable.jobId, jobId));
     const quoted = lineItems.reduce((s: number, li: { rate: number; qty: number }) => s + li.rate * li.qty, 0);
@@ -900,7 +837,7 @@ router.get("/command/lens/vendor/:vendorId", async (req, res): Promise<void> => 
     const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, vendorId)).limit(1);
     if (!vendor) { res.status(404).json({ error: "Vendor not found" }); return; }
 
-    const today = new Date();
+    const today = new Date().toISOString().slice(0, 10);
     const compliant = !vendor.coiExpiresOn || vendor.coiExpiresOn >= today;
 
     res.json({
@@ -1067,8 +1004,6 @@ router.get("/command/activity-since", async (req, res): Promise<void> => {
       .orderBy(desc(activitiesTable.createdAt))
       .limit(100);
 
-    const { description, capability, params = {} } = req.body ?? {};
-
     res.json({
       activities: rows.map(a => ({
         id: a.id,
@@ -1174,6 +1109,8 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
 
     const consequentialAction = capability ? CAPABILITY_GATE_MAP[capability] : undefined;
     if (consequentialAction) {
+      // Centralized Falkon boundary — same gate every other surface uses.
+      // Loads mode + policy internally and fails closed on OFF.
       const reqParams = params as Record<string, unknown>;
       const amount   = typeof reqParams.amount   === "number" ? reqParams.amount   : undefined;
       const crewRate = typeof reqParams.crewRate === "number" ? reqParams.crewRate : undefined;
@@ -1424,8 +1361,3 @@ async function dispatchAutoAction(
 }
 
 export default router;
-
-    const [_execConnRow] = await db
-      .select({ mode: falkonConnectionsTable.mode })
-      .from(falkonConnectionsTable)
-      .limit(1);
