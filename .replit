@@ -33,4 +33,3 @@ ALLOWED_ORIGINS = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.
 HALO_SMS_FROM_NUMBER = "+19724719091"
 
 [userenv.development]
-HALO_E2E_ENABLED = "1"
