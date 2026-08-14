@@ -278,6 +278,20 @@ export function ArrivalSheet({
 
               <button
                 className="w-full rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
+                onClick={() => {
+                  const name = result.propertyName ?? "this site";
+                  const msg = suggestion?.message ?? "Run the next move.";
+                  onOpenChange(false);
+                  navigate("/");
+                  window.dispatchEvent(new CustomEvent("halo-field-go", {
+                    detail: { text: `I'm on site at ${name}. ${msg} Run the next move. Do not ask me to pick a menu.` },
+                  }));
+                }}
+              >
+                Run this site with HALO
+              </button>
+              <button
+                className="w-full mt-[10px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => setStep("form")}
               >
                 Start a job here

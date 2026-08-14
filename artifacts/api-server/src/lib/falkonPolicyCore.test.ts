@@ -170,6 +170,8 @@ describe("direct API classification (bypass surface)", () => {
     expect(classifyMutation("GET", "/sms/recent")).toEqual({ skip: true });
     expect(classifyMutation("GET", "/sms/status")).toEqual({ skip: true });
     expect(classifyMutation("GET", "/geo/search")).toEqual({ skip: true });
+    expect(classifyMutation("POST", "/field/transcribe")).toEqual({ skip: true });
+    expect(classifyMutation("GET", "/field/watch")).toEqual({ skip: true });
     expect(classifyMutation("POST", "/sms/admin")).toMatchObject({ action: "comms.sms", consequential: true });
   });
 

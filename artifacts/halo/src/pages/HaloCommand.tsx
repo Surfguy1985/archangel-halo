@@ -14,7 +14,7 @@ import { useLocation } from "wouter";
 import {
   Paperclip, ArrowUp, Bell, MoreHorizontal, Loader2,
   CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
-  List, CalendarDays, Users, Mic, LayoutGrid, BrainCircuit, MessageSquare,
+  List, CalendarDays, Mic, LayoutGrid, BrainCircuit, MessageSquare, Headphones,
 } from "lucide-react";
 
 import {
@@ -29,6 +29,8 @@ import type { VoiceAction } from "@workspace/api-client-react";
 
 import haloLogo from "../assets/halo-logo.png";
 import { VoiceCaptureSheet } from "@/components/VoiceCaptureSheet";
+import { EarpieceMode } from "@/components/EarpieceMode";
+import { ArrivalDetection } from "@/components/ArrivalSheet";
 import { NotificationsDrawer } from "@/components/NotificationsDrawer";
 import { MinimalMenuSheet } from "@/components/MinimalMenuSheet";
 import { FalkonControlCenter } from "@/components/command/FalkonControlCenter";
@@ -599,13 +601,13 @@ const SEED_CARDS = [
   { Icon: LayoutGrid,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Property Pulse", title: "Property Pulse", desc: "Live sites, GPS, and crew pings." },
   { Icon: List,         color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "What needs my attention right now?", title: "Mission brief", desc: "What is on fire this hour." },
   { Icon: CalendarDays, color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Make a note to order drywall for unit 624 and text Kyann to schedule install for tomorrow", title: "Run a mission", desc: "Note, source, schedule, text." },
-  { Icon: Users,        color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Generate a check-in link for the crew on site today", title: "Crew link", desc: "Send a check-in link instantly." },
+  { Icon: Headphones,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "", title: "Earpiece", desc: "AirPods. Say go, next, skip.", action: "earpiece" as const },
 ];
 
-function SeedCard({ card, onSubmit }: { card: typeof SEED_CARDS[number]; onSubmit: (s: string) => void }) {
+function SeedCard({ card, onSubmit, onEarpiece }: { card: typeof SEED_CARDS[number]; onSubmit: (s: string) => void; onEarpiece: () => void }) {
   return (
     <button
-      onClick={() => onSubmit(card.prompt)}
+      onClick={() => card.action === "earpiece" ? onEarpiece() : onSubmit(card.prompt)}
       className="text-left rounded-[12px] transition-all active:scale-[0.97]"
       style={{
         padding: "12px 12px",
@@ -645,12 +647,13 @@ function WingsIcon() {
 // ─── Shared composer ──────────────────────────────────────────────────────────
 
 function ComposerInput({
-  value, onChange, onSubmit, onVoice, busy,
+  value, onChange, onSubmit, onVoice, onEarpiece, busy,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
   onVoice?: () => void;
+  onEarpiece?: () => void;
   busy: boolean;
 }) {
   const [focused, setFocused] = useState(false);
@@ -678,6 +681,15 @@ function ComposerInput({
         style={{ width: 36, height: 36, color: "rgba(255,255,255,0.45)" }}
       >
         <Mic size={16} strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        onClick={onEarpiece}
+        aria-label="Earpiece mode"
+        className="shrink-0 grid place-items-center rounded-full transition-all active:scale-95"
+        style={{ width: 36, height: 36, color: "rgba(180,255,68,0.85)" }}
+      >
+        <Headphones size={16} strokeWidth={2} />
       </button>
       <input
         value={value}
@@ -758,6 +770,7 @@ export default function HaloCommand() {
 
   // ── Overlays ──────────────────────────────────────────────────────────────
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [earpieceOpen, setEarpieceOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
@@ -1055,6 +1068,34 @@ export default function HaloCommand() {
     }
     scrollDown();
   }, [brainReady, input, conversationId, health, openPanel, parseVoice, scrollDown, navigate]);
+
+  useEffect(() => {
+    const onGo = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (text) void handleSubmit(text);
+    };
+    window.addEventListener("halo-field-go", onGo);
+    return () => window.removeEventListener("halo-field-go", onGo);
+  }, [handleSubmit]);
+
+  useEffect(() => {
+    if (!brainReady) return;
+    const hour = new Date().getHours();
+    if (hour < 5 || hour > 11) return;
+    const key = `halo_watch_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
+    if (sessionStorage.getItem(key)) return;
+    void fetch("/api/field/watch", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { spoken?: string | null; prompt?: string | null } | null) => {
+        if (!j?.spoken) return;
+        sessionStorage.setItem(key, "1");
+        setMessages((prev) => [
+          ...prev,
+          { id: `watch-${Date.now()}`, kind: "halo-answer" as const, text: j.spoken!, followUps: j.prompt ? ["Run the first Watch item"] : undefined },
+        ]);
+      })
+      .catch(() => {});
+  }, [brainReady]);
 
   // ── Intel view submit — switches to chat then sends ─────────────────────
   const handleIntelAsk = useCallback((text: string) => {
@@ -1443,6 +1484,7 @@ export default function HaloCommand() {
                   onChange={setInput}
                   onSubmit={() => handleSubmit()}
                   onVoice={() => setVoiceOpen(true)}
+                  onEarpiece={() => setEarpieceOpen(true)}
                   busy={parseVoice.isPending}
                 />
               </div>
@@ -1458,7 +1500,7 @@ export default function HaloCommand() {
                 </p>
                 <div className="grid grid-cols-2 gap-[8px]">
                   {SEED_CARDS.map((card, i) => (
-                    <SeedCard key={i} card={card} onSubmit={handleSubmit} />
+                    <SeedCard key={i} card={card} onSubmit={handleSubmit} onEarpiece={() => setEarpieceOpen(true)} />
                   ))}
                 </div>
               </div>
@@ -1505,6 +1547,7 @@ export default function HaloCommand() {
                 onChange={setInput}
                 onSubmit={() => handleSubmit()}
                 onVoice={() => setVoiceOpen(true)}
+                onEarpiece={() => setEarpieceOpen(true)}
                 busy={parseVoice.isPending}
               />
             </div>
@@ -1523,6 +1566,12 @@ export default function HaloCommand() {
         onOpenChange={setVoiceOpen}
         onHeard={(text) => { void handleSubmit(text); }}
       />
+      <EarpieceMode
+        open={earpieceOpen}
+        onClose={() => setEarpieceOpen(false)}
+        onCommand={(text) => { void handleSubmit(text); }}
+      />
+      <ArrivalDetection />
       <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
       <MinimalMenuSheet open={menuOpen}    onOpenChange={setMenuOpen} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}

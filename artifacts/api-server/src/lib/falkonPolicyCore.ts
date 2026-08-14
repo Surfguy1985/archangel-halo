@@ -312,6 +312,8 @@ const SAFE_PATHS: RegExp[] = [
   /^\/geo\//,
   /^\/catalog\/lookup$/,
   /^\/estimates\//,
+  /^\/field\//,
+  /^\/arrivals\//,
 ];
 
 /** Best-effort target id from `/resource/:id/...` office paths. */

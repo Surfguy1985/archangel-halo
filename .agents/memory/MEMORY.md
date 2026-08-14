@@ -1,5 +1,6 @@
 - [HALO GPS Finder + Site Twin](halo-site-twin.md) — Pulse pin FAB + property edit search/drop-pin GPS; Site Twin snaps crew phone GPS onto georeferenced unit boxes with a live UNIT title.
 - [HALO Pulse dock rails](halo-pulse-dock-layout.md) — /pulse panels dock into ranked rails or pop out to float; rails are pointer-events:none, so panels shrink rather than scroll the rail. Desktop only.
+- [HALO Field Jarvis](halo-field-jarvis.md) — Earpiece (AirPods + Whisper, not in-browser HF), GPS presence briefing, Morning Watch from autopilot; Command headphones icon; iOS mic dies when locked.
 - [HALO Property Pulse](halo-property-pulse.md) — `/pulse` is the optional Property Pulse tablet dashboard (live properties/jobs/crew GPS + Base44 sync + Twilio status); HUD grid opens it; autopilot SMS pings crew/admin once per local day.
 - [HALO Jarvis Grok OS](halo-jarvis-grok.md) — `/` is Grok-style HALO Command; CRM at `/ops` (mobile) / `/properties` (desktop); compound `actionPlans[]`; executors in jarvisDispatch.ts; Claude snapshot must include roster names/units.
 - [HALO Command Architecture](halo-command-architecture.md) — "/" renders HaloCommand (conversational OS); Today at "/today"; command components + falkonNetwork needed in both apps; useListVendors/useParseWalkVoice don't exist in API client.
