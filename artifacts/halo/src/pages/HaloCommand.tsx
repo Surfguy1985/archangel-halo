@@ -28,6 +28,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { VoiceAction } from "@workspace/api-client-react";
 
 import haloLogo from "../assets/halo-logo.png";
+import { BriefingCard, NowStrip, useBriefingItems, BriefingCardLoading } from "@/components/command/BriefingCard";
+import { ReminderCard, type ReminderData } from "@/components/command/ReminderCard";
+import { DispatchCard, type DispatchData } from "@/components/command/DispatchCard";
+import { LiveMapCard } from "@/components/command/LiveMapCard";
+import { LensCard, type LensType } from "@/components/command/LensCard";
 import { VoiceCaptureSheet } from "@/components/VoiceCaptureSheet";
 import { EarpieceMode } from "@/components/EarpieceMode";
 import { ArrivalDetection } from "@/components/ArrivalSheet";
@@ -94,7 +99,12 @@ type TMsg =
   | { id: string; kind: "exchange-status-card"; statusData: ExchangeStatusData }
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "mission"; title: string; steps: Array<{ plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }> };
+  | { id: string; kind: "mission"; title: string; steps: Array<{ plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }> }
+  | { id: string; kind: "briefing-card"; mode?: "default" | "team-vs-personal" }
+  | { id: string; kind: "live-map-card"; query?: string }
+  | { id: string; kind: "dispatch-card"; data: DispatchData }
+  | { id: string; kind: "reminder-card"; reminder: ReminderData }
+  | { id: string; kind: "lens-card"; lensType: LensType; query?: string };
 
 // ─── Exchange result parser ───────────────────────────────────────────────────
 // Called after every auto-execute / manual-execute to check whether the action
@@ -240,6 +250,135 @@ const BRAIN_LENS_TO_PANEL: Record<string, PanelType> = {
   timeline: "kanban", turn_timeline: "kanban",
   money: "money", budget_breakdown: "money", invoice_detail: "money",
 };
+
+// ─── Planning intent detection ────────────────────────────────────────────────
+
+const PLANNING_PATTERNS = [
+  /structure\s+my\s+day/i, /run\s+my\s+morning/i, /morning\s+brief/i,
+  /what\s+needs\s+me/i, /what\s+needs\s+attention/i, /what\s+is\s+on\s+fire/i,
+  /what\s+are\s+the\s+five\s+things/i, /what\s+could\s+hurt\s+us/i,
+  /daily\s+brief/i, /my\s+brief/i, /give\s+me\s+a\s+brief/i,
+  /show\s+me\s+a\s+brief/i,
+];
+const PERSONAL_VS_TEAM_PATTERNS = [
+  /personally\s+vs\s+team/i, /personally\s+versus\s+team/i,
+  /needs\s+me\s+personally/i, /what\s+needs\s+me\s+vs/i,
+  /team\s+can\s+handle/i, /what\s+can\s+the\s+team/i,
+];
+const MAP_LENS_PATTERNS = [
+  /live\s+crew\s+map/i, /show\s+me\s+the\s+map/i, /crew\s+locations?/i,
+  /where\s+is\s+(everyone|the\s+crew)/i,
+];
+
+function detectPlanningIntent(text: string): "default" | "team-vs-personal" | null {
+  if (PERSONAL_VS_TEAM_PATTERNS.some(p => p.test(text))) return "team-vs-personal";
+  if (PLANNING_PATTERNS.some(p => p.test(text))) return "default";
+  return null;
+}
+
+function detectMapLensIntent(text: string): boolean {
+  return MAP_LENS_PATTERNS.some(p => p.test(text));
+}
+
+const DISPATCH_PATTERNS = [
+  /\bdispatch\s+/i, /\bassign\s+\w+\s+to\s+job/i, /\bsend\s+\w+\s+to\s+(job|unit|site)/i,
+  /\breplace\s+the\s+crew\s+on/i, /\bswap\s+crew/i,
+];
+/**
+ * Normalize a voice-parser `remindAt` value (ISO string or natural language)
+ * to a valid ISO datetime string, or null if unrecognised.
+ * Examples: "tomorrow 9am" → ISO, "next Tuesday at 3pm" → ISO, "in 2 hours" → ISO.
+ */
+function parseNaturalRemindAt(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // Already a valid ISO / parseable date — accept as-is
+  const direct = new Date(raw);
+  if (!isNaN(direct.getTime()) && /\d{4}-\d{2}-\d{2}|T\d{2}:\d{2}/.test(raw)) {
+    return direct.toISOString();
+  }
+  const s = raw.toLowerCase().trim();
+  const now = new Date();
+
+  // "in N hours/minutes"
+  const relH = s.match(/in\s+(\d+)\s+hour/);
+  if (relH) { const d = new Date(now); d.setHours(d.getHours() + parseInt(relH[1])); return d.toISOString(); }
+  const relM = s.match(/in\s+(\d+)\s+min/);
+  if (relM) { const d = new Date(now); d.setMinutes(d.getMinutes() + parseInt(relM[1])); return d.toISOString(); }
+
+  // Extract time component (default 9:00 am)
+  let h = 9; let m = 0;
+  const tm = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+  if (tm) {
+    h = parseInt(tm[1]); m = tm[2] ? parseInt(tm[2]) : 0;
+    if (tm[3] === "pm" && h < 12) h += 12;
+    if (tm[3] === "am" && h === 12) h = 0;
+  } else {
+    const bare = s.match(/\b(\d{1,2})(?::(\d{2}))?\b/);
+    if (bare) { h = parseInt(bare[1]); m = bare[2] ? parseInt(bare[2]) : 0; }
+  }
+
+  const DAYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  let base = new Date(now);
+
+  if (/tomorrow/.test(s)) {
+    base.setDate(base.getDate() + 1);
+  } else if (/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/.test(s)) {
+    const nm = s.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+    if (nm) { const t = DAYS.indexOf(nm[1]); let d = t - base.getDay(); if (d <= 0) d += 7; base.setDate(base.getDate() + d); }
+  } else if (/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/.test(s)) {
+    const dm = s.match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+    if (dm) { const t = DAYS.indexOf(dm[1]); let d = t - base.getDay(); if (d <= 0) d += 7; base.setDate(base.getDate() + d); }
+  } else {
+    return null; // unrecognised pattern
+  }
+
+  base.setHours(h, m, 0, 0);
+  return base.toISOString();
+}
+
+const REMINDER_PATTERNS = [
+  /\bremind\s+me\b/i, /\bset\s+a?\s*reminder\b/i, /\breminder\s+for\b/i,
+  /\bdon.t\s+forget\s+to\b/i,
+];
+
+function detectDispatchIntent(text: string): boolean {
+  return DISPATCH_PATTERNS.some(p => p.test(text));
+}
+function detectReminderIntent(text: string): boolean {
+  return REMINDER_PATTERNS.some(p => p.test(text));
+}
+
+// ─── Thread localStorage persistence ─────────────────────────────────────────
+
+const MOBILE_THREAD_KEY = "halo_office_thread_v1";
+const THREAD_CAP = 50;
+
+const SERIALISABLE_KINDS = new Set([
+  "user-msg", "halo-answer", "success", "error",
+  "briefing-card", "live-map-card", "dispatch-card", "reminder-card", "lens-card",
+]);
+
+function loadThread(): TMsg[] {
+  try {
+    const raw = localStorage.getItem(MOBILE_THREAD_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as TMsg[];
+    return parsed.filter(m => SERIALISABLE_KINDS.has(m.kind)).slice(-THREAD_CAP);
+  } catch { return []; }
+}
+
+function saveThread(msgs: TMsg[]) {
+  try {
+    const serialisable = msgs.filter(m => SERIALISABLE_KINDS.has(m.kind)).slice(-THREAD_CAP);
+    localStorage.setItem(MOBILE_THREAD_KEY, JSON.stringify(serialisable));
+  } catch {}
+}
+
+let _saveTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSaveThread(msgs: TMsg[]) {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => saveThread(msgs), 500);
+}
 
 function detectPulseIntent(text: string): boolean {
   const lower = text.toLowerCase().trim();
@@ -598,9 +737,9 @@ function MissionCard({
 // ─── Seed card data ───────────────────────────────────────────────────────────
 
 const SEED_CARDS = [
-  { Icon: LayoutGrid,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Property Pulse", title: "Property Pulse", desc: "Live sites, GPS, and crew pings." },
+  { Icon: LayoutGrid,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Structure my day", title: "Daily Brief", desc: "Now / Today / This Week priorities." },
   { Icon: List,         color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "What needs my attention right now?", title: "Mission brief", desc: "What is on fire this hour." },
-  { Icon: CalendarDays, color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Make a note to order drywall for unit 624 and text Kyann to schedule install for tomorrow", title: "Run a mission", desc: "Note, source, schedule, text." },
+  { Icon: CalendarDays, color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Property Pulse", title: "Property Pulse", desc: "Live sites, GPS, and crew pings." },
   { Icon: Headphones,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "", title: "Earpiece", desc: "AirPods. Say go, next, skip.", action: "earpiece" as const },
 ];
 
@@ -630,6 +769,17 @@ function SeedCard({ card, onSubmit, onEarpiece }: { card: typeof SEED_CARDS[numb
       </p>
     </button>
   );
+}
+
+// ─── BriefingCardThread — self-contained wrapper used inside renderMsg ────────
+
+function BriefingCardThread({ mode, onAction }: {
+  mode?: "default" | "team-vs-personal";
+  onAction: (cmd: string) => void;
+}) {
+  const { items, loading } = useBriefingItems();
+  if (loading) return <BriefingCardLoading />;
+  return <BriefingCard items={items} mode={mode ?? "default"} onAction={onAction} />;
 }
 
 // ─── Wings icon ───────────────────────────────────────────────────────────────
@@ -743,8 +893,11 @@ export default function HaloCommand() {
   const parseVoice = useParseVoice();
 
   // ── Thread ────────────────────────────────────────────────────────────────
-  const [messages, setMessages] = useState<TMsg[]>([]);
+  const [messages, setMessages] = useState<TMsg[]>(() => loadThread());
   const [input, setInput] = useState("");
+
+  // Persist thread to localStorage whenever it changes
+  useEffect(() => { debouncedSaveThread(messages); }, [messages]);
 
   // ── Brain conversation ────────────────────────────────────────────────────
   const [conversationId, setConversationId] = useState<string | null>(() => {
@@ -812,7 +965,21 @@ export default function HaloCommand() {
               if (m.role === "assistant" && m.content) return [{ id: `r-${m.id}`, kind: "halo-answer" as const, text: m.content }];
               return [];
             });
-            setMessages(restored);
+            // Merge server history with persisted local thread.
+            // IDs cannot be used for dedup (local: u-*/t-* generated; server: r-${serverId}).
+            // Instead fingerprint by kind+text so locally captured brain messages aren't duplicated,
+            // while truly server-only entries (e.g. from another device) are prepended.
+            setMessages(prev => {
+              if (prev.length === 0) return restored;
+              const localSigs = new Set(
+                prev.map(m => `${m.kind}::${"text" in m ? (m as {text: string}).text : ""}`)
+              );
+              const serverOnly = restored.filter(m => {
+                const sig = `${m.kind}::${"text" in m ? (m as {text: string}).text : ""}`;
+                return !localSigs.has(sig);
+              });
+              return serverOnly.length > 0 ? [...serverOnly, ...prev] : prev;
+            });
           } catch (e: any) {
             if (e?.message?.startsWith("404")) {
               setMessages([]);
@@ -865,6 +1032,130 @@ export default function HaloCommand() {
       return;
     }
 
+    // ── Planning intent (briefing) — before panel/voice routing ──────────
+    const planningMode = detectPlanningIntent(raw);
+    if (planningMode) {
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== thinkId),
+        { id: thinkId, kind: "briefing-card" as const, mode: planningMode },
+      ]);
+      debouncedSaveThread([...messages, { id: userId, kind: "user-msg" as const, text: raw }]);
+      scrollDown();
+      return;
+    }
+
+    // ── Map lens intent ───────────────────────────────────────────────────
+    if (detectMapLensIntent(raw)) {
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId ? { id: thinkId, kind: "live-map-card" as const, query: raw } : m
+      ));
+      scrollDown();
+      return;
+    }
+
+    // ── Reminder intent — parse via voice to extract datetime + entity ───
+    if (detectReminderIntent(raw)) {
+      try {
+        // Voice parser returns create_reminder { text, remindAt (ISO or natural), entityRef, entityType }
+        const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+        const ra = vr?.actions?.find((a: any) => a.tool === "create_reminder") as any;
+        const f = ra?.fields ?? {};
+        // If voice parser found nothing useful, fall back to posting raw text with no date
+        const reminderText = String(f.text ?? ra?.summary ?? raw).trim();
+        // Resolve entity if given (best-effort)
+        let entityType: string | null = f.entityType ?? null;
+        let entityId: string | null = null;
+        let entityLabel: string | null = null;
+        if (f.entityRef) {
+          const [jobsR, crewsR, propsR] = await Promise.all([
+            fetch("/api/jobs", { credentials: "include" }).then(r => r.ok ? r.json() : null),
+            fetch("/api/crews", { credentials: "include" }).then(r => r.ok ? r.json() : null),
+            fetch("/api/properties", { credentials: "include" }).then(r => r.ok ? r.json() : null),
+          ]);
+          const ref = String(f.entityRef).toLowerCase();
+          const job = (jobsR?.jobs ?? jobsR as any[])?.find((j: any) => j.jobNo?.toLowerCase() === ref);
+          const crew = !job && (crewsR?.crews ?? crewsR as any[])?.find((c: any) => c.name?.toLowerCase().includes(ref));
+          const prop = !job && !crew && (propsR?.properties ?? propsR as any[])?.find((p: any) => p.name?.toLowerCase().includes(ref));
+          if (job)       { entityType = "job";      entityId = job.id;  entityLabel = job.jobNo; }
+          else if (crew) { entityType = "crew";     entityId = crew.id; entityLabel = crew.name; }
+          else if (prop) { entityType = "property"; entityId = prop.id; entityLabel = prop.name; }
+        }
+        const res = await apiFetch("/api/reminders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: reminderText,
+            remindAt: parseNaturalRemindAt(f.remindAt),  // normalise natural-language → ISO
+            entityType,
+            entityId,
+            entityLabel,
+          }),
+        });
+        const r = res?.reminder ?? {};
+        const reminder: ReminderData = {
+          id: r.id ?? `r-${Date.now()}`,
+          text: r.text ?? reminderText,
+          dueAt: r.remindAt ?? null,
+          entityType: r.entityType ?? null,
+          entityLabel: r.entityLabel ?? null,
+          mode: "set",
+        };
+        setMessages(prev => prev.map(m =>
+          m.id === thinkId ? { id: thinkId, kind: "reminder-card" as const, reminder } : m
+        ));
+      } catch {
+        setMessages(prev => prev.map(m =>
+          m.id === thinkId ? { id: thinkId, kind: "halo-answer" as const, text: "Couldn't save that reminder — try again." } : m
+        ));
+      }
+      scrollDown();
+      return;
+    }
+
+    // ── Dispatch intent — parse via voice then show DispatchCard ──────────
+    if (detectDispatchIntent(raw)) {
+      try {
+        const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+        // Voice parse returns { tool, fields } — discriminate on `tool`
+        const dispatchAction = vr?.actions?.find((a: any) => a.tool === "dispatch_crew") as any;
+        if (dispatchAction) {
+          const f = dispatchAction.fields ?? {};
+          const jobNoStr = String(f.jobNo ?? "").toLowerCase();
+          const crewNameStr = String(f.crewName ?? "").toLowerCase();
+          // Resolve names→IDs from live data
+          const [jobsRes, crewsRes] = await Promise.all([
+            fetch("/api/jobs", { credentials: "include" }).then(r => r.ok ? r.json() : { jobs: [] }),
+            fetch("/api/crews", { credentials: "include" }).then(r => r.ok ? r.json() : { crews: [] }),
+          ]);
+          const matchedJob = (jobsRes.jobs ?? jobsRes as any[])?.find(
+            (j: any) => j.jobNo?.toLowerCase() === jobNoStr || jobNoStr.includes(j.jobNo?.toLowerCase()),
+          );
+          const matchedCrew = (crewsRes.crews ?? crewsRes as any[])?.find(
+            (c: any) => c.name?.toLowerCase().includes(crewNameStr) || crewNameStr.includes(c.name?.toLowerCase()),
+          );
+          if (matchedJob && matchedCrew) {
+            const dispatchData: DispatchData = {
+              jobId:             matchedJob.id,
+              jobTitle:          matchedJob.title ?? matchedJob.jobNo ?? "Job",
+              jobNo:             matchedJob.jobNo ?? null,
+              propertyName:      matchedJob.propertyName ?? null,
+              scheduledOn:       matchedJob.scheduledOn ?? null,
+              currentCrewName:   matchedJob.crewLeaderName ?? null,
+              proposedCrewId:    matchedCrew.id,
+              proposedCrewName:  matchedCrew.name,
+              proposedCrewTrade: matchedCrew.trade ?? null,
+            };
+            setMessages(prev => prev.map(m =>
+              m.id === thinkId ? { id: thinkId, kind: "dispatch-card" as const, data: dispatchData } : m
+            ));
+            scrollDown();
+            return;
+          }
+          // Could not resolve IDs — fall through to brain which can ask for clarification
+        }
+      } catch { /* fall through to brain */ }
+    }
+
     // ── Panel intent ──────────────────────────────────────────────────────
     const panelIntent = detectPanelIntent(raw);
     if (panelIntent) {
@@ -914,19 +1205,18 @@ export default function HaloCommand() {
 
     if (brainResult) {
       if (brainResult.type === "lens" && brainResult.lensKind) {
+        // Inline-first: inject LensCard into the thread; panel opens as secondary
+        const lensType = brainResult.lensKind as LensType;
         const panel = BRAIN_LENS_TO_PANEL[brainResult.lensKind as string];
-        if (panel) {
-          const meta = PANEL_MAP.find(p => p.panel === panel);
-          const label = meta?.label ?? brainResult.lensKind;
-          setMessages(prev => prev.map(m =>
-            m.id === thinkId
-              ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Opening ${label}.`, followUps: brainResult.suggestedFollowUps }
-              : m
-          ));
-          openPanel(panel, label, true);
-          scrollDown();
-          return;
-        }
+        const label = panel ? (PANEL_MAP.find(p => p.panel === panel)?.label ?? brainResult.lensKind) : brainResult.lensKind;
+        setMessages(prev => [
+          ...prev.map(m => m.id === thinkId
+            ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Here's the ${label} view.`, followUps: brainResult.suggestedFollowUps }
+            : m),
+          { id: `lens-${Date.now()}`, kind: "lens-card" as const, lensType, query: raw },
+        ]);
+        scrollDown();
+        return;
       }
 
       if (brainResult.type === "voice_action") {
@@ -1077,6 +1367,38 @@ export default function HaloCommand() {
     window.addEventListener("halo-field-go", onGo);
     return () => window.removeEventListener("halo-field-go", onGo);
   }, [handleSubmit]);
+
+  // ── Due-reminder resurfacing — inject any overdue reminders as ReminderCards
+  useEffect(() => {
+    if (!brainReady) return;
+    const sessionKey = `halo_due_reminders_${new Date().toLocaleDateString("en-CA")}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    void fetch("/api/reminders", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then((j: { reminders?: Array<{ id: string; text: string; remindAt?: string | null; entityType?: string | null; entityLabel?: string | null }> } | null) => {
+        if (!j?.reminders?.length) return;
+        const now = Date.now();
+        const due = j.reminders.filter(r => r.remindAt && new Date(r.remindAt).getTime() <= now);
+        if (!due.length) return;
+        sessionStorage.setItem(sessionKey, "1");
+        setMessages(prev => [
+          ...prev,
+          ...due.map(r => ({
+            id: `due-${r.id}`,
+            kind: "reminder-card" as const,
+            reminder: {
+              id: r.id,
+              text: r.text,
+              dueAt: r.remindAt ?? null,
+              entityType: r.entityType ?? null,
+              entityLabel: r.entityLabel ?? null,
+              mode: "due" as const,
+            },
+          })),
+        ]);
+      })
+      .catch(() => {});
+  }, [brainReady]);
 
   useEffect(() => {
     if (!brainReady) return;
@@ -1306,6 +1628,58 @@ export default function HaloCommand() {
             <span className="text-[13px]" style={{ color: "rgba(225,29,72,0.82)" }}>{msg.text}</span>
           </div>
         );
+      case "lens-card":
+        return <LensCard lensType={msg.lensType} query={msg.query} onHandleSubmit={handleSubmit} />;
+      case "briefing-card":
+        return <BriefingCardThread mode={msg.mode} onAction={handleSubmit} />;
+      case "live-map-card":
+        return <LiveMapCard query={msg.query} />;
+      case "dispatch-card":
+        return (
+          <DispatchCard
+            data={msg.data}
+            onConfirm={async (d) => {
+              // POST /jobs/:id/dispatch — transactionally replaces crewLeaderId + scheduledOn
+              const scheduledOn = d.scheduledOn ?? new Date().toLocaleDateString("en-CA");
+              await apiFetch(`/api/jobs/${d.jobId}/dispatch`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ crewLeaderId: d.proposedCrewId, scheduledOn }),
+              });
+            }}
+            onCancel={() => setMessages(prev => prev.map(m =>
+              m.id === msg.id ? { id: msg.id, kind: "halo-answer" as const, text: "Dispatch cancelled." } : m
+            ))}
+          />
+        );
+      case "reminder-card":
+        return (
+          <ReminderCard
+            reminder={msg.reminder}
+            onDismiss={async (id) => {
+              // Must NOT swallow — let ReminderCard catch and show its error/retry UI
+              await apiFetch(`/api/reminders/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "dismiss" }),
+              });
+              // Only replace the card after server confirms success
+              setMessages(prev => prev.map(m =>
+                m.id === msg.id ? { id: msg.id, kind: "success" as const, text: "Reminder dismissed." } : m
+              ));
+            }}
+            onSnooze={async (id) => {
+              await apiFetch(`/api/reminders/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "snooze", snoozeMinutes: 60 }),
+              });
+              setMessages(prev => prev.map(m =>
+                m.id === msg.id ? { id: msg.id, kind: "success" as const, text: "Snoozed 1 hour." } : m
+              ));
+            }}
+          />
+        );
       default:
         return null;
     }
@@ -1317,6 +1691,14 @@ export default function HaloCommand() {
     "What needs my attention?",
     "Show unpaid invoices",
     "Generate a live link",
+  ];
+
+  // ── Quick-lens chips including "Brief" ────────────────────────────────────
+  const QUICK_CHIPS = [
+    { label: "Brief",    cmd: "Structure my day" },
+    { label: "Map",      cmd: "Live crew map" },
+    { label: "Money",    cmd: "Open Money" },
+    { label: "Jobs",     cmd: "Job board" },
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1418,6 +1800,21 @@ export default function HaloCommand() {
             )}
           </button>
 
+          {/* Clear conversation — only when thread is active */}
+          {hasThread && (
+            <button
+              type="button"
+              onClick={() => {
+                setMessages([]);
+                try { localStorage.removeItem(MOBILE_THREAD_KEY); } catch {}
+              }}
+              className="text-[10px] font-semibold text-white/25 hover:text-white/55 transition-colors px-2 py-1"
+              title="Clear conversation"
+            >
+              Clear
+            </button>
+          )}
+
           {/* Menu */}
           <button
             onClick={() => setMenuOpen(true)}
@@ -1467,15 +1864,21 @@ export default function HaloCommand() {
                 <p style={{ fontSize: 14, color: "rgba(255,255,255,0.42)", lineHeight: 1.55 }}>
                   {timeGreeting()} Speak it. HALO runs the rest.
                 </p>
-                {totalNeeds > 0 && (
-                  <p style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
-                    <span style={{ color: "rgba(225,29,72,0.82)", fontWeight: 600 }}>
-                      {totalNeeds} item{totalNeeds !== 1 ? "s" : ""}
-                    </span>
-                    {" "}need{totalNeeds === 1 ? "s" : ""} your attention
-                  </p>
-                )}
               </div>
+
+              {/* Now strip — auto-loaded briefing teaser */}
+              {nowCount > 0 && (
+                <div className="w-full hc-in mb-4" style={{ animation: "hcFadeUp 0.45s ease-out 0.14s both" }}>
+                  <NowStrip
+                    count={nowCount}
+                    onExpand={() => setMessages(prev => [
+                      ...prev,
+                      { id: `u-brief-${Date.now()}`, kind: "user-msg" as const, text: "What needs my attention now?" },
+                      { id: `brief-${Date.now()}`, kind: "briefing-card" as const, mode: "default" as const },
+                    ])}
+                  />
+                </div>
+              )}
 
               {/* Composer */}
               <div className="w-full hc-in" style={{ animation: "hcFadeUp 0.45s ease-out 0.18s both", marginBottom: 22 }}>

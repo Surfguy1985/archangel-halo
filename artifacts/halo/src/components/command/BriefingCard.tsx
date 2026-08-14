@@ -1,368 +1,432 @@
 /**
- * BriefingCard — rich daily briefing injected as the first chat message.
+ * BriefingCard — inline morning briefing / planning query result card.
  *
- * Renders greeting, attention items, approval queue (with inline approve/reject),
- * economics grid, and suggested prompts. SHADOW mode surfaces approval cards
- * with "SHADOW — would approve" labels instead of live buttons.
+ * Rendered in the HALO Command thread whenever the user asks:
+ * "Structure my day", "What needs me?", "Morning brief", etc.
+ *
+ * - Groups items by tier: Now / Today / This Week
+ * - Each row: category badge · title · one-line body · amount · SLA flag · action button
+ * - "Team vs personal" split mode renders two columns
+ * - All primary CTAs: white bg / black text
  */
 
 import { useState } from "react";
+import { useGetToday } from "@workspace/api-client-react";
 import {
-  AlertTriangle,
-  CheckCircle2,
+  AlertCircle,
   Clock,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
-  Briefcase,
-  ChevronRight,
-  X,
-  Sparkles,
-  Shield,
+  FileText,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  Users,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface BriefingItem {
+export interface BriefItem {
   id: string;
-  label: string;
-  subtext?: string;
-  urgency: "critical" | "warn" | "info";
-  action?: { label: string; url: string };
-  entityType?: string;
-  entityId?: string;
-}
-
-export interface BriefingSection {
-  kind: "attention" | "approvals" | "active_jobs" | "health" | "exceptions" | "economics";
+  tier: "now" | "today" | "week";
+  category: string;
   title: string;
-  badge?: number;
-  items: BriefingItem[];
-  summary?: string;
+  body: string;
+  amount?: number | null;
+  slaFlag?: string | null;
+  entityId?: string | null;
+  entityType?: string | null;
+  queue?: string | null;
+  /** Suggested action label for the primary CTA */
+  actionLabel?: string;
+  /** Pre-filled command to inject into handleSubmit when action is clicked */
+  actionCommand?: string;
 }
 
-export interface BriefingData {
-  greeting: string;
-  date: string;
-  sections: BriefingSection[];
-  economics: {
-    mtdRevenue: number;
-    mtdCollected: number;
-    openReceivables: number;
-    activeJobCount: number;
-    avgMarginPct: number;
-    flaggedJobs: number;
-  };
-  suggestedPrompts: string[];
-}
-
-export interface ApprovalCard {
-  id: string;
-  kind: string;
-  title: string;
-  entityLabel: string;
-  amount?: number;
-  riskLevel: "low" | "medium" | "high";
-  context: string;
-  approveUrl: string;
-  rejectUrl: string;
-}
-
-export interface AttentionItem extends BriefingItem {
-  queue?: string;
-  amount?: number;
+interface BriefingCardProps {
+  items: BriefItem[];
+  /** "team-vs-personal" splits into two columns */
+  mode?: "default" | "team-vs-personal";
+  onAction: (command: string) => void;
+  onDismiss?: () => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmt$ = (n: number) =>
-  n >= 1_000_000
-    ? `$${(n / 1_000_000).toFixed(1)}M`
-    : n >= 1_000
-    ? `$${Math.round(n / 1_000)}K`
-    : `$${Math.round(n).toLocaleString()}`;
-
-const fmtDate = (iso: string) => {
-  const d = new Date(iso + "T12:00:00");
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+const TIER_CONFIG = {
+  now:   { label: "Now",       color: "#E11D48", bg: "rgba(225,29,72,0.09)",   border: "rgba(225,29,72,0.18)" },
+  today: { label: "Today",     color: "#F59E0B", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.14)" },
+  week:  { label: "This Week", color: "#6366F1", bg: "rgba(99,102,241,0.07)",  border: "rgba(99,102,241,0.14)" },
 };
 
-const URGENCY_DOT: Record<string, string> = {
-  critical: "bg-[#E11D48]",
-  warn: "bg-[#F59E0B]",
-  info: "bg-[#60A5FA]",
+const CATEGORY_ICONS: Record<string, typeof AlertCircle> = {
+  money:   DollarSign,
+  invoice: FileText,
+  margin:  AlertCircle,
+  bids:    Zap,
+  crew:    Users,
+  job:     CheckCircle2,
+  default: Clock,
 };
 
-const RISK_BADGE: Record<string, string> = {
-  low: "text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/25",
-  medium: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25",
-  high: "text-[#E11D48] bg-[#E11D48]/10 border-[#E11D48]/25",
-};
+function getCategoryIcon(cat?: string | null) {
+  if (!cat) return CATEGORY_ICONS.default;
+  return CATEGORY_ICONS[cat.toLowerCase()] ?? CATEGORY_ICONS.default;
+}
 
-// ─── Approval row with inline approve/reject ──────────────────────────────────
-
-function ApprovalRow({
-  approval,
-  shadowMode,
-  onSettled,
-}: {
-  approval: ApprovalCard;
-  shadowMode: boolean;
-  onSettled: (id: string, action: "approved" | "rejected") => void;
-}) {
-  const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  const act = async (url: string, which: "approve" | "reject") => {
-    if (busy) return;
-    setBusy(which);
-    setErr(null);
-    try {
-      const res = await fetch(url, { method: "POST", credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setErr((body as { error?: string }).error ?? `Failed (${res.status})`);
-        setBusy(null);
-        return;
-      }
-      onSettled(approval.id, which === "approve" ? "approved" : "rejected");
-    } catch {
-      setErr("Network error — try again");
-      setBusy(null);
-    }
+function getCategoryColor(cat?: string | null): string {
+  const map: Record<string, string> = {
+    money: "#E11D48", invoice: "#B4FF44", margin: "#F59E0B",
+    bids: "#6366F1", crew: "#22C55E", job: "#3B82F6",
   };
+  return map[cat?.toLowerCase() ?? ""] ?? "#B4FF44";
+}
+
+function getActionLabel(item: BriefItem): string {
+  if (item.actionLabel) return item.actionLabel;
+  switch (item.queue ?? item.category?.toLowerCase()) {
+    case "money":   return "Send Reminder";
+    case "invoice": return "View Invoice";
+    case "bids":    return "Nudge Client";
+    case "margin":  return "Review Pricing";
+    case "job":     return "Open Job";
+    default:        return "Handle";
+  }
+}
+
+function getActionCommand(item: BriefItem): string {
+  if (item.actionCommand) return item.actionCommand;
+  if (item.entityId && item.entityType === "invoice")
+    return `Show invoice ${item.entityId}`;
+  if (item.entityId && item.entityType === "job")
+    return `Show job ${item.entityId}`;
+  return `Tell me more about: ${item.title}`;
+}
+
+// ─── Single briefing row ──────────────────────────────────────────────────────
+
+function BriefRow({ item, onAction }: { item: BriefItem; onAction: (cmd: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = getCategoryIcon(item.queue ?? item.category);
+  const iconColor = getCategoryColor(item.queue ?? item.category);
+  const tierConf = TIER_CONFIG[item.tier];
 
   return (
-    <div className="py-2.5 border-b border-white/[0.06] last:border-b-0">
-      <div className="flex items-start gap-2 mb-1.5">
-        <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${URGENCY_DOT.warn}`} />
+    <div
+      className="rounded-[14px] overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.028)", border: "1px solid rgba(255,255,255,0.055)" }}
+    >
+      <div className="px-3.5 py-3 flex items-start gap-3">
+        {/* Icon */}
+        <div
+          className="w-7 h-7 rounded-[8px] grid place-items-center shrink-0 mt-0.5"
+          style={{ background: `${iconColor}18`, border: `1px solid ${iconColor}30` }}
+        >
+          <Icon className="w-3.5 h-3.5" style={{ color: iconColor }} strokeWidth={2} />
+        </div>
+
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] text-white/88 font-medium leading-tight">{approval.title}</div>
-          {approval.context && (
-            <div className="text-[11px] text-white/42 mt-0.5 leading-snug">{approval.context}</div>
-          )}
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[10px] font-medium border rounded-full px-1.5 py-px ${RISK_BADGE[approval.riskLevel]}`}>
-              {approval.riskLevel} risk
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+            {/* Tier badge */}
+            <span
+              className="text-[8.5px] font-bold tracking-[0.15em] uppercase px-2 py-0.5 rounded-full"
+              style={{ background: tierConf.bg, color: tierConf.color, border: `1px solid ${tierConf.border}` }}
+            >
+              {tierConf.label}
             </span>
+            {/* Category badge */}
+            <span className="text-[9px] text-white/30 uppercase tracking-wider font-semibold">
+              {item.category ?? item.queue ?? "general"}
+            </span>
+            {/* SLA flag */}
+            {item.slaFlag && (
+              <span className="text-[9px] text-[#E11D48]/80 font-semibold">⚠ {item.slaFlag}</span>
+            )}
+          </div>
+
+          <div className="text-[12.5px] text-white/85 font-semibold leading-snug">{item.title}</div>
+
+          {/* Body — expandable */}
+          <p className="text-[11.5px] text-white/45 leading-relaxed mt-0.5 line-clamp-2">
+            {item.body}
+          </p>
+
+          {expanded && item.body.length > 80 && (
+            <p className="text-[11.5px] text-white/45 leading-relaxed mt-0.5">{item.body}</p>
+          )}
+
+          {/* Amount + action row */}
+          <div className="flex items-center gap-2 mt-2.5">
+            {item.amount != null && (
+              <span className="text-[12px] font-bold tabular-nums" style={{ color: iconColor }}>
+                ${item.amount.toLocaleString()}
+              </span>
+            )}
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => onAction(getActionCommand(item))}
+              className="flex items-center gap-1.5 px-3 py-[5px] rounded-[9px] bg-white text-[#07101E] text-[11.5px] font-bold hover:bg-white/92 active:scale-[0.97] transition-all"
+            >
+              {getActionLabel(item)}
+              <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+            </button>
           </div>
         </div>
-      </div>
 
-      {err && (
-        <div className="ml-3.5 mb-1 text-[10.5px] text-[#E11D48]/80">{err}</div>
-      )}
-      {shadowMode ? (
-        <div className="ml-3.5 flex items-center gap-1.5 text-[10.5px] text-[#F59E0B]/80 bg-[#F59E0B]/6 border border-[#F59E0B]/18 rounded-[6px] px-2.5 py-1">
-          <Shield className="w-3 h-3 shrink-0" />
-          SHADOW — would approve in LIVE mode
-        </div>
-      ) : (
-        <div className="ml-3.5 flex gap-1.5">
+        {/* Expand chevron for long body */}
+        {item.body.length > 80 && (
           <button
-            onClick={() => act(approval.approveUrl, "approve")}
-            disabled={!!busy}
-            className="flex-1 text-[11px] font-medium bg-[#22C55E]/12 text-[#22C55E] border border-[#22C55E]/25 rounded-[7px] py-1.5 hover:bg-[#22C55E]/20 transition-colors disabled:opacity-40"
+            type="button"
+            onClick={() => setExpanded(e => !e)}
+            className="w-6 h-6 grid place-items-center shrink-0 text-white/25 hover:text-white/55 transition-colors"
           >
-            {busy === "approve" ? "…" : "Approve"}
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
-          <button
-            onClick={() => act(approval.rejectUrl, "reject")}
-            disabled={!!busy}
-            className="flex-1 text-[11px] font-medium bg-white/5 text-white/55 border border-white/10 rounded-[7px] py-1.5 hover:bg-white/8 transition-colors disabled:opacity-40"
-          >
-            {busy === "reject" ? "…" : "Dismiss"}
-          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tier section ─────────────────────────────────────────────────────────────
+
+function TierSection({ tier, items, onAction }: {
+  tier: "now" | "today" | "week";
+  items: BriefItem[];
+  onAction: (cmd: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  if (items.length === 0) return null;
+  const conf = TIER_CONFIG[tier];
+  return (
+    <div className="space-y-1.5">
+      <button
+        type="button"
+        onClick={() => setCollapsed(c => !c)}
+        className="flex items-center gap-2 w-full group"
+      >
+        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: conf.color }} />
+        <span
+          className="text-[9px] font-bold tracking-[0.18em] uppercase"
+          style={{ color: conf.color }}
+        >
+          {conf.label}
+        </span>
+        <span className="text-[9px] text-white/25 ml-1">({items.length})</span>
+        <div className="flex-1" />
+        {collapsed
+          ? <ChevronDown className="w-3 h-3 text-white/25" />
+          : <ChevronUp   className="w-3 h-3 text-white/25" />}
+      </button>
+      {!collapsed && (
+        <div className="space-y-1.5">
+          {items.map(item => <BriefRow key={item.id} item={item} onAction={onAction} />)}
         </div>
       )}
     </div>
   );
 }
 
+// ─── Team-vs-personal split ───────────────────────────────────────────────────
+
+function TeamVsPersonalView({ items, onAction }: { items: BriefItem[]; onAction: (cmd: string) => void }) {
+  // "Your attention": items needing decision/approval, financial threshold, SLA risk
+  // "Team can handle": items assigned with active crew or below auto-threshold
+  const myItems = items.filter(item =>
+    item.tier === "now" ||
+    (item.amount != null && item.amount > 1000) ||
+    item.slaFlag != null ||
+    ["money", "margin"].includes(item.queue ?? "")
+  );
+  const teamItems = items.filter(item => !myItems.includes(item));
+
+  return (
+    <div className="space-y-4">
+      {/* Your attention */}
+      <div className="rounded-[14px] overflow-hidden" style={{ border: "1px solid rgba(225,29,72,0.2)" }}>
+        <div className="px-3.5 py-2.5 border-b border-white/[0.04]" style={{ background: "rgba(225,29,72,0.07)" }}>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48] animate-pulse" />
+            <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-[#E11D48]/85">Your attention required</span>
+            <span className="text-[9px] text-white/25 ml-1">({myItems.length})</span>
+          </div>
+        </div>
+        <div className="p-2.5 space-y-1.5">
+          {myItems.length === 0
+            ? <div className="text-[12px] text-white/35 py-2 text-center">Nothing needs you personally right now.</div>
+            : myItems.map(item => <BriefRow key={item.id} item={item} onAction={onAction} />)
+          }
+        </div>
+      </div>
+
+      {/* Team can handle */}
+      <div className="rounded-[14px] overflow-hidden" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+        <div className="px-3.5 py-2.5 border-b border-white/[0.04]" style={{ background: "rgba(34,197,94,0.06)" }}>
+          <div className="flex items-center gap-2">
+            <Users className="w-3 h-3 text-[#22C55E]/70" />
+            <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-[#22C55E]/85">Team can handle</span>
+            <span className="text-[9px] text-white/25 ml-1">({teamItems.length})</span>
+          </div>
+        </div>
+        <div className="p-2.5 space-y-1.5">
+          {teamItems.length === 0
+            ? <div className="text-[12px] text-white/35 py-2 text-center">All items need your personal attention.</div>
+            : teamItems.map(item => <BriefRow key={item.id} item={item} onAction={onAction} />)
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── BriefingCard (main export) ───────────────────────────────────────────────
 
-export function BriefingCard({
-  data,
-  shadowMode = false,
-  onPrompt,
-}: {
-  data: BriefingData;
-  shadowMode?: boolean;
-  onPrompt: (text: string) => void;
-}) {
-  const [dismissedApprovals, setDismissedApprovals] = useState<Set<string>>(new Set());
-  const [allClear, setAllClear] = useState(false);
+export function BriefingCard({ items, mode = "default", onAction, onDismiss }: BriefingCardProps) {
+  const nowItems   = items.filter(i => i.tier === "now");
+  const todayItems = items.filter(i => i.tier === "today");
+  const weekItems  = items.filter(i => i.tier === "week");
 
-  const handleApprovalSettled = (id: string, _action: "approved" | "rejected") => {
-    setDismissedApprovals(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      // Check if all approvals are settled
-      const approvalSection = data.sections.find(s => s.kind === "approvals");
-      const total = approvalSection?.items.length ?? 0;
-      if (next.size >= total) setAllClear(true);
-      return next;
-    });
-  };
-
-  const attentionSection = data.sections.find(s => s.kind === "attention");
-  const approvalSection = data.sections.find(s => s.kind === "approvals");
-  const healthSection = data.sections.find(s => s.kind === "health");
-
-  const eco = data.economics;
-  const marginPct = Math.round((eco.avgMarginPct ?? 0) * 100);
+  if (items.length === 0) {
+    return (
+      <div
+        className="w-full rounded-[18px] overflow-hidden mb-3"
+        style={{ background: "rgba(10,16,28,0.92)", border: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
+            <span className="text-[13px] font-semibold text-white/80">You're clear</span>
+          </div>
+          <p className="text-[12.5px] text-white/45 leading-relaxed">
+            No urgent items right now. The team looks good.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="rounded-[14px] border border-white/[0.09] overflow-hidden mb-3 hc-msg"
-      style={{ background: "rgba(12,18,34,0.92)", animation: "hcMsgIn 0.28s ease-out both" }}
+      className="w-full rounded-[18px] overflow-hidden mb-3"
+      style={{ background: "rgba(8,13,22,0.96)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 40px rgba(0,0,0,0.35)" }}
     >
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="px-4 pt-4 pb-3 border-b border-white/[0.07]">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="text-[14.5px] font-semibold text-white/92 leading-tight">{data.greeting}</div>
-            <div className="text-[11.5px] text-white/38 mt-0.5">{fmtDate(data.date)}</div>
+      {/* Header */}
+      <div className="px-4 py-3.5 border-b border-white/[0.04] flex items-center gap-3">
+        <div>
+          <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/35 mb-0.5">
+            {mode === "team-vs-personal" ? "Priority Breakdown" : "Morning Brief"}
           </div>
-          <div className="w-7 h-7 rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/20 grid place-items-center shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-[#B4FF44]" />
+          <div className="text-[13.5px] font-semibold text-white/88">
+            {nowItems.length > 0 && (
+              <span style={{ color: "#E11D48" }}>{nowItems.length} now</span>
+            )}
+            {nowItems.length > 0 && todayItems.length > 0 && <span className="text-white/30"> · </span>}
+            {todayItems.length > 0 && (
+              <span style={{ color: "#F59E0B" }}>{todayItems.length} today</span>
+            )}
+            {(nowItems.length > 0 || todayItems.length > 0) && weekItems.length > 0 && <span className="text-white/30"> · </span>}
+            {weekItems.length > 0 && (
+              <span style={{ color: "#6366F1" }}>{weekItems.length} this week</span>
+            )}
           </div>
         </div>
+        <div className="flex-1" />
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="text-[11px] text-white/25 hover:text-white/50 transition-colors"
+          >
+            Dismiss
+          </button>
+        )}
       </div>
 
-      {/* ── Attention Section ────────────────────────────────────────────────── */}
-      {attentionSection && attentionSection.items.length > 0 && (
-        <div className="border-b border-white/[0.07]">
-          <div className="px-4 pt-2.5 pb-1 flex items-center gap-2">
-            <AlertTriangle className="w-[11px] h-[11px] text-[#F59E0B]" />
-            <span className="text-[10.5px] font-semibold text-white/45 tracking-wide uppercase">{attentionSection.title}</span>
-            {attentionSection.badge != null && attentionSection.badge > 0 && (
-              <span className="ml-auto text-[10px] font-bold bg-[#E11D48] text-white rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                {attentionSection.badge}
-              </span>
-            )}
-          </div>
-          <div className="px-4 pb-2.5">
-            {attentionSection.items.map(item => (
-              <div key={item.id} className="flex items-start gap-2 py-2 border-b border-white/[0.05] last:border-b-0">
-                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${URGENCY_DOT[item.urgency]}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] text-white/82 font-medium leading-tight">{item.label}</div>
-                  {item.subtext && (
-                    <div className="text-[11px] text-white/38 mt-0.5 leading-snug">{item.subtext}</div>
-                  )}
-                </div>
-                {item.action && (
-                  // Actions from computeQueues are command identifiers, not URLs.
-                  // Route them through the chat composer so HALO handles them.
-                  <button
-                    onClick={() => onPrompt(`${item.action!.label}: ${item.label}`)}
-                    className="text-[10.5px] text-[#B4FF44]/80 font-medium flex items-center gap-0.5 shrink-0 hover:text-[#B4FF44] transition-colors"
-                  >
-                    {item.action.label}
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Approvals Section ────────────────────────────────────────────────── */}
-      {approvalSection && approvalSection.items.length > 0 && (
-        <div className="border-b border-white/[0.07]">
-          <div className="px-4 pt-2.5 pb-1 flex items-center gap-2">
-            <CheckCircle2 className="w-[11px] h-[11px] text-[#60A5FA]" />
-            <span className="text-[10.5px] font-semibold text-white/45 tracking-wide uppercase">{approvalSection.title}</span>
-            {approvalSection.badge != null && approvalSection.badge > 0 && !allClear && (
-              <span className="ml-auto text-[10px] font-bold bg-[#60A5FA] text-[#080D17] rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                {approvalSection.badge - dismissedApprovals.size}
-              </span>
-            )}
-          </div>
-          <div className="px-4 pb-2.5">
-            {allClear ? (
-              <div className="flex items-center gap-2 py-2 text-[12px] text-[#22C55E]/80">
-                <CheckCircle2 className="w-[13px] h-[13px] shrink-0" />
-                All clear — nothing left waiting for you. 🎉
-              </div>
-            ) : (
-              approvalSection.items
-                .filter(item => !dismissedApprovals.has(item.id))
-                .map(item => (
-                  <ApprovalRow
-                    key={item.id}
-                    approval={{
-                      id: item.id,
-                      kind: item.entityType ?? "action",
-                      title: item.label,
-                      entityLabel: item.subtext ?? "",
-                      riskLevel: "medium",
-                      context: item.subtext ?? "",
-                      approveUrl: `/api/autopilot/actions/${item.id}/approve`,
-                      rejectUrl: `/api/autopilot/actions/${item.id}/dismiss`,
-                    }}
-                    shadowMode={shadowMode}
-                    onSettled={handleApprovalSettled}
-                  />
-                ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Economics Grid ───────────────────────────────────────────────────── */}
-      <div className="border-b border-white/[0.07]">
-        <div className="px-4 pt-2.5 pb-1 flex items-center gap-2">
-          <TrendingUp className="w-[11px] h-[11px] text-[#B4FF44]" />
-          <span className="text-[10.5px] font-semibold text-white/45 tracking-wide uppercase">Business Health</span>
-          {eco.flaggedJobs > 0 && (
-            <span className="ml-auto text-[10px] font-medium text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/25 rounded-full px-1.5 py-px">
-              {eco.flaggedJobs} at risk
-            </span>
-          )}
-        </div>
-        <div className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
-          <div>
-            <div className="text-[10px] text-white/32 uppercase tracking-wide">MTD Revenue</div>
-            <div className="text-[15px] font-semibold text-white/88 mt-0.5">{fmt$(eco.mtdRevenue)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-white/32 uppercase tracking-wide">Open Receivables</div>
-            <div className="text-[15px] font-semibold text-white/88 mt-0.5">{fmt$(eco.openReceivables)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-white/32 uppercase tracking-wide">Avg Margin</div>
-            <div className={`text-[15px] font-semibold mt-0.5 ${marginPct >= 25 ? "text-white/88" : "text-[#F59E0B]"}`}>
-              {marginPct}%
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] text-white/32 uppercase tracking-wide">Active Jobs</div>
-            <div className="text-[15px] font-semibold text-white/88 mt-0.5">{eco.activeJobCount}</div>
-          </div>
-        </div>
+      {/* Body */}
+      <div className="px-4 py-3.5 space-y-4">
+        {mode === "team-vs-personal" ? (
+          <TeamVsPersonalView items={items} onAction={onAction} />
+        ) : (
+          <>
+            <TierSection tier="now"   items={nowItems}   onAction={onAction} />
+            <TierSection tier="today" items={todayItems} onAction={onAction} />
+            <TierSection tier="week"  items={weekItems}  onAction={onAction} />
+          </>
+        )}
       </div>
 
-      {/* ── Suggested Prompts ─────────────────────────────────────────────────── */}
-      {data.suggestedPrompts.length > 0 && (
-        <div className="px-4 py-3">
-          <div className="text-[10px] text-white/28 uppercase tracking-wide mb-2">Ask me anything</div>
-          <div className="flex flex-col gap-1.5">
-            {data.suggestedPrompts.map((p, i) => (
-              <button
-                key={i}
-                onClick={() => onPrompt(p)}
-                className="text-left text-[12px] text-white/55 bg-white/[0.04] border border-white/[0.07] rounded-[8px] px-3 py-2 hover:bg-white/[0.07] hover:text-white/75 transition-colors flex items-center justify-between gap-2"
-              >
-                <span>"{p}"</span>
-                <ChevronRight className="w-3 h-3 shrink-0 opacity-40" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Footer prompt chips */}
+      <div className="px-4 pb-4 flex flex-wrap gap-2">
+        {["What needs me personally?", "Run my morning", "Show unpaid invoices"].map(q => (
+          <button
+            key={q}
+            type="button"
+            onClick={() => onAction(q)}
+            className="text-[11px] text-white/30 px-3 py-1.5 rounded-full transition-all hover:text-white/55"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Hook to convert Today feed to BriefItems ─────────────────────────────────
+
+export function useBriefingItems(): { items: BriefItem[]; loading: boolean } {
+  const { data: today, isLoading } = useGetToday();
+  const feed = (today?.feed ?? []) as any[];
+  const items: BriefItem[] = feed.map((card: any) => ({
+    id: card.id ?? String(Math.random()),
+    tier: (card.tier === "now" ? "now" : card.tier === "today" ? "today" : "week") as BriefItem["tier"],
+    category: card.queue ?? "general",
+    queue: card.queue,
+    title: card.title ?? "—",
+    body: card.sub ?? card.body ?? "",
+    amount: card.amount ?? null,
+    slaFlag: card.slaFlag ?? card.moveInRisk ?? null,
+    entityId: card.entityId ?? null,
+    entityType: card.entityType ?? null,
+  }));
+  return { items, loading: isLoading };
+}
+
+// ─── Compact "Now strip" for seed state ───────────────────────────────────────
+
+export function NowStrip({ count, onExpand }: { count: number; onExpand: () => void }) {
+  if (count === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className="flex items-center gap-2.5 rounded-[12px] px-4 py-2.5 w-full active:scale-[0.98] transition-all"
+      style={{ background: "rgba(225,29,72,0.07)", border: "1px solid rgba(225,29,72,0.18)" }}
+    >
+      <div className="w-2 h-2 rounded-full bg-[#E11D48] animate-pulse shrink-0" />
+      <span className="text-[12.5px] font-semibold text-white/80 flex-1 text-left">
+        <span className="text-[#E11D48]">{count} item{count !== 1 ? "s" : ""}</span> need your attention now
+      </span>
+      <span className="text-[11px] text-white/30 hover:text-white/55">See all →</span>
+    </button>
+  );
+}
+
+// ─── Loading state for BriefingCard ──────────────────────────────────────────
+
+export function BriefingCardLoading() {
+  return (
+    <div
+      className="w-full rounded-[18px] px-4 py-5 mb-3 flex items-center gap-3"
+      style={{ background: "rgba(8,13,22,0.92)", border: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: "rgba(180,255,68,0.5)" }} />
+      <span className="text-[13px] text-white/40">Loading your briefing…</span>
     </div>
   );
 }

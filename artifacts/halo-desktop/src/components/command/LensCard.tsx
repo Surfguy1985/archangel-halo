@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { LiveMapCard as LiveMapCardInline } from "@/components/command/LiveMapCard";
 import {
   useGetMoneySummary,
   useListJobs,
@@ -57,6 +58,7 @@ interface LensCardProps {
   lensType: LensType;
   query?: string;
   onDeepLink?: (path: string) => void;
+  onHandleSubmit?: (text: string) => void;
 }
 
 // ─── Lens metadata ────────────────────────────────────────────────────────────
@@ -70,10 +72,10 @@ const LENS_META: Record<LensType, {
 }> = {
   money:               { label: "Money",         icon: DollarSign,  accent: "#B4FF44", deepLink: "/money",      expandLabel: "Open Money Hub" },
   timeline:            { label: "Timeline",      icon: Clock,       accent: "#6366F1", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
-  evidence:            { label: "Evidence",      icon: Camera,      accent: "#F59E0B", deepLink: "/crews",      expandLabel: "Browse Gallery" },
-  network:             { label: "Network",       icon: Users,       accent: "#3B82F6", deepLink: "/crews",      expandLabel: "Crew & Dispatch" },
+  evidence:            { label: "Evidence",      icon: Camera,      accent: "#F59E0B", deepLink: "/jobboard",   expandLabel: "Browse Gallery" },
+  network:             { label: "Network",       icon: Users,       accent: "#3B82F6", deepLink: "/crews",      expandLabel: "View Crew" },
   portfolio:           { label: "Portfolio",     icon: BarChart3,   accent: "#8B5CF6", deepLink: "/properties", expandLabel: "All Properties" },
-  map:                 { label: "Live Map",      icon: MapPin,      accent: "#22C55E", deepLink: "/crews",      expandLabel: "Open Live GPS Map" },
+  map:                 { label: "Live Map",      icon: MapPin,      accent: "#22C55E", deepLink: "/map",        expandLabel: "Open Live GPS Map" },
   // ── Entity-scoped lenses ──────────────────────────────────────────────────
   property_status:     { label: "Property",      icon: Building2,   accent: "#8B5CF6", deepLink: "/properties", expandLabel: "Open Property" },
   turn_timeline:       { label: "Job",           icon: Activity,    accent: "#6366F1", deepLink: "/jobboard",   expandLabel: "Open Job Board" },
@@ -348,172 +350,135 @@ function TimelineLens({ query: _q }: { query?: string }) {
 
 // ─── NETWORK (DISPATCH) LENS ──────────────────────────────────────────────────
 
-function NetworkLens({ query: _q }: { query?: string }) {
-  const [, navigate] = useLocation();
+function NetworkLens({ query: _q, onHandleSubmit }: { query?: string; onHandleSubmit?: (s: string) => void }) {
   const { data: crews, isLoading: cLoading } = useListCrews();
   const { data: vendors, isLoading: vLoading } = useListVendors();
+  const { data: jobs } = useListJobs();
+  const [dispatchOpen, setDispatchOpen] = useState<string | null>(null);
 
   if (cLoading || vLoading) return <LensLoading />;
 
   const crewList = crews ?? [];
   const vendorList = vendors ?? [];
+  const openJobs = (jobs ?? []).filter((j: any) =>
+    ["scheduled", "in_progress", "open"].includes(j.boardStatus ?? j.status ?? "")
+  ).slice(0, 5);
 
-  // Simulate checked-in vs available based on available data fields
-  const checkedIn = crewList.filter(c => (c as any).isCheckedIn || (c as any).lastCheckinAt);
-  const available = crewList.filter(c => !(c as any).isCheckedIn && !(c as any).lastCheckinAt);
+  const checkedIn = crewList.filter((c: any) => c.isCheckedIn || c.lastCheckinAt);
+  const getInitials = (name: string) => name.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase();
 
-  const getCrewInitials = (name: string) => name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const coiStatus = (v: any): { label: string; color: string } => {
+    if (!v.coiExpiresAt) return { label: "No COI", color: "#E11D48" };
+    const daysLeft = Math.round((new Date(v.coiExpiresAt).getTime() - Date.now()) / 86400000);
+    if (daysLeft < 0)  return { label: "Expired", color: "#E11D48" };
+    if (daysLeft < 30) return { label: `Exp ${daysLeft}d`, color: "#F59E0B" };
+    return { label: "Valid", color: "#22C55E" };
+  };
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <KpiCell label="Total Crew"    value={String(crewList.length)}   accent="#3B82F6" />
-        <KpiCell label="On Site"       value={String(checkedIn.length)}  accent="#22C55E" />
-        <KpiCell label="Vendors"       value={String(vendorList.length)} accent="#8B5CF6" />
+        <KpiCell label="Total Crew" value={String(crewList.length)}   accent="#3B82F6" />
+        <KpiCell label="On Site"    value={String(checkedIn.length)}  accent="#22C55E" />
+        <KpiCell label="Vendors"    value={String(vendorList.length)} accent="#8B5CF6" />
       </div>
 
+      {/* Crew roster — up to 8 */}
       {crewList.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/25 px-0.5">Crew Roster</div>
-          {crewList.slice(0, 5).map(c => {
-            const isIn = (c as any).isCheckedIn || (c as any).lastCheckinAt;
+          {crewList.slice(0, 8).map((c: any) => {
+            const isIn = c.isCheckedIn || c.lastCheckinAt;
+            const isPickerOpen = dispatchOpen === c.id;
             return (
-              <div
-                key={c.id}
-                className="flex items-center gap-3 bg-white/[0.038] rounded-[12px] px-3.5 py-3"
-              >
-                <div className="w-8 h-8 rounded-full bg-[#3B82F6]/15 border border-[#3B82F6]/25 grid place-items-center shrink-0 text-[11px] font-bold text-[#3B82F6]">
-                  {getCrewInitials(c.name ?? "?")}
+              <div key={c.id} className="rounded-[12px] overflow-hidden bg-white/[0.038]">
+                <div className="flex items-center gap-3 px-3.5 py-3">
+                  <div className="w-8 h-8 rounded-full bg-[#3B82F6]/15 border border-[#3B82F6]/25 grid place-items-center shrink-0 text-[11px] font-bold text-[#3B82F6]">
+                    {c.selfiePath
+                      ? <img src={`/api/storage${c.selfiePath}`} alt="" className="w-full h-full object-cover rounded-full" />
+                      : getInitials(c.name ?? "?")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] text-white/82 font-medium truncate">{c.name}</div>
+                    <div className="text-[11px] text-white/35">{c.trade ?? c.role ?? "General"}</div>
+                  </div>
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                    isIn ? "bg-[#22C55E]/12 text-[#22C55E]/80 border border-[#22C55E]/20"
+                         : "bg-white/5 text-white/30 border border-white/[0.08]"
+                  }`}>
+                    <div className={`w-1 h-1 rounded-full ${isIn ? "bg-[#22C55E]" : "bg-white/25"}`} />
+                    {isIn ? "On Site" : "Available"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDispatchOpen(isPickerOpen ? null : c.id)}
+                    className="ml-1 px-2.5 py-1 rounded-[8px] bg-white text-[#0A0F1A] text-[10px] font-bold hover:bg-white/90 active:scale-[0.97] transition-all shrink-0"
+                  >
+                    Dispatch
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] text-white/82 font-medium truncate">{c.name}</div>
-                  <div className="text-[11px] text-white/35">{(c as any).trade ?? (c as any).role ?? "General"}</div>
-                </div>
-                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-bold ${
-                  isIn
-                    ? "bg-[#22C55E]/12 text-[#22C55E]/80 border border-[#22C55E]/20"
-                    : "bg-white/5 text-white/30 border border-white/8"
-                }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${isIn ? "bg-[#22C55E]" : "bg-white/25"}`} />
-                  {isIn ? "On Site" : "Available"}
-                </div>
+                {isPickerOpen && (
+                  <div className="border-t border-white/[0.05] px-3.5 pb-3 pt-2 space-y-1.5">
+                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-bold mb-1">Select Job</div>
+                    {openJobs.length === 0
+                      ? <div className="text-[11px] text-white/30 py-1">No open jobs</div>
+                      : openJobs.map((j: any) => (
+                          <button key={j.id} type="button"
+                            onClick={() => { setDispatchOpen(null); onHandleSubmit?.(`Dispatch ${c.name} to job ${j.jobNo ?? j.id}`); }}
+                            className="w-full text-left px-3 py-2 rounded-[9px] hover:bg-white/[0.05] transition-colors"
+                            style={{ background: "rgba(255,255,255,0.024)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <span className="text-[12px] text-white/70 font-medium">{j.description ?? j.jobNo ?? "Job"}</span>
+                            {j.scheduledOn && <span className="text-[10px] text-white/30 ml-2">{j.scheduledOn}</span>}
+                          </button>
+                        ))
+                    }
+                  </div>
+                )}
               </div>
             );
           })}
-          {crewList.length > 5 && (
-            <div className="text-center text-[11px] text-white/28 py-1">
-              +{crewList.length - 5} more crew members
-            </div>
+          {crewList.length > 8 && (
+            <div className="text-center text-[11px] text-white/28 py-1">+{crewList.length - 8} more crew members</div>
           )}
         </div>
       )}
 
-      {crewList.length === 0 && <LensEmpty icon={Users} message="No crew members yet. Add crew to dispatch them." />}
+      {/* Vendor compliance — up to 4 */}
+      {vendorList.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/25 px-0.5">Vendor Compliance</div>
+          {vendorList.slice(0, 4).map((v: any) => {
+            const coi = coiStatus(v);
+            return (
+              <div key={v.id} className="flex items-center gap-3 bg-white/[0.028] rounded-[12px] px-3.5 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] text-white/78 font-medium truncate">{v.name}</div>
+                  <div className="text-[10.5px] text-white/35">{v.trade ?? v.category ?? "Vendor"}</div>
+                </div>
+                <span className="text-[9px] font-bold px-2 py-1 rounded-full shrink-0"
+                  style={{ background: `${coi.color}18`, color: coi.color, border: `1px solid ${coi.color}30` }}>
+                  {coi.label}
+                </span>
+                {v.coiExpiresAt && (
+                  <span className="text-[10px] text-white/28 shrink-0 tabular-nums">
+                    {new Date(v.coiExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      <div className="flex gap-2 pt-1">
-        <PrimaryCTA label="Dispatch & Crew →" onClick={() => navigate("/crews")} />
-      </div>
+      {crewList.length === 0 && <LensEmpty icon={Users} message="No crew members yet. Add crew to dispatch them." />}
     </div>
   );
 }
 
 // ─── MAP (LIVE OPS) LENS ──────────────────────────────────────────────────────
 
-function MapLens({ query: _q }: { query?: string }) {
-  const [, navigate] = useLocation();
-  const { data: crews, isLoading: cLoading } = useListCrews();
-  const { data: properties, isLoading: pLoading } = useListProperties();
-
-  if (cLoading || pLoading) return <LensLoading />;
-
-  const crewList = crews ?? [];
-  const propList = properties ?? [];
-
-  const checkedIn = crewList.filter(c => (c as any).isCheckedIn || (c as any).checkedInAt || (c as any).lastCheckinAt);
-  const getInitials = (name: string) => name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
-
-  return (
-    <div className="space-y-3">
-      {/* Live ops summary bar */}
-      <div className="flex items-center gap-3 bg-[#22C55E]/7 border border-[#22C55E]/14 rounded-[14px] px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-          <span className="text-[12px] font-bold text-[#22C55E]/85">Live Ops</span>
-        </div>
-        <div className="flex-1" />
-        <span className="text-[12px] text-white/55">
-          <span className="font-bold text-white/80">{checkedIn.length}</span> on site
-          {propList.length > 0 && (
-            <> · <span className="font-bold text-white/80">{propList.length}</span> propert{propList.length === 1 ? "y" : "ies"}</>
-          )}
-        </span>
-      </div>
-
-      {/* Crew grid */}
-      {crewList.length > 0 ? (
-        <div className="space-y-1.5">
-          <div className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/25 px-0.5">Active Crew</div>
-          <div className="grid grid-cols-2 gap-2">
-            {crewList.slice(0, 6).map(c => {
-              const isIn = (c as any).isCheckedIn || (c as any).checkedInAt || (c as any).lastCheckinAt;
-              const location = (c as any).checkedInLocation ?? (c as any).currentProperty ?? null;
-              return (
-                <div
-                  key={c.id}
-                  className="flex items-center gap-2.5 bg-white/[0.038] rounded-[12px] px-3 py-2.5"
-                >
-                  <div
-                    className="w-8 h-8 rounded-full grid place-items-center shrink-0 text-[11px] font-bold"
-                    style={{
-                      background: isIn ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
-                      border: isIn ? "1px solid rgba(34,197,94,0.25)" : "1px solid rgba(255,255,255,0.08)",
-                      color: isIn ? "#22C55E" : "rgba(255,255,255,0.38)",
-                    }}
-                  >
-                    {getInitials(c.name ?? "?")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] text-white/80 font-medium truncate">{c.name}</div>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${isIn ? "bg-[#22C55E]" : "bg-white/20"}`} />
-                      <span className="text-[10px] text-white/32">
-                        {isIn ? (location ?? "Checked in") : "Available"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {crewList.length > 6 && (
-            <div className="text-center text-[11px] text-white/28 py-1">
-              +{crewList.length - 6} more crew members
-            </div>
-          )}
-        </div>
-      ) : (
-        <LensEmpty icon={MapPin} message="No crew members yet." />
-      )}
-
-      {/* Property list (compact) */}
-      {propList.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/25 px-0.5">Properties</div>
-          {propList.slice(0, 3).map(p => (
-            <div key={p.id} className="flex items-center gap-2.5 bg-white/[0.028] rounded-[11px] px-3.5 py-2.5">
-              <MapPin className="w-3 h-3 text-[#22C55E]/60 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-white/70 font-medium truncate">{p.name}</div>
-                <div className="text-[10.5px] text-white/30">{(p as any).city ?? (p as any).address ?? "—"}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <PrimaryCTA label="Open Live GPS Map" icon={Radio} onClick={() => navigate("/crews")} />
-    </div>
-  );
+function MapLens({ query }: { query?: string }) {
+  return <LiveMapCardInline query={query} />;
 }
 
 // ─── EVIDENCE LENS ────────────────────────────────────────────────────────────
@@ -601,7 +566,7 @@ function EvidenceLens({ query: _q }: { query?: string }) {
 
           {withPhotos.length > 4 && (
             <button
-              onClick={() => navigate("/crews")}
+              onClick={() => navigate("/jobboard")}
               className="w-full text-center text-[11px] text-white/30 hover:text-white/50 py-1.5 transition-colors"
             >
               +{withPhotos.length - 4} more jobs with evidence
@@ -612,7 +577,12 @@ function EvidenceLens({ query: _q }: { query?: string }) {
         <LensEmpty icon={Camera} message="No job photos yet. Start a Walk to capture before/after evidence." />
       )}
 
-      <PrimaryCTA label="Browse Evidence Gallery" onClick={() => navigate("/crews")} />
+      <div className="flex justify-end pt-1">
+        <button onClick={() => navigate("/jobboard")}
+          className="text-[11px] text-white/28 hover:text-white/50 transition-colors flex items-center gap-1">
+          Browse all evidence <ExternalLink className="w-3 h-3" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -1097,7 +1067,7 @@ function InspectionChecklistLens({ query, onDeepLink }: { query?: string; onDeep
 
 // ─── Main LensCard ────────────────────────────────────────────────────────────
 
-export function LensCard({ lensType, query, onDeepLink }: LensCardProps) {
+export function LensCard({ lensType, query, onDeepLink, onHandleSubmit }: LensCardProps) {
   const [, navigate] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const meta = LENS_META[lensType];
@@ -1169,7 +1139,7 @@ export function LensCard({ lensType, query, onDeepLink }: LensCardProps) {
         <div className="px-4 py-4">
           {lensType === "money"               && <MoneyLens               query={query} />}
           {lensType === "timeline"            && <TimelineLens            query={query} />}
-          {lensType === "network"             && <NetworkLens             query={query} />}
+          {lensType === "network"             && <NetworkLens             query={query} onHandleSubmit={onHandleSubmit} />}
           {lensType === "portfolio"           && <PortfolioLens           query={query} />}
           {lensType === "map"                 && <MapLens                 query={query} />}
           {lensType === "evidence"            && <EvidenceLens            query={query} />}
