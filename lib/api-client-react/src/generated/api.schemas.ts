@@ -3756,6 +3756,140 @@ export interface OkResponse {
   ok: boolean;
 }
 
+export type BriefItemTier = typeof BriefItemTier[keyof typeof BriefItemTier];
+
+
+export const BriefItemTier = {
+  now: 'now',
+  today: 'today',
+  week: 'week',
+} as const;
+
+export interface BriefItem {
+  tier: BriefItemTier;
+  urgency: number;
+  category: string;
+  title: string;
+  body: string;
+  /** @nullable */
+  entityType?: string | null;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  entityLabel?: string | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** @nullable */
+  actionKey?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  slaRisk?: boolean | null;
+  /** @nullable */
+  customerImpact?: boolean | null;
+}
+
+export interface GetBriefingResponse {
+  items: BriefItem[];
+  generatedAt: string;
+}
+
+export interface Reminder {
+  id: string;
+  text: string;
+  /** @nullable */
+  entityType?: string | null;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  entityLabel?: string | null;
+  /** @nullable */
+  remindAt?: string | null;
+  /** @nullable */
+  dismissedAt?: string | null;
+  /** @nullable */
+  snoozedUntil?: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ReminderListPayload {
+  reminders: Reminder[];
+}
+
+export interface NewReminderInput {
+  text: string;
+  /** @nullable */
+  entityType?: string | null;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  entityLabel?: string | null;
+  /** @nullable */
+  remindAt?: string | null;
+}
+
+export interface ReminderCreated {
+  reminder: Reminder;
+}
+
+export type ReminderPatchInputAction = typeof ReminderPatchInputAction[keyof typeof ReminderPatchInputAction];
+
+
+export const ReminderPatchInputAction = {
+  dismiss: 'dismiss',
+  snooze: 'snooze',
+} as const;
+
+export interface ReminderPatchInput {
+  action: ReminderPatchInputAction;
+  /** @nullable */
+  snoozeMinutes?: number | null;
+}
+
+export interface SendLiveLinkResponse {
+  url: string;
+  deliveredPush: boolean;
+  deliveredSms: boolean;
+  /** @nullable */
+  crewName?: string | null;
+}
+
+export type ClientBriefItemTier = typeof ClientBriefItemTier[keyof typeof ClientBriefItemTier];
+
+
+export const ClientBriefItemTier = {
+  now: 'now',
+  today: 'today',
+  week: 'week',
+} as const;
+
+export interface ClientBriefItem {
+  tier: ClientBriefItemTier;
+  urgency: number;
+  category: string;
+  title: string;
+  body: string;
+  /** @nullable */
+  entityType?: string | null;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** @nullable */
+  actionKey?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  customerImpact?: boolean | null;
+}
+
+export interface ClientBriefingResponse {
+  items: ClientBriefItem[];
+  propertyName: string;
+  generatedAt: string;
+}
+
 export interface AgingBucket {
   label: string;
   value: number;
@@ -4967,6 +5101,22 @@ export interface CrewPhotoInput {
      * @nullable
      */
   capturedAt?: string | null;
+}
+
+export type PortalServicesCatalogCatalogItem = {
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate?: number;
+  /** @nullable */
+  category?: string | null;
+};
+
+export type PortalServicesCatalogByJob = {[key: string]: string[]};
+
+export interface PortalServicesCatalog {
+  catalog: PortalServicesCatalogCatalogItem[];
+  byJob: PortalServicesCatalogByJob;
 }
 
 export interface PortalJobLineItem {
@@ -7314,6 +7464,21 @@ export interface ClientBoardActionOutcome {
   message?: string | null;
 }
 
+export type ClientBoardMapCrewPhotosItem = {
+  id: string;
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+};
+
+export type ClientBoardMapCrewServicesItem = {
+  id: string;
+  service: string;
+  done: boolean;
+};
+
 export type ClientBoardMapEventKind = typeof ClientBoardMapEventKind[keyof typeof ClientBoardMapEventKind];
 
 
@@ -7363,6 +7528,10 @@ export interface ClientBoardMapCrew {
   events?: ClientBoardMapEvent[];
   /** Today's GPS breadcrumb trail for this job (oldest first) */
   trail?: TrailPoint[];
+  /** Up to 8 recent crew photos for this job */
+  photos?: ClientBoardMapCrewPhotosItem[];
+  /** Line-item services for this job with completion status */
+  services?: ClientBoardMapCrewServicesItem[];
 }
 
 export interface ClientBoardHappening {
@@ -7854,6 +8023,11 @@ export interface WalkCompleteResult {
   walk: Walk;
   jobs: WalkCompleteResultJobsItem[];
 }
+
+export type ListRemindersParams = {
+entityType?: string;
+entityId?: string;
+};
 
 export type ListPropertiesParams = {
 search?: string;

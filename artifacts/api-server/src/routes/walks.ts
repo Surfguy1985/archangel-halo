@@ -167,8 +167,9 @@ router.get("/walks", async (req, res): Promise<void> => {
     .orderBy(desc(walksTable.startedAt));
   if (propertyId) walks = walks.filter((w) => w.propertyId === propertyId);
   const captures = await db
-    .select({ walkId: walkCapturesTable.walkId })
-    .from(walkCapturesTable);
+    .select()
+    .from(walkCapturesTable)
+    .orderBy(desc(walkCapturesTable.createdAt));
   const counts = new Map<string, number>();
   for (const c of captures) counts.set(c.walkId, (counts.get(c.walkId) ?? 0) + 1);
   const names = await propertyNames();
@@ -182,7 +183,7 @@ router.get("/walks", async (req, res): Promise<void> => {
 });
 
 router.post("/walks", limits.walkWrite, async (req, res): Promise<void> => {
-  const body = CreateWalkBody.parse(req.body);
+  const body = CreateWalkBody.parse(req.body ?? {});
   // GPS-picked target: any real, ACTIVE property is a valid walk target.
   const [property] = await db
     .select({ id: propertiesTable.id, name: propertiesTable.name })
@@ -222,7 +223,7 @@ async function loadWalk(id: string): Promise<WalkRow | undefined> {
 }
 
 router.get("/walks/:id", async (req, res): Promise<void> => {
-  const { id } = GetWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -246,7 +247,7 @@ router.get("/walks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/walks/:id", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = DeleteWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -270,114 +271,73 @@ router.delete("/walks/:id", limits.walkWrite, async (req, res): Promise<void> =>
   res.status(204).end();
 });
 
+// ─── Single capture insertion ─────────────────────────────────────────────────
 router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = AddWalkCaptureParams.parse(req.params);
-  const body = AddWalkCaptureBody.parse(req.body);
-  const outcome = await db.transaction(async (tx) => {
-    const [locked] = await tx
-      .select()
-      .from(walksTable)
-      .where(eq(walksTable.id, id))
-      .for("update");
-    if (!locked) return { status: 404 as const };
-    const [prop] = await tx
-      .select({ id: propertiesTable.id })
-      .from(propertiesTable)
-      .where(eq(propertiesTable.id, locked.propertyId));
-    if (!prop) return { status: 404 as const };
-    if (locked.status === "completed") return { status: 409 as const };
-    const [row] = await tx
+  const body = AddWalkCaptureBody.parse(req.body ?? {});
+  const [walk] = await db
+    .select({ id: walksTable.id, status: walksTable.status })
+    .from(walksTable)
+    .where(eq(walksTable.id, id));
+  if (!walk) { res.status(404).json({ error: "Walk not found" }); return; }
+  if (walk.status === "completed") { res.status(409).json({ error: "Walk already completed" }); return; }
+  const [capture] = await db
+    .insert(walkCapturesTable)
+    .values({
+      walkId: id,
+      unitNo: body.unitNo ?? null,
+      storagePath: body.storagePath ?? null,
+      photos: body.photos ?? null,
+      service: body.service ?? null,
+      qty: body.qty ?? null,
+      unitPrice: body.unitPrice ?? null,
+      note: body.note ?? null,
+      lat: body.lat ?? null,
+      lng: body.lng ?? null,
+    })
+    .returning();
+  res.status(201).json(AddWalkCaptureResponse.parse(captureDto(capture)));
+});
+
+// ─── Batch capture insertion ───────────────────────────────────────────────────
+router.post("/walks/:id/captures/batch", limits.walkWrite, async (req, res): Promise<void> => {
+  const { id } = AddWalkCaptureBatchParams.parse(req.params);
+  const body = AddWalkCaptureBatchBody.parse(req.body ?? {});
+  const [walk] = await db
+    .select({ id: walksTable.id, status: walksTable.status })
+    .from(walksTable)
+    .where(eq(walksTable.id, id));
+  if (!walk) { res.status(404).json({ error: "Walk not found" }); return; }
+  if (walk.status === "completed") { res.status(409).json({ error: "Walk already completed" }); return; }
+  const inserted: ReturnType<typeof captureDto>[] = [];
+  for (let i = 0; i < body.lines.length; i++) {
+    const line = body.lines[i];
+    const [capture] = await db
       .insert(walkCapturesTable)
       .values({
         walkId: id,
-        unitNo: body.unitNo?.trim() || null,
-        // Multi-photo: photos[] is the source of truth; storagePath mirrors
-        // the first photo so older readers keep working.
-        storagePath: body.storagePath ?? body.photos?.[0] ?? null,
-        photos:
-          body.photos && body.photos.length > 0
-            ? body.photos
-            : body.storagePath
-              ? [body.storagePath]
-              : null,
-        service: body.service?.trim() || null,
-        qty: body.qty ?? null,
-        unitPrice: body.unitPrice ?? null,
-        note: body.note?.trim() || null,
+        unitNo: body.unitNo ?? null,
+        storagePath: null,
+        // Attach shared photos only to the first line's capture row
+        photos: i === 0 ? (body.photos ?? null) : null,
+        service: line.service,
+        qty: line.qty ?? null,
+        unitPrice: line.unitPrice ?? null,
+        note: body.note ?? null,
         lat: body.lat ?? null,
         lng: body.lng ?? null,
       })
       .returning();
-    return { status: 201 as const, row };
-  });
-  if (outcome.status === 404) {
-    res.status(404).json({ error: "Walk not found" });
-    return;
+    inserted.push(captureDto(capture));
   }
-  if (outcome.status === 409) {
-    res.status(409).json({ error: "Walk already completed" });
-    return;
-  }
-  res.status(201).json(AddWalkCaptureResponse.parse(captureDto(outcome.row)));
-});
-
-// Several service lines for ONE walk item, committed atomically — either
-// every line lands or none do, so a mid-save failure can't leave a partial
-// service set. Photos ride on the first line's row.
-router.post("/walks/:id/captures/batch", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = AddWalkCaptureBatchParams.parse(req.params);
-  const parsedBody = AddWalkCaptureBatchBody.safeParse(req.body);
-  if (!parsedBody.success) {
-    res.status(400).json({ error: "At least one service line is required" });
-    return;
-  }
-  const body = parsedBody.data;
-  const outcome = await db.transaction(async (tx) => {
-    const [locked] = await tx
-      .select()
-      .from(walksTable)
-      .where(eq(walksTable.id, id))
-      .for("update");
-    if (!locked) return { status: 404 as const };
-    if (locked.status === "completed") return { status: 409 as const };
-    const photos = body.photos && body.photos.length > 0 ? body.photos : null;
-    const rows = await tx
-      .insert(walkCapturesTable)
-      .values(
-        body.lines.map((line, i) => ({
-          walkId: id,
-          unitNo: body.unitNo?.trim() || null,
-          storagePath: i === 0 ? (photos?.[0] ?? null) : null,
-          photos: i === 0 ? photos : null,
-          service: line.service.trim() || null,
-          qty: line.qty ?? null,
-          unitPrice: line.unitPrice ?? null,
-          note: body.note?.trim() || null,
-          lat: body.lat ?? null,
-          lng: body.lng ?? null,
-        })),
-      )
-      .returning();
-    return { status: 201 as const, rows };
-  });
-  if (outcome.status === 404) {
-    res.status(404).json({ error: "Walk not found" });
-    return;
-  }
-  if (outcome.status === 409) {
-    res.status(409).json({ error: "Walk already completed" });
-    return;
-  }
-  res
-    .status(201)
-    .json(AddWalkCaptureBatchResponse.parse({ captures: outcome.rows.map(captureDto) }));
+  res.status(201).json(AddWalkCaptureBatchResponse.parse({ captures: inserted }));
 });
 
 // Hold-to-talk: transcribe a short clip and parse it into capture DRAFTS.
 // Nothing is saved here — the walker confirms each prefilled item in the UI.
 router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = ParseWalkVoiceParams.parse(req.params);
-  const body = ParseWalkVoiceBody.parse(req.body);
+  const body = ParseWalkVoiceBody.parse(req.body ?? {});
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -435,7 +395,7 @@ router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Prom
     .select({ service: priceItemsTable.service })
     .from(priceItemsTable)
     .where(eq(priceItemsTable.propertyId, walk.propertyId));
-  const services = priceRows.map((p) => p.service);
+  const services = priceRows.map((li) => li.service);
   type Draft = { unitNo?: string | null; service?: string | null; qty?: number | null; note?: string | null };
   let items: Draft[] = [];
   try {
@@ -467,7 +427,7 @@ One utterance can contain multiple items and multiple units ("unit 204 two blind
 });
 
 router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = DeleteWalkCaptureParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const status = await db.transaction(async (tx) => {
     const [capture] = await tx
       .select()
@@ -505,7 +465,7 @@ router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<
 // unit, price-book scopes become line items, and photos stay linked so the
 // job timeline in the main app can surface them.
 router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = CompleteWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const body = CompleteWalkBody.parse(req.body ?? {});
   // Flex deadline a week out, built from LOCAL date parts (never UTC).
   const due = new Date();
@@ -584,6 +544,9 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
     // inside this transaction to narrow the window.
     const existingJobs = await tx.select({ id: jobsTable.id }).from(jobsTable);
     let jobSeq = 2000 + existingJobs.length;
+
+    const flexDueBy: Date | null = null;
+    const createdJobs: Array<{ id: string; jobNo: string; unitNo: string | null; photoCount: number }> = [];
 
     for (const [unitKey, unitCaptures] of byUnit) {
       jobSeq += 1;

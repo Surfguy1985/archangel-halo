@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientBoardMapCrewPhotosItem } from './clientBoardMapCrewPhotosItem';
+import type { ClientBoardMapCrewServicesItem } from './clientBoardMapCrewServicesItem';
 import type { ClientBoardMapEvent } from './clientBoardMapEvent';
 import type { TrailPoint } from './trailPoint';
 
@@ -38,4 +40,8 @@ export interface ClientBoardMapCrew {
   events?: ClientBoardMapEvent[];
   /** Today's GPS breadcrumb trail for this job (oldest first) */
   trail?: TrailPoint[];
+  /** Up to 8 recent crew photos for this job */
+  photos?: ClientBoardMapCrewPhotosItem[];
+  /** Line-item services for this job with completion status */
+  services?: ClientBoardMapCrewServicesItem[];
 }

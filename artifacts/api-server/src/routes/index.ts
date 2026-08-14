@@ -56,6 +56,7 @@ import voiceEodRouter from "./voiceEod";
 import exchangeRouter from "./exchange";
 import intelligenceRouter from "./intelligence";
 import falkonTestHelperRouter from "./falkonTestHelper";
+import remindersRouter from "./reminders";
 
 const router: IRouter = Router();
 
@@ -160,5 +161,6 @@ router.use(smsOfficeRouter);
 router.use(voiceEodRouter);
 router.use(exchangeRouter);
 router.use(intelligenceRouter);
+router.use(remindersRouter);
 
 export default router;

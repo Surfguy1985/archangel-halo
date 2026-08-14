@@ -2019,6 +2019,79 @@ router.post("/jobs/:id/tracker/share", async (req, res): Promise<void> => {
   res.status(201).json(CreateJobTrackerShareResponse.parse({ token, link }));
 });
 
+// POST /jobs/:id/send-live-link — create/reuse a tracker token, deliver to crew via push + SMS
+router.post("/jobs/:id/send-live-link", async (req, res): Promise<void> => {
+  const { id } = req.params;
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+
+  // Atomic first-wins: create or reuse the stable tracker token
+  let token = job.trackerToken;
+  if (!token) {
+    const candidate = randomBytes(18).toString("base64url");
+    const updated = await db
+      .update(jobsTable)
+      .set({ trackerToken: candidate })
+      .where(and(eq(jobsTable.id, id), isNull(jobsTable.trackerToken)))
+      .returning({ trackerToken: jobsTable.trackerToken });
+    if (updated.length > 0) {
+      token = candidate;
+      await db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: id,
+        kind: "note",
+        body: `Live tracker link sent for job ${job.jobNo}.`,
+      });
+    } else {
+      const [fresh] = await db
+        .select({ trackerToken: jobsTable.trackerToken })
+        .from(jobsTable)
+        .where(eq(jobsTable.id, id));
+      token = fresh?.trackerToken ?? candidate;
+    }
+  }
+
+  const url = `${publicBaseUrl()}/track/${token}`;
+
+  let deliveredPush = false;
+  let deliveredSms = false;
+  let crewName: string | null = null;
+
+  if (job.crewLeaderId) {
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, job.crewLeaderId));
+    if (crew) {
+      crewName = crew.name;
+      // Expo push — deliveredPush is true only when the token was valid format
+      // AND the HTTP dispatch completed without a transport error.
+      const { sendExpoPush } = await import("../lib/pushNotification");
+      if (crew.pushToken) {
+        deliveredPush = await sendExpoPush(crew.pushToken, {
+          title: `Live link — Job ${job.jobNo}`,
+          body: `Here is your live job tracker link for today's work.`,
+          data: { url, jobId: id },
+        });
+      }
+      // SMS via Twilio
+      if (crew.phone?.trim()) {
+        const { sendSms } = await import("../lib/sms");
+        const result = await sendSms(
+          crew.phone.trim(),
+          `HALO: Here is the live tracker for job ${job.jobNo}: ${url}`,
+        );
+        deliveredSms = result.ok;
+      }
+    }
+  }
+
+  res.json({ url, deliveredPush, deliveredSms, crewName });
+});
+
 router.get("/jobs/:id/report", async (req, res): Promise<void> => {
   const { id } = GetJobReportPdfParams.parse(req.params);
   const data = await gatherJobReport(id);

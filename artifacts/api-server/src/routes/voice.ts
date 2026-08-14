@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq as eqId, isNull } from "drizzle-orm";
+import { eq as eqId, and as andOp, isNull } from "drizzle-orm";
 import { falkonConnectionsTable, falkonPoliciesTable } from "@workspace/db/schema";
 import { checkAssistedGate, type ConsequentialAction, type PolicySnapshot } from "../lib/falkonEmit";
 import {
@@ -19,7 +19,9 @@ import {
   vendorsTable,
   priceItemsTable,
   catalogItemsTable,
+  remindersTable,
 } from "@workspace/db";
+import { computeQueues } from "../lib/queues";
 import {
   ParseVoiceBody,
   ParseVoiceResponse,
@@ -68,7 +70,11 @@ const TOOLS = `Available tools and their fields:
 - mark_invoice_paid { invoiceNo (like INV-5001), or propertyName + amount when the number is unknown }
 - log_bill { vendor, amount (number), dueDate? (YYYY-MM-DD), category?, propertyName?, jobNo? } — an unpaid vendor bill (bought on account / net terms / "I owe them")
 - pay_bill { vendor, amount? (number) } — mark an open vendor bill as paid
-- create_journal_entry { memo, amount (number), debitAccount (account code or name), creditAccount (account code or name), date? (YYYY-MM-DD) } — for bookkeeping adjustments like owner draws, deposits, loan payments. Accounts: 1000 Cash, 1100 Accounts Receivable, 2000 Accounts Payable, 3000 Owner's Equity, 4000 Service Revenue, 5000 Crew Labor, 5100 Materials & Supplies, 5300 Equipment & Tools, 5400 Vehicle & Fuel, 5500 Insurance & Licenses, 5900 Other Expenses`;
+- create_journal_entry { memo, amount (number), debitAccount (account code or name), creditAccount (account code or name), date? (YYYY-MM-DD) } — for bookkeeping adjustments like owner draws, deposits, loan payments. Accounts: 1000 Cash, 1100 Accounts Receivable, 2000 Accounts Payable, 3000 Owner's Equity, 4000 Service Revenue, 5000 Crew Labor, 5100 Materials & Supplies, 5300 Equipment & Tools, 5400 Vehicle & Fuel, 5500 Insurance & Licenses, 5900 Other Expenses
+- dispatch_crew { jobNo (job number like J-2001), crewName (crew member name) } — assign or replace the crew on a job by name
+- send_live_link { jobNo (job number like J-2001) } — create or reuse the live tracker link for a job and deliver it to the assigned crew via push notification and SMS
+- create_reminder { text (what to remember), entityType? (job|property|crew|vendor|person), entityRef? (name or job number of the entity), remindAt? (ISO datetime or natural time like "tomorrow 9am") }
+- morning_brief {} — return a structured prioritised action-plan from live operational data`;
 
 router.post("/voice/parse", async (req, res): Promise<void> => {
   const { transcript } = ParseVoiceBody.parse(req.body);
@@ -815,6 +821,148 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         });
         applied++;
         messages.push(`Posted journal entry — $${amount.toLocaleString()}`);
+      } else if (a.tool === "dispatch_crew") {
+        // Assign or replace crew on a job by name
+        const job = f.jobNo ? jobByNo.get(String(f.jobNo).toLowerCase()) : undefined;
+        if (!job) {
+          messages.push(`Skipped dispatch — unknown job "${f.jobNo}"`);
+          continue;
+        }
+        const crew = f.crewName ? crewByName.get(String(f.crewName).toLowerCase()) : undefined;
+        if (!crew) {
+          messages.push(`Skipped dispatch — unknown crew "${f.crewName}"`);
+          continue;
+        }
+        const scheduledOn = job.scheduledOn ?? new Date().toISOString().slice(0, 10);
+        await db.transaction(async (tx) => {
+          await tx
+            .update(jobsTable)
+            .set({
+              crewLeaderId: crew.id,
+              scheduledOn,
+              crewVacatedAt: null,
+              status: "scheduled",
+            })
+            .where(eqId(jobsTable.id, job.id));
+          await tx.delete(schedulesTable).where(eqId(schedulesTable.jobId, job.id));
+          await tx.insert(schedulesTable).values({
+            jobId: job.id,
+            scheduledOn,
+            crewLeaderId: crew.id,
+          });
+          await tx.insert(activitiesTable).values({
+            entityType: "job",
+            entityId: job.id,
+            kind: "assigned",
+            body: `Job ${job.jobNo} dispatched to ${crew.name} via voice command.`,
+          });
+        });
+        // Emit Falkon crew.dispatched (fire-and-forget)
+        const { emitFalkonEvent } = await import("../lib/falkonEmit");
+        void emitFalkonEvent("crew.dispatched", "job", job.id, {
+          jobId: job.id,
+          jobNo: job.jobNo,
+          propertyId: job.propertyId,
+          crewLeaderId: crew.id,
+          scheduledOn,
+          source: "voice",
+        });
+        applied++;
+        messages.push(`Dispatched ${crew.name} to ${job.jobNo}`);
+      } else if (a.tool === "send_live_link") {
+        // Create or reuse a tracker token and deliver to crew via push + SMS
+        const job = f.jobNo ? jobByNo.get(String(f.jobNo).toLowerCase()) : undefined;
+        if (!job) {
+          messages.push(`Skipped live link — unknown job "${f.jobNo}"`);
+          continue;
+        }
+        const { randomBytes } = await import("node:crypto");
+        let token = job.trackerToken;
+        if (!token) {
+          const candidate = randomBytes(18).toString("base64url");
+          const updated = await db
+            .update(jobsTable)
+            .set({ trackerToken: candidate })
+            .where(andOp(eqId(jobsTable.id, job.id), isNull(jobsTable.trackerToken)))
+            .returning({ trackerToken: jobsTable.trackerToken });
+          token = updated.length > 0 ? candidate : (
+            (await db.select({ trackerToken: jobsTable.trackerToken }).from(jobsTable).where(eqId(jobsTable.id, job.id)))[0]?.trackerToken ?? candidate
+          );
+        }
+        const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+        const url = domain ? `https://${domain}/track/${token}` : `/track/${token}`;
+        let deliveredPush = false;
+        let deliveredSms = false;
+        if (job.crewLeaderId) {
+          const [crew] = await db.select().from(crewsTable).where(eqId(crewsTable.id, job.crewLeaderId));
+          if (crew?.pushToken) {
+            const { sendExpoPush } = await import("../lib/pushNotification");
+            deliveredPush = await sendExpoPush(crew.pushToken, { title: `Live link — ${job.jobNo}`, body: url });
+          }
+          if (crew?.phone?.trim()) {
+            const { sendSms } = await import("../lib/sms");
+            const r = await sendSms(crew.phone.trim(), `HALO: Live tracker for ${job.jobNo}: ${url}`);
+            deliveredSms = r.ok;
+          }
+        }
+        applied++;
+        messages.push(`Sent live link for ${job.jobNo}${deliveredPush ? " (push ✓)" : ""}${deliveredSms ? " (SMS ✓)" : ""}${!deliveredPush && !deliveredSms ? " — no crew contact info on file" : ""}`);
+      } else if (a.tool === "create_reminder") {
+        const text = String(f.text ?? a.summary ?? "").trim();
+        if (!text) {
+          messages.push("Skipped reminder — no text given");
+          continue;
+        }
+        // Resolve entity if given
+        let entityType: string | null = null;
+        let entityId: string | null = null;
+        let entityLabel: string | null = null;
+        if (f.entityRef) {
+          const ref = String(f.entityRef).trim().toLowerCase();
+          const prop = propByName.get(ref);
+          const job = jobByNo.get(ref);
+          const crew = crewByName.get(ref);
+          if (prop) { entityType = "property"; entityId = prop.id; entityLabel = prop.name; }
+          else if (job) { entityType = "job"; entityId = job.id; entityLabel = job.jobNo; }
+          else if (crew) { entityType = "crew"; entityId = crew.id; entityLabel = crew.name; }
+          else if (f.entityType) { entityType = String(f.entityType); }
+        } else if (f.entityType) {
+          entityType = String(f.entityType);
+        }
+        // Parse remindAt
+        let remindAt: Date | null = null;
+        if (f.remindAt) {
+          const d = new Date(String(f.remindAt));
+          if (!isNaN(d.getTime())) remindAt = d;
+        }
+        await db.insert(remindersTable).values({ text, entityType, entityId, entityLabel, remindAt });
+        applied++;
+        messages.push(`Created reminder: "${text}"${remindAt ? ` at ${remindAt.toISOString()}` : ""}`);
+      } else if (a.tool === "morning_brief") {
+        // Return structured briefing payload — no DB write, just a read
+        const { feed } = await computeQueues();
+        const TIER_WEIGHT: Record<string, number> = { now: 100, today: 50, week: 10 };
+        const items = feed.map((item) => ({
+          tier: item.tier,
+          urgency: (TIER_WEIGHT[item.tier] ?? 10) + (item.amount ? Math.min(Math.log10(item.amount + 1) * 10, 50) : 0),
+          category: item.queue,
+          title: item.title,
+          body: item.sub ?? "",
+          entityType: item.entityType,
+          entityId: item.entityId,
+          amount: item.amount,
+          actionLabel: item.actions?.[0]?.label ?? null,
+          actionKey: item.actions?.[0]?.action ?? null,
+        })).sort((a, b) => b.urgency - a.urgency);
+        // Update voice log with briefing payload
+        if (body.voiceLogId) {
+          await db
+            .update(voiceLogsTable)
+            .set({ actions: [...(Array.isArray(body.actions) ? body.actions : []), { tool: "morning_brief", briefing: { items, generatedAt: new Date().toISOString() } }] as unknown as typeof voiceLogsTable.$inferInsert["actions"] })
+            .where(eqId(voiceLogsTable.id, body.voiceLogId));
+        }
+        applied++;
+        messages.push(`Morning brief ready — ${items.filter((i) => i.tier === "now").length} action required, ${items.filter((i) => i.tier === "today").length} today`);
       } else {
         messages.push(`Unknown action "${a.tool}"`);
       }

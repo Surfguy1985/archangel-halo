@@ -514,7 +514,7 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     await touchAccess(row.id);
 
     const [crew] = await db
-      .select({ id: crewsTable.id, active: crewsTable.active })
+      .select({ id: crewsTable.id, active: crewsTable.active, name: crewsTable.name })
       .from(crewsTable)
       .where(eq(crewsTable.id, row.crewId))
       .limit(1);
@@ -546,7 +546,7 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     if (!decision.ok) {
       await audit(row.id, "denied", req, { code: decision.code });
       res.status(decision.status).json({
-        error: decision.code === "wrong_crew" ? "This link is not for that crew." : "This crew is not active.",
+        error: (decision as { code: string }).code === "wrong_crew" ? "This link is not for that crew." : "This crew is not active.",
         code: decision.code,
       });
       return;
@@ -555,8 +555,7 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     const dispatch = await loadDispatch(crew.id, now);
     const primaryJobId = dispatch[0]?.id ?? session.openCheckin?.jobId ?? null;
     const coords = gpsColumns(gps);
-
-    if (decision.action === "create") {
+    if ((decision as { action?: string }).action === "create") {
       const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
         jobId: primaryJobId,
@@ -579,12 +578,12 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
       }
     }
 
-    await audit(row.id, "checkin", req, { replay: decision.action === "replay", gps: gps.status });
+    await audit(row.id, "checkin", req, { replay: (decision as { action?: string }).action === "replay", gps: gps.status });
     res.json({
       ok: true,
       checkedIn: true,
-      replayed: decision.action === "replay",
-      reason: decision.reason,
+      replayed: (decision as { action?: string }).action === "replay",
+      reason: (decision as { reason?: string }).reason,
       gps: gps.status,
       assignment: formatTodayAssignment(dispatch),
     });
@@ -666,7 +665,7 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
     }
 
     const coords = gpsColumns(gps);
-    if (decision.action === "create") {
+    if ((decision as { action?: string }).action === "create") {
       const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
         jobId: session.openCheckin?.jobId ?? null,
@@ -688,11 +687,11 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
       }
     }
 
-    await audit(row.id, "checkout", req, { replay: decision.action === "replay", trackingEnds: true });
+    await audit(row.id, "checkout", req, { replay: (decision as { action?: string }).action === "replay", trackingEnds: true });
     res.json({
       ok: true,
       checkedOut: true,
-      replayed: decision.action === "replay",
+      replayed: (decision as { action?: string }).action === "replay",
       trackingActive: false,
       backgroundGpsSupported: false,
     });

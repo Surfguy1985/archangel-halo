@@ -40,6 +40,7 @@
 - [HALO Falkon ASSISTED gate](halo-falkon-assisted-gate.md) — ceilings are DOLLARS; gate hits office clicks too (empty policies = everything needs approval); amounts come from the stored row, not req.body.
 - [HALO Base44 sync](halo-base44-sync.md) — scheduler pull from legacy Base44/Work App; guards must noteSkip not bare `continue` (silent drops looked like success for 881 runs); zero totals ≠ broken.
 - [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush/pushToCrewId helpers; wired to office messages, walk approval, emergency ping, and job-offer broadcast.
+- [HALO Expo push delivery](halo-expo-push-delivery.md) — sendExpoPush must check response.ok AND ticket.status==="ok"; HTTP 200 ≠ accepted; name flag pushQueued not deliveredPush.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.
 - [HALO bank analysis](halo-bank-analysis.md) — /plaid/analysis caches per item+days, invalidated on connect/disconnect; parse refresh flag manually (coerce.boolean bug); UI Re-analyze is one-shot.
@@ -123,3 +124,4 @@
 - [HALO photo library](halo-photo-library.md) — office photo browser merges crew_photos + job photo activities; assign-to-card must validate paths against the library set (never trust client paths).
 - [HALO E2E mode-toggle suite](halo-e2e-mode-toggle-suite.md) — how to run the boundary suite live; guard 202s fire before route 403s; unscoped sub-router middleware gates the whole API; stale ASSISTED row blocks everything.
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).
+- [HALO reminders system](halo-reminders.md) — reminders table + REST CRUD at /reminders; GET /today/briefing reads remindersTable directly (static imports, not dynamic); crew_checkins has no propertyId — filter by job IDs for client briefing.

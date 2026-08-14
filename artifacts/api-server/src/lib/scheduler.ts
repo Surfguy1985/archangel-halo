@@ -1,5 +1,3 @@
-import { and, eq, lte, isNotNull, sql } from "drizzle-orm";
-import { db, leadCampaignsTable, leadsTable } from "@workspace/db";
 import { computeQueues } from "./queues";
 import {
   sendDailyDigest,
@@ -20,6 +18,8 @@ import { logger } from "./logger";
 import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
 import { nudgeStaleForemanMoves } from "./foremanMoveNudge";
 import { runScheduledEodBriefing } from "./eodBriefing";
+import { and, eq, lte, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { db, leadCampaignsTable, leadsTable, remindersTable } from "@workspace/db";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -52,6 +52,7 @@ let lastClientCardDigest = 0;
 const FOREMAN_NUDGE_MS = 15 * 60 * 1000;
 let lastWingsBriefDate: string | null = null;
 
+const REMINDER_CHECK_MS = 15 * 60 * 1000;
 function nowInEastern(): {
   date: string;
   hour: number;
@@ -357,6 +358,52 @@ async function tick(): Promise<void> {
     await nudgeStaleForemanMoves();
   }
 
+  // Every ~15 min: resurface due reminders so GET /today/briefing picks them up.
+  if (stamp - lastReminderCheck >= REMINDER_CHECK_MS) {
+    lastReminderCheck = stamp;
+    try {
+      const now = new Date();
+      const due = await db
+        .select({ id: remindersTable.id, text: remindersTable.text })
+        .from(remindersTable)
+        .where(
+          and(
+            isNull(remindersTable.dismissedAt),
+            isNotNull(remindersTable.remindAt),
+            lte(remindersTable.remindAt, now),
+            or(
+              isNull(remindersTable.snoozedUntil),
+              lte(remindersTable.snoozedUntil, now),
+            ),
+          ),
+        );
+      if (due.length > 0) {
+        // Stamp updatedAt so the briefing endpoint sees them as freshly surfaced
+        // Now-tier items and the client knows they were touched by the scheduler.
+        await db
+          .update(remindersTable)
+          .set({ updatedAt: now })
+          .where(
+            and(
+              isNull(remindersTable.dismissedAt),
+              isNotNull(remindersTable.remindAt),
+              lte(remindersTable.remindAt, now),
+              or(
+                isNull(remindersTable.snoozedUntil),
+                lte(remindersTable.snoozedUntil, now),
+              ),
+            ),
+          );
+        logger.info(
+          { count: due.length, ids: due.map((r) => r.id) },
+          "Reminder resurfacing sweep: stamped due reminders",
+        );
+      }
+    } catch (err) {
+      logger.warn({ err }, "Reminder resurfacing sweep failed");
+    }
+  }
+
   if (stamp - lastUrgentCheck >= URGENT_CHECK_MS) {
     lastUrgentCheck = stamp;
     try {
@@ -414,3 +461,5 @@ export function startScheduler(): void {
 }
 
 let lastForemanNudge = 0;
+
+let lastReminderCheck = 0;

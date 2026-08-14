@@ -66,6 +66,95 @@ paths:
               schema:
                 $ref: "#/components/schemas/TodayPayload"
 
+  /today/briefing:
+    get:
+      operationId: getTodayBriefing
+      tags: [today]
+      summary: Structured deterministic briefing payload sorted by urgency
+      responses:
+        "200":
+          description: Structured briefing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetBriefingResponse"
+
+  /reminders:
+    get:
+      operationId: listReminders
+      tags: [today]
+      summary: List active (non-dismissed) reminders
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reminders list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderListPayload"
+    post:
+      operationId: createReminder
+      tags: [today]
+      summary: Create a new reminder optionally tied to an entity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewReminderInput"
+      responses:
+        "201":
+          description: Created reminder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderCreated"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /reminders/{id}:
+    patch:
+      operationId: updateReminder
+      tags: [today]
+      summary: Dismiss or snooze a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderPatchInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /brief/refresh:
     post:
       operationId: refreshBrief
@@ -1767,6 +1856,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/send-live-link:
+    post:
+      operationId: sendJobLiveLink
+      tags: [jobs]
+      summary: Deliver the live tracker link to the assigned crew via push and SMS
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendLiveLinkResponse"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/tracker/share:
     post:
       operationId: createJobTrackerShare
@@ -4874,6 +4988,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /portal/{token}/services:
+    get:
+      operationId: getPortalServices
+      tags: [portal]
+      summary: Master service catalog and per-job eligible services for this crew
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Service catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalServicesCatalog"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /portal/{token}/jobs:
     get:
       operationId: listPortalJobs
@@ -8347,6 +8485,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/briefing:
+    get:
+      operationId: getClientBriefing
+      tags: [admin]
+      summary: Client-scoped structured morning brief — only items visible to this client
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Client briefing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBriefingResponse"
         "404":
           description: Invalid link
           content:
@@ -12760,6 +12922,118 @@ components:
       properties:
         ok: { type: boolean }
 
+    BriefItem:
+      type: object
+      required: [tier, urgency, category, title, body]
+      properties:
+        tier: { type: string, enum: [now, today, week] }
+        urgency: { type: number }
+        category: { type: string }
+        title: { type: string }
+        body: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        entityLabel: { type: ["string", "null"] }
+        actionLabel: { type: ["string", "null"] }
+        actionKey: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        slaRisk: { type: ["boolean", "null"] }
+        customerImpact: { type: ["boolean", "null"] }
+
+    GetBriefingResponse:
+      type: object
+      required: [items, generatedAt]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BriefItem"
+        generatedAt: { type: string }
+
+    Reminder:
+      type: object
+      required: [id, text, createdBy, createdAt]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        entityLabel: { type: ["string", "null"] }
+        remindAt: { type: ["string", "null"] }
+        dismissedAt: { type: ["string", "null"] }
+        snoozedUntil: { type: ["string", "null"] }
+        createdBy: { type: string }
+        createdAt: { type: string }
+
+    ReminderListPayload:
+      type: object
+      required: [reminders]
+      properties:
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
+
+    NewReminderInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        entityLabel: { type: ["string", "null"] }
+        remindAt: { type: ["string", "null"] }
+
+    ReminderCreated:
+      type: object
+      required: [reminder]
+      properties:
+        reminder:
+          $ref: "#/components/schemas/Reminder"
+
+    ReminderPatchInput:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [dismiss, snooze] }
+        snoozeMinutes: { type: ["number", "null"] }
+
+    SendLiveLinkResponse:
+      type: object
+      required: [url, deliveredPush, deliveredSms]
+      properties:
+        url: { type: string }
+        deliveredPush: { type: boolean }
+        deliveredSms: { type: boolean }
+        crewName: { type: ["string", "null"] }
+
+    ClientBriefItem:
+      type: object
+      required: [tier, urgency, category, title, body]
+      properties:
+        tier: { type: string, enum: [now, today, week] }
+        urgency: { type: number }
+        category: { type: string }
+        title: { type: string }
+        body: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        actionLabel: { type: ["string", "null"] }
+        actionKey: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        customerImpact: { type: ["boolean", "null"] }
+
+    ClientBriefingResponse:
+      type: object
+      required: [items, propertyName, generatedAt]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBriefItem"
+        propertyName: { type: string }
+        generatedAt: { type: string }
+
     MoneySummary:
       type: object
       required: [landing, atRisk, mtd, marginPct, aging]
@@ -13873,6 +14147,26 @@ components:
         capturedAt:
           type: ["string", "null"]
           description: Device timestamp when the photo was captured (ISO)
+    PortalServicesCatalog:
+      type: object
+      required: [catalog, byJob]
+      properties:
+        catalog:
+          type: array
+          items:
+            type: object
+            required: [service]
+            properties:
+              service: { type: string }
+              unit: { type: ["string", "null"] }
+              rate: { type: number }
+              category: { type: ["string", "null"] }
+        byJob:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
     PortalJob:
       type: object
       required: [id, jobNo, label]
@@ -16081,6 +16375,27 @@ components:
           description: "Today's GPS breadcrumb trail for this job (oldest first)"
           items:
             $ref: "#/components/schemas/TrailPoint"
+        photos:
+          type: array
+          description: "Up to 8 recent crew photos for this job"
+          items:
+            type: object
+            required: [id, url]
+            properties:
+              id: { type: string }
+              url: { type: string }
+              phase: { type: ["string", "null"] }
+              note: { type: ["string", "null"] }
+        services:
+          type: array
+          description: "Line-item services for this job with completion status"
+          items:
+            type: object
+            required: [id, service, done]
+            properties:
+              id: { type: string }
+              service: { type: string }
+              done: { type: boolean }
 
     ClientBoardMapEvent:
       type: object

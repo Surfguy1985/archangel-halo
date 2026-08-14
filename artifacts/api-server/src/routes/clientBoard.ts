@@ -3549,6 +3549,140 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// Client briefing — client-safe structured brief for the property
+// ---------------------------------------------------------------------------
+
+router.get("/client/:token/briefing", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const propertyId = account.propertyId;
+  const DAY = 86_400_000;
+  const now = Date.now();
+
+  const [prop, jobs, requests, invoices] = await Promise.all([
+    db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1),
+    db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
+    db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
+    db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
+  ]);
+  const jobIds = jobs.map((j) => j.id);
+  const checkins = jobIds.length
+    ? await db
+        .select()
+        .from(crewCheckinsTable)
+        .where(inArray(crewCheckinsTable.jobId, jobIds))
+        .orderBy(desc(crewCheckinsTable.createdAt))
+        .limit(50)
+    : [];
+
+  type ClientBriefItem = {
+    tier: "now" | "today" | "week";
+    urgency: number;
+    category: string;
+    title: string;
+    body: string;
+    entityType?: string | null;
+    entityId?: string | null;
+    actionLabel?: string | null;
+    actionKey?: string | null;
+    amount?: number | null;
+    customerImpact?: boolean;
+  };
+
+  const items: ClientBriefItem[] = [];
+
+  // Pending work requests
+  for (const r of requests.filter((r) => r.status === "pending")) {
+    items.push({
+      tier: r.emergency ? "now" : "today",
+      urgency: r.emergency ? 90 : 60,
+      category: "Requests",
+      title: `Request in review: ${r.serviceLabel}`,
+      body: r.neededBy ? `Needed by ${r.neededBy}` : "Under review by operations team",
+      entityType: "work_request",
+      entityId: r.id,
+      actionLabel: null,
+      actionKey: null,
+      amount: r.budgetEstimate ?? null,
+      customerImpact: true,
+    });
+  }
+
+  // Overdue invoices
+  for (const i of invoices.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled" && inv.dueAt && inv.dueAt.getTime() < now)) {
+    const late = Math.floor((now - i.dueAt!.getTime()) / DAY);
+    items.push({
+      tier: late > 30 ? "now" : "today",
+      urgency: late > 30 ? 85 : 55,
+      category: "Invoices",
+      title: `Invoice overdue: ${i.invoiceNo}`,
+      body: `${late} day${late === 1 ? "" : "s"} past due`,
+      entityType: "invoice",
+      entityId: i.id,
+      actionLabel: "View invoice",
+      actionKey: "openInvoice",
+      amount: i.amount + (i.taxAmount ?? 0),
+      customerImpact: false,
+    });
+  }
+
+  // Crew currently on site (checked in within 4h)
+  const latestByJob = new Map<string, typeof checkins[number]>();
+  for (const c of checkins) {
+    if (c.jobId && !latestByJob.has(c.jobId)) latestByJob.set(c.jobId, c);
+  }
+  for (const [jobId, c] of latestByJob) {
+    const j = jobs.find((job) => job.id === jobId);
+    if (!j) continue;
+    const onSite = c.kind === "checkin" && now - c.createdAt.getTime() < 4 * 60 * 60 * 1000;
+    if (!onSite) continue;
+    items.push({
+      tier: "now",
+      urgency: 70,
+      category: "Crew Activity",
+      title: `Crew on site: ${j.description ?? j.jobNo}`,
+      body: j.unitNo ? `Unit ${j.unitNo}` : "Work in progress",
+      entityType: "job",
+      entityId: jobId,
+      actionLabel: j.trackerToken ? "Watch live" : null,
+      actionKey: j.trackerToken ? "openTracker" : null,
+      amount: null,
+      customerImpact: true,
+    });
+  }
+
+  // Upcoming scheduled jobs (next 7 days)
+  const todayStr = new Date(now).toISOString().slice(0, 10);
+  const weekStr = new Date(now + 7 * DAY).toISOString().slice(0, 10);
+  for (const j of jobs.filter((j) => j.scheduledOn && j.scheduledOn >= todayStr && j.scheduledOn <= weekStr && j.status !== "cancelled")) {
+    items.push({
+      tier: "today",
+      urgency: 40,
+      category: "Upcoming Work",
+      title: `Work scheduled: ${j.description ?? j.jobNo}`,
+      body: `On ${j.scheduledOn}${j.unitNo ? ` · Unit ${j.unitNo}` : ""}`,
+      entityType: "job",
+      entityId: j.id,
+      actionLabel: null,
+      actionKey: null,
+      amount: null,
+      customerImpact: true,
+    });
+  }
+
+  items.sort((a, b) => b.urgency - a.urgency);
+
+  res.json({
+    items,
+    propertyName: prop[0]?.name ?? "Your property",
+    generatedAt: new Date().toISOString(),
+  });
+});
+
 export default router;
 
 const TEMPLATE_KEY_RE = /^[a-z0-9_-]{1,32}$/i;

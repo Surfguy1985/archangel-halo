@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { isNull, sql } from "drizzle-orm";
+import { and, isNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   notificationsTable,
@@ -8,7 +8,9 @@ import {
   workRequestsTable,
   propertiesTable,
   feedDismissalsTable,
+  remindersTable,
 } from "@workspace/db";
+import type { FeedItem } from "../lib/queues";
 import {
   GetTodayResponse,
   RefreshBriefResponse,
@@ -158,6 +160,116 @@ router.post("/brief/refresh", async (_req, res): Promise<void> => {
       generatedAt: new Date().toISOString(),
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Structured briefing endpoint — deterministic, no AI call
+// ---------------------------------------------------------------------------
+
+type BriefItem = {
+  tier: "now" | "today" | "week";
+  urgency: number;
+  category: string;
+  title: string;
+  body: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  entityLabel?: string | null;
+  actionLabel?: string | null;
+  actionKey?: string | null;
+  amount?: number | null;
+  slaRisk?: boolean;
+  customerImpact?: boolean;
+};
+
+const TIER_WEIGHT: Record<string, number> = { now: 100, today: 50, week: 10 };
+const CUSTOMER_IMPACT_QUEUES = new Set(["requests", "updates", "invoice"]);
+const SLA_RISK_QUEUES = new Set(["money", "margin", "schedule"]);
+const CATEGORY_MAP: Record<string, string> = {
+  requests: "Client Requests",
+  updates: "Client Updates",
+  money: "Money at Risk",
+  margin: "Margin Guardian",
+  invoice: "Ready to Invoice",
+  bids: "Bids",
+  schedule: "Schedule",
+  leads: "Leads",
+  supply: "Supply",
+  compliance: "Compliance",
+  followup: "Follow-ups",
+  reminder: "Reminders",
+};
+
+function feedItemToBriefItem(f: FeedItem): BriefItem {
+  const tierW = TIER_WEIGHT[f.tier] ?? 10;
+  const financialScore = f.amount ? Math.min(Math.log10(f.amount + 1) * 10, 50) : 0;
+  const slaRisk = SLA_RISK_QUEUES.has(f.queue);
+  const customerImpact = CUSTOMER_IMPACT_QUEUES.has(f.queue);
+  const urgency = tierW + financialScore + (slaRisk ? 15 : 0) + (customerImpact ? 10 : 0);
+  const category = CATEGORY_MAP[f.queue] ?? f.queue;
+  const action = f.actions?.[0];
+  return {
+    tier: (f.tier === "now" || f.tier === "today" || f.tier === "week") ? f.tier : "week",
+    urgency,
+    category,
+    title: f.title,
+    body: f.sub ?? "",
+    entityType: f.entityType ?? null,
+    entityId: f.entityId ?? null,
+    entityLabel: null,
+    actionLabel: action?.label ?? null,
+    actionKey: action?.action ?? null,
+    amount: f.amount ?? null,
+    slaRisk,
+    customerImpact,
+  };
+}
+
+router.get("/today/briefing", async (_req, res): Promise<void> => {
+  const { feed, queues: _queues } = await computeQueues();
+  const [dismissals] = await Promise.all([db.select().from(feedDismissalsTable)]);
+  const dismissed = new Set(dismissals.map((d) => d.itemId));
+  const visible = feed.filter((f) => !dismissed.has(f.id));
+
+  // Also include any due reminders as briefing items
+  const now = new Date();
+  const dueReminders = await db
+    .select()
+    .from(remindersTable)
+    .where(
+      and(
+        isNull(remindersTable.dismissedAt),
+        lte(remindersTable.remindAt, now),
+        or(
+          isNull(remindersTable.snoozedUntil),
+          lte(remindersTable.snoozedUntil, now),
+        ),
+      ),
+    );
+
+  const items: BriefItem[] = visible.map(feedItemToBriefItem);
+
+  for (const r of dueReminders) {
+    items.push({
+      tier: "now",
+      urgency: 80,
+      category: "Reminders",
+      title: r.text,
+      body: r.entityLabel ?? "",
+      entityType: r.entityType ?? null,
+      entityId: r.entityId ?? null,
+      entityLabel: r.entityLabel ?? null,
+      actionLabel: "Dismiss",
+      actionKey: "dismissReminder",
+      amount: null,
+      slaRisk: false,
+      customerImpact: false,
+    });
+  }
+
+  items.sort((a, b) => b.urgency - a.urgency);
+
+  res.json({ items, generatedAt: new Date().toISOString() });
 });
 
 router.get("/queues", async (_req, res): Promise<void> => {

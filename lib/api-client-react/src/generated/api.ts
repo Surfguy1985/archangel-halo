@@ -104,6 +104,7 @@ import type {
   ClientBoardView,
   ClientBoardWebhookInput,
   ClientBoardWebhookView,
+  ClientBriefingResponse,
   ClientCardActionInput,
   ClientCardHistoryEntry,
   ClientCardHistoryList,
@@ -185,6 +186,7 @@ import type {
   GetBalanceSheetReportParams,
   GetBankAnalysisParams,
   GetBankReconciliationParams,
+  GetBriefingResponse,
   GetCalendarParams,
   GetCashFlowReportParams,
   GetCrewInvoiceQueueParams,
@@ -249,6 +251,7 @@ import type {
   ListLedgerAccounts200,
   ListPropertiesParams,
   ListPurchaseOrdersParams,
+  ListRemindersParams,
   ListWalksParams,
   ListWingsAuditParams,
   ListWingsQualityParams,
@@ -259,6 +262,7 @@ import type {
   MessageInput,
   MoneySummary,
   NewCalendarEvent,
+  NewReminderInput,
   Notification,
   OfficeBoardFullRec,
   OfficeClientBoardCardEditInput,
@@ -304,6 +308,7 @@ import type {
   PortalSeenInput,
   PortalSelfieInput,
   PortalSelfieResult,
+  PortalServicesCatalog,
   PortalUnseen,
   PortalWings,
   PresentationDemoState,
@@ -339,6 +344,9 @@ import type {
   RecapShareView,
   ReceiptExtractInput,
   ReceiptExtractResult,
+  ReminderCreated,
+  ReminderListPayload,
+  ReminderPatchInput,
   ReportInsights,
   ResolveInvoiceDisputeInput,
   ReverseGeocodeParams,
@@ -347,6 +355,7 @@ import type {
   ScheduleInput,
   SendCheckFollowup200,
   SendInvoiceInput,
+  SendLiveLinkResponse,
   SendPacketInput,
   SopDocumentUpload,
   SopRuleDetail,
@@ -591,6 +600,310 @@ export function useGetToday<TData = Awaited<ReturnType<typeof getToday>>, TError
 
 
 
+
+export const getGetTodayBriefingUrl = () => {
+
+
+
+
+  return `/api/today/briefing`
+}
+
+/**
+ * @summary Structured deterministic briefing payload sorted by urgency
+ */
+export const getTodayBriefing = async ( options?: RequestInit): Promise<GetBriefingResponse> => {
+
+  return customFetch<GetBriefingResponse>(getGetTodayBriefingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTodayBriefingQueryKey = () => {
+    return [
+    `/api/today/briefing`
+    ] as const;
+    }
+
+
+export const getGetTodayBriefingQueryOptions = <TData = Awaited<ReturnType<typeof getTodayBriefing>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodayBriefing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTodayBriefingQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTodayBriefing>>> = ({ signal }) => getTodayBriefing({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTodayBriefing>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTodayBriefingQueryResult = NonNullable<Awaited<ReturnType<typeof getTodayBriefing>>>
+export type GetTodayBriefingQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Structured deterministic briefing payload sorted by urgency
+ */
+
+export function useGetTodayBriefing<TData = Awaited<ReturnType<typeof getTodayBriefing>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodayBriefing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTodayBriefingQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRemindersUrl = (params?: ListRemindersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reminders?${stringifiedParams}` : `/api/reminders`
+}
+
+/**
+ * @summary List active (non-dismissed) reminders
+ */
+export const listReminders = async (params?: ListRemindersParams, options?: RequestInit): Promise<ReminderListPayload> => {
+
+  return customFetch<ReminderListPayload>(getListRemindersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRemindersQueryKey = (params?: ListRemindersParams,) => {
+    return [
+    `/api/reminders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRemindersQueryOptions = <TData = Awaited<ReturnType<typeof listReminders>>, TError = ErrorType<unknown>>(params?: ListRemindersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRemindersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReminders>>> = ({ signal }) => listReminders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRemindersQueryResult = NonNullable<Awaited<ReturnType<typeof listReminders>>>
+export type ListRemindersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List active (non-dismissed) reminders
+ */
+
+export function useListReminders<TData = Awaited<ReturnType<typeof listReminders>>, TError = ErrorType<unknown>>(
+ params?: ListRemindersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRemindersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateReminderUrl = () => {
+
+
+
+
+  return `/api/reminders`
+}
+
+/**
+ * @summary Create a new reminder optionally tied to an entity
+ */
+export const createReminder = async (newReminderInput: NewReminderInput, options?: RequestInit): Promise<ReminderCreated> => {
+
+  return customFetch<ReminderCreated>(getCreateReminderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(newReminderInput)
+  }
+);}
+
+
+
+
+
+export const getCreateReminderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,{data: BodyType<NewReminderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,{data: BodyType<NewReminderInput>}, TContext> => {
+
+const mutationKey = ['createReminder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReminder>>, {data: BodyType<NewReminderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReminder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReminderMutationResult = NonNullable<Awaited<ReturnType<typeof createReminder>>>
+    export type CreateReminderMutationBody = BodyType<NewReminderInput>
+    export type CreateReminderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a new reminder optionally tied to an entity
+ */
+export const useCreateReminder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,{data: BodyType<NewReminderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReminder>>,
+        TError,
+        {data: BodyType<NewReminderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateReminderMutationOptions(options));
+    }
+
+export const getUpdateReminderUrl = (id: string,) => {
+
+
+
+
+  return `/api/reminders/${id}`
+}
+
+/**
+ * @summary Dismiss or snooze a reminder
+ */
+export const updateReminder = async (id: string,
+    reminderPatchInput: ReminderPatchInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getUpdateReminderUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reminderPatchInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateReminderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,{id: string;data: BodyType<ReminderPatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,{id: string;data: BodyType<ReminderPatchInput>}, TContext> => {
+
+const mutationKey = ['updateReminder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReminder>>, {id: string;data: BodyType<ReminderPatchInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReminder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReminderMutationResult = NonNullable<Awaited<ReturnType<typeof updateReminder>>>
+    export type UpdateReminderMutationBody = BodyType<ReminderPatchInput>
+    export type UpdateReminderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Dismiss or snooze a reminder
+ */
+export const useUpdateReminder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,{id: string;data: BodyType<ReminderPatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReminder>>,
+        TError,
+        {id: string;data: BodyType<ReminderPatchInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateReminderMutationOptions(options));
+    }
 
 export const getRefreshBriefUrl = () => {
 
@@ -5927,6 +6240,77 @@ export const useCreateRecapShare = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCreateRecapShareMutationOptions(options));
+    }
+
+export const getSendJobLiveLinkUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/send-live-link`
+}
+
+/**
+ * @summary Deliver the live tracker link to the assigned crew via push and SMS
+ */
+export const sendJobLiveLink = async (id: string, options?: RequestInit): Promise<SendLiveLinkResponse> => {
+
+  return customFetch<SendLiveLinkResponse>(getSendJobLiveLinkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSendJobLiveLinkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobLiveLink>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendJobLiveLink>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['sendJobLiveLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendJobLiveLink>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  sendJobLiveLink(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendJobLiveLinkMutationResult = NonNullable<Awaited<ReturnType<typeof sendJobLiveLink>>>
+
+    export type SendJobLiveLinkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Deliver the live tracker link to the assigned crew via push and SMS
+ */
+export const useSendJobLiveLink = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobLiveLink>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendJobLiveLink>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getSendJobLiveLinkMutationOptions(options));
     }
 
 export const getCreateJobTrackerShareUrl = (id: string,) => {
@@ -15715,6 +16099,83 @@ export const useUploadPortalDocument = <TError = ErrorType<Error>,
       return useMutation(getUploadPortalDocumentMutationOptions(options));
     }
 
+export const getGetPortalServicesUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/services`
+}
+
+/**
+ * @summary Master service catalog and per-job eligible services for this crew
+ */
+export const getPortalServices = async (token: string, options?: RequestInit): Promise<PortalServicesCatalog> => {
+
+  return customFetch<PortalServicesCatalog>(getGetPortalServicesUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalServicesQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/services`
+    ] as const;
+    }
+
+
+export const getGetPortalServicesQueryOptions = <TData = Awaited<ReturnType<typeof getPortalServices>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalServicesQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalServices>>> = ({ signal }) => getPortalServices(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalServicesQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalServices>>>
+export type GetPortalServicesQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Master service catalog and per-job eligible services for this crew
+ */
+
+export function useGetPortalServices<TData = Awaited<ReturnType<typeof getPortalServices>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalServicesQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListPortalJobsUrl = (token: string,) => {
 
 
@@ -25208,6 +25669,83 @@ export const useMarkClientBoardTourSeen = <TError = ErrorType<Error>,
       > => {
       return useMutation(getMarkClientBoardTourSeenMutationOptions(options));
     }
+
+export const getGetClientBriefingUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/briefing`
+}
+
+/**
+ * @summary Client-scoped structured morning brief — only items visible to this client
+ */
+export const getClientBriefing = async (token: string, options?: RequestInit): Promise<ClientBriefingResponse> => {
+
+  return customFetch<ClientBriefingResponse>(getGetClientBriefingUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBriefingQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/briefing`
+    ] as const;
+    }
+
+
+export const getGetClientBriefingQueryOptions = <TData = Awaited<ReturnType<typeof getClientBriefing>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBriefing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBriefingQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBriefing>>> = ({ signal }) => getClientBriefing(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBriefing>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBriefingQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBriefing>>>
+export type GetClientBriefingQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client-scoped structured morning brief — only items visible to this client
+ */
+
+export function useGetClientBriefing<TData = Awaited<ReturnType<typeof getClientBriefing>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBriefing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBriefingQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetClientBoardUrl = (token: string,) => {
 

@@ -61,6 +61,97 @@ export const GetTodayResponse = zod.object({
 
 
 /**
+ * @summary Structured deterministic briefing payload sorted by urgency
+ */
+export const GetTodayBriefingResponse = zod.object({
+  "items": zod.array(zod.object({
+  "tier": zod.enum(['now', 'today', 'week']),
+  "urgency": zod.number(),
+  "category": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "entityType": zod.string().nullish(),
+  "entityId": zod.string().nullish(),
+  "entityLabel": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "actionKey": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "slaRisk": zod.boolean().nullish(),
+  "customerImpact": zod.boolean().nullish()
+})),
+  "generatedAt": zod.string()
+})
+
+
+/**
+ * @summary List active (non-dismissed) reminders
+ */
+export const ListRemindersQueryParams = zod.object({
+  "entityType": zod.coerce.string().optional(),
+  "entityId": zod.coerce.string().optional()
+})
+
+export const ListRemindersResponse = zod.object({
+  "reminders": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "entityType": zod.string().nullish(),
+  "entityId": zod.string().nullish(),
+  "entityLabel": zod.string().nullish(),
+  "remindAt": zod.string().nullish(),
+  "dismissedAt": zod.string().nullish(),
+  "snoozedUntil": zod.string().nullish(),
+  "createdBy": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Create a new reminder optionally tied to an entity
+ */
+export const CreateReminderBody = zod.object({
+  "text": zod.string(),
+  "entityType": zod.string().nullish(),
+  "entityId": zod.string().nullish(),
+  "entityLabel": zod.string().nullish(),
+  "remindAt": zod.string().nullish()
+})
+
+export const CreateReminderResponse = zod.object({
+  "reminder": zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "entityType": zod.string().nullish(),
+  "entityId": zod.string().nullish(),
+  "entityLabel": zod.string().nullish(),
+  "remindAt": zod.string().nullish(),
+  "dismissedAt": zod.string().nullish(),
+  "snoozedUntil": zod.string().nullish(),
+  "createdBy": zod.string(),
+  "createdAt": zod.string()
+})
+})
+
+
+/**
+ * @summary Dismiss or snooze a reminder
+ */
+export const UpdateReminderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateReminderBody = zod.object({
+  "action": zod.enum(['dismiss', 'snooze']),
+  "snoozeMinutes": zod.number().nullish()
+})
+
+export const UpdateReminderResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Regenerate the AI morning brief from live data
  */
 export const RefreshBriefResponse = zod.object({
@@ -3001,6 +3092,21 @@ export const CreateRecapShareBody = zod.object({
 
 export const CreateRecapShareResponse = zod.object({
   "token": zod.string()
+})
+
+
+/**
+ * @summary Deliver the live tracker link to the assigned crew via push and SMS
+ */
+export const SendJobLiveLinkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendJobLiveLinkResponse = zod.object({
+  "url": zod.string(),
+  "deliveredPush": zod.boolean(),
+  "deliveredSms": zod.boolean(),
+  "crewName": zod.string().nullish()
 })
 
 
@@ -7046,6 +7152,24 @@ export const UploadPortalDocumentResponse = zod.object({
   "size": zod.number().nullish(),
   "note": zod.string().nullish(),
   "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Master service catalog and per-job eligible services for this crew
+ */
+export const GetPortalServicesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalServicesResponse = zod.object({
+  "catalog": zod.array(zod.object({
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number().optional(),
+  "category": zod.string().nullish()
+})),
+  "byJob": zod.record(zod.string(), zod.array(zod.string()))
 })
 
 
@@ -12257,6 +12381,32 @@ export const MarkClientBoardTourSeenResponse = zod.object({
 
 
 /**
+ * @summary Client-scoped structured morning brief — only items visible to this client
+ */
+export const GetClientBriefingParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBriefingResponse = zod.object({
+  "items": zod.array(zod.object({
+  "tier": zod.enum(['now', 'today', 'week']),
+  "urgency": zod.number(),
+  "category": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "entityType": zod.string().nullish(),
+  "entityId": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "actionKey": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "customerImpact": zod.boolean().nullish()
+})),
+  "propertyName": zod.string(),
+  "generatedAt": zod.string()
+})
+
+
+/**
  * @summary The client kanban board — HALO-fed cards plus the client's own cards
  */
 export const GetClientBoardParams = zod.object({
@@ -12871,7 +13021,18 @@ export const GetClientBoardMapResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)')
+})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)'),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})).optional().describe('Up to 8 recent crew photos for this job'),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "done": zod.boolean()
+})).optional().describe('Line-item services for this job with completion status')
 })),
   "happenings": zod.array(zod.object({
   "at": zod.string(),
