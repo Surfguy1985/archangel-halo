@@ -607,8 +607,6 @@ body {
 .pulse-site-row em { font-style: normal; font-size: 11px; font-weight: 700; color: #B4FF44; }
 .pulse-site-row small { font-size: 10px; color: #8496AE; }
 .pulse-site-row.sel { outline: 1px solid #B4FF44; }
-.pulse-site-row.dark { background: #B4FF44; color: #0F1B2D; }
-.pulse-site-row.dark em, .pulse-site-row.dark small { color: rgba(15,27,45,0.7); }
 .pulse-crew-row, .pulse-sched-row, .pulse-act-row, .pulse-cal-day {
   padding: 8px 0;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -873,4 +871,263 @@ body {
 @media (max-width: 1000px) {
   .site-twin-body { grid-template-columns: 1fr; }
   .site-twin-iso { height: 240px; transform: rotateX(50deg) rotateZ(-12deg); }
+}
+
+/* ── Property Pulse — hybrid dock rails ─────────────────────────────────────
+   Panels open docked in importance order (left = situational awareness,
+   right = supporting detail) and can be popped out to float freely.       */
+
+.pulse-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  width: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;          /* let the map receive drags between panels */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180,255,68,0.3) transparent;
+}
+.pulse-rail-left  { left: 0; }
+.pulse-rail-right { right: 0; width: 324px; }
+.pulse-rail > *   { pointer-events: auto; }
+.pulse-rail::-webkit-scrollbar { width: 6px; }
+.pulse-rail::-webkit-scrollbar-track { background: transparent; }
+.pulse-rail::-webkit-scrollbar-thumb {
+  background: rgba(180,255,68,0.28);
+  border-radius: 3px;
+}
+
+/* Docked boxes are laid out by the rail, so they drop absolute positioning. */
+/* Docked panels prefer their ranked height but shrink to share the rail, so
+   the rail itself never needs a scrollbar it could not receive clicks on. */
+.pulse-hud-box.docked {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  flex: 0 1 auto;
+  min-height: 92px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.32);
+}
+/* Docked bodies let a wheel gesture chain out to the rail once their own
+   content is exhausted, so a full rail stays scrollable. Floating boxes keep
+   containment so scrolling one never pans the map behind it. */
+.pulse-hud-box.docked .pulse-hud-box-body { overscroll-behavior: auto; }
+.pulse-hud-box.docked .pulse-hud-box-head { cursor: default; }
+
+.pulse-hud-box-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.pulse-hud-box-tools button {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #8496AE;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.pulse-hud-box-tools button:hover { background: rgba(255,255,255,0.08); color: #F4F4F0; }
+.pulse-hud-box-tools button:focus-visible {
+  outline: 2px solid #B4FF44;
+  outline-offset: 1px;
+}
+
+/* ── Overview: attention flags ─────────────────────────────────────────── */
+.pulse-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.pulse-flag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 4px 9px;
+  border-radius: 99px;
+  border: 1px solid transparent;
+}
+.pulse-flag.late { color: #ffd36a; background: rgba(255,211,106,0.12); border-color: rgba(255,211,106,0.3); }
+.pulse-flag.open { color: #8ec5ff; background: rgba(142,197,255,0.12); border-color: rgba(142,197,255,0.3); }
+
+/* ── Sites: severity dot instead of a full lime row ────────────────────── */
+.pulse-site-row {
+  grid-template-columns: 10px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.pulse-site-row:hover { background: #1b2a41; }
+.pulse-site-row > .pulse-dot {
+  grid-row: span 3;
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #55657d;
+}
+.pulse-site-row.tone-live   > .pulse-dot { background: #B4FF44; box-shadow: 0 0 0 3px rgba(180,255,68,0.18); }
+.pulse-site-row.tone-late   > .pulse-dot { background: #ffd36a; box-shadow: 0 0 0 3px rgba(255,211,106,0.16); }
+.pulse-site-row.tone-queued > .pulse-dot { background: #8ec5ff; }
+.pulse-site-row.tone-live   { background: rgba(180,255,68,0.09); }
+.pulse-site-row.tone-late   em { color: #ffd36a; }
+.pulse-site-row.tone-quiet  em { color: #8496AE; }
+.pulse-site-row.sel {
+  outline: none;
+  border-color: #B4FF44;
+  background: rgba(180,255,68,0.14);
+}
+
+/* ── Crew: presence rows ───────────────────────────────────────────────── */
+.pulse-crew-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pulse-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #C9D4E2;
+  background: rgba(255,255,255,0.13);
+}
+.pulse-crew-row.st-site  .pulse-avatar { background: #B4FF44; color: #0F1B2D; }
+.pulse-crew-row.st-route .pulse-avatar { background: #8ec5ff; color: #0F1B2D; }
+.pulse-crew-meta { flex: 1; min-width: 0; }
+.pulse-crew-meta b,
+.pulse-crew-meta em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pulse-crew-state {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8496AE;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.06);
+}
+.pulse-crew-row.st-site  .pulse-crew-state { color: #B4FF44; background: rgba(180,255,68,0.14); }
+.pulse-crew-row.st-route .pulse-crew-state { color: #8ec5ff; background: rgba(142,197,255,0.14); }
+
+/* ── Schedule: day groups ──────────────────────────────────────────────── */
+.pulse-sched-group { margin-bottom: 10px; }
+.pulse-sched-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #B4FF44;
+  margin-bottom: 4px;
+}
+.pulse-sched-group h3 span {
+  font-size: 9.5px;
+  color: #8496AE;
+  background: rgba(255,255,255,0.07);
+  border-radius: 99px;
+  padding: 1px 7px;
+}
+.pulse-sched-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pulse-sched-row span { font-size: 12px; font-weight: 700; color: #F4F4F0; }
+.pulse-sched-row em.open { color: #ffd36a; }
+
+/* ── Units: inline percentage ──────────────────────────────────────────── */
+.pulse-unit-meta span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pulse-unit-meta span strong { font-size: 11px; font-weight: 800; color: #B4FF44; }
+
+/* ── Calendar: day strip ───────────────────────────────────────────────── */
+.pulse-cal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.pulse-cal-count {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #0F1B2D;
+  background: #B4FF44;
+  border-radius: 99px;
+  padding: 1px 7px;
+}
+.pulse-cal-day.is-today {
+  border-left: 2px solid #B4FF44;
+  padding-left: 8px;
+  margin-left: -10px;
+}
+
+/* ── Activity: connected timeline ──────────────────────────────────────── */
+.pulse-timeline { position: relative; }
+.pulse-timeline::before {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: rgba(180,255,68,0.22);
+}
+.pulse-timeline .pulse-act-row { position: relative; border-bottom: 0; padding: 6px 0; }
+.pulse-timeline .pulse-check { box-shadow: 0 0 0 3px #0F1B2D; }
+
+/* ── Settings: sync pill ───────────────────────────────────────────────── */
+.pulse-sync-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pulse-sync-line em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8496AE;
+}
+.pulse-pill {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 99px;
+  color: #8496AE;
+  background: rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.pulse-pill.ok   { color: #0F1B2D; background: #B4FF44; }
+.pulse-pill.warn { color: #ffd36a; background: rgba(255,211,106,0.16); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-hud-box,
+  .pulse-site-row,
+  .pulse-hud-box-tools button { transition: none; }
 }

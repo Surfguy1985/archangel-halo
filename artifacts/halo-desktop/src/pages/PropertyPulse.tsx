@@ -15,9 +15,12 @@ import {
   Home,
   LayoutGrid,
   Loader2,
+  Maximize2,
   MessageCircle,
+  Minimize2,
   MoreVertical,
   RefreshCw,
+  RotateCcw,
   Search,
   Send,
   Settings,
@@ -66,6 +69,7 @@ const HREF = {
 };
 
 type PanelId = "overview" | "sites" | "crew" | "schedule" | "units" | "calendar" | "activity" | "settings";
+type PanelMode = "docked" | "floating";
 type BoxPos = { x: number; y: number; w: number; h: number };
 type SmsStatus = { configured: boolean; fromLast4: string | null };
 type SyncStatus = { finishedAt: string | null; stale: boolean };
@@ -93,6 +97,77 @@ const DEFAULT_POS: Record<PanelId, BoxPos> = {
   settings: { x: 300, y: 80, w: 320, h: 300 },
 };
 
+/**
+ * Docked layout, ranked by operational importance.
+ *
+ * Left rail answers "where do I look right now" — the live count of the
+ * portfolio and the ranked site list that drives map selection.  Right rail
+ * carries the supporting detail an operator consults after picking a site.
+ * The map keeps the whole centre channel; rails scroll independently when
+ * more panels are open than fit.
+ */
+/**
+ * Docked placement, ranked by how urgently the office needs it.
+ *  left  = "where do I look right now"  (drives map selection)
+ *  right = supporting detail, consulted after a site is picked
+ * `h` is the preferred height; `grow` marks list-style panels that should
+ * absorb leftover rail space instead of leaving a dead gap beneath them.
+ */
+const DOCK: Record<PanelId, { rail: "left" | "right"; order: number; h: number; grow: number }> = {
+  overview: { rail: "left",  order: 0, h: 332, grow: 0 },
+  sites:    { rail: "left",  order: 1, h: 400, grow: 1 },
+  crew:     { rail: "right", order: 0, h: 264, grow: 1 },
+  schedule: { rail: "right", order: 1, h: 248, grow: 1 },
+  units:    { rail: "right", order: 2, h: 272, grow: 1 },
+  activity: { rail: "right", order: 3, h: 256, grow: 1 },
+  calendar: { rail: "right", order: 4, h: 300, grow: 1 },
+  settings: { rail: "right", order: 5, h: 216, grow: 0 },
+};
+
+const MODE_KEY = "halo_pulse_hud_mode_v1";
+
+const DEFAULT_MODE: Record<PanelId, PanelMode> = {
+  overview: "docked",
+  sites: "docked",
+  crew: "docked",
+  schedule: "docked",
+  units: "docked",
+  calendar: "docked",
+  activity: "docked",
+  settings: "docked",
+};
+
+const PANEL_IDS = Object.keys(DOCK) as PanelId[];
+
+/**
+ * localStorage is user-writable and outlives schema changes, so every
+ * persisted value is validated before it reaches React state. A corrupt or
+ * stale entry must degrade to defaults, never crash the page or silently
+ * strand a panel in an unrenderable mode.
+ */
+function readJson(key: string): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function loadModes(): Record<PanelId, PanelMode> {
+  const out = { ...DEFAULT_MODE };
+  const raw = readJson(MODE_KEY);
+  if (!isPlainObject(raw)) return out;
+  for (const id of PANEL_IDS) {
+    const v = raw[id];
+    if (v === "docked" || v === "floating") out[id] = v;
+  }
+  return out;
+}
+
 function parseSyncPayload(j: unknown): SyncStatus {
   const row = j as {
     finishedAt?: string;
@@ -119,11 +194,23 @@ function isLiveJob(j: Job): boolean {
 }
 
 function loadLayout(): Partial<Record<PanelId, BoxPos>> {
-  try {
-    return JSON.parse(localStorage.getItem(HUD_KEY) || "{}") as Partial<Record<PanelId, BoxPos>>;
-  } catch {
-    return {};
+  const out: Partial<Record<PanelId, BoxPos>> = {};
+  const raw = readJson(HUD_KEY);
+  if (!isPlainObject(raw)) return out;
+  for (const id of PANEL_IDS) {
+    const v = raw[id];
+    if (!isPlainObject(v)) continue;
+    const { x, y, w, h } = v;
+    if (
+      typeof x === "number" && Number.isFinite(x) &&
+      typeof y === "number" && Number.isFinite(y) &&
+      typeof w === "number" && Number.isFinite(w) && w > 0 &&
+      typeof h === "number" && Number.isFinite(h) && h > 0
+    ) {
+      out[id] = { x, y, w, h };
+    }
   }
+  return out;
 }
 
 function savePos(id: PanelId, pos: BoxPos) {
@@ -144,13 +231,14 @@ const DEFAULT_OPEN: Record<PanelId, boolean> = {
 };
 
 function loadOpen(): Record<PanelId, boolean> {
-  try {
-    const raw = JSON.parse(localStorage.getItem(OPEN_KEY) || "null") as Partial<Record<PanelId, boolean>> | null;
-    if (raw && typeof raw === "object") return { ...DEFAULT_OPEN, ...raw };
-  } catch {
-    /* */
+  const out = { ...DEFAULT_OPEN };
+  const raw = readJson(OPEN_KEY);
+  if (!isPlainObject(raw)) return out;
+  for (const id of PANEL_IDS) {
+    const v = raw[id];
+    if (typeof v === "boolean") out[id] = v;
   }
-  return { ...DEFAULT_OPEN };
+  return out;
 }
 
 function pinIcon(hot: boolean, pulse = false) {
@@ -232,6 +320,25 @@ function ageMinutes(iso: string | null | undefined): number | null {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+function weekdayLabel(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString("en-US", { weekday: "short" });
+}
+
+/** Severity ring for a site row — drives the coloured status dot. */
+function siteTone(crewsOnSite: number, overdueJobs: number, openJobs: number): "live" | "late" | "queued" | "quiet" {
+  if (crewsOnSite > 0) return "live";
+  if (overdueJobs > 0) return "late";
+  if (openJobs > 0) return "queued";
+  return "quiet";
+}
+
 function resolvePos(id: PanelId, stage: HTMLElement | null): BoxPos {
   const saved = loadLayout()[id];
   const pos = { ...(saved ?? DEFAULT_POS[id]) };
@@ -250,9 +357,11 @@ function HudBox({
   kicker,
   open,
   z,
+  mode,
   stageRef,
   onClose,
   onFocus,
+  onToggleDock,
   children,
 }: {
   id: PanelId;
@@ -260,9 +369,11 @@ function HudBox({
   kicker?: string;
   open: boolean;
   z: number;
+  mode: PanelMode;
   stageRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onFocus: () => void;
+  onToggleDock: () => void;
   children: ReactNode;
 }) {
   const [pos, setPos] = useState<BoxPos>(() => resolvePos(id, stageRef.current));
@@ -272,13 +383,41 @@ function HudBox({
   const resize = useRef<{ ox: number; oy: number; w: number; h: number } | null>(null);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || mode !== "floating") return;
     const next = resolvePos(id, stageRef.current);
     posRef.current = next;
     setPos(next);
-  }, [open, id, stageRef]);
+  }, [open, id, stageRef, mode]);
 
   if (!open) return null;
+
+  // ── Docked: the rail owns placement, so no absolute position, drag or resize.
+  if (mode === "docked") {
+    return (
+      <article
+        className="pulse-hud-box docked"
+        /* grow:0 panels have fixed-size content, so they size to it exactly
+           ("auto"); list panels take their ranked height and absorb slack. */
+        style={{ flexBasis: DOCK[id].grow ? DOCK[id].h : "auto", flexGrow: DOCK[id].grow }}
+      >
+        <header className="pulse-hud-box-head">
+          <div>
+            <h2>{title}</h2>
+            {kicker && <p>{kicker}</p>}
+          </div>
+          <div className="pulse-hud-box-tools">
+            <button type="button" aria-label={`Pop out ${title}`} title="Pop out" onClick={onToggleDock}>
+              <Maximize2 size={13} />
+            </button>
+            <button type="button" aria-label={`Hide ${title}`} title="Hide" onClick={onClose}>
+              <X size={14} />
+            </button>
+          </div>
+        </header>
+        <div className="pulse-hud-box-body">{children}</div>
+      </article>
+    );
+  }
 
   const commit = () => savePos(id, posRef.current);
 
@@ -337,9 +476,14 @@ function HudBox({
           <h2>{title}</h2>
           {kicker && <p>{kicker}</p>}
         </div>
-        <button type="button" aria-label={`Hide ${title}`} onClick={onClose}>
-          <X size={14} />
-        </button>
+        <div className="pulse-hud-box-tools">
+          <button type="button" aria-label={`Dock ${title}`} title="Dock" onClick={onToggleDock}>
+            <Minimize2 size={13} />
+          </button>
+          <button type="button" aria-label={`Hide ${title}`} title="Hide" onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
       </header>
       <div className="pulse-hud-box-body">{children}</div>
       <div
@@ -391,6 +535,7 @@ export default function PropertyPulse() {
   const [twinOpen, setTwinOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [open, setOpen] = useState<Record<PanelId, boolean>>(loadOpen);
+  const [mode, setMode] = useState<Record<PanelId, PanelMode>>(loadModes);
   const [zOrder, setZOrder] = useState<PanelId[]>(() =>
     (Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => loadOpen()[id]),
   );
@@ -398,6 +543,10 @@ export default function PropertyPulse() {
   useEffect(() => {
     localStorage.setItem(OPEN_KEY, JSON.stringify(open));
   }, [open]);
+
+  useEffect(() => {
+    localStorage.setItem(MODE_KEY, JSON.stringify(mode));
+  }, [mode]);
 
   const loadSms = useCallback(async () => {
     try {
@@ -562,6 +711,26 @@ export default function PropertyPulse() {
 
   const zOf = (id: PanelId) => zOrder.indexOf(id) + 1;
 
+  // Pop a docked panel out to float, or send a floating panel back to its rail.
+  const toggleDock = (id: PanelId) => {
+    setMode((m) => {
+      const next: PanelMode = m[id] === "docked" ? "floating" : "docked";
+      if (next === "floating") focus(id);
+      return { ...m, [id]: next };
+    });
+  };
+
+  // Forget every saved position/size/mode and return to the ranked default.
+  const resetLayout = () => {
+    localStorage.removeItem(HUD_KEY);
+    localStorage.removeItem(MODE_KEY);
+    localStorage.removeItem(OPEN_KEY);
+    setMode({ ...DEFAULT_MODE });
+    setOpen({ ...DEFAULT_OPEN });
+    setZOrder((Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => DEFAULT_OPEN[id]));
+    toast({ title: "Layout reset" });
+  };
+
   const syncNow = async () => {
     if (syncing) return;
     setSyncing(true);
@@ -651,6 +820,250 @@ export default function PropertyPulse() {
   const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const portfolio = biz?.companyName?.replace(/\s+LLC$/i, "") || "Property Pulse";
 
+  // ── Panel registry ─────────────────────────────────────────────────────────
+  // Each panel is built once here, then placed into a dock rail or the floating
+  // layer below depending on its mode.  React elements are plain objects, so
+  // building them up-front lets one definition serve both placements.
+  const panelBody: Record<PanelId, { title: string; kicker: string; body: ReactNode }> = {
+    overview: {
+      title: "Overview",
+      kicker: "Live",
+      body: (
+        <>
+          <div className="pulse-stat-grid">
+            <div className="pulse-stat lime"><b>{liveCount}</b><span>Active sites</span></div>
+            <div className="pulse-stat green"><b>{crewsOnSite}</b><span>Crews out</span></div>
+            <div className="pulse-stat amber"><b>{liveJobs.length}</b><span>Open turns</span></div>
+            <div className="pulse-stat violet"><b>{doneToday}</b><span>Done today</span></div>
+          </div>
+          {(uncrewed > 0 || overdueJobs > 0) && (
+            <div className="pulse-flags">
+              {overdueJobs > 0 && <span className="pulse-flag late">{overdueJobs} behind schedule</span>}
+              {uncrewed > 0 && <span className="pulse-flag open">{uncrewed} need a crew</span>}
+            </div>
+          )}
+          {selected && (
+            <div className="pulse-overview-site">
+              <strong>{selected.name}</strong>
+              <p>{lines.primary} · {lines.secondary}</p>
+              <div className="pulse-hud-actions">
+                <button type="button" className="pulse-overlay-cta" onClick={() => selected.latitude == null ? setGpsOpen(true) : setTwinOpen(true)}>
+                  {selected.latitude == null ? "Pin GPS" : "Open site twin"}
+                </button>
+                <button type="button" className="pulse-overlay-ghost" disabled={pinging} onClick={() => void pingTarget()}>
+                  {pinging ? "Pinging…" : "Ping crew"}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ),
+    },
+
+    sites: {
+      title: "Sites",
+      kicker: `${liveCount} live`,
+      body: (
+        <>
+          <p className="pulse-hud-portfolio">{portfolio}</p>
+          {propsLoading && <p className="pulse-empty">Loading sites…</p>}
+          {!propsLoading && filtered.length === 0 && <p className="pulse-empty">No sites match that search.</p>}
+          {filtered.map((p) => {
+            const st = statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs);
+            const tone = siteTone(p.crewsOnSite, p.overdueJobs, p.openJobs);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`pulse-site-row tone-${tone} ${p.id === selectedId ? "sel" : ""}`}
+                onClick={() => setSelectedId(p.id)}
+              >
+                <i className="pulse-dot" aria-hidden />
+                <span>{p.name}</span>
+                <em>{st.primary}</em>
+                <small>{p.hotJob?.jobNo || p.city || st.secondary}</small>
+              </button>
+            );
+          })}
+        </>
+      ),
+    },
+
+    crew: {
+      title: "Crew",
+      kicker: `${(pins ?? []).length} tracked`,
+      body: (
+        <>
+          {(pins ?? []).length === 0 && <p className="pulse-empty">No crew GPS yet today.</p>}
+          {(pins ?? []).map((c) => (
+            <div key={c.id} className={`pulse-crew-row st-${c.todayStatus || "idle"}`}>
+              <span className="pulse-avatar" aria-hidden>{initials(c.name)}</span>
+              <div className="pulse-crew-meta">
+                <b>{c.name}</b>
+                <em>{c.todayProperty || c.trade || "Unassigned"}</em>
+              </div>
+              <span className="pulse-crew-state">{c.todayStatus || "idle"}</span>
+            </div>
+          ))}
+          <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.crews)}>Open crew records</button>
+        </>
+      ),
+    },
+
+    schedule: {
+      title: "Schedule",
+      kicker: "Today + tomorrow",
+      body: (
+        <>
+          {scheduleRows.length === 0 && <p className="pulse-empty">Nothing scheduled.</p>}
+          {(["today", "tomorrow"] as const).map((bucket) => {
+            const day = bucket === "today" ? todayStr : addDays(todayStr, 1);
+            const rows = scheduleRows.filter((j) => j.scheduledOn === day);
+            if (rows.length === 0) return null;
+            return (
+              <div key={bucket} className="pulse-sched-group">
+                <h3>{bucket === "today" ? "Today" : "Tomorrow"}<span>{rows.length}</span></h3>
+                {rows.map((j) => (
+                  <div key={j.id} className="pulse-sched-row">
+                    <span>{j.jobNo}{j.unitNo ? ` · Unit ${j.unitNo}` : ""}</span>
+                    <em className={j.crewLeaderName ? "" : "open"}>{j.crewLeaderName || "Uncrewed"}</em>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </>
+      ),
+    },
+
+    units: {
+      title: "Active units",
+      kicker: `${unitRows.length} turns`,
+      body: (
+        <>
+          {unitRows.length === 0 && <p className="pulse-empty">No unit turns on the board.</p>}
+          {unitRows.map((u) => (
+            <div key={u.job.id} className="pulse-unit-row">
+              <div className="pulse-unit-chip">
+                <b>{u.job.unitNo}</b>
+                <small>{u.siteName.slice(0, 3).toUpperCase()}</small>
+              </div>
+              <div className="pulse-unit-meta">
+                <span>{u.job.category || "Turn"}<strong>{u.pct}%</strong></span>
+                <div className="pulse-progress"><span style={{ width: `${u.pct}%` }} /></div>
+              </div>
+            </div>
+          ))}
+        </>
+      ),
+    },
+
+    calendar: {
+      title: "Calendar",
+      kicker: "Next 7 days",
+      body: (
+        <>
+          {calDays.map((d) => (
+            <div key={d.day} className={`pulse-cal-day ${d.day === todayStr ? "is-today" : ""}`}>
+              <div className="pulse-cal-head">
+                <b>{d.day === todayStr ? "Today" : weekdayLabel(d.day)}</b>
+                {d.jobs.length > 0 && <span className="pulse-cal-count">{d.jobs.length}</span>}
+              </div>
+              {d.jobs.length === 0 && <em>Clear</em>}
+              {d.jobs.slice(0, 4).map((j) => (
+                <p key={j.id}>{j.jobNo}{j.unitNo ? ` · Unit ${j.unitNo}` : ""} · {j.crewLeaderName || "open"}</p>
+              ))}
+              {d.jobs.length > 4 && <em>+{d.jobs.length - 4} more</em>}
+            </div>
+          ))}
+          <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.calendar)}>Open full calendar</button>
+        </>
+      ),
+    },
+
+    activity: {
+      title: "Activity",
+      kicker: "Live feed",
+      body: (
+        <>
+          {activity.length === 0 && <p className="pulse-empty">Waiting on the first site event.</p>}
+          {activity.length > 0 && (
+            <div className="pulse-timeline">
+              {activity.map((it) => (
+                <div key={it.id} className="pulse-act-row">
+                  <span className="pulse-check" aria-hidden />
+                  <div>
+                    <strong>{it.label}</strong>
+                    {it.sub && <em>{it.sub}</em>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ),
+    },
+
+    settings: {
+      title: "Settings",
+      kicker: sms.configured ? `Twilio ···${sms.fromLast4 ?? ""}` : "Twilio off",
+      body: (
+        <>
+          <div className="pulse-sync-line">
+            <span className={`pulse-pill ${sync?.stale ? "warn" : sync?.finishedAt ? "ok" : ""}`}>
+              {sync?.stale ? "Stale" : sync?.finishedAt ? "Synced" : "Idle"}
+            </span>
+            <em>{sync?.finishedAt ? `Work app ${ageMinutes(sync.finishedAt) ?? 0}m ago` : "Work app idle"}</em>
+          </div>
+          <div className="pulse-hud-actions">
+            <button type="button" className="pulse-overlay-cta" disabled={syncing} onClick={() => void syncNow()}>
+              {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sync Work
+            </button>
+            <button type="button" className="pulse-overlay-ghost" onClick={() => selected && setGpsOpen(true)}>Pin selected GPS</button>
+            <button type="button" className="pulse-overlay-ghost" disabled={gpsPinging} onClick={() => void pingGps()}>
+              {gpsPinging ? "Texting…" : "Keep GPS live"}
+            </button>
+            <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.settings)}>Workspace settings</button>
+          </div>
+        </>
+      ),
+    },
+  };
+
+  const renderPanel = (id: PanelId) => {
+    const def = panelBody[id];
+    return (
+      <HudBox
+        key={id}
+        id={id}
+        title={def.title}
+        kicker={def.kicker}
+        open={open[id]}
+        z={zOf(id)}
+        mode={mode[id]}
+        stageRef={stageRef}
+        onClose={() => toggle(id)}
+        onFocus={() => focus(id)}
+        onToggleDock={() => toggleDock(id)}
+      >
+        {def.body}
+      </HudBox>
+    );
+  };
+
+  const railPanels = (rail: "left" | "right") =>
+    (Object.keys(DOCK) as PanelId[])
+      .filter((id) => open[id] && mode[id] === "docked" && DOCK[id].rail === rail)
+      .sort((a, b) => DOCK[a].order - DOCK[b].order)
+      .map(renderPanel);
+
+  const floatingPanels = (Object.keys(DOCK) as PanelId[])
+    .filter((id) => open[id] && mode[id] === "floating")
+    .map(renderPanel);
+
+  const leftRail = railPanels("left");
+  const rightRail = railPanels("right");
+
   return (
     <div className="pulse-hud">
       <header className="pulse-hud-head">
@@ -715,6 +1128,9 @@ export default function PropertyPulse() {
             </button>
           ))}
           <div className="flex-1" />
+          <button type="button" title="Reset layout" aria-label="Reset panel layout" onClick={resetLayout}>
+            <RotateCcw size={17} />
+          </button>
           <button type="button" title="HALO chat" aria-label="HALO chat" onClick={() => navigate(HREF.home)}>
             <MessageCircle size={18} />
           </button>
@@ -763,129 +1179,12 @@ export default function PropertyPulse() {
             )}
           </MapContainer>
 
-          <HudBox id="overview" title="Overview" kicker="Live" open={open.overview} z={zOf("overview")} stageRef={stageRef} onClose={() => toggle("overview")} onFocus={() => focus("overview")}>
-            <div className="pulse-stat-grid">
-              <div className="pulse-stat lime"><b>{liveCount}</b><span>Active sites</span></div>
-              <div className="pulse-stat green"><b>{crewsOnSite}</b><span>Crews out</span></div>
-              <div className="pulse-stat amber"><b>{liveJobs.length}</b><span>Open turns</span></div>
-              <div className="pulse-stat violet"><b>{doneToday}</b><span>Done today</span></div>
-            </div>
-            {selected && (
-              <div className="pulse-overview-site">
-                <strong>{selected.name}</strong>
-                <p>{lines.primary} · {lines.secondary}</p>
-                <div className="pulse-hud-actions">
-                  <button type="button" className="pulse-overlay-cta" onClick={() => selected.latitude == null ? setGpsOpen(true) : setTwinOpen(true)}>
-                    {selected.latitude == null ? "Pin GPS" : "Open site twin"}
-                  </button>
-                  <button type="button" className="pulse-overlay-ghost" disabled={pinging} onClick={() => void pingTarget()}>
-                    {pinging ? "Pinging…" : "Ping crew"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </HudBox>
+          {/* Docked rails — importance-ranked; the map keeps the centre channel. */}
+          {leftRail.length > 0 && <div className="pulse-rail pulse-rail-left">{leftRail}</div>}
+          {rightRail.length > 0 && <div className="pulse-rail pulse-rail-right">{rightRail}</div>}
 
-          <HudBox id="sites" title="Sites" kicker={`${liveCount} live`} open={open.sites} z={zOf("sites")} stageRef={stageRef} onClose={() => toggle("sites")} onFocus={() => focus("sites")}>
-            <p className="pulse-hud-portfolio">{portfolio}</p>
-            {propsLoading && <p className="pulse-empty">Loading sites…</p>}
-            {filtered.map((p) => {
-              const st = statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs);
-              const on = p.id === selectedId;
-              const dark = p.crewsOnSite > 0;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`pulse-site-row ${on ? "sel" : ""} ${dark ? "dark" : ""}`}
-                  onClick={() => setSelectedId(p.id)}
-                >
-                  <span>{p.name}</span>
-                  <em>{st.primary}</em>
-                  <small>{p.hotJob?.jobNo || p.city || st.secondary}</small>
-                </button>
-              );
-            })}
-          </HudBox>
-
-          <HudBox id="crew" title="Crew" kicker={`${(pins ?? []).length} tracked`} open={open.crew} z={zOf("crew")} stageRef={stageRef} onClose={() => toggle("crew")} onFocus={() => focus("crew")}>
-            {(pins ?? []).length === 0 && <p className="pulse-empty">No crew GPS yet today.</p>}
-            {(pins ?? []).map((c) => (
-              <div key={c.id} className="pulse-crew-row">
-                <b>{c.name}</b>
-                <em>{c.todayProperty || c.trade || "—"} · {c.todayStatus || "idle"}</em>
-                <span>{c.todayJob || c.unitNo || ""}</span>
-              </div>
-            ))}
-            <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.crews)}>Open crew records</button>
-          </HudBox>
-
-          <HudBox id="schedule" title="Schedule" kicker="Today + tomorrow" open={open.schedule} z={zOf("schedule")} stageRef={stageRef} onClose={() => toggle("schedule")} onFocus={() => focus("schedule")}>
-            {scheduleRows.length === 0 && <p className="pulse-empty">Nothing scheduled.</p>}
-            {scheduleRows.map((j) => (
-              <div key={j.id} className="pulse-sched-row">
-                <b>{j.scheduledOn === todayStr ? "Today" : "Tomorrow"}</b>
-                <span>{j.jobNo} {j.unitNo ? `· Unit ${j.unitNo}` : ""} · {j.category}</span>
-                <em>{j.crewLeaderName || "Uncrewed"}</em>
-              </div>
-            ))}
-          </HudBox>
-
-          <HudBox id="units" title="Active units" kicker={`${unitRows.length} turns`} open={open.units} z={zOf("units")} stageRef={stageRef} onClose={() => toggle("units")} onFocus={() => focus("units")}>
-            {unitRows.length === 0 && <p className="pulse-empty">No unit turns on the board.</p>}
-            {unitRows.map((u) => (
-              <div key={u.job.id} className="pulse-unit-row">
-                <div className="pulse-unit-chip">
-                  <b>{u.job.unitNo}</b>
-                  <small>{u.siteName.slice(0, 3).toUpperCase()}</small>
-                </div>
-                <div className="pulse-unit-meta">
-                  <span>{u.job.category || "Turn"} · {u.pct}%</span>
-                  <div className="pulse-progress"><span style={{ width: `${u.pct}%` }} /></div>
-                </div>
-              </div>
-            ))}
-          </HudBox>
-
-          <HudBox id="calendar" title="Calendar" kicker="Next 7 days" open={open.calendar} z={zOf("calendar")} stageRef={stageRef} onClose={() => toggle("calendar")} onFocus={() => focus("calendar")}>
-            {calDays.map((d) => (
-              <div key={d.day} className="pulse-cal-day">
-                <b>{d.day === todayStr ? "Today" : d.day}</b>
-                {d.jobs.length === 0 && <em>Clear</em>}
-                {d.jobs.slice(0, 4).map((j) => (
-                  <p key={j.id}>{j.jobNo} {j.unitNo ? `Unit ${j.unitNo}` : ""} · {j.crewLeaderName || "open"}</p>
-                ))}
-              </div>
-            ))}
-            <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.calendar)}>Open full calendar</button>
-          </HudBox>
-
-          <HudBox id="activity" title="Activity" kicker="Live feed" open={open.activity} z={zOf("activity")} stageRef={stageRef} onClose={() => toggle("activity")} onFocus={() => focus("activity")}>
-            {activity.length === 0 && <p className="pulse-empty">Waiting on the first site event.</p>}
-            {activity.map((it) => (
-              <div key={it.id} className="pulse-act-row">
-                <span className="pulse-check" />
-                <div>
-                  <strong>{it.label}</strong>
-                  {it.sub && <em>{it.sub}</em>}
-                </div>
-              </div>
-            ))}
-          </HudBox>
-
-          <HudBox id="settings" title="Settings" kicker={sms.configured ? `Twilio ···${sms.fromLast4 ?? ""}` : "Twilio off"} open={open.settings} z={zOf("settings")} stageRef={stageRef} onClose={() => toggle("settings")} onFocus={() => focus("settings")}>
-            <p className="pulse-empty">{sync?.finishedAt ? `Work app ${ageMinutes(sync.finishedAt) ?? 0}m ago` : "Work app idle"}{sync?.stale ? " · stale" : ""}</p>
-            <div className="pulse-hud-actions">
-              <button type="button" className="pulse-overlay-cta" disabled={syncing} onClick={() => void syncNow()}>
-                {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sync Work
-              </button>
-              <button type="button" className="pulse-overlay-ghost" onClick={() => selected && setGpsOpen(true)}>Pin selected GPS</button>
-              <button type="button" className="pulse-overlay-ghost" disabled={gpsPinging} onClick={() => void pingGps()}>
-                {gpsPinging ? "Texting…" : "Keep GPS live"}
-              </button>
-              <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.settings)}>Workspace settings</button>
-            </div>
-          </HudBox>
+          {/* Floating layer — popped-out panels drag and resize freely. */}
+          {floatingPanels}
         </div>
       </div>
 

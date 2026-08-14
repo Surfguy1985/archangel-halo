@@ -70,6 +70,10 @@ export const WORK_TABS: HubTab[] = [
   { label: "Board", href: "/jobboard", testId: "hub-tab-board" },
   { label: "Dispatch", href: "/dispatch", testId: "hub-tab-dispatch" },
   { label: "Calendar", href: "/calendar", testId: "hub-tab-calendar" },
+  // Base44 ("Track Flow") is the upstream work app that feeds Dispatch and
+  // Calendar. It sets X-Frame-Options: DENY so it cannot be embedded — this
+  // tab opens the launcher page, which links out to it and shows sync status.
+  { label: "Work App", href: "/work", testId: "hub-tab-work" },
 ];
 
 export const CLIENT_TABS: HubTab[] = [

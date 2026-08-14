@@ -98,8 +98,10 @@ function App() {
                     <Route path="/invoices/:id" component={InvoiceDetail} />
                     <Route path="/money">{() => <HubShell title="Money" tabs={MONEY_TABS}><Money /></HubShell>}</Route>
                     <Route path="/money/payments">{() => <HubShell title="Money" tabs={MONEY_TABS}><Payments /></HubShell>}</Route>
-                    {/* /work kept for legacy links & the Base44 sync panel (accessible from ⋯ menu) */}
-                    <Route path="/work" component={WorkEmbed} />
+                    {/* Base44 work-app launcher + sync status. Sits in the Jobs hub
+                        tab bar beside Board/Dispatch/Calendar; also reachable from
+                        the ⋯ menu and any legacy /work link. */}
+                    <Route path="/work">{() => <HubShell title="Jobs" tabs={WORK_TABS}><WorkEmbed /></HubShell>}</Route>
                     <Route path="/calendar">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
                     <Route path="/dispatch">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
                     <Route path="/crews" component={Crews} />
