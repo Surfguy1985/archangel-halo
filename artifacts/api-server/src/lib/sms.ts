@@ -19,7 +19,7 @@ let cached: { settings: TwilioSettings | null; at: number } | null = null;
 function envTwilioSettings(): TwilioSettings | null {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const phoneNumber = process.env.TWILIO_PHONE_NUMBER?.trim();
+  const phoneNumber = process.env.TWILIO_FROM_NUMBER?.trim() || process.env.TWILIO_PHONE_NUMBER?.trim();
   if (!accountSid || !phoneNumber) return null;
   if (!authToken && !(process.env.TWILIO_API_KEY?.trim() && process.env.TWILIO_API_KEY_SECRET?.trim())) {
     return null;
@@ -56,12 +56,15 @@ async function connectorTwilioSettings(): Promise<TwilioSettings | null> {
   };
   const s = data.items?.[0]?.settings;
   if (!s?.account_sid) return null;
+  // Prefer TWILIO_FROM_NUMBER secret if set, fall back to connector's stored number
+  const phoneNumber =
+    process.env.TWILIO_FROM_NUMBER?.trim() || s.phone_number;
   return {
     accountSid: s.account_sid,
     authToken: s.auth_token,
     apiKey: s.api_key,
     apiKeySecret: s.api_key_secret,
-    phoneNumber: s.phone_number,
+    phoneNumber,
   };
 }
 

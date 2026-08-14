@@ -42,6 +42,7 @@ import {
 import { completeJsonWithImage } from "../lib/ai";
 import { isUniqueViolation } from "../lib/dbErrors";
 import { sendEmail } from "../lib/email";
+import { sendSms } from "../lib/sms";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { emergencySettledKeys, outstandingHoldAmount } from "../lib/emergencySettlement";
@@ -496,9 +497,19 @@ router.post("/pay-hub/requests/:id/send", async (req, res): Promise<void> => {
       return;
     }
   } else {
-    // SMS sending is stubbed until an SMS provider is connected; the link is
-    // recorded so the office can copy/paste it into any texting app.
-    req.log.info({ to: parsed.data.to, link }, "SMS payment link (stub)");
+    const smsBody = [
+      `${settings.companyName}: Payment request ${detail.requestNo}`,
+      detail.propertyName ? `for ${detail.propertyName}` : null,
+      `— $${detail.total.toFixed(2)}.`,
+      `Pay securely: ${link}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const sent = await sendSms(parsed.data.to, smsBody);
+    if (!sent.ok) {
+      res.status(400).json({ error: sent.error ?? "SMS failed to send" });
+      return;
+    }
   }
   const [updated] = await db
     .update(paymentRequestsTable)

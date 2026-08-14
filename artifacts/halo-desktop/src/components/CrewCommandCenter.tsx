@@ -11,8 +11,9 @@ import {
   getGetCrewMapPinsQueryKey,
 } from "@workspace/api-client-react";
 import type { CrewMapPin } from "@workspace/api-client-react";
-import { X, Navigation, MapPin, Send, Clock, ChevronLeft, CheckCircle2, Circle, Camera, Wrench } from "lucide-react";
+import { X, Navigation, MapPin, Send, Clock, ChevronLeft, CheckCircle2, Circle, Camera, Wrench, MessageSquare, ChevronDown, Loader2, PhoneOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/apiFetch";
 
 const FALLBACK_CENTER: [number, number] = [39.8283, -98.5795];
 const FALLBACK_ZOOM = 4;
@@ -147,22 +148,70 @@ export function CrewCommandCenter({ onClose }: { onClose: () => void }) {
     query: { queryKey: getGetCrewMapPinsQueryKey(), refetchInterval: 10000 }
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [textMenuOpen, setTextMenuOpen] = useState(false);
+  const [textingId, setTextingId] = useState<string | null>(null);
+  const textMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (selectedId) setSelectedId(null);
+        if (textMenuOpen) setTextMenuOpen(false);
+        else if (selectedId) setSelectedId(null);
         else onClose();
       }
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [selectedId, onClose]);
+  }, [selectedId, onClose, textMenuOpen]);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const sendMessage = useSendCrewMessage();
   const [draft, setDraft] = useState("");
+
+  // Close the crew picker when clicking anywhere outside it.
+  useEffect(() => {
+    if (!textMenuOpen) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (textMenuRef.current && !textMenuRef.current.contains(e.target as Node)) {
+        setTextMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [textMenuOpen]);
+
+  /** Mint a fresh GPS check-in link and text it to the crew member. */
+  const handleTextCheckinLink = async (crewId: string, crewName: string) => {
+    setTextingId(crewId);
+    try {
+      const result = await apiFetch("/api/crew-checkin-links/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crewId }),
+      });
+      toast({
+        title: "Check-in link texted",
+        description: `${crewName} got a live GPS check-in link at ${result?.sentTo ?? "their phone"}.`,
+      });
+      setTextMenuOpen(false);
+    } catch (err) {
+      // apiFetch throws "<status>: <body>" — surface the server's message.
+      const raw = err instanceof Error ? err.message : "";
+      let detail = raw;
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart >= 0) {
+        try {
+          detail = JSON.parse(raw.slice(jsonStart))?.error ?? raw;
+        } catch {
+          /* keep raw */
+        }
+      }
+      toast({ title: "Couldn't send text", description: detail, variant: "destructive" });
+    } finally {
+      setTextingId(null);
+    }
+  };
 
   const selectedPin = useMemo(() => pins.find(p => p.id === selectedId), [pins, selectedId]);
   const mapPins = pins.filter(p => p.lat != null && p.lng != null);
@@ -198,12 +247,86 @@ export function CrewCommandCenter({ onClose }: { onClose: () => void }) {
             {pins.length} Crews Live
           </span>
         </div>
-        <button
-          onClick={onClose}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-white"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Text a live GPS check-in link to any crew member */}
+          <div className="relative" ref={textMenuRef}>
+            <button
+              onClick={() => setTextMenuOpen(o => !o)}
+              className="flex items-center gap-2 pl-3.5 pr-3 py-2 rounded-full bg-[var(--gold-light)] text-black font-bold text-sm hover:brightness-95 transition-all shadow-lg"
+              data-testid="button-text-checkin-link"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Text check-in link</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${textMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {textMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden animate-in fade-in slide-in-from-top-2 z-[70]">
+                <div className="px-4 py-3 border-b border-black/5 bg-black/[0.03]">
+                  <div className="font-display font-bold text-[var(--ink)] text-sm">
+                    Send a GPS check-in link
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Pick a crew member — they'll get a text they can tap to check in.
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto custom-scrollbar p-2">
+                  {pins.length === 0 && (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      No active crew members.
+                    </div>
+                  )}
+                  {pins.map(pin => {
+                    const hasPhone = !!pin.phone;
+                    const sending = textingId === pin.id;
+                    return (
+                      <button
+                        key={pin.id}
+                        onClick={() => hasPhone && !sending && handleTextCheckinLink(pin.id, pin.name)}
+                        disabled={!hasPhone || sending}
+                        title={hasPhone ? `Text ${pin.name} at ${pin.phone}` : "No phone number on file"}
+                        className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                          hasPhone ? "hover:bg-black/5 cursor-pointer" : "opacity-50 cursor-not-allowed"
+                        }`}
+                        data-testid={`button-text-crew-${pin.id}`}
+                      >
+                        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-black/10">
+                          {pin.selfiePath ? (
+                            <img src={`/api/storage${pin.selfiePath}`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-[var(--ink)] text-[var(--gold-light)] flex items-center justify-center font-bold text-xs">
+                              {pin.name.substring(0, 1)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm text-[var(--ink)] truncate">{pin.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {hasPhone ? pin.phone : "No phone on file"}
+                          </div>
+                        </div>
+                        {sending ? (
+                          <Loader2 className="w-4 h-4 shrink-0 animate-spin text-[var(--ink)]" />
+                        ) : hasPhone ? (
+                          <Send className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <PhoneOff className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 relative flex">

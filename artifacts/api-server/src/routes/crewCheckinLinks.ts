@@ -25,6 +25,7 @@ import { recordFieldProvenance } from "../lib/fieldProvenance";
 import { eq, and, gte, desc, isNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { limits } from "../lib/rateLimit";
+import { sendSms, smsEnabled } from "../lib/sms";
 import {
   classifyCrewTokenShape,
   crewLinkHttpStatus,
@@ -280,6 +281,98 @@ router.post("/crew-checkin-links", async (req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "crew-checkin-links: create failed");
     res.status(500).json({ error: "Failed to create link" });
+  }
+});
+
+/**
+ * Office: mint a check-in link and text it straight to the crew member.
+ *
+ * One tap from the command-center map: generates a fresh GPS check-in link
+ * and delivers it by SMS so the crew never has to be told a URL out loud.
+ */
+router.post("/crew-checkin-links/text", async (req, res): Promise<void> => {
+  try {
+    const { crewId, expiresInDays = 90, phone: phoneOverride } = req.body ?? {};
+    if (!crewId || typeof crewId !== "string") {
+      res.status(400).json({ error: "crewId required" });
+      return;
+    }
+
+    const [crew] = await db
+      .select({
+        id: crewsTable.id,
+        name: crewsTable.name,
+        phone: crewsTable.phone,
+        active: crewsTable.active,
+      })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, crewId))
+      .limit(1);
+
+    if (!crew) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
+
+    const dest =
+      (typeof phoneOverride === "string" && phoneOverride.trim()) || crew.phone?.trim() || "";
+    if (!dest) {
+      res.status(400).json({
+        error: `${crew.name} has no phone number on file. Add one on their crew profile first.`,
+      });
+      return;
+    }
+
+    if (!(await smsEnabled())) {
+      res.status(400).json({
+        error: "SMS is not configured. Connect Twilio and set a from-number first.",
+      });
+      return;
+    }
+
+    const minted = mintCrewToken();
+    const expiresAt = new Date(Date.now() + Number(expiresInDays) * 86_400_000);
+
+    const [row] = await db
+      .insert(crewCheckinLinksTable)
+      .values({
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
+        crewId,
+        expiresAt,
+        label: `${crew.name} — texted check-in link`,
+      })
+      .returning();
+
+    const url = `${publicAppOrigin(req)}/checkin/${minted.token}`;
+    const firstName = crew.name.split(" ")[0] ?? crew.name;
+    const smsText = `Hi ${firstName} 👋 Here's your HALO check-in link:\n${url}\n\nBookmark it and tap when you arrive or leave.`;
+
+    const sent = await sendSms(dest, smsText);
+    if (!sent.ok) {
+      // Revoke the just-minted link so we never leave a live token that the
+      // crew member was never actually given.
+      await db
+        .update(crewCheckinLinksTable)
+        .set({ revokedAt: new Date() })
+        .where(eq(crewCheckinLinksTable.id, row.id));
+      await audit(row.id, "text_failed", req, { crewId, error: sent.error });
+      res.status(400).json({ error: sent.error ?? "Failed to send text" });
+      return;
+    }
+
+    await audit(row.id, "texted", req, { crewId });
+    res.json({
+      ok: true,
+      crewName: crew.name,
+      sentTo: dest,
+      url,
+      expiresAt: row.expiresAt,
+    });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin-links: text failed");
+    res.status(500).json({ error: "Failed to text link" });
   }
 });
 
