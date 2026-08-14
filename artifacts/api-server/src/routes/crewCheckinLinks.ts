@@ -232,9 +232,9 @@ router.post("/crew-checkin-links", async (req, res): Promise<void> => {
     }
 
     const [crew] = await db
-      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
+      .select({ id: crewsTable.id, active: crewsTable.active })
       .from(crewsTable)
-      .where(eq(crewsTable.id, crewId))
+      .where(eq(crewsTable.id, row.crewId))
       .limit(1);
 
     if (!crew) {
@@ -348,6 +348,12 @@ router.delete("/crew-checkin-links/:token", async (req, res): Promise<void> => {
 router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void> => {
   try {
     const resolved = await resolveLink(tokenParam(req.params.token));
+
+    const { row } = resolved;
+
+    const { row } = resolved;
+
+    const { row } = resolved;
     if ("err" in resolved) {
       sendLinkError(res, resolved.err);
       return;
@@ -356,11 +362,10 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
     await touchAccess(row.id);
 
     const [crew] = await db
-      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
+      .select({ id: crewsTable.id, active: crewsTable.active })
       .from(crewsTable)
       .where(eq(crewsTable.id, row.crewId))
       .limit(1);
-
     if (!crew) {
       res.status(404).json({ error: "Crew member not found" });
       return;
@@ -369,7 +374,7 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
     const now = new Date();
     const dispatch = await loadDispatch(crew.id, now);
     const assignment = formatTodayAssignment(dispatch);
-    const { session } = await loadSession(crew.id);
+    const { session } = await loadSession(row.crewId);
 
     const [lastPing] = await db
       .select()
@@ -413,6 +418,12 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
 router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Promise<void> => {
   try {
     const resolved = await resolveLink(tokenParam(req.params.token));
+
+    const { row } = resolved;
+
+    const { row } = resolved;
+
+    const { row } = resolved;
     if ("err" in resolved) {
       sendLinkError(res, resolved.err);
       return;
@@ -442,14 +453,8 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
       return;
     }
 
-    const { session } = await loadSession(crew.id);
-    const decision = decideCheckin({
-      session,
-      now,
-      linkCrewId: row.crewId,
-      requestedCrewId: (req.body as { crewId?: unknown } | undefined)?.crewId,
-      crewActive: crew.active !== false,
-    });
+    const { session } = await loadSession(row.crewId);
+    const decision = decideLocationPing({ session, gps });
     if (!decision.ok) {
       await audit(row.id, "denied", req, { code: decision.code });
       res.status(decision.status).json({
@@ -462,48 +467,51 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     const dispatch = await loadDispatch(crew.id, now);
     const primaryJobId = dispatch[0]?.id ?? session.openCheckin?.jobId ?? null;
     const coords = gpsColumns(gps);
-
     if (decision.action === "create") {
       const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
-        jobId: primaryJobId,
-        kind: "checkin",
+        jobId: session.openCheckin?.jobId ?? null,
+        kind: "checkout",
         lat: coords.lat,
         lng: coords.lng,
         accuracy: coords.accuracy,
-        label: "Check-in via link",
+        label: "Checkout via link",
       }).returning({ id: crewCheckinsTable.id });
       if (punch) {
         void recordFieldProvenance({
           eventId: punch.id,
-          kind: "checkin",
+          kind: "checkout",
           crewId: crew.id,
-          haloJobId: primaryJobId,
+          haloJobId: session.openCheckin?.jobId ?? null,
           lat: coords.lat,
           lng: coords.lng,
-          propertyName: dispatch[0]?.propertyName ?? null,
         });
       }
     }
 
-    await audit(row.id, "checkin", req, { replay: decision.action === "replay", gps: gps.status });
+    await audit(row.id, "checkout", req, { replay: decision.action === "replay", trackingEnds: true });
     res.json({
       ok: true,
-      checkedIn: true,
+      checkedOut: true,
       replayed: decision.action === "replay",
-      reason: decision.reason,
-      gps: gps.status,
-      assignment: formatTodayAssignment(dispatch),
+      trackingActive: false,
+      backgroundGpsSupported: false,
     });
   } catch (err) {
-    logger.error({ err }, "crew-checkin: checkin failed");
-    res.status(500).json({ error: "Failed to record check-in" });
+    logger.error({ err }, "crew-checkin: checkout failed");
+    res.status(500).json({ error: "Failed to record checkout" });
   }
 });
 
-router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): Promise<void> => {
+router.post("/checkin/:token/location", limits.trackPoint, async (req, res): Promise<void> => {
   try {
     const resolved = await resolveLink(tokenParam(req.params.token));
+
+    const { row } = resolved;
+
+    const { row } = resolved;
+
+    const { row } = resolved;
     if ("err" in resolved) {
       sendLinkError(res, resolved.err);
       return;
@@ -552,22 +560,13 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
       return;
     }
 
-    const { session } = await loadSession(crew.id);
-    const decision = decideCheckout({
-      session,
-      now,
-      linkCrewId: row.crewId,
-      requestedCrewId: (req.body as { crewId?: unknown } | undefined)?.crewId,
-      crewActive: crew.active !== false,
-    });
+    const { session } = await loadSession(row.crewId);
+    const decision = decideLocationPing({ session, gps });
     if (!decision.ok) {
-      await audit(row.id, "denied", req, { code: decision.code });
       const message =
-        decision.code === "checkout_without_checkin"
-          ? "Check out needs an active check-in."
-          : decision.code === "wrong_crew"
-            ? "This link is not for that crew."
-            : "This crew is not active.";
+        decision.code === "session_ended"
+          ? "Location updates stop after check-out."
+          : "A fresh location fix is required.";
       res.status(decision.status).json({ error: message, code: decision.code });
       return;
     }
@@ -612,6 +611,12 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
 router.post("/checkin/:token/location", limits.trackPoint, async (req, res): Promise<void> => {
   try {
     const resolved = await resolveLink(tokenParam(req.params.token));
+
+    const { row } = resolved;
+
+    const { row } = resolved;
+
+    const { row } = resolved;
     if ("err" in resolved) {
       sendLinkError(res, resolved.err);
       return;

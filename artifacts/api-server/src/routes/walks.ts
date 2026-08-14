@@ -167,8 +167,10 @@ router.get("/walks", async (req, res): Promise<void> => {
     .orderBy(desc(walksTable.startedAt));
   if (propertyId) walks = walks.filter((w) => w.propertyId === propertyId);
   const captures = await db
-    .select({ walkId: walkCapturesTable.walkId })
-    .from(walkCapturesTable);
+    .select()
+    .from(walkCapturesTable)
+    .where(eq(walkCapturesTable.walkId, id))
+    .orderBy(desc(walkCapturesTable.createdAt));
   const counts = new Map<string, number>();
   for (const c of captures) counts.set(c.walkId, (counts.get(c.walkId) ?? 0) + 1);
   const names = await propertyNames();
@@ -182,7 +184,7 @@ router.get("/walks", async (req, res): Promise<void> => {
 });
 
 router.post("/walks", limits.walkWrite, async (req, res): Promise<void> => {
-  const body = CreateWalkBody.parse(req.body);
+  const body = CompleteWalkBody.parse(req.body ?? {});
   // GPS-picked target: any real, ACTIVE property is a valid walk target.
   const [property] = await db
     .select({ id: propertiesTable.id, name: propertiesTable.name })
@@ -222,7 +224,7 @@ async function loadWalk(id: string): Promise<WalkRow | undefined> {
 }
 
 router.get("/walks/:id", async (req, res): Promise<void> => {
-  const { id } = GetWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -246,7 +248,7 @@ router.get("/walks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/walks/:id", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = DeleteWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -271,94 +273,169 @@ router.delete("/walks/:id", limits.walkWrite, async (req, res): Promise<void> =>
 });
 
 router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = AddWalkCaptureParams.parse(req.params);
-  const body = AddWalkCaptureBody.parse(req.body);
+  const { id } = ApproveWalkParams.parse(req.params);
+  const body = CompleteWalkBody.parse(req.body ?? {});
   const outcome = await db.transaction(async (tx) => {
-    const [locked] = await tx
+    const [walk] = await tx
       .select()
       .from(walksTable)
       .where(eq(walksTable.id, id))
       .for("update");
-    if (!locked) return { status: 404 as const };
-    const [prop] = await tx
+    if (!walk) return { status: 404 as const };
+    const [walkProp] = await tx
       .select({ id: propertiesTable.id })
       .from(propertiesTable)
-      .where(eq(propertiesTable.id, locked.propertyId));
-    if (!prop) return { status: 404 as const };
-    if (locked.status === "completed") return { status: 409 as const };
-    const [row] = await tx
-      .insert(walkCapturesTable)
-      .values({
-        walkId: id,
-        unitNo: body.unitNo?.trim() || null,
-        // Multi-photo: photos[] is the source of truth; storagePath mirrors
-        // the first photo so older readers keep working.
-        storagePath: body.storagePath ?? body.photos?.[0] ?? null,
-        photos:
-          body.photos && body.photos.length > 0
-            ? body.photos
-            : body.storagePath
-              ? [body.storagePath]
-              : null,
-        service: body.service?.trim() || null,
-        qty: body.qty ?? null,
-        unitPrice: body.unitPrice ?? null,
-        note: body.note?.trim() || null,
-        lat: body.lat ?? null,
-        lng: body.lng ?? null,
-      })
-      .returning();
-    return { status: 201 as const, row };
-  });
-  if (outcome.status === 404) {
-    res.status(404).json({ error: "Walk not found" });
-    return;
-  }
-  if (outcome.status === 409) {
-    res.status(409).json({ error: "Walk already completed" });
-    return;
-  }
-  res.status(201).json(AddWalkCaptureResponse.parse(captureDto(outcome.row)));
-});
-
-// Several service lines for ONE walk item, committed atomically — either
-// every line lands or none do, so a mid-save failure can't leave a partial
-// service set. Photos ride on the first line's row.
-router.post("/walks/:id/captures/batch", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = AddWalkCaptureBatchParams.parse(req.params);
-  const parsedBody = AddWalkCaptureBatchBody.safeParse(req.body);
-  if (!parsedBody.success) {
-    res.status(400).json({ error: "At least one service line is required" });
-    return;
-  }
-  const body = parsedBody.data;
-  const outcome = await db.transaction(async (tx) => {
-    const [locked] = await tx
+      .where(eq(propertiesTable.id, walk.propertyId));
+    if (!walkProp) return { status: 404 as const };
+    if (walk.status === "completed")
+      return { status: 409 as const, error: "Walk already completed" };
+    const captures = await tx
       .select()
-      .from(walksTable)
+      .from(walkCapturesTable)
+      .where(eq(walkCapturesTable.walkId, id));
+    if (captures.length === 0)
+      return {
+        status: 409 as const,
+        error: "Add at least one capture before finishing",
+      };
+    const [property] = await tx
+      .select({ id: propertiesTable.id, name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, walk.propertyId));
+
+    // Server-authoritative pricing: rates come from the property's price
+    // book (matched by normalized service name), not from client input.
+    const priceRows = await tx
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.propertyId, walk.propertyId));
+    const bookRate = new Map<string, number>();
+    for (const p of priceRows) {
+      const key = p.service.trim().toLowerCase();
+      if (!bookRate.has(key)) bookRate.set(key, p.rate);
+    }
+
+    // Group captures by unit ("" = whole property / no unit).
+    const byUnit = new Map<string, CaptureRow[]>();
+    for (const c of captures) {
+      const key = c.unitNo?.trim() || "";
+      const list = byUnit.get(key);
+      if (list) list.push(c);
+      else byUnit.set(key, [c]);
+    }
+
+    const kindLabel =
+      walk.kind === "baseline"
+        ? "Baseline walk"
+        : walk.kind === "qa"
+          ? "QA walk"
+          : walk.kind === "completion"
+            ? "Completion walk"
+            : "Discovery walk";
+
+    // Same count-based J-#### convention the other job routes use, but read
+    // inside this transaction to narrow the window.
+    const existingJobs = await tx.select({ id: jobsTable.id }).from(jobsTable);
+    let jobSeq = 2000 + existingJobs.length;
+
+    for (const [unitKey, unitCaptures] of byUnit) {
+      jobSeq += 1;
+      const jobNo = `J-${jobSeq}`;
+      const scopeLines = unitCaptures
+        .filter((c) => c.service)
+        .map(
+          (c) =>
+            `• ${c.service}${c.qty && c.qty !== 1 ? ` × ${c.qty}` : ""}${c.note ? ` — ${c.note}` : ""}`,
+        );
+      const noteOnly = unitCaptures
+        .filter((c) => !c.service && c.note)
+        .map((c) => `• ${c.note}`);
+      const photoCount = unitCaptures.reduce(
+        (n, c) => n + (c.photos?.length ?? (c.storagePath ? 1 : 0)),
+        0,
+      );
+      const description = [
+        `${kindLabel} findings${unitKey ? ` — Unit ${unitKey}` : ""}`,
+        ...scopeLines,
+        ...noteOnly,
+        photoCount > 0 ? `${photoCount} photo${photoCount === 1 ? "" : "s"} attached from the walk` : null,
+        walk.notes ? `Walk notes: ${walk.notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const [job] = await tx
+        .insert(jobsTable)
+        .values({
+          propertyId: walk.propertyId,
+          unitNo: unitKey || null,
+          description,
+          scheduleType: "flex",
+          flexDueBy,
+          jobNo,
+        })
+        .returning();
+
+      // Scoped captures become line items; same service bumps qty.
+      const byService = new Map<string, { service: string; qty: number; unitPrice: number | null }>();
+      for (const c of unitCaptures) {
+        if (!c.service) continue;
+        const cur = byService.get(c.service);
+        const qty = c.qty && c.qty > 0 ? c.qty : 1;
+        if (cur) {
+          cur.qty += qty;
+          if (cur.unitPrice == null && c.unitPrice != null) cur.unitPrice = c.unitPrice;
+        } else {
+          byService.set(c.service, { service: c.service, qty, unitPrice: c.unitPrice ?? null });
+        }
+      }
+      for (const li of byService.values()) {
+        // Price book wins; the capture's unitPrice only covers "Other"
+        // scopes that aren't in the book.
+        const rate =
+          bookRate.get(li.service.trim().toLowerCase()) ?? li.unitPrice ?? 0;
+        await tx.insert(jobLineItemsTable).values({
+          jobId: job.id,
+          service: li.service,
+          qty: li.qty,
+          rate,
+        });
+      }
+
+      // Link this unit's captures to the job so photos surface in HALO.
+      for (const c of unitCaptures) {
+        await tx
+          .update(walkCapturesTable)
+          .set({ jobId: job.id })
+          .where(eq(walkCapturesTable.id, c.id));
+      }
+
+      await tx.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: job.id,
+        kind: "note",
+        body: `Job ${jobNo} created from a ${kindLabel.toLowerCase()}${property ? ` at ${property.name}` : ""}`,
+      });
+
+      createdJobs.push({ id: job.id, jobNo, unitNo: unitKey || null, photoCount });
+    }
+
+    const [updated] = await tx
+      .update(walksTable)
+      .set({
+        status: "completed",
+        endedAt: new Date(),
+        notes: body.notes?.trim() || walk.notes,
+        createdJobs,
+      })
       .where(eq(walksTable.id, id))
-      .for("update");
-    if (!locked) return { status: 404 as const };
-    if (locked.status === "completed") return { status: 409 as const };
-    const photos = body.photos && body.photos.length > 0 ? body.photos : null;
-    const rows = await tx
-      .insert(walkCapturesTable)
-      .values(
-        body.lines.map((line, i) => ({
-          walkId: id,
-          unitNo: body.unitNo?.trim() || null,
-          storagePath: i === 0 ? (photos?.[0] ?? null) : null,
-          photos: i === 0 ? photos : null,
-          service: line.service.trim() || null,
-          qty: line.qty ?? null,
-          unitPrice: line.unitPrice ?? null,
-          note: body.note?.trim() || null,
-          lat: body.lat ?? null,
-          lng: body.lng ?? null,
-        })),
-      )
       .returning();
-    return { status: 201 as const, rows };
+    return {
+      status: 200 as const,
+      updated,
+      propertyName: property?.name ?? null,
+      captureCount: captures.length,
+    };
   });
   if (outcome.status === 404) {
     res.status(404).json({ error: "Walk not found" });
@@ -376,8 +453,193 @@ router.post("/walks/:id/captures/batch", limits.walkWrite, async (req, res): Pro
 // Hold-to-talk: transcribe a short clip and parse it into capture DRAFTS.
 // Nothing is saved here — the walker confirms each prefilled item in the UI.
 router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = ParseWalkVoiceParams.parse(req.params);
-  const body = ParseWalkVoiceBody.parse(req.body);
+  const { id } = ApproveWalkParams.parse(req.params);
+  const parsedBody = AddWalkCaptureBatchBody.safeParse(req.body);
+  if (!parsedBody.success) {
+    res.status(400).json({ error: "At least one service line is required" });
+    return;
+  }
+  const body = CompleteWalkBody.parse(req.body ?? {});
+  const outcome = await db.transaction(async (tx) => {
+    const [walk] = await tx
+      .select()
+      .from(walksTable)
+      .where(eq(walksTable.id, id))
+      .for("update");
+    if (!walk) return { status: 404 as const };
+    const [walkProp] = await tx
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, walk.propertyId));
+    if (!walkProp) return { status: 404 as const };
+    if (walk.status === "completed")
+      return { status: 409 as const, error: "Walk already completed" };
+    const captures = await tx
+      .select()
+      .from(walkCapturesTable)
+      .where(eq(walkCapturesTable.walkId, id));
+    if (captures.length === 0)
+      return {
+        status: 409 as const,
+        error: "Add at least one capture before finishing",
+      };
+    const [property] = await tx
+      .select({ id: propertiesTable.id, name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, walk.propertyId));
+
+    // Server-authoritative pricing: rates come from the property's price
+    // book (matched by normalized service name), not from client input.
+    const priceRows = await tx
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.propertyId, walk.propertyId));
+    const bookRate = new Map<string, number>();
+    for (const p of priceRows) {
+      const key = p.service.trim().toLowerCase();
+      if (!bookRate.has(key)) bookRate.set(key, p.rate);
+    }
+
+    // Group captures by unit ("" = whole property / no unit).
+    const byUnit = new Map<string, CaptureRow[]>();
+    for (const c of captures) {
+      const key = c.unitNo?.trim() || "";
+      const list = byUnit.get(key);
+      if (list) list.push(c);
+      else byUnit.set(key, [c]);
+    }
+
+    const kindLabel =
+      walk.kind === "baseline"
+        ? "Baseline walk"
+        : walk.kind === "qa"
+          ? "QA walk"
+          : walk.kind === "completion"
+            ? "Completion walk"
+            : "Discovery walk";
+
+    // Same count-based J-#### convention the other job routes use, but read
+    // inside this transaction to narrow the window.
+    const existingJobs = await tx.select({ id: jobsTable.id }).from(jobsTable);
+    let jobSeq = 2000 + existingJobs.length;
+
+    for (const [unitKey, unitCaptures] of byUnit) {
+      jobSeq += 1;
+      const jobNo = `J-${jobSeq}`;
+      const scopeLines = unitCaptures
+        .filter((c) => c.service)
+        .map(
+          (c) =>
+            `• ${c.service}${c.qty && c.qty !== 1 ? ` × ${c.qty}` : ""}${c.note ? ` — ${c.note}` : ""}`,
+        );
+      const noteOnly = unitCaptures
+        .filter((c) => !c.service && c.note)
+        .map((c) => `• ${c.note}`);
+      const photoCount = unitCaptures.reduce(
+        (n, c) => n + (c.photos?.length ?? (c.storagePath ? 1 : 0)),
+        0,
+      );
+      const description = [
+        `${kindLabel} findings${unitKey ? ` — Unit ${unitKey}` : ""}`,
+        ...scopeLines,
+        ...noteOnly,
+        photoCount > 0 ? `${photoCount} photo${photoCount === 1 ? "" : "s"} attached from the walk` : null,
+        walk.notes ? `Walk notes: ${walk.notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const [job] = await tx
+        .insert(jobsTable)
+        .values({
+          propertyId: walk.propertyId,
+          unitNo: unitKey || null,
+          description,
+          scheduleType: "flex",
+          flexDueBy,
+          jobNo,
+        })
+        .returning();
+
+      // Scoped captures become line items; same service bumps qty.
+      const byService = new Map<string, { service: string; qty: number; unitPrice: number | null }>();
+      for (const c of unitCaptures) {
+        if (!c.service) continue;
+        const cur = byService.get(c.service);
+        const qty = c.qty && c.qty > 0 ? c.qty : 1;
+        if (cur) {
+          cur.qty += qty;
+          if (cur.unitPrice == null && c.unitPrice != null) cur.unitPrice = c.unitPrice;
+        } else {
+          byService.set(c.service, { service: c.service, qty, unitPrice: c.unitPrice ?? null });
+        }
+      }
+      for (const li of byService.values()) {
+        // Price book wins; the capture's unitPrice only covers "Other"
+        // scopes that aren't in the book.
+        const rate =
+          bookRate.get(li.service.trim().toLowerCase()) ?? li.unitPrice ?? 0;
+        await tx.insert(jobLineItemsTable).values({
+          jobId: job.id,
+          service: li.service,
+          qty: li.qty,
+          rate,
+        });
+      }
+
+      // Link this unit's captures to the job so photos surface in HALO.
+      for (const c of unitCaptures) {
+        await tx
+          .update(walkCapturesTable)
+          .set({ jobId: job.id })
+          .where(eq(walkCapturesTable.id, c.id));
+      }
+
+      await tx.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: job.id,
+        kind: "note",
+        body: `Job ${jobNo} created from a ${kindLabel.toLowerCase()}${property ? ` at ${property.name}` : ""}`,
+      });
+
+      createdJobs.push({ id: job.id, jobNo, unitNo: unitKey || null, photoCount });
+    }
+
+    const [updated] = await tx
+      .update(walksTable)
+      .set({
+        status: "completed",
+        endedAt: new Date(),
+        notes: body.notes?.trim() || walk.notes,
+        createdJobs,
+      })
+      .where(eq(walksTable.id, id))
+      .returning();
+    return {
+      status: 200 as const,
+      updated,
+      propertyName: property?.name ?? null,
+      captureCount: captures.length,
+    };
+  });
+  if (outcome.status === 404) {
+    res.status(404).json({ error: "Walk not found" });
+    return;
+  }
+  if (outcome.status === 409) {
+    res.status(409).json({ error: "Walk already completed" });
+    return;
+  }
+  res
+    .status(201)
+    .json(AddWalkCaptureBatchResponse.parse({ captures: outcome.rows.map(captureDto) }));
+});
+
+// Hold-to-talk: transcribe a short clip and parse it into capture DRAFTS.
+// Nothing is saved here — the walker confirms each prefilled item in the UI.
+router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Promise<void> => {
+  const { id } = ApproveWalkParams.parse(req.params);
+  const body = CompleteWalkBody.parse(req.body ?? {});
   const walk = await loadWalk(id);
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -435,7 +697,7 @@ router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Prom
     .select({ service: priceItemsTable.service })
     .from(priceItemsTable)
     .where(eq(priceItemsTable.propertyId, walk.propertyId));
-  const services = priceRows.map((p) => p.service);
+    const services = lineItems.map((li) => li.service);
   type Draft = { unitNo?: string | null; service?: string | null; qty?: number | null; note?: string | null };
   let items: Draft[] = [];
   try {
@@ -467,7 +729,7 @@ One utterance can contain multiple items and multiple units ("unit 204 two blind
 });
 
 router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = DeleteWalkCaptureParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const status = await db.transaction(async (tx) => {
     const [capture] = await tx
       .select()
@@ -505,7 +767,7 @@ router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<
 // unit, price-book scopes become line items, and photos stay linked so the
 // job timeline in the main app can surface them.
 router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<void> => {
-  const { id } = CompleteWalkParams.parse(req.params);
+  const { id } = ApproveWalkParams.parse(req.params);
   const body = CompleteWalkBody.parse(req.body ?? {});
   // Flex deadline a week out, built from LOCAL date parts (never UTC).
   const due = new Date();
