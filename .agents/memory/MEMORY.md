@@ -1,5 +1,5 @@
 - [HALO GPS Finder + Site Twin](halo-site-twin.md) — Pulse pin FAB + property edit search/drop-pin GPS; Site Twin snaps crew phone GPS onto georeferenced unit boxes with a live UNIT title.
-- [HALO Pulse dock rails](halo-pulse-dock-layout.md) — /pulse panels dock into ranked rails or pop out to float; rails are pointer-events:none, so panels shrink rather than scroll the rail. Desktop only.
+- [HALO Pulse dock rails](halo-pulse-dock-layout.md) — /pulse panels must outrank Leaflet (isolate stage, z>1000) or they vanish under the map; rails are pointer-events:none. Desktop only.
 - [HALO Field Jarvis](halo-field-jarvis.md) — Earpiece (AirPods + Whisper, not in-browser HF), GPS presence briefing, Morning Watch from autopilot; Command headphones icon; iOS mic dies when locked.
 - [HALO Property Pulse](halo-property-pulse.md) — `/pulse` is the optional Property Pulse tablet dashboard (live properties/jobs/crew GPS + Base44 sync + Twilio status); HUD grid opens it; autopilot SMS pings crew/admin once per local day.
 - [HALO Jarvis Grok OS](halo-jarvis-grok.md) — `/` is Grok-style HALO Command; CRM at `/ops` (mobile) / `/properties` (desktop); compound `actionPlans[]`; executors in jarvisDispatch.ts; Claude snapshot must include roster names/units.
@@ -35,8 +35,8 @@
 - [HALO Falkon Phase 1](halo-falkon-phase1.md) — Ed25519 identity, S2S gateway, 12-phase make-ready, 22-cap registry, webhook fail-closed, gated mode promotion; db lib must be rebuilt before typecheck.
 - [HALO Falkon S2S signing](halo-falkon-s2s-signing.md) — canonical X-Falkon-* headers, ms timestamp, nonce, base64url-no-pad Ed25519; inbound verification order; nonce table; remote key cached step 2.
 - [HALO Falkon mode badge](halo-falkon-mode-badge.md) — deriveFalkonMode must read gatewayMode (DB mode), NOT overallHealth (peer health); both HaloCommand files.
-- [HALO Falkon ASSISTED gate](halo-falkon-assisted-gate.md) — checkAssistedGate() for consequential actions; LIVE mode blocked from promote endpoint; eventIngestUrl column added.
-- [HALO Base44 sync](halo-base44-sync.md) — 15-min scheduler pull from legacy Base44 into 8 HALO tables; id mapping in base44_sync_map; price_items needs manual SELECT+UPDATE (expression index).
+- [HALO Falkon ASSISTED gate](halo-falkon-assisted-gate.md) — ceilings are DOLLARS; gate hits office clicks too (empty policies = everything needs approval); amounts come from the stored row, not req.body.
+- [HALO Base44 sync](halo-base44-sync.md) — scheduler pull from legacy Base44/Work App; guards must noteSkip not bare `continue` (silent drops looked like success for 881 runs); zero totals ≠ broken.
 - [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush/pushToCrewId helpers; wired to office messages, walk approval, emergency ping, and job-offer broadcast.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.

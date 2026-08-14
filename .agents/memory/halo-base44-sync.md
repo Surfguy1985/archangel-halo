@@ -6,9 +6,12 @@ description: One-way pull from the Base44 legacy system into HALO tables. Runs e
 # HALO Base44 Sync
 
 ## Endpoint
-- URL: `https://wakeful-ready-track-flow.base44.app/api/apps/wakeful-ready-track-flow/functions/haloRead`
+- URL: `https://wakeful-ready-track-flow.base44.app/functions/haloRead` (overridable via `BASE44_READ_URL`).
+  Earlier notes recorded an `/api/apps/<app>/functions/haloRead` path — that is **not** what the client uses.
 - Auth header: `x-halo-token: <HALO_READ_TOKEN secret>`
-- Returns 9 resources: `properties`, `units`, `invoices`, `crews`, `crew_jobs`, `payment_requests`, `calendar_slots`, `owners`, `price_items`
+- Payload shape is `{ generated_at, data: { <resource>: [...] } }` — **resources are nested under `data`**, not top level.
+- Serves 9 resources: `properties`, `units`, `invoices`, `crews`, `crew_jobs`, `payment_requests`, `calendar_slots`, `owners`, `price_items`.
+  `unit_jobs` and `unit_schedules` also appear in `base44_sync_map` but are **HALO-side derivations** (from `units`), not upstream resources.
 
 ## Architecture
 - `artifacts/api-server/src/lib/base44Sync.ts` — all sync logic
@@ -45,5 +48,26 @@ description: One-way pull from the Base44 legacy system into HALO tables. Runs e
 - `owners` patch `propertiesTable.pmcName` for linked properties and upsert to `contactsTable`
 - `syncRunning` mutex prevents overlapping runs
 - All entity errors are caught and counted — one bad record never aborts the whole sync
+
+## Guard clauses must call `noteSkip`, never bare `continue`
+Every `if (!propertyId) continue;`-style guard inside a sync function must call `noteSkip(resource, bid, reason)` first.
+
+**Why:** these guards used to `continue` silently. The sync reported `success` with 0 errors on 881 consecutive
+runs while permanently dropping rows the upstream was still serving — including *paid* crew jobs whose `unit_id`
+pointed at units deleted upstream (no `property`/`property_id` fallback exists on those records, so the property is
+unresolvable and the row can never be placed). Skips are not errors, but they are not synced either; unreported they
+are indistinguishable from success.
+
+**How to apply:** `noteSkip` feeds exact per-resource/per-reason counters plus a detail list capped at
+`MAX_SKIP_DETAIL`. Roll-up must use the *counters*, never `skipLog.length`, or capping silently undercounts.
+Surfaces as `SyncResult.totalSkipped`, `resources[x].skipped`, and health `unplaced`/`unplacedDetail`.
+Accessors return copies — never hand out the live array.
+
+## Reading the sync counters
+- `totalCreated`/`totalUpdated` come from the **ingest/evidence layer**, which does real change detection. All-zero
+  totals on a healthy run mean *nothing changed upstream*, not that the sync is broken.
+- Per-resource `updated` comes from the legacy projection path, which re-upserts unconditionally — it means
+  "rows touched", not "rows changed". The two numbers legitimately disagree.
+- `price_items` fans out per property (N upstream items × M properties), so its count far exceeds the upstream count.
 
 **Why map table:** Adding `base44Id` columns to every production table is invasive and pollutes read models. The side-table approach is fully reversible.

@@ -432,6 +432,11 @@ router.get("/settings/sync-base44/status", async (_req, res): Promise<void> => {
       recordsProcessed: health.recordsProcessed,
       failures: health.failures,
       stale: health.stale,
+      // Rows the Work App still serves that HALO could not place. Surfaced so a
+      // run can't report a clean success while quietly dropping records.
+      unplaced: health.unplaced,
+      unplacedDetail: health.unplacedDetail,
+      unplacedDetailTruncated: health.unplacedDetailTruncated,
     },
   });
 });

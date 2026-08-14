@@ -4,10 +4,57 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { db, invoicesTable } from "@workspace/db";
 import { classifyMutation, httpStatusForDecision, targetIdFromPath, actorChannelFromRequest } from "./falkonPolicyCore";
 import { enforceFalkonMutation } from "./falkonPolicy";
 import { logger } from "./logger";
 import { isPublicApiPath } from "./officeAuth";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve the amount a policy ceiling is compared against.
+ *
+ * Reading it from the request body alone was wrong in both directions: most
+ * consequential routes don't carry an amount at all (`POST /invoices/:id/send`
+ * has an effectively empty body), so a configured invoice ceiling could never
+ * pre-authorise anything and every send stopped for approval; and where a body
+ * amount IS present it is caller-supplied, so a spoofed low value could buy
+ * auto-approval for a large invoice.
+ *
+ * The stored record is authoritative, so prefer it. Creates have no record yet,
+ * so they legitimately fall back to the submitted value.
+ */
+async function resolveAmount(
+  targetType: string | null,
+  targetId: string | null,
+  body: unknown,
+): Promise<number | null> {
+  const b = body as { amount?: unknown; total?: unknown } | undefined;
+  const fromBody =
+    typeof b?.amount === "number" ? b.amount : typeof b?.total === "number" ? b.total : null;
+
+  if (targetType === "invoice" && targetId && UUID_RE.test(targetId)) {
+    try {
+      const [row] = await db
+        .select({ amount: invoicesTable.amount })
+        .from(invoicesTable)
+        .where(eq(invoicesTable.id, targetId))
+        .limit(1);
+      if (row && typeof row.amount === "number") return row.amount;
+    } catch (err) {
+      // Do NOT fall back to the body here. Once we know an authoritative record
+      // should exist, silently dropping to a caller-supplied number would let a
+      // spoofed low amount clear the ceiling whenever the lookup happens to
+      // fail. Rethrow so the guard's fail-closed 503 path handles it.
+      logger.error({ err, targetId }, "falkon: invoice amount lookup failed");
+      throw err;
+    }
+  }
+
+  return fromBody;
+}
 
 export function falkonMutationGuard() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -27,12 +74,9 @@ export function falkonMutationGuard() {
     const correlationId =
       (typeof req.headers["x-correlation-id"] === "string" && req.headers["x-correlation-id"]) ||
       randomUUID();
-    const amount =
-      typeof req.body?.amount === "number"
-        ? req.body.amount
-        : typeof req.body?.total === "number"
-          ? req.body.total
-          : null;
+    const targetId =
+      (typeof req.params?.id === "string" && req.params.id) || targetIdFromPath(req.path);
+    const amount = await resolveAmount(classified.targetType, targetId, req.body);
 
     try {
       const result = await enforceFalkonMutation({
@@ -41,8 +85,7 @@ export function falkonMutationGuard() {
         identity: req.haloIdentity,
         capability: typeof req.body?.capability === "string" ? req.body.capability : classified.action,
         targetType: classified.targetType,
-        targetId:
-          (typeof req.params?.id === "string" && req.params.id) || targetIdFromPath(req.path),
+        targetId,
         amount,
         propertyId: typeof req.body?.propertyId === "string" ? req.body.propertyId : null,
         approvalId,

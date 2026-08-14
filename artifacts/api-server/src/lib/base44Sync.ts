@@ -56,6 +56,56 @@ function b44Id(rec: Record<string, any>): string | null {
 }
 
 /** Read the HALO UUID we previously assigned to a Base44 entity. */
+/**
+ * An upstream row the sync could not place — missing id, unresolvable property,
+ * and so on.
+ *
+ * These guards used to `continue` silently, so rows the Work App was still
+ * serving (including paid crew jobs) disappeared on every run with no error, no
+ * log and no count: the sync reported a clean success while quietly dropping
+ * them. They are collected per run and rolled into the result instead.
+ */
+export interface SyncSkip {
+  resource: string;
+  base44Id: string | null;
+  reason: string;
+}
+
+/**
+ * Cap on retained skip detail. Counts are always exact; only the per-row detail
+ * is bounded, so a malformed or vastly expanded snapshot can't pin every skipped
+ * row in memory and dump it into the status response.
+ */
+const MAX_SKIP_DETAIL = 200;
+
+let skipLog: SyncSkip[] = [];
+let skipCount = 0;
+let skipByResource: Record<string, number> = {};
+let skipByReason: Record<string, number> = {};
+
+function resetSkips(): void {
+  skipLog = [];
+  skipCount = 0;
+  skipByResource = {};
+  skipByReason = {};
+}
+
+function noteSkip(resource: string, base44Id: string | null, reason: string): void {
+  skipCount += 1;
+  skipByResource[resource] = (skipByResource[resource] ?? 0) + 1;
+  const key = `${resource}:${reason}`;
+  skipByReason[key] = (skipByReason[key] ?? 0) + 1;
+  if (skipLog.length < MAX_SKIP_DETAIL) skipLog.push({ resource, base44Id, reason });
+}
+
+/**
+ * Unplaced rows from the most recent run, for the sync status surface.
+ * Returns copies — callers must not be able to mutate operational state.
+ */
+export function getLastSyncSkips(): SyncSkip[] {
+  return skipLog.map((s) => ({ ...s }));
+}
+
 async function lookupMap(resource: string, base44id: string): Promise<string | null> {
   const rows = await db
     .select({ haloId: base44SyncMapTable.haloId })
@@ -296,7 +346,7 @@ async function syncProperties(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("properties", null, "missing_id"); continue; }
     try {
       const payload = {
         name: String(rec.name ?? rec.property_name ?? "Unnamed Property"),
@@ -339,7 +389,7 @@ async function syncCrews(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("crews", null, "missing_id"); continue; }
     try {
       // Base44 crews: skills[] → trade, phone may be null, no email field
       const skills = Array.isArray(rec.skills) ? rec.skills : [];
@@ -420,15 +470,15 @@ async function syncUnits(records: any[]): Promise<SyncStats & { stale: number }>
 
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("units", null, "missing_id"); continue; }
     try {
       // Base44 units: property is a string name, unit_number is the label
       const propertyId =
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
-      if (!propertyId) continue;
+      if (!propertyId) { noteSkip("units", bid, "unresolved_property"); continue; }
       const label = String(rec.unit_number ?? rec.label ?? rec.name ?? rec.unit_no ?? "");
-      if (!label) continue;
+      if (!label) { noteSkip("units", bid, "missing_label"); continue; }
 
       const existing = await lookupMap("units", bid);
       if (existing) {
@@ -546,13 +596,13 @@ async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("unit_jobs", null, "missing_id"); continue; }
     try {
       // Resolve property from the string name Base44 provides.
       const propertyId =
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
-      if (!propertyId) continue;
+      if (!propertyId) { noteSkip("unit_jobs", bid, "unresolved_property"); continue; }
 
       // Resolve first assigned crew (crew_ids is an array in Base44).
       const crewIds: any[] = Array.isArray(rec.crew_ids) ? rec.crew_ids : [];
@@ -656,7 +706,7 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("crew_jobs", null, "missing_id"); continue; }
     try {
       const crewLeaderId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
       const crewRate = rec.amount ? Number(rec.amount) : null;
@@ -687,7 +737,7 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
         (await resolveUnitPropertyId(rec.unit_id)) ??
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
-      if (!propertyId) continue;
+      if (!propertyId) { noteSkip("crew_jobs", bid, "unresolved_property"); continue; }
 
       let unitNo: string | null = null;
       if (rec.unit_id) {
@@ -734,13 +784,13 @@ async function syncInvoices(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("invoices", null, "missing_id"); continue; }
     try {
       // Base44 invoices: property is a string name, invoice_number is the key field
       const propertyId =
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
-      if (!propertyId) continue;
+      if (!propertyId) { noteSkip("invoices", bid, "unresolved_property"); continue; }
       const invoiceNo = String(rec.invoice_number ?? rec.invoice_no ?? rec.invoiceNo ?? bid.slice(-8));
       // Try to link to a specific job via unit_id / unit_number → unit_jobs map.
       let jobId: string | null = null;
@@ -825,13 +875,13 @@ async function syncPaymentRequests(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("payment_requests", null, "missing_id"); continue; }
     try {
       // Base44 payment_requests: property_name is a string, amount in cents
       const propertyId =
         (await resolvePropertyByName(rec.property_name ?? rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
-      if (!propertyId) continue;
+      if (!propertyId) { noteSkip("payment_requests", bid, "unresolved_property"); continue; }
       const requestNo = String((rec.crew_invoice_number || rec.request_no) ?? rec.requestNo ?? bid.slice(-8));
       const amountDollars = rec.amount_cents != null
         ? Number(rec.amount_cents) / 100
@@ -922,10 +972,10 @@ async function syncCalendarSlots(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("calendar_slots", null, "missing_id"); continue; }
     try {
       const eventDate = toDateStr(rec.date ?? rec.event_date ?? rec.eventDate ?? rec.start_date);
-      if (!eventDate) continue;
+      if (!eventDate) { noteSkip("calendar_slots", bid, "missing_date"); continue; }
       const crewId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
       // Base44: services_needed[] → title, property + unit_number as context
       const services = Array.isArray(rec.services_needed) ? rec.services_needed : [];
@@ -983,10 +1033,10 @@ async function syncPriceItems(records: any[]): Promise<SyncStats> {
 
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("price_items", null, "missing_id"); continue; }
     try {
       const service = String(rec.service ?? rec.name ?? rec.item ?? "");
-      if (!service) continue;
+      if (!service) { noteSkip("price_items", bid, "missing_service"); continue; }
       // Base44 uses `price` field, not `rate`
       const rate = Number(rec.price ?? rec.rate ?? rec.unit_price ?? 0);
 
@@ -1038,7 +1088,7 @@ async function syncOwners(records: any[], propertyRecords: any[]): Promise<SyncS
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
-    if (!bid) continue;
+    if (!bid) { noteSkip("owners", null, "missing_id"); continue; }
     try {
       const name = String(rec.name ?? rec.company ?? rec.full_name ?? "");
       const email = rec.email ?? null;
@@ -1097,6 +1147,9 @@ export interface SyncStats {
   created: number;
   updated: number;
   errors: number;
+  /** Rows the sync could not place. Folded in at roll-up, not by the syncers. */
+  skipped?: number;
+  stale?: number;
 }
 
 export interface SyncResult {
@@ -1112,6 +1165,8 @@ export interface SyncResult {
   totalUpdated: number;
   totalStale: number;
   totalErrors: number;
+  /** Upstream rows the sync could not place. Not errors, but not synced either. */
+  totalSkipped: number;
 }
 
 export interface SyncHealth {
@@ -1124,6 +1179,11 @@ export interface SyncHealth {
   recordsProcessed: number;
   failures: number;
   stale: number;
+  /** Rows the Work App is still serving that HALO could not place. */
+  unplaced: number;
+  /** Capped at MAX_SKIP_DETAIL; `unplaced` remains the exact count. */
+  unplacedDetail: SyncSkip[];
+  unplacedDetailTruncated: boolean;
   result: SyncResult | null;
 }
 
@@ -1160,6 +1220,7 @@ export async function hydrateSyncHealthFromDb(): Promise<void> {
       totalUpdated: latest.totalUpdated,
       totalStale: latest.totalStale,
       totalErrors: latest.totalErrors,
+      totalSkipped: latest.totalSkipped ?? 0,
     };
     const lastOk = rows.find((r) => r.status === "success" || r.status === "partial");
     if (lastOk?.finishedAt) lastSuccessfulAt = lastOk.finishedAt;
@@ -1181,6 +1242,9 @@ export function getBase44SyncHealth(now = new Date()): SyncHealth {
       (lastSyncResult?.totalCreated ?? 0) + (lastSyncResult?.totalUpdated ?? 0),
     failures: lastSyncResult?.totalErrors ?? 0,
     stale: lastSyncResult?.totalStale ?? 0,
+    unplaced: lastSyncResult?.totalSkipped ?? 0,
+    unplacedDetail: getLastSyncSkips(),
+    unplacedDetailTruncated: (lastSyncResult?.totalSkipped ?? 0) > skipLog.length,
     result: lastSyncResult,
   };
 }
@@ -1203,6 +1267,7 @@ async function persistRun(result: SyncResult): Promise<void> {
       totalUpdated: result.totalUpdated,
       totalStale: result.totalStale,
       totalErrors: result.totalErrors,
+      totalSkipped: result.totalSkipped,
       attempts: result.attempts,
       resources: result.resources,
     });
@@ -1257,11 +1322,13 @@ export async function runBase44Sync(opts?: {
         totalUpdated: 0,
         totalStale: 0,
         totalErrors: 0,
+        totalSkipped: 0,
       }
     );
   }
   syncRunning = true;
   const startedAt = new Date();
+  resetSkips();
   logger.info("base44 sync: starting");
 
   try {
@@ -1287,6 +1354,7 @@ export async function runBase44Sync(opts?: {
         totalUpdated: 0,
         totalStale: 0,
         totalErrors: 1,
+        totalSkipped: 0,
       });
       await persistRun(result);
       logger.warn("base44 sync: malformed payload — existing data left untouched");
@@ -1371,6 +1439,25 @@ export async function runBase44Sync(opts?: {
     }
     await Promise.all(parallel2);
 
+    // Fold unplaced rows into the per-resource stats so they show up next to
+    // the counts they were missing from. Driven by the exact counters, not the
+    // capped detail list.
+    for (const [resource, count] of Object.entries(skipByResource)) {
+      const bucket = (resources[resource] ??= { created: 0, updated: 0, errors: 0 });
+      bucket.skipped = (bucket.skipped ?? 0) + count;
+    }
+    if (skipCount > 0) {
+      logger.warn(
+        {
+          total: skipCount,
+          byReason: skipByReason,
+          sample: skipLog.slice(0, 20),
+          detailTruncated: skipCount > skipLog.length,
+        },
+        "base44 sync: upstream rows could not be placed into HALO",
+      );
+    }
+
     const compatErrors = Object.values(resources).reduce((s, r) => s + r.errors, 0);
     const result = finishResult(startedAt, {
       status: ingest.totalErrors + compatErrors > 0 ? "partial" : "success",
@@ -1381,12 +1468,14 @@ export async function runBase44Sync(opts?: {
       totalUpdated: ingest.totalUpdated,
       totalStale: ingest.totalStale,
       totalErrors: ingest.totalErrors + compatErrors,
+      totalSkipped: skipCount,
     });
     await persistRun(result);
     logger.info(
       {
         durationMs: result.durationMs,
         totalCreated: result.totalCreated,
+        totalSkipped: result.totalSkipped,
         freshness: result.freshness,
       },
       "base44 sync: complete",
@@ -1405,6 +1494,7 @@ export async function runBase44Sync(opts?: {
       totalUpdated: 0,
       totalStale: 0,
       totalErrors: 1,
+      totalSkipped: skipCount,
     });
     await persistRun(result);
     return result;

@@ -391,8 +391,22 @@ router.put("/falkon/policies", async (req, res) => {
     const boolFields = [
       "requireInspection", "autoDispatchEnabled", "aiPhotoReviewEnabled",
     ];
+    // null / "" must clear a ceiling. Number(null) and Number("") both coerce to
+    // 0, which reads as "auto-approve nothing" rather than "no limit configured"
+    // — a silent and very different policy — so translate them explicitly.
     for (const f of numericFields) {
-      if (body[f] !== undefined) values[f] = Number(body[f]);
+      if (body[f] === undefined) continue;
+      const raw = body[f];
+      if (raw === null || raw === "") {
+        values[f] = null;
+        continue;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n)) {
+        res.status(400).json({ error: `${f} must be a number or null` });
+        return;
+      }
+      values[f] = n;
     }
     for (const f of boolFields) {
       if (body[f] !== undefined) values[f] = Boolean(body[f]);

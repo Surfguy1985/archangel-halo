@@ -11,13 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -2256,6 +2250,236 @@ function AuditLogTab() {
 
 // ─── Root Component ───────────────────────────────────────────────────────────
 
+// ─── Automation Limits ─────────────────────────────────────────────────────────
+//
+// Pre-authorisation ceilings for ASSISTED mode. In ASSISTED, every consequential
+// mutation stops for human approval UNLESS a policy pre-authorises it — and the
+// gate applies to office clicks too, not just Falkon/AI traffic. So with no
+// policy rows, promoting to ASSISTED would make staff wait on nearly every
+// action. These limits are the release valve.
+//
+// Amounts are plain dollars: the guard compares them against the request's
+// `amount`/`total` field, which HALO stores as dollars.
+//
+// Lookup is REPLACEMENT, not merge — a property row wins outright over the
+// global row, so an override must restate every field it wants in force.
+
+type PolicyRow = {
+  id: string;
+  propertyId: string | null;
+  autoDispatchEnabled: boolean | null;
+  maxAutoInvoiceAmount: number | null;
+  maxAutoCrewRate: number | null;
+  maxAutoChangeOrder: number | null;
+};
+
+type PolicyDraft = {
+  autoDispatchEnabled: boolean;
+  maxAutoInvoiceAmount: string;
+  maxAutoCrewRate: string;
+  maxAutoChangeOrder: string;
+};
+
+function draftFrom(p?: PolicyRow | null): PolicyDraft {
+  const num = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
+  return {
+    autoDispatchEnabled: !!p?.autoDispatchEnabled,
+    maxAutoInvoiceAmount: num(p?.maxAutoInvoiceAmount),
+    maxAutoCrewRate: num(p?.maxAutoCrewRate),
+    maxAutoChangeOrder: num(p?.maxAutoChangeOrder),
+  };
+}
+
+const MODE_NOTE: Record<Mode, { tone: string; text: string }> = {
+  OFF: {
+    tone: "text-muted-foreground",
+    text: "Falkon is OFF — everything runs normally and these limits are not consulted. Set them now so nothing stalls the day you switch to ASSISTED.",
+  },
+  SHADOW: {
+    tone: "text-amber-400",
+    text: "SHADOW — actions run normally and are mirrored to Falkon. These limits are not enforced yet.",
+  },
+  ASSISTED: {
+    tone: "text-blue-400",
+    text: "ASSISTED — these limits are live. Anything at or under a ceiling runs immediately; anything above it waits in the approval queue.",
+  },
+  LIVE: {
+    tone: "text-green-400",
+    text: "LIVE — Falkon executes autonomously. These ceilings still bound what runs without review.",
+  },
+};
+
+const MONEY_FIELDS: { key: keyof PolicyDraft; label: string; help: string }[] = [
+  {
+    key: "maxAutoInvoiceAmount",
+    label: "Auto-send invoices up to",
+    help: "Invoices at or under this go out without approval.",
+  },
+  {
+    key: "maxAutoCrewRate",
+    label: "Auto-approve crew pay up to",
+    help: "Crew rates at or under this are paid without approval.",
+  },
+  {
+    key: "maxAutoChangeOrder",
+    label: "Auto-approve change orders up to",
+    help: "Change orders at or under this are accepted without approval.",
+  },
+];
+
+// "" means "no ceiling" (approval always required). `undefined` means the text
+// isn't a usable amount — coercing a typo to "no ceiling" would quietly delete a
+// configured limit while reporting a successful save.
+function parseCeiling(s: string): number | null | undefined {
+  const t = s.trim();
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function AutomationTab() {
+  const { toast } = useToast();
+  const [mode, setMode] = useState<Mode>("OFF");
+  const [draft, setDraft] = useState<PolicyDraft>(draftFrom(null));
+  const [dirty, setDirty] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  // Ref as well as state: `load` is a stable callback and must see the current
+  // value without taking `dirty` as a dependency (which would refetch on edit).
+  const dirtyRef = useRef(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [pol, conn] = await Promise.all([
+        apiFetch<{ policies?: PolicyRow[] }>("/falkon/policies").catch(() => ({ policies: [] })),
+        apiFetch<{ connected?: boolean; connection?: { mode?: string } }>("/falkon/connection")
+          .catch(() => ({}) as { connected?: boolean; connection?: { mode?: string } }),
+      ]);
+      setMode(((conn?.connection?.mode as Mode | undefined) ?? "OFF") as Mode);
+      const rows = Array.isArray(pol?.policies) ? pol.policies : [];
+      // Never clobber edits already in progress.
+      if (!dirtyRef.current) setDraft(draftFrom(rows.find((p) => p.propertyId === null)));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const set = (k: keyof PolicyDraft, v: string | boolean) => {
+    dirtyRef.current = true;
+    setDirty(true);
+    setDraft((d) => ({ ...d, [k]: v }));
+  };
+
+  const invalid = MONEY_FIELDS.filter((f) => parseCeiling(draft[f.key] as string) === undefined);
+
+  const save = async () => {
+    if (invalid.length > 0) return;
+    setSaving(true);
+    try {
+      await apiFetch("/falkon/policies", {
+        method: "PUT",
+        body: JSON.stringify({
+          propertyId: null,
+          autoDispatchEnabled: draft.autoDispatchEnabled,
+          maxAutoInvoiceAmount: parseCeiling(draft.maxAutoInvoiceAmount) ?? null,
+          maxAutoCrewRate: parseCeiling(draft.maxAutoCrewRate) ?? null,
+          maxAutoChangeOrder: parseCeiling(draft.maxAutoChangeOrder) ?? null,
+        }),
+      });
+      dirtyRef.current = false;
+      setDirty(false);
+      toast({ title: "Automation limits saved" });
+      await load();
+    } catch (e) {
+      toast({
+        title: "Save failed",
+        description: e instanceof Error ? e.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const note = MODE_NOTE[mode];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Automation Limits
+          <Badge className={`${MODE_COLORS[mode]} text-white`}>{mode}</Badge>
+        </CardTitle>
+        <CardDescription className={note.tone}>{note.text}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="flex items-center justify-between rounded-lg border border-[var(--hairline)] p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="auto-dispatch">Auto-dispatch crews</Label>
+            <p className="text-xs text-muted-foreground">
+              Send crews to scheduled work without waiting for approval.
+            </p>
+          </div>
+          <Switch
+            id="auto-dispatch"
+            data-testid="policy-auto-dispatch"
+            checked={draft.autoDispatchEnabled}
+            onCheckedChange={(v) => set("autoDispatchEnabled", v)}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {MONEY_FIELDS.map((f) => {
+            const bad = parseCeiling(draft[f.key] as string) === undefined;
+            return (
+              <div key={f.key} className="space-y-1.5">
+                <Label htmlFor={f.key}>{f.label}</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <Input
+                    id={f.key}
+                    data-testid={`policy-${f.key}`}
+                    className={`pl-7 ${bad ? "border-destructive" : ""}`}
+                    type="number"
+                    min={0}
+                    step={50}
+                    aria-invalid={bad || undefined}
+                    placeholder="No limit"
+                    value={draft[f.key] as string}
+                    onChange={(e) => set(f.key, e.target.value)}
+                  />
+                </div>
+                <p className={`text-xs ${bad ? "text-destructive" : "text-muted-foreground"}`}>
+                  {bad ? "Enter a dollar amount, or leave empty." : f.help}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Leave a box empty to require approval for that action every time, whatever the
+          amount. These limits apply across every property.
+        </p>
+
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={save}
+            disabled={saving || loading || !dirty || invalid.length > 0}
+            data-testid="policy-save"
+          >
+            {saving ? "Saving…" : "Save limits"}
+          </Button>
+          {dirty && !saving && <span className="text-xs text-amber-400">Unsaved changes</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function FalkonConnect() {
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -2308,6 +2532,7 @@ export default function FalkonConnect() {
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="usage">Usage</TabsTrigger>
           <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
+          <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="bootstrap">Bootstrap Sync</TabsTrigger>
         </TabsList>
 
@@ -2351,6 +2576,7 @@ export default function FalkonConnect() {
         <TabsContent value="events"><InboundEventsTab /></TabsContent>
         <TabsContent value="usage"><UsageTab /></TabsContent>
         <TabsContent value="eligibility"><EligibilityTab /></TabsContent>
+        <TabsContent value="automation"><AutomationTab /></TabsContent>
         <TabsContent value="bootstrap"><BootstrapSyncTab /></TabsContent>
       </Tabs>
     </div>

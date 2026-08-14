@@ -28,6 +28,9 @@ export const base44SyncRunsTable = pgTable(
     totalUpdated: integer("total_updated").notNull().default(0),
     totalStale: integer("total_stale").notNull().default(0),
     totalErrors: integer("total_errors").notNull().default(0),
+    // Upstream rows HALO could not place (unresolvable property, missing id).
+    // Not errors, but not synced either — tracked so they can't vanish silently.
+    totalSkipped: integer("total_skipped").notNull().default(0),
     attempts: integer("attempts").notNull().default(1),
     resources: jsonb("resources").$type<Record<string, unknown>>().notNull().default({}),
   },

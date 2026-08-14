@@ -313,7 +313,9 @@ function HudBox({
   return (
     <article
       className="pulse-hud-box"
-      style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h, zIndex: 20 + z }}
+      // Floating panels sit above every Leaflet layer (panes 400-700, controls
+      // 800-1000); the stage's own stacking context keeps them under the modals.
+      style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h, zIndex: 1100 + z }}
       onPointerDown={onFocus}
       onWheel={(e) => e.stopPropagation()}
     >

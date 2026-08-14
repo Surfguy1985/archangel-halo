@@ -363,8 +363,12 @@ textarea:focus:not(:focus-visible) {
   color: #0F1B2D;
   box-shadow: 0 0 18px rgba(180,255,68,0.35);
 }
+/* See the desktop app for the full rationale: isolating the stage lets the
+   floating panels outrank Leaflet's panes/controls (400-1000) without also
+   outranking the GPS/Site Twin modals layered over the page. */
 .pulse-hud-stage {
   position: relative;
+  isolation: isolate;
   min-width: 0;
   min-height: 0;
   overflow: hidden;

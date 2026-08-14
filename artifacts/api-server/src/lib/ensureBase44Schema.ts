@@ -45,6 +45,8 @@ const STATEMENTS: string[] = [
     attempts integer NOT NULL DEFAULT 1,
     resources jsonb NOT NULL DEFAULT '{}'::jsonb
   )`,
+  `ALTER TABLE base44_sync_runs
+     ADD COLUMN IF NOT EXISTS total_skipped integer NOT NULL DEFAULT 0`,
   `CREATE INDEX IF NOT EXISTS base44_sync_runs_attempted_idx
      ON base44_sync_runs (attempted_at)`,
   `CREATE TABLE IF NOT EXISTS base44_evidence (
