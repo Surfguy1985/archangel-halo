@@ -727,6 +727,13 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
 // refreshes the same cards instead of duplicating them.
 router.post("/walks/:id/approve", async (req, res): Promise<void> => {
   const { id } = ApproveWalkParams.parse(req.params);
+  // Boundary first — OFF must always win, even for nonexistent walks.
+  try {
+    await assertFalkonBoundary("approve_walk");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
+  }
   const [walk] = await db.select().from(walksTable).where(eq(walksTable.id, id));
   if (!walk) {
     res.status(404).json({ error: "Walk not found" });
@@ -735,12 +742,6 @@ router.post("/walks/:id/approve", async (req, res): Promise<void> => {
   if (walk.status !== "completed") {
     res.status(409).json({ error: "Finish the walk first — approve sends the created jobs to the client board." });
     return;
-  }
-  try {
-    await assertFalkonBoundary("approve_walk");
-  } catch (err) {
-    if (handleBoundaryError(err, res)) return;
-    throw err;
   }
   const created = (walk.createdJobs ?? []) as { id: string; jobNo?: string; unitNo?: string | null }[];
   if (created.length === 0) {

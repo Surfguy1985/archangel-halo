@@ -293,6 +293,10 @@ const SAFE_PATHS: RegExp[] = [
   /^\/storage\//,
   /^\/vapi\//,
   /^\/falkon\/(webhook|ping|inbound|admin\/verify|admin\/eligibility|admin\/test)/,
+  // Test-only helper — mounted only when HALO_E2E_ENABLED=1, refuses to boot in
+  // production, and every request requires the X-E2E-Token secret. Exempt from
+  // the mutation guard so the suite can flip modes even when mode is ASSISTED.
+  /^\/falkon-test\//,
   /^\/falkon\/approvals(\/|$)/,
   /^\/falkon\/policy\/decisions$/,
   /^\/presentation\/demo/,

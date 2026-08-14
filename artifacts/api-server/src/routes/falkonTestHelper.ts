@@ -19,6 +19,7 @@
  *   GET  /falkon-test/events     ?entityId=&status=    → matching falkon_events rows
  */
 
+import { createHmac } from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -37,12 +38,25 @@ type FalkonMode = (typeof VALID_MODES)[number];
 // inoperable until a secret is explicitly configured, preventing accidental
 // open access.
 
+/**
+ * Expected token: HALO_E2E_TOKEN env override, or an HMAC derived from
+ * SESSION_SECRET. The derived form keeps the credential out of the repo and
+ * out of committed env files — anyone able to compute it already holds
+ * SESSION_SECRET and could mint office sessions outright.
+ */
+export function expectedE2eToken(): string | null {
+  if (process.env.HALO_E2E_TOKEN) return process.env.HALO_E2E_TOKEN;
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) return null;
+  return createHmac("sha256", secret).update("halo-falkon-e2e-helper").digest("base64url");
+}
+
 function e2eTokenMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const expected = process.env.HALO_E2E_TOKEN;
+  const expected = expectedE2eToken();
   if (!expected) {
     res.status(503).json({
       ok: false,
-      error: "HALO_E2E_TOKEN is not configured. Set a strong random secret to enable the test helper.",
+      error: "No E2E token available (SESSION_SECRET or HALO_E2E_TOKEN must be set).",
     });
     return;
   }
@@ -56,8 +70,11 @@ function e2eTokenMiddleware(req: Request, res: Response, next: NextFunction): vo
 
 const router = Router();
 
-// Apply the token gate to every /falkon-test/* route
-router.use(e2eTokenMiddleware);
+// Apply the token gate to every /falkon-test/* route.
+// IMPORTANT: must be path-scoped — this router is mounted with router.use(...)
+// at the API root, so an unscoped middleware here would gate EVERY route
+// registered after it behind X-E2E-Token.
+router.use("/falkon-test", e2eTokenMiddleware);
 
 // ── POST /falkon-test/set-mode ────────────────────────────────────────────────
 // Upserts the falkon_connections singleton to the requested mode.

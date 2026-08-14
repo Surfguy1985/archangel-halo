@@ -30,3 +30,6 @@ HALO_API_BASE_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1
 HALO_DASHBOARD_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/desktop/"
 PUBLIC_APP_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/"
 ALLOWED_ORIGINS = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev"
+
+[userenv.development]
+HALO_E2E_ENABLED = "1"

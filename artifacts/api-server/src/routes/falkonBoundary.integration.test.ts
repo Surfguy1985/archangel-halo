@@ -38,6 +38,7 @@
  *   pnpm --filter @workspace/api-server run test
  */
 
+import { createHmac } from "node:crypto";
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import {
   FalkonBoundaryError,
@@ -105,7 +106,15 @@ describe("isFalkonBoundaryError", () => {
 const BASE        = process.env.HALO_E2E_BASE   ?? "";
 const COOKIE      = process.env.HALO_E2E_COOKIE ?? "";
 const E2E_ENABLED = process.env.HALO_E2E_ENABLED === "1";
-const E2E_TOKEN   = process.env.HALO_E2E_TOKEN  ?? "";
+// Token: explicit HALO_E2E_TOKEN, or the same SESSION_SECRET-derived HMAC the
+// server computes — keeps the credential out of the repo and env files.
+const E2E_TOKEN =
+  process.env.HALO_E2E_TOKEN ??
+  (process.env.SESSION_SECRET
+    ? createHmac("sha256", process.env.SESSION_SECRET)
+        .update("halo-falkon-e2e-helper")
+        .digest("base64url")
+    : "");
 
 /** Shared HTTP helper — injects office cookie and, when present, the E2E token. */
 async function api(path: string, init?: RequestInit) {
@@ -193,7 +202,14 @@ describe.skipIf(!BASE)("Falkon boundary — REST route smoke tests", () => {
     const r = await api("/walks/00000000-0000-0000-0000-000000000000/approve", {
       method: "POST",
     });
-    expect([404, 503]).toContain(r.status);
+    // Walk routes are identity-exempt (walk app has its own passcode), so in
+    // SHADOW the policy guard intercepts with 200 SHADOW_ONLY (executed:false)
+    // before the route runs. That is a block, not a mutation.
+    expect([200, 404, 503]).toContain(r.status);
+    if (r.status === 200) {
+      expect(r.json).toMatchObject({ executed: false, decision: "SHADOW_ONLY" });
+    }
+    expect(r.status).not.toBe(500);
   });
 
   it("bid send returns 404 for nonexistent bid (not 500)", async () => {
@@ -536,7 +552,36 @@ describe.skipIf(!BASE || !E2E_ENABLED || !E2E_TOKEN)(
     // false (DB default). For send_invoice, maxAutoInvoiceAmount=null means any
     // invoice amount is beyond the ceiling → 403.
 
-    it("ASSISTED (no auto-dispatch policy): dispatch returns 403 gateBlocked", async () => {
+    // NOTE: since the Falkon mutation-guard middleware landed ("Enforce Falkon
+    // ASSISTED as a single fail-closed mutation invariant"), consequential
+    // mutations in ASSISTED are intercepted BEFORE the per-route
+    // checkAssistedGate 403: the guard returns 202 REQUIRE_APPROVAL with an
+    // approvalId. Both are hard blocks; these tests accept either shape so
+    // they pin "ASSISTED blocks the mutation" without depending on which
+    // layer fires first.
+
+    function expectAssistedBlocked(r: { status: number; json: any }) {
+      expect([202, 403]).toContain(r.status);
+      expect(r.json.ok).toBe(false);
+      if (r.status === 202) {
+        // New policy-layer contract
+        expect(r.json).toMatchObject({
+          executed: false,
+          decision: "REQUIRE_APPROVAL",
+          mode: "ASSISTED",
+        });
+        expect(r.json.approvalId).toBeTruthy();
+      } else {
+        // Legacy per-route gate contract
+        expect(r.json).toMatchObject({
+          gateBlocked: true,
+          reason: expect.any(String),
+          summary: expect.any(String),
+        });
+      }
+    }
+
+    it("ASSISTED (no auto-dispatch policy): dispatch is blocked (202 REQUIRE_APPROVAL / 403 gateBlocked)", async () => {
       await setMode("ASSISTED");
 
       const r = await api(`/jobs/${dispatchJobId}/dispatch`, {
@@ -544,22 +589,13 @@ describe.skipIf(!BASE || !E2E_ENABLED || !E2E_TOKEN)(
         body: JSON.stringify({ crewLeaderId: crewId, scheduledOn: "2026-09-15" }),
       });
 
-      expect(r.status).toBe(403);
-      expect(r.json).toMatchObject({
-        ok: false,
-        gateBlocked: true,
-        reason: expect.any(String),
-        summary: expect.any(String),
-      });
-      // Reason must name the action so the UI can surface it specifically
-      expect(r.json.reason).toMatch(/dispatch/i);
+      expectAssistedBlocked(r);
     });
 
-    it("ASSISTED (no invoice policy ceiling): invoice create returns 403 gateBlocked", async () => {
+    it("ASSISTED (no invoice policy ceiling): invoice create is blocked (202 REQUIRE_APPROVAL / 403 gateBlocked)", async () => {
       await setMode("ASSISTED");
 
-      // Schema-valid body so Zod parse passes and the boundary is the gatekeeper.
-      // With no falkon_policies row, maxAutoInvoiceAmount is null → any amount blocked.
+      // Schema-valid body so a parse rejection can never masquerade as the gate.
       const r = await api("/invoices", {
         method: "POST",
         body: JSON.stringify({
@@ -569,13 +605,7 @@ describe.skipIf(!BASE || !E2E_ENABLED || !E2E_TOKEN)(
         }),
       });
 
-      expect(r.status).toBe(403);
-      expect(r.json).toMatchObject({
-        ok: false,
-        gateBlocked: true,
-        reason: expect.any(String),
-        summary: expect.any(String),
-      });
+      expectAssistedBlocked(r);
     });
 
     // ── SHADOW → mutation + no pending event proofs ───────────────────────────

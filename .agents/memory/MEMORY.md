@@ -118,4 +118,5 @@
 - [HALO bid → client request flow](halo-bid-flow.md) — B-xxxx is DB-unique + retried on 23505; client bid-lookup is property-scoped; wizard prefill is one-shot; ai-pricing is knowledge-based.
 - [HALO crew availability & history](halo-crew-availability.md) — availability jsonb via generic PATCH; work-history jobs by crewLeaderId only; extras kind=bonus/gift_card still count in pay aggregates.
 - [HALO photo library](halo-photo-library.md) — office photo browser merges crew_photos + job photo activities; assign-to-card must validate paths against the library set (never trust client paths).
+- [HALO E2E mode-toggle suite](halo-e2e-mode-toggle-suite.md) — how to run the boundary suite live; guard 202s fire before route 403s; unscoped sub-router middleware gates the whole API; stale ASSISTED row blocks everything.
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).
