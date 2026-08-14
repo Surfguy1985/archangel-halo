@@ -216,16 +216,9 @@ export async function executeCrewSms(params: Record<string, unknown>, descriptio
   if (!(await smsEnabled())) {
     return JSON.stringify({ type: "sms_draft", crewName: crew.name, phone: crew.phone, body, sent: false, reason: "SMS not configured — copy and send manually" });
   }
-  const result = await sendSms(crew.phone, body);
-  const settings = await getTwilioSettings();
-  await db.insert(haloSmsMessagesTable).values({
-    direction: "outbound",
-    crewId: crew.id,
-    fromE164: toE164(settings?.phoneNumber ?? "") ?? "unknown",
-    toE164: toE164(crew.phone) ?? crew.phone,
-    body,
-    status: result.ok ? "sent" : "failed",
-  });
+  // sendSms writes the outbound log row itself (with the delivery-callback
+  // nonce). A second row here would never settle and would contradict it.
+  const result = await sendSms(crew.phone, body, { crewId: crew.id });
   if (!result.ok) {
     return JSON.stringify({ type: "sms_draft", crewName: crew.name, body, sent: false, reason: result.error ?? "Twilio failed" });
   }

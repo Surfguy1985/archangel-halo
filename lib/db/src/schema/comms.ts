@@ -2,13 +2,22 @@ import {
   pgTable,
   uuid,
   text,
+  integer,
   timestamp,
   jsonb,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 
-/** Twilio SMS log. Not a worker inbox UI. */
+/**
+ * Twilio SMS log. Not a worker inbox UI.
+ *
+ * Outbound rows start at Twilio's accept status ("queued"/"accepted") and are
+ * settled later by the delivery webhook. Twilio accepting a message says
+ * nothing about whether a carrier delivered it — unregistered A2P/toll-free
+ * traffic is accepted and then silently dropped — so the terminal status and
+ * errorCode here are the only honest record of what reached a phone.
+ */
 export const haloSmsMessagesTable = pgTable(
   "halo_sms_messages",
   {
@@ -20,10 +29,22 @@ export const haloSmsMessagesTable = pgTable(
     body: text("body").notNull(),
     twilioSid: text("twilio_sid"),
     status: text("status").notNull().default("received"),
+    /** Twilio delivery error (e.g. 30032 unverified toll-free, 30034 unregistered 10DLC). */
+    errorCode: integer("error_code"),
+    errorMessage: text("error_message"),
+    /**
+     * Unguessable per-message token embedded in the StatusCallback URL. The
+     * connector authenticates with an API key and stores no auth token, so
+     * Twilio request signatures cannot be verified; this nonce is what proves
+     * a delivery callback belongs to a message we actually sent.
+     */
+    callbackNonce: text("callback_nonce"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("halo_sms_messages_sid_uq").on(t.twilioSid),
+    uniqueIndex("halo_sms_messages_nonce_uq").on(t.callbackNonce),
     index("halo_sms_messages_crew_idx").on(t.crewId, t.createdAt),
   ],
 );

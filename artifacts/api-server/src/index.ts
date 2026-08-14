@@ -6,6 +6,7 @@ import { ensureFalkonSchema } from "./lib/ensureFalkonSchema";
 import { ensureFalkonIdentity } from "./lib/falkonIdentity";
 import { ensureBase44Schema } from "./lib/ensureBase44Schema";
 import { ensureEnforcerSchema } from "./lib/ensureEnforcerSchema";
+import { ensureCommsSchema } from "./lib/ensureCommsSchema";
 import { startFalkonNetworkPoller } from "./lib/falkonNetworkPoller";
 import { seedExchangeProducts } from "./lib/seedExchangeProducts";
 
@@ -36,7 +37,8 @@ app.listen(port, (err) => {
   );
   // Falkon: schema first, then identity, then network poller, then Exchange seeding.
   // Order matters: tables must exist before identity + seeder run.
-  ensureFalkonSchema()
+  const falkonSchemaReady = ensureFalkonSchema();
+  falkonSchemaReady
     .then(() => ensureFalkonIdentity())
     .then(() => startFalkonNetworkPoller())
     .then(() =>
@@ -54,4 +56,14 @@ app.listen(port, (err) => {
   ensureEnforcerSchema().catch((err) =>
     logger.error({ err }, "Failed to bootstrap Enforcer/PM-link schema"),
   );
+  // Must follow the Falkon bootstrap: that is where halo_sms_messages is
+  // created, and these are ALTERs against it. On a fresh database the reverse
+  // order fails and never retries, leaving the app querying columns that don't
+  // exist. Reuse the same promise rather than calling ensureFalkonSchema()
+  // again — a second call would race the first one's DDL.
+  falkonSchemaReady
+    .then(() => ensureCommsSchema())
+    .catch((err) =>
+      logger.error({ err }, "Failed to bootstrap SMS delivery-tracking schema"),
+    );
 });

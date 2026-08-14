@@ -1,15 +1,20 @@
 /**
- * comms.sms — office outbound + public Twilio inbound webhook.
+ * comms.sms — office outbound + public Twilio inbound/status webhooks.
  * No worker inbox UI.
+ *
+ * Outbound rows are written centrally by lib/sms.sendSms so that every sender
+ * (autopilot, dispatch, job board, voice, …) lands in the same log, not just
+ * the routes below.
  */
 
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
-import { db, crewsTable, haloSmsMessagesTable } from "@workspace/db";
+import { and, desc, eq, isNull, notInArray, or } from "drizzle-orm";
+import { db, activitiesTable, crewsTable, haloSmsMessagesTable } from "@workspace/db";
 import { getTwilioSettings, sendSms, smsEnabled, smsPublicStatus } from "../lib/sms";
 import { getBusinessSettings } from "../lib/businessSettings";
 import {
   MAX_SMS_BODY,
+  describeSmsError,
   phonesMatch,
   smsBlastAllowed,
   toE164,
@@ -20,6 +25,24 @@ import { logger } from "../lib/logger";
 
 export const twilioWebhookRouter: IRouter = Router();
 const officeRouter: IRouter = Router();
+
+/** Statuses Twilio actually emits on a message resource. */
+const TWILIO_STATUSES = new Set([
+  "accepted",
+  "scheduled",
+  "queued",
+  "sending",
+  "sent",
+  "delivering",
+  "delivered",
+  "undelivered",
+  "failed",
+  "canceled",
+  "read",
+]);
+
+/** Once a row reaches one of these, later callbacks must not move it. */
+const TERMINAL_STATUSES = ["delivered", "undelivered", "failed", "canceled"];
 
 function emptyTwiml(res: { status: (n: number) => typeof res; type: (t: string) => typeof res; send: (b: string) => void }) {
   res.status(200).type("application/xml").send('<?xml version="1.0" encoding="UTF-8"?><Response/>');
@@ -84,6 +107,93 @@ twilioWebhookRouter.post("/twilio/webhook", limits.checkinWrite, async (req, res
   emptyTwiml(res);
 });
 
+/**
+ * Delivery receipt. Twilio returning 201 on send only means "accepted"; this is
+ * where the carrier's actual verdict arrives, and the only place an
+ * undelivered message becomes visible.
+ *
+ * The connector authenticates with an API key and stores no auth token, so
+ * X-Twilio-Signature cannot be verified. Instead the callback URL carries a
+ * 128-bit nonce minted per message: possessing it proves the callback belongs
+ * to a message we sent, and it can only ever settle that one row.
+ */
+twilioWebhookRouter.post("/twilio/status/:nonce", limits.checkinWrite, async (req, res): Promise<void> => {
+  const nonce = String(req.params.nonce ?? "");
+  if (!/^[0-9a-f]{32}$/.test(nonce)) {
+    emptyTwiml(res);
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, string>;
+  const status = (body.MessageStatus || body.SmsStatus || "").trim().toLowerCase();
+  // Ignore anything that isn't a status Twilio actually emits, so a malformed
+  // or hostile callback cannot write junk into the log.
+  if (!TWILIO_STATUSES.has(status)) {
+    emptyTwiml(res);
+    return;
+  }
+  const sid = (body.MessageSid || body.SmsSid || "").trim();
+  if (!sid) {
+    emptyTwiml(res);
+    return;
+  }
+  const parsedCode = Number.parseInt(body.ErrorCode ?? "", 10);
+  const errorCode = Number.isFinite(parsedCode) ? parsedCode : null;
+
+  const reason = describeSmsError(errorCode);
+  const updated = await db
+    .update(haloSmsMessagesTable)
+    .set({
+      status,
+      errorCode,
+      errorMessage: reason,
+      twilioSid: sid,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(haloSmsMessagesTable.callbackNonce, nonce),
+        // Terminal verdicts are final. This makes Twilio's retries and
+        // out-of-order callbacks no-ops instead of letting a late "sent"
+        // overwrite "undelivered" — and keeps the activity below one-shot.
+        notInArray(haloSmsMessagesTable.status, TERMINAL_STATUSES),
+        // Bind to the SID recorded at send time, so a leaked nonce cannot be
+        // replayed against a different message.
+        or(
+          isNull(haloSmsMessagesTable.twilioSid),
+          eq(haloSmsMessagesTable.twilioSid, sid),
+        ),
+      ),
+    )
+    .returning({
+      id: haloSmsMessagesTable.id,
+      to: haloSmsMessagesTable.toE164,
+      crewId: haloSmsMessagesTable.crewId,
+    });
+
+  const row = updated[0];
+  if (row && (status === "undelivered" || status === "failed")) {
+    const toLast4 = row.to.slice(-4);
+    logger.warn(
+      { toLast4, status, errorCode, reason },
+      "sms was accepted by twilio but not delivered",
+    );
+    // Surface it where the office already looks, so a dropped text is visible
+    // without anyone thinking to open the SMS log.
+    try {
+      await db.insert(activitiesTable).values({
+        entityType: row.crewId ? "crew" : "sms",
+        entityId: row.crewId ?? row.id,
+        kind: "sms_undelivered",
+        body: `Text to •${toLast4} was not delivered. ${reason ?? "Carrier gave no reason."}`,
+      });
+    } catch (err) {
+      logger.warn({ err }, "failed to log undelivered sms activity");
+    }
+  }
+
+  emptyTwiml(res);
+});
+
 officeRouter.get("/sms/status", async (_req, res): Promise<void> => {
   const status = await smsPublicStatus();
   res.json({ ok: true, ...status });
@@ -106,16 +216,7 @@ officeRouter.post("/sms/admin", async (req, res): Promise<void> => {
     res.status(404).json({ error: "No admin phone on file — add it in business settings" });
     return;
   }
-  const twilio = await getTwilioSettings();
   const result = await sendSms(destRaw, body);
-  await db.insert(haloSmsMessagesTable).values({
-    direction: "outbound",
-    crewId: null,
-    fromE164: toE164(twilio?.phoneNumber ?? "") ?? "unknown",
-    toE164: dest,
-    body,
-    status: result.ok ? "sent" : "failed",
-  });
   if (!result.ok) {
     res.status(502).json({ ok: false, error: result.error });
     return;
@@ -142,17 +243,7 @@ officeRouter.post("/sms/send", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Crew not found or has no phone" });
     return;
   }
-  const dest = toE164(crew.phone);
-  const settings = await getTwilioSettings();
-  const result = await sendSms(crew.phone, body);
-  await db.insert(haloSmsMessagesTable).values({
-    direction: "outbound",
-    crewId: crew.id,
-    fromE164: toE164(settings?.phoneNumber ?? "") ?? "unknown",
-    toE164: dest ?? crew.phone,
-    body,
-    status: result.ok ? "sent" : "failed",
-  });
+  const result = await sendSms(crew.phone, body, { crewId: crew.id });
   if (!result.ok) {
     res.status(502).json({ ok: false, error: result.error });
     return;
@@ -172,8 +263,6 @@ officeRouter.post("/sms/blast", async (req, res): Promise<void> => {
     res.status(503).json({ error: "SMS not configured" });
     return;
   }
-  const settings = await getTwilioSettings();
-  const from = toE164(settings?.phoneNumber ?? "") ?? "unknown";
   let sent = 0;
   const failures: string[] = [];
   for (const id of crewIds) {
@@ -185,15 +274,7 @@ officeRouter.post("/sms/blast", async (req, res): Promise<void> => {
       failures.push(id);
       continue;
     }
-    const result = await sendSms(crew.phone, body);
-    await db.insert(haloSmsMessagesTable).values({
-      direction: "outbound",
-      crewId: crew.id,
-      fromE164: from,
-      toE164: toE164(crew.phone) ?? crew.phone,
-      body,
-      status: result.ok ? "sent" : "failed",
-    });
+    const result = await sendSms(crew.phone, body, { crewId: crew.id });
     if (result.ok) sent += 1;
     else failures.push(id);
   }
@@ -216,7 +297,13 @@ officeRouter.get("/sms/recent", async (_req, res): Promise<void> => {
       to: r.toE164,
       body: r.body,
       status: r.status,
+      // Delivery outcome — "sent" is not "delivered", so surface the failure.
+      delivered: r.status === "delivered",
+      undelivered: r.status === "undelivered" || r.status === "failed",
+      errorCode: r.errorCode,
+      errorMessage: r.errorMessage,
       at: r.createdAt,
+      updatedAt: r.updatedAt,
     })),
   });
 });

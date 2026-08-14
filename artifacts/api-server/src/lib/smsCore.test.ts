@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  describeSmsError,
   isAccountSid,
   isApiKeySid,
   isDialableE164,
@@ -83,5 +84,20 @@ describe("comms.sms helpers", () => {
     expect(verifyTwilioSignature({ authToken: token, signature, url, params })).toBe(true);
     expect(verifyTwilioSignature({ authToken: token, signature: "nope", url, params })).toBe(false);
     expect(verifyTwilioSignature({ authToken: "", signature, url, params })).toBe(false);
+  });
+
+  it("explains the carrier-registration failures that silently drop texts", () => {
+    // The two codes that mean "Twilio accepted it, the carrier binned it".
+    expect(describeSmsError(30032)).toMatch(/toll-free verification/i);
+    expect(describeSmsError(30034)).toMatch(/A2P 10DLC/i);
+    // Recipient-side causes stay distinguishable from account-side ones.
+    expect(describeSmsError(21610)).toMatch(/STOP/);
+    expect(describeSmsError(30007)).toMatch(/spam/i);
+    // Unknown codes still surface the number rather than reading as success.
+    expect(describeSmsError(31234)).toMatch(/31234/);
+    // No error means no message — a delivered text must not render a reason.
+    expect(describeSmsError(null)).toBeNull();
+    expect(describeSmsError(undefined)).toBeNull();
+    expect(describeSmsError(Number.NaN)).toBeNull();
   });
 });

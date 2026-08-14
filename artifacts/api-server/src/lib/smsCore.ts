@@ -110,6 +110,42 @@ export function verifyTwilioSignature(opts: {
   return timingSafeEqual(a, b);
 }
 
+/**
+ * Plain-English cause for a Twilio delivery error, for office-facing UI.
+ *
+ * The registration codes matter most: 30032 and 30034 mean the message was
+ * accepted by Twilio and then dropped by the carrier because the sending
+ * number is not cleared for US A2P traffic — an account-level problem no
+ * amount of retrying fixes.
+ */
+export function describeSmsError(code: number | null | undefined): string | null {
+  if (code == null || !Number.isFinite(code)) return null;
+  switch (code) {
+    case 30032:
+      return "Toll-free number is not verified — carriers block its texts until Twilio approves the toll-free verification.";
+    case 30034:
+      return "Sending number is not registered for A2P 10DLC — carriers block its texts until the campaign is approved.";
+    case 30003:
+      return "Recipient's phone is off, out of range, or unreachable.";
+    case 30004:
+      return "Recipient's carrier is blocking messages from this number.";
+    case 30005:
+      return "Recipient's number is unknown or no longer in service.";
+    case 30006:
+      return "Recipient's number is a landline or cannot receive texts.";
+    case 30007:
+      return "Carrier filtered the message as spam.";
+    case 30008:
+      return "Carrier rejected the message without giving a reason.";
+    case 21610:
+      return "Recipient replied STOP and is unsubscribed — they must text START to resume.";
+    case 21614:
+      return "Not a valid mobile number.";
+    default:
+      return `Carrier rejected the message (Twilio error ${code}).`;
+  }
+}
+
 export const MAX_SMS_BLAST = 25;
 export const MAX_SMS_BODY = 1600;
 

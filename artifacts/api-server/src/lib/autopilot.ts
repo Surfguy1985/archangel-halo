@@ -93,16 +93,9 @@ async function pingSms(opts: {
       logger.info({ code: gate.decision.code, kind: opts.kind }, "autopilot sms blocked by Falkon");
       return "notified";
     }
-    const result = await sendSms(opts.to, opts.body);
-    const twilio = await getTwilioSettings();
-    await db.insert(haloSmsMessagesTable).values({
-      direction: "outbound",
-      crewId: opts.crewId ?? null,
-      fromE164: toE164(twilio?.phoneNumber ?? "") ?? "unknown",
-      toE164: toE164(opts.to) ?? opts.to,
-      body: opts.body,
-      status: result.ok ? "sent" : "failed",
-    });
+    // sendSms writes the outbound log row itself (with the delivery-callback
+    // nonce). A second row here would never settle and would contradict it.
+    const result = await sendSms(opts.to, opts.body, { crewId: opts.crewId ?? null });
     if (!result.ok) {
       logger.warn({ err: result.error, kind: opts.kind }, "autopilot sms failed");
       return "notified";
