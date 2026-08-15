@@ -31,6 +31,7 @@ import {
   type WorkSourceFilter,
 } from "@workspace/db";
 import { transitionTurn } from "./turnEngine";
+import { loadPoByTurnIds, shapeTurnClock } from "./turnCloseoutClock";
 
 export type TurnBoardGroupBy = "stage" | "work_source" | "vendor";
 
@@ -219,6 +220,14 @@ export async function computePropertyTurnBoard(args: {
     laneKey: string;
     status: TurnStage;
     ring: ReturnType<typeof ringFromVisits>;
+    timezone?: string;
+    vacantSince?: string | null;
+    requestReceivedAt?: string | null;
+    completedAt?: string | null;
+    poReceivedAt?: string | null;
+    poNumber?: string | null;
+    clockStopped?: boolean;
+    clockStoppedAt?: string | null;
   }>;
 }> {
   const property = await loadProperty(args.propertyId);
@@ -235,6 +244,9 @@ export async function computePropertyTurnBoard(args: {
       predictedReadyAt: clientTurnsTable.predictedReadyAt,
       predictionConfidence: clientTurnsTable.predictionConfidence,
       actualVacateAt: clientTurnsTable.actualVacateAt,
+      scheduledVacateAt: clientTurnsTable.scheduledVacateAt,
+      noticeGivenAt: clientTurnsTable.noticeGivenAt,
+      createdAt: clientTurnsTable.createdAt,
       readyAt: clientTurnsTable.readyAt,
       unitNumber: clientUnitsTable.unitNumber,
       bedrooms: clientUnitsTable.bedrooms,
@@ -275,6 +287,8 @@ export async function computePropertyTurnBoard(args: {
     eventsByTurn.set(ev.turnId, list);
   }
   const p75 = await stageP75ForProperty(args.propertyId, now);
+  const tzByTurn = new Map(turns.map((t) => [t.id, property.timezone]));
+  const pos = await loadPoByTurnIds(turns.map((t) => t.id), tzByTurn);
 
   const cards = turns.map((t) => {
     const visits = stageVisitsFromEvents(eventsByTurn.get(t.id) ?? [], now);
@@ -305,6 +319,15 @@ export async function computePropertyTurnBoard(args: {
         now,
         p75,
       ),
+      ...shapeTurnClock({
+        timezone: property.timezone,
+        noticeGivenAt: t.noticeGivenAt,
+        scheduledVacateAt: t.scheduledVacateAt,
+        actualVacateAt: t.actualVacateAt,
+        createdAt: t.createdAt,
+        readyAt: t.readyAt,
+        po: pos.get(t.id) ?? null,
+      }),
     };
   });
 
@@ -388,6 +411,9 @@ export async function computeTurnDetail(args: {
       predictedReadyAt: clientTurnsTable.predictedReadyAt,
       predictionConfidence: clientTurnsTable.predictionConfidence,
       actualVacateAt: clientTurnsTable.actualVacateAt,
+      scheduledVacateAt: clientTurnsTable.scheduledVacateAt,
+      noticeGivenAt: clientTurnsTable.noticeGivenAt,
+      createdAt: clientTurnsTable.createdAt,
       readyAt: clientTurnsTable.readyAt,
       unitNumber: clientUnitsTable.unitNumber,
       bedrooms: clientUnitsTable.bedrooms,
@@ -501,6 +527,15 @@ export async function computeTurnDetail(args: {
     actions,
     evidencePlaceholder: "Evidence lands in Segment 5.",
     scopePlaceholder: "Scope and pricing land in Segment 6.",
+    ...shapeTurnClock({
+      timezone: turn.timezone,
+      noticeGivenAt: turn.noticeGivenAt,
+      scheduledVacateAt: turn.scheduledVacateAt,
+      actualVacateAt: turn.actualVacateAt,
+      createdAt: turn.createdAt,
+      readyAt: turn.readyAt,
+      po: (await loadPoByTurnIds([turn.id], new Map([[turn.id, turn.timezone]]))).get(turn.id) ?? null,
+    }),
   };
 }
 

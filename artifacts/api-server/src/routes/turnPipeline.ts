@@ -26,7 +26,7 @@ import {
 import { db, clientPortfoliosTable, propertiesTable, zonedCivilToUtc } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
+import { clientMayAccessProperty, regionalClientLink } from "../lib/clientBoardLink";
 import { officeActor, requireProperty, sendAccessError } from "../lib/clientBoardAccess";
 import {
   PipelineError,
@@ -38,7 +38,7 @@ import {
   propertyIdOfHoldBundle,
   propertyIdOfUnit,
 } from "../lib/turnPipeline";
-import { PortfolioNotFoundError, resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { PortfolioNotFoundError } from "../lib/portfolioPulse";
 
 const router: IRouter = Router();
 const DARK = { error: "Pipeline is not enabled" };
@@ -82,15 +82,6 @@ async function timezoneOfProperty(propertyId: string): Promise<string> {
     .where(eq(propertiesTable.id, propertyId))
     .limit(1);
   return row?.timezone || "America/Chicago";
-}
-
-async function clientMayAccessProperty(token: string, propertyId: string): Promise<{ orgId: string } | null> {
-  const tokenPropertyId = await resolveClientPropertyIdForToken(token);
-  if (!tokenPropertyId) return null;
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(propertyId);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) return null;
-  return { orgId: tokenPort.orgId };
 }
 
 router.get("/v1/portfolios/:id/pipeline", async (req: Request, res: Response): Promise<void> => {
@@ -226,18 +217,16 @@ router.get("/client/:token/portfolio/pipeline", async (req: Request, res: Respon
     res.status(400).json({ error: "Invalid request" });
     return;
   }
-  const propertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!propertyId) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const resolved = await resolvePortfolioForProperty(propertyId);
-  if (!resolved) {
-    res.status(404).json({ error: "Invalid link" });
+  const gated = await regionalClientLink(path.data.token);
+  if (!gated.ok) {
+    res.status(gated.status).json({ error: gated.error });
     return;
   }
   try {
-    const doc = await computePipeline({ portfolioId: resolved.portfolioId, orgId: resolved.orgId });
+    const doc = await computePipeline({
+      portfolioId: gated.link.portfolioId,
+      orgId: gated.link.orgId,
+    });
     res.json(GetClientPortfolioPipelineResponse.parse(doc));
   } catch (err) {
     if (!sendErr(res, err)) throw err;

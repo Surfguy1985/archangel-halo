@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ComplianceStatsDocument } from './complianceStatsDocument';
+import type { PortfolioPulseDocumentViewKind } from './portfolioPulseDocumentViewKind';
 import type { PortfolioPulseHeadline } from './portfolioPulseHeadline';
 import type { PortfolioPulseSupporting } from './portfolioPulseSupporting';
 import type { PortfolioPulseTile } from './portfolioPulseTile';
@@ -15,6 +16,11 @@ import type { PulseTileSort } from './pulseTileSort';
 export interface PortfolioPulseDocument {
   portfolioId: string;
   portfolioName: string;
+  /** Regional sees every property in the portfolio. Property sees only that community. */
+  viewKind?: PortfolioPulseDocumentViewKind;
+  viewLabel?: string;
+  /** Regional (and office asset manager) may attach more properties. Property links cannot. */
+  canAddProperties?: boolean;
   range: PulseRangePreset;
   from: string;
   to: string;

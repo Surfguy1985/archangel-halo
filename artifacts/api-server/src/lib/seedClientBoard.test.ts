@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAF_DEMO_HISTORY_DAYS, CAF_DEMO_PROPERTY_SPECS, CAF_SEED_NAME_PREFIX } from "./seedClientBoard";
+import { CAF_DEMO_HISTORY_DAYS, CAF_DEMO_PROPERTY_SPECS, CAF_SEED_NAME_PREFIX, CAF_REGIONAL_TOKEN, CAF_PALOMA_TOKEN } from "./seedClientBoard";
 
 describe("demo seed spec (Segment 12)", () => {
   it("seeds 12 properties over 120 days, Paloma / Desert Sage / Redbud first", () => {
@@ -10,5 +10,7 @@ describe("demo seed spec (Segment 12)", () => {
     expect(CAF_DEMO_PROPERTY_SPECS[2]!.name).toContain("Redbud Flats");
     expect(CAF_DEMO_PROPERTY_SPECS[0]!.bottleneck).toBe(true);
     expect(CAF_DEMO_PROPERTY_SPECS[2]!.workSource).toBe("in_house");
+    expect(CAF_REGIONAL_TOKEN).toBe("caf-regional");
+    expect(CAF_PALOMA_TOKEN).toBe("caf-paloma");
   });
 });

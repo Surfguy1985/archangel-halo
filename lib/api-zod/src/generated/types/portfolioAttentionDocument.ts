@@ -6,8 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PortfolioAttentionGroup } from './portfolioAttentionGroup';
+import type { PortfolioAttentionItem } from './portfolioAttentionItem';
+import type { PortfolioUnitPhotoPair } from './portfolioUnitPhotoPair';
+import type { PortfolioCrewToday } from './portfolioCrewToday';
 
 export interface PortfolioAttentionDocument {
   portfolioId: string;
   groups: PortfolioAttentionGroup[];
+  /** Every open turn in this view, with live close-out clocks. */
+  turns?: PortfolioAttentionItem[];
+  /** Base44 Work App before/after photos grouped by unit. */
+  photoUnits?: PortfolioUnitPhotoPair[];
+  /** HALO jobs scheduled today on these communities. */
+  crewToday?: PortfolioCrewToday[];
 }

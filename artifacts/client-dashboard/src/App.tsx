@@ -10,6 +10,7 @@ import HubPage from '@/pages/hub';
 import TeamPage from '@/pages/team';
 import HaloOne from '@/pages/halo-one';
 const ClientPortfolioPulsePage = lazy(() => import('@/pages/pulse'));
+const ClientBoardViewsPage = lazy(() => import('@/pages/views'));
 const ClientPropertyTurnBoardPage = lazy(() => import('@/pages/property-turns'));
 const ClientEntrataImportPage = lazy(() => import('@/pages/entrata-import'));
 const ClientHowWorkPage = lazy(() => import('@/pages/how-work'));
@@ -27,6 +28,7 @@ function Router() {
   return (
     <Suspense fallback={<BoardRouteFallback />}>
       <Switch>
+      <Route path="/" component={ClientBoardViewsPage} />
       <Route path="/:token/property/:propertyId" component={ClientPropertyTurnBoardPage} />
       <Route path="/:token/imports" component={ClientEntrataImportPage} />
       <Route path="/:token/how-work" component={ClientHowWorkPage} />

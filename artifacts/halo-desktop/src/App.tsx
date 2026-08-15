@@ -39,6 +39,7 @@ const CostToServePage = lazy(() => import("@/pages/CostToServe"));
 const BidBoardPage = lazy(() => import("@/pages/BidBoard"));
 const TurnPipelinePage = lazy(() => import("@/pages/TurnPipeline"));
 const AuditLogPage = lazy(() => import("@/pages/AuditLog"));
+const ClientBoardViewsPage = lazy(() => import("@/pages/ClientBoardViews"));
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
 import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
@@ -76,6 +77,24 @@ function App() {
           <Switch>
             {/* ── Public crew portal (no auth) ──────────────────────────── */}
             <Route path="/portal/:token" component={CrewPortal} />
+
+            <Route path="/views">
+              <Suspense fallback={<BoardRouteFallback />}>
+                <ClientBoardViewsPage />
+              </Suspense>
+            </Route>
+            <Route path="/regional">
+              {() => {
+                window.location.replace("/board/caf-regional");
+                return null;
+              }}
+            </Route>
+            <Route path="/paloma">
+              {() => {
+                window.location.replace("/board/caf-paloma");
+                return null;
+              }}
+            </Route>
 
             {/* ── HALO Command — full dark chat OS, no sidebar ──────────────
                 Must sit BEFORE the DesktopLayout catch-all so it renders

@@ -14,7 +14,6 @@ import {
   clientBoardFlagsTable,
   clientPortfoliosTable,
   clientPortfolioPropertiesTable,
-  clientAccountsTable,
   clientCapacityDeclarationsTable,
   clientTurnInvoicesTable,
   clientScopesTable,
@@ -114,7 +113,10 @@ describe("Turn pipeline (HTTP)", () => {
       .onConflictDoUpdate({ target: clientOrgsTable.slug, set: { name: "Archangel Pipe" } })
       .returning();
 
-    const [port] = await db.insert(clientPortfoliosTable).values({ orgId, name: "North Region" }).returning();
+    const [port] = await db
+      .insert(clientPortfoliosTable)
+      .values({ orgId, name: "North Region", dashboardToken: TOKEN })
+      .returning();
     portfolioId = port!.id;
 
     const [property] = await db
@@ -131,11 +133,6 @@ describe("Turn pipeline (HTTP)", () => {
       })
       .returning();
     await db.insert(clientPortfolioPropertiesTable).values({ portfolioId, propertyId: property!.id });
-    await db.insert(clientAccountsTable).values({
-      propertyId: property!.id,
-      dashboardToken: TOKEN,
-      status: "active",
-    });
 
     const units = [];
     for (const num of ["101", "102", "103", "104"]) {

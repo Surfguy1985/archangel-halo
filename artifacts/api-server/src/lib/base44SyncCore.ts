@@ -290,6 +290,11 @@ function kindForResource(resource: Base44Resource, rec: Record<string, unknown>)
   return table[resource];
 }
 
+function looksLikeOpaqueId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ||
+    /^[0-9a-f]{24}$/i.test(value);
+}
+
 function mediaUrl(rec: Record<string, unknown>): string | null {
   return (
     str(rec.url) ??
@@ -304,16 +309,23 @@ function mediaUrl(rec: Record<string, unknown>): string | null {
 export function normalizeRecord(resource: Base44Resource, rec: Record<string, unknown>): ProjectionRecord | null {
   const base44Id = extractBase44Id(rec);
   if (!base44Id) return null;
+  const propertyObj =
+    rec.property && typeof rec.property === "object" ? (rec.property as Record<string, unknown>) : null;
   const propertyName =
-    str(rec.property) ??
+    str(propertyObj?.name) ??
     str(rec.property_name) ??
-    str((rec.property as { name?: unknown } | undefined)?.name);
-  const unitLabel =
+    (typeof rec.property === "string" ? str(rec.property) : null);
+  const unitObj = rec.unit && typeof rec.unit === "object" ? (rec.unit as Record<string, unknown>) : null;
+  const unitLabelRaw =
     str(rec.unit_number) ??
     str(rec.unit_no) ??
     str(rec.unitNo) ??
     str(rec.label) ??
+    str(unitObj?.label) ??
+    str(unitObj?.unit_number) ??
+    str(unitObj?.name) ??
     str(rec.unit);
+  const unitLabel = unitLabelRaw && looksLikeOpaqueId(unitLabelRaw) ? null : unitLabelRaw;
   const title =
     str(rec.title) ??
     str(rec.name) ??
@@ -348,33 +360,48 @@ export function normalizeRecord(resource: Base44Resource, rec: Record<string, un
   return { ...fields, payloadHash: payloadHash(fields) };
 }
 
-export function expandNestedEvidence(rec: Record<string, unknown>): ProjectionRecord[] {
-  const parent = normalizeRecord("field_submissions", rec);
-  if (!parent) return [];
-  const out: ProjectionRecord[] = [parent];
-  const groups: Array<{ key: string; kind: ProjectionKind }> = [
-    { key: "before_photos", kind: "before" },
-    { key: "after_photos", kind: "after" },
-    { key: "photos", kind: parent.kind === "before" || parent.kind === "after" ? parent.kind : "progress" },
+export function expandNestedPhotos(
+  rec: Record<string, unknown>,
+  parent: {
+    base44Id: string;
+    propertyName: string | null;
+    unitLabel: string | null;
+    kind?: ProjectionKind;
+  },
+): ProjectionRecord[] {
+  const out: ProjectionRecord[] = [];
+  const groups: Array<{ keys: string[]; kind: ProjectionKind }> = [
+    { keys: ["before_photos", "beforePhotos"], kind: "before" },
+    { keys: ["after_photos", "afterPhotos"], kind: "after" },
+    {
+      keys: ["photos"],
+      kind:
+        parent.kind === "before" || parent.kind === "after" ? parent.kind : "progress",
+    },
   ];
   for (const g of groups) {
-    const arr = rec[g.key];
+    const arr = g.keys.map((key) => rec[key]).find((value) => Array.isArray(value));
     if (!Array.isArray(arr)) continue;
     arr.forEach((item, idx) => {
       const obj = typeof item === "string" ? { url: item, _id: `${parent.base44Id}:${g.kind}:${idx}` } : item;
       if (!obj || typeof obj !== "object") return;
       const nested = normalizeRecord("photos", {
         ...(obj as Record<string, unknown>),
-        _id:
-          extractBase44Id(obj) ??
-          `${parent.base44Id}:${g.kind}:${idx}`,
-        property: rec.property,
-        unit_number: rec.unit_number ?? rec.unit_no,
+        _id: extractBase44Id(obj) ?? `${parent.base44Id}:${g.kind}:${idx}`,
+        property: rec.property ?? rec.property_name ?? parent.propertyName,
+        unit_number: rec.unit_number ?? rec.unit_no ?? parent.unitLabel,
         phase: g.kind,
       });
       if (nested) out.push({ ...nested, kind: g.kind });
     });
   }
+  return out;
+}
+
+export function expandNestedEvidence(rec: Record<string, unknown>): ProjectionRecord[] {
+  const parent = normalizeRecord("field_submissions", rec);
+  if (!parent) return [];
+  const out: ProjectionRecord[] = [parent, ...expandNestedPhotos(rec, parent)];
   if (rec.rework_notes || rec.rework) {
     const rework = normalizeRecord("field_submissions", {
       ...rec,
@@ -470,6 +497,9 @@ export function applyIngest(
           continue;
         }
         expanded.push(norm);
+        if (resource === "crew_jobs") {
+          expanded.push(...expandNestedPhotos(rec, norm));
+        }
       }
     }
 

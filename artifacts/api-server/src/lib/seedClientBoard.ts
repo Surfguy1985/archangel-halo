@@ -11,7 +11,7 @@
  *   - Paloma first open: blocked variance (paint over schedule) + MARBLE-UP off-schedule
  */
 
-import { sql, eq, and, like, inArray } from "drizzle-orm";
+import { sql, eq, and, or, like, inArray } from "drizzle-orm";
 import {
   db,
   propertiesTable,
@@ -51,6 +51,8 @@ import { createBidRequest, inviteVendors, submitVendorBid } from "./bidBoard";
 
 export const CAF_REGIONAL_TOKEN = "caf-regional";
 export const CAF_PALOMA_TOKEN = "caf-paloma";
+export const CAF_SEED_NAME_PREFIX = "CAF Demo — ";
+export const CAF_SEED_BRIEF = "CAF_CLIENT_BOARD_SEED_v1";
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -155,7 +157,10 @@ async function teardownSeedProperties(): Promise<void> {
     .where(
       and(
         like(propertiesTable.name, `${CAF_SEED_NAME_PREFIX}%`),
-        eq(propertiesTable.brief, CAF_SEED_BRIEF),
+        or(
+          eq(propertiesTable.brief, CAF_SEED_BRIEF),
+          eq(propertiesTable.brief, "CAF_CLIENT_BOARD_DEMO_v1"),
+        ),
       ),
     );
   const ids = seeded.map((r) => r.id);
@@ -217,7 +222,10 @@ async function teardownSeedProperties(): Promise<void> {
     await tx.delete(propertiesTable).where(
       and(
         like(propertiesTable.name, `${CAF_SEED_NAME_PREFIX}%`),
-        eq(propertiesTable.brief, CAF_SEED_BRIEF),
+        or(
+          eq(propertiesTable.brief, CAF_SEED_BRIEF),
+          eq(propertiesTable.brief, "CAF_CLIENT_BOARD_DEMO_v1"),
+        ),
       ),
     );
   });
@@ -476,6 +484,10 @@ export async function seedClientBoard(opts?: {
   ]);
 
   await db.delete(clientPortfoliosTable).where(eq(clientPortfoliosTable.orgId, caf.id));
+  await db
+    .update(clientPortfoliosTable)
+    .set({ dashboardToken: null })
+    .where(eq(clientPortfoliosTable.dashboardToken, CAF_REGIONAL_TOKEN));
   const [portfolio] = await db
     .insert(clientPortfoliosTable)
     .values({ orgId: caf.id, name: "North Region", dashboardToken: CAF_REGIONAL_TOKEN })
@@ -1063,6 +1075,7 @@ export async function seedClientBoard(opts?: {
       role: "property_manager",
       scope: { propertyIds: [palomaId] },
     });
+    await db.delete(clientAccountsTable).where(eq(clientAccountsTable.dashboardToken, CAF_PALOMA_TOKEN));
     await db
       .insert(clientAccountsTable)
       .values({

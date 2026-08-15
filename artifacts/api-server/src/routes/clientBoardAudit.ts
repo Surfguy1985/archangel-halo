@@ -12,11 +12,6 @@ import {
   ExportPortfolioAuditQueryParams,
   TombstoneEvidenceParams,
   TombstoneEvidenceResponse,
-  GetClientPortfolioAuditParams,
-  GetClientPortfolioAuditQueryParams,
-  GetClientPortfolioAuditResponse,
-  ExportClientPortfolioAuditParams,
-  ExportClientPortfolioAuditQueryParams,
   TombstoneClientEvidenceParams,
   TombstoneClientEvidenceResponse,
 } from "@workspace/api-zod";
@@ -27,8 +22,7 @@ import {
   sendAccessError,
   assertAuditAccess,
 } from "../lib/clientBoardAccess";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { resolveClientBoardLink, clientMayAccessProperty } from "../lib/clientBoardLink";
 import {
   store,
   loadPortfolioRef,
@@ -182,72 +176,26 @@ router.post("/v1/evidence/:id/tombstone", async (req: Request, res: Response): P
   }
 });
 
-router.get("/client/:token/portfolio/audit", async (req: Request, res: Response): Promise<void> => {
+async function rejectClientAudit(req: Request, res: Response): Promise<void> {
   if (!(await requireFlag())) {
     res.status(404).json(DARK);
     return;
   }
-  const path = GetClientPortfolioAuditParams.safeParse(req.params);
-  const query = GetClientPortfolioAuditQueryParams.safeParse(req.query);
-  if (!path.success || !query.success) {
-    res.status(400).json({ error: "Invalid audit request" });
-    return;
-  }
-  const propertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!propertyId) {
+  const token = String(req.params.token ?? "");
+  const link = await resolveClientBoardLink(token);
+  if (!link) {
     res.status(404).json({ error: "Invalid link" });
     return;
   }
-  const resolved = await resolvePortfolioForProperty(propertyId);
-  if (!resolved) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const filters = parseFilters(query.data);
-  if ("error" in filters) {
-    res.status(400).json({ error: filters.error });
-    return;
-  }
-  try {
-    const entries = await store(resolved.orgId).listAudit(filters);
-    res.json(GetClientPortfolioAuditResponse.parse({ portfolioId: resolved.portfolioId, entries }));
-  } catch (err) {
-    if (!sendErr(res, err)) throw err;
-  }
+  res.status(403).json({ error: "Audit log is office-only" });
+}
+
+router.get("/client/:token/portfolio/audit", async (req: Request, res: Response): Promise<void> => {
+  await rejectClientAudit(req, res);
 });
 
 router.get("/client/:token/portfolio/audit/export", async (req: Request, res: Response): Promise<void> => {
-  if (!(await requireFlag())) {
-    res.status(404).json(DARK);
-    return;
-  }
-  const path = ExportClientPortfolioAuditParams.safeParse(req.params);
-  const query = ExportClientPortfolioAuditQueryParams.safeParse(req.query);
-  if (!path.success || !query.success) {
-    res.status(400).json({ error: "Invalid audit request" });
-    return;
-  }
-  const propertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!propertyId) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const resolved = await resolvePortfolioForProperty(propertyId);
-  if (!resolved) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const filters = parseFilters(query.data);
-  if ("error" in filters) {
-    res.status(400).json({ error: filters.error });
-    return;
-  }
-  try {
-    const entries = await store(resolved.orgId).listAudit({ ...filters, limit: 500 });
-    sendCsv(res, "audit-log.csv", auditCsv(entries));
-  } catch (err) {
-    if (!sendErr(res, err)) throw err;
-  }
+  await rejectClientAudit(req, res);
 });
 
 router.post("/client/:token/evidence/:id/tombstone", async (req: Request, res: Response): Promise<void> => {
@@ -265,14 +213,8 @@ router.post("/client/:token/evidence/:id/tombstone", async (req: Request, res: R
     res.status(404).json({ error: "Invalid link" });
     return;
   }
-  const tokenPropertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!tokenPropertyId) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(item.propertyId);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) {
+  const allowed = await clientMayAccessProperty(path.data.token, item.propertyId);
+  if (!allowed) {
     res.status(404).json({ error: "Invalid link" });
     return;
   }

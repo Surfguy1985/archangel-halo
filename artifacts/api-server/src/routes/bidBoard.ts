@@ -36,8 +36,7 @@ import {
 import { db, clientTurnsTable, clientScopesTable, propertiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { clientMayAccessProperty } from "../lib/clientBoardLink";
 import {
   requireProperty,
   sendAccessError,
@@ -94,15 +93,6 @@ async function orgForBidRequest(id: string): Promise<string | null> {
     .where(eq(propertiesTable.id, propertyId))
     .limit(1);
   return prop?.orgId ?? null;
-}
-
-async function clientMayAccessProperty(token: string, propertyId: string): Promise<{ orgId: string } | null> {
-  const tokenPropertyId = await resolveClientPropertyIdForToken(token);
-  if (!tokenPropertyId) return null;
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(propertyId);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) return null;
-  return { orgId: tokenPort.orgId };
 }
 
 router.post("/v1/scopes/:id/bid-requests", async (req: Request, res: Response): Promise<void> => {

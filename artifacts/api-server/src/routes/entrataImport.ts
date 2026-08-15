@@ -24,8 +24,8 @@ import {
 import { csvTemplate, db, clientPortfolioPropertiesTable, propertiesTable, firstPropertyCode, type EntrataImportKind } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { listPortfoliosForOffice, resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { regionalClientLink } from "../lib/clientBoardLink";
+import { listPortfoliosForOffice } from "../lib/portfolioPulse";
 import {
   getEntrataAdapter,
   getEntrataImport,
@@ -194,16 +194,27 @@ router.post("/v1/invoices/:id/entrata", async (req: Request, res: Response): Pro
   }
 });
 
-async function clientOrgAndProperties(token: string): Promise<{ orgId: string; propertyIds: string[] } | null> {
-  const propertyId = await resolveClientPropertyIdForToken(token);
-  if (!propertyId) return null;
-  const port = await resolvePortfolioForProperty(propertyId);
-  if (!port) return null;
+function sendClientImportGate(
+  res: Response,
+  ctx: { orgId: string; propertyIds: string[] } | { error: 403 | 404; message: string },
+): ctx is { orgId: string; propertyIds: string[] } {
+  if ("error" in ctx) {
+    res.status(ctx.error).json({ error: ctx.message });
+    return false;
+  }
+  return true;
+}
+
+async function clientOrgAndProperties(
+  token: string,
+): Promise<{ orgId: string; propertyIds: string[] } | { error: 403 | 404; message: string }> {
+  const gated = await regionalClientLink(token);
+  if (!gated.ok) return { error: gated.status, message: gated.error };
   const rows = await db
     .select({ propertyId: clientPortfolioPropertiesTable.propertyId })
     .from(clientPortfolioPropertiesTable)
-    .where(eq(clientPortfolioPropertiesTable.portfolioId, port.portfolioId));
-  return { orgId: port.orgId, propertyIds: rows.map((r) => r.propertyId) };
+    .where(eq(clientPortfolioPropertiesTable.portfolioId, gated.link.portfolioId));
+  return { orgId: gated.link.orgId, propertyIds: rows.map((r) => r.propertyId) };
 }
 
 router.post("/client/:token/imports/entrata", async (req: Request, res: Response): Promise<void> => {
@@ -218,10 +229,7 @@ router.post("/client/:token/imports/entrata", async (req: Request, res: Response
     return;
   }
   const ctx = await clientOrgAndProperties(path.data.token);
-  if (!ctx) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  if (!sendClientImportGate(res, ctx)) return;
   try {
     res.json(
       ImportClientEntrataCsvResponse.parse(
@@ -251,10 +259,7 @@ router.get("/client/:token/imports/entrata", async (req: Request, res: Response)
     return;
   }
   const ctx = await clientOrgAndProperties(path.data.token);
-  if (!ctx) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  if (!sendClientImportGate(res, ctx)) return;
   const adapter = getEntrataAdapter();
   res.json(
     ListClientEntrataImportsResponse.parse({ adapter: adapter.kind, imports: await listEntrataImports(ctx.orgId) }),
@@ -272,10 +277,7 @@ router.get("/client/:token/imports/entrata/templates/:kind", async (req: Request
     return;
   }
   const ctx = await clientOrgAndProperties(path.data.token);
-  if (!ctx) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  if (!sendClientImportGate(res, ctx)) return;
   res.json(
     GetClientEntrataCsvTemplateResponse.parse({
       kind: path.data.kind as EntrataImportKind,
@@ -295,10 +297,7 @@ router.get("/client/:token/imports/entrata/:id", async (req: Request, res: Respo
     return;
   }
   const ctx = await clientOrgAndProperties(path.data.token);
-  if (!ctx) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  if (!sendClientImportGate(res, ctx)) return;
   const doc = await getEntrataImport(ctx.orgId, path.data.id);
   if (!doc) {
     res.status(404).json({ error: "Invalid link" });
@@ -318,10 +317,7 @@ router.post("/client/:token/invoices/:id/entrata", async (req: Request, res: Res
     return;
   }
   const ctx = await clientOrgAndProperties(path.data.token);
-  if (!ctx) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  if (!sendClientImportGate(res, ctx)) return;
   const orgId = await orgForInvoice(path.data.id);
   if (!orgId || orgId !== ctx.orgId) {
     res.status(404).json({ error: "Invalid link" });

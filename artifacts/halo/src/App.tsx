@@ -36,6 +36,7 @@ const CostToServePage = lazy(() => import("./pages/CostToServe"));
 const BidBoardPage = lazy(() => import("./pages/BidBoard"));
 const TurnPipelinePage = lazy(() => import("./pages/TurnPipeline"));
 const AuditLogPage = lazy(() => import("./pages/AuditLog"));
+const ClientBoardViewsPage = lazy(() => import("./pages/ClientBoardViews"));
 import { OfficeGate } from "./components/OfficeGate";
 import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
@@ -140,6 +141,25 @@ function App() {
               }}
             </Route>
             <Route path="/client/:token/requests" component={ClientRequest} />
+
+            {/* Password-free regional / property Pulse (client dashboard tokens) */}
+            <Route path="/views">
+              <Suspense fallback={<BoardRouteFallback />}>
+                <ClientBoardViewsPage />
+              </Suspense>
+            </Route>
+            <Route path="/regional">
+              {() => {
+                window.location.replace("/board/caf-regional");
+                return null;
+              }}
+            </Route>
+            <Route path="/paloma">
+              {() => {
+                window.location.replace("/board/caf-paloma");
+                return null;
+              }}
+            </Route>
 
             {/* ── HALO Command — the entire product surface ─────────────── */}
             <Route path="/">

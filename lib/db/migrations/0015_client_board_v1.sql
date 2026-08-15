@@ -86,6 +86,10 @@ CREATE TABLE IF NOT EXISTS client_portfolios (
 
 CREATE INDEX IF NOT EXISTS client_portfolios_org_idx ON client_portfolios (org_id);
 
+ALTER TABLE client_portfolios ADD COLUMN IF NOT EXISTS dashboard_token text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS client_portfolios_dashboard_token_uq ON client_portfolios (dashboard_token);
+
 CREATE TABLE IF NOT EXISTS client_portfolio_properties (
     portfolio_id uuid NOT NULL,
     property_id uuid NOT NULL,

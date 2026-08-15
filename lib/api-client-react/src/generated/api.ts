@@ -23,8 +23,10 @@ import type {
   AccountLedger,
   Activity,
   ActivityInput,
+  AddClientPortfolioPropertyInput,
   AddScopeLineInput,
   AddWalkCaptureBatch201,
+  AddedPortfolioPropertyDocument,
   ApplyBankAnalysisParams,
   ArrivalCheckInput,
   ArrivalCheckResult,
@@ -34,6 +36,7 @@ import type {
   AssignPhotosToJob200,
   AutopilotAction,
   AutopilotRunResult,
+  AvailablePortfolioPropertiesDocument,
   AwardBidDocument,
   AwardBidRequestInput,
   BalanceSheetReport,
@@ -31675,6 +31678,155 @@ export const usePutClientPortfolioSavedView = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getPutClientPortfolioSavedViewMutationOptions(options));
+    }
+
+export const getListClientPortfolioAvailablePropertiesUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/portfolio/available-properties`
+}
+
+/**
+ * @summary Org properties not yet on this portfolio. Regional link only.
+ */
+export const listClientPortfolioAvailableProperties = async (token: string, options?: RequestInit): Promise<AvailablePortfolioPropertiesDocument> => {
+
+  return customFetch<AvailablePortfolioPropertiesDocument>(getListClientPortfolioAvailablePropertiesUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientPortfolioAvailablePropertiesQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/portfolio/available-properties`
+    ] as const;
+    }
+
+
+export const getListClientPortfolioAvailablePropertiesQueryOptions = <TData = Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientPortfolioAvailablePropertiesQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>> = ({ signal }) => listClientPortfolioAvailableProperties(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientPortfolioAvailablePropertiesQueryResult = NonNullable<Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>>
+export type ListClientPortfolioAvailablePropertiesQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Org properties not yet on this portfolio. Regional link only.
+ */
+
+export function useListClientPortfolioAvailableProperties<TData = Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolioAvailableProperties>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientPortfolioAvailablePropertiesQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddClientPortfolioPropertyUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/portfolio/properties`
+}
+
+/**
+ * @summary Attach an existing org property or create a new one on this regional portfolio
+ */
+export const addClientPortfolioProperty = async (token: string,
+    addClientPortfolioPropertyInput: AddClientPortfolioPropertyInput, options?: RequestInit): Promise<AddedPortfolioPropertyDocument> => {
+
+  return customFetch<AddedPortfolioPropertyDocument>(getAddClientPortfolioPropertyUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(addClientPortfolioPropertyInput)
+  }
+);}
+
+
+
+
+
+export const getAddClientPortfolioPropertyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addClientPortfolioProperty>>, TError,{token: string;data: BodyType<AddClientPortfolioPropertyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addClientPortfolioProperty>>, TError,{token: string;data: BodyType<AddClientPortfolioPropertyInput>}, TContext> => {
+
+const mutationKey = ['addClientPortfolioProperty'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addClientPortfolioProperty>>, {token: string;data: BodyType<AddClientPortfolioPropertyInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  addClientPortfolioProperty(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddClientPortfolioPropertyMutationResult = NonNullable<Awaited<ReturnType<typeof addClientPortfolioProperty>>>
+    export type AddClientPortfolioPropertyMutationBody = BodyType<AddClientPortfolioPropertyInput>
+    export type AddClientPortfolioPropertyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Attach an existing org property or create a new one on this regional portfolio
+ */
+export const useAddClientPortfolioProperty = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addClientPortfolioProperty>>, TError,{token: string;data: BodyType<AddClientPortfolioPropertyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addClientPortfolioProperty>>,
+        TError,
+        {token: string;data: BodyType<AddClientPortfolioPropertyInput>},
+        TContext
+      > => {
+      return useMutation(getAddClientPortfolioPropertyMutationOptions(options));
     }
 
 export const getGetPropertyTurnBoardUrl = (id: string,

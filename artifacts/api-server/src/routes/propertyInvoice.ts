@@ -62,9 +62,8 @@ import {
   scopeTotalCents,
   assertApproveAmount,
 } from "../lib/clientBoardAccess";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
 import { loadTurnRef } from "../lib/clientBoardRepo";
+import { clientMayAccessProperty, clientMayAccessTurn } from "../lib/clientBoardLink";
 import {
   addScopeLine,
   buildInvoiceExport,
@@ -106,17 +105,6 @@ function sendErr(res: Response, err: unknown): boolean {
     return true;
   }
   return false;
-}
-
-async function clientMayAccessTurn(token: string, turnId: string): Promise<{ orgId: string } | null> {
-  const turn = await loadTurnRef(turnId);
-  if (!turn) return null;
-  const tokenPropertyId = await resolveClientPropertyIdForToken(token);
-  if (!tokenPropertyId) return null;
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(turn.propertyId);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) return null;
-  return { orgId: turn.orgId };
 }
 
 async function orgForTurn(turnId: string): Promise<string | null> {
@@ -689,14 +677,8 @@ router.get("/client/:token/properties/:id/compliance-stats", async (req: Request
     res.status(400).json({ error: "Invalid property" });
     return;
   }
-  const tokenPropertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!tokenPropertyId) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(path.data.id);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) {
+  const allowed = await clientMayAccessProperty(path.data.token, path.data.id);
+  if (!allowed) {
     res.status(404).json({ error: "Invalid link" });
     return;
   }

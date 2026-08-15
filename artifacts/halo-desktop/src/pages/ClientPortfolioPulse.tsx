@@ -70,6 +70,8 @@ export default function ClientPortfolioPulse() {
       }
       onTileClick={(propertyId) => navigate(`/properties/${propertyId}/turns`)}
       onAttentionClick={(href) => navigate(href)}
+      onKanban={(propertyId) => propertyId && navigate(`/properties/${propertyId}/board`)}
+      askUrl={id ? `/api/v1/portfolios/${id}/ask` : null}
       onRangeChange={(next, f, t) => {
         const committed = view.commitRange(next, f, t, pulse.data?.sort ?? "vacancy_cost");
         persist(pulseViewPersistBody(committed, pulse.data));

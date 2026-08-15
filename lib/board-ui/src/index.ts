@@ -17,6 +17,11 @@ export { WaybillStrip, WAYBILL_STAGE_ORDER } from './components/card/WaybillStri
 export type { WaybillStage, WaybillStageEntryView } from './components/card/WaybillStrip';
 export { PortfolioPulse } from './components/pulse/PortfolioPulse';
 export type { PortfolioPulseProps } from './components/pulse/PortfolioPulse';
+export { ClientTokenPulse } from './components/pulse/ClientTokenPulse';
+export type { ClientTokenPulseProps } from './components/pulse/ClientTokenPulse';
+export { ClientBoardViewPicker, CAF_REGIONAL_TOKEN, CAF_PALOMA_TOKEN } from './components/pulse/ClientBoardViewPicker';
+export type { ClientBoardViewPickerProps } from './components/pulse/ClientBoardViewPicker';
+export { useClientBoardSession } from './hooks/useClientBoardSession';
 export { formatUsdCents, signedUsdCents } from './components/pulse/formatUsdCents';
 export { TurnRing, confidenceGlyph } from './components/turn-ring/TurnRing';
 export { TurnBoard } from './components/turn-ring/TurnBoard';

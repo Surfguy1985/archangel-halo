@@ -29,9 +29,9 @@ import { db, propertiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireProperty, sendAccessError, scopeTotalForTurn, assertApproveAmount } from "../lib/clientBoardAccess";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
 import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { clientMayAccessProperty, clientMayAccessTurn } from "../lib/clientBoardLink";
 import { loadTurnRef } from "../lib/clientBoardRepo";
 import {
   computePropertyTurnBoard,
@@ -77,16 +77,6 @@ function sendBoardError(res: Response, err: unknown): boolean {
 function idempotencyKey(req: Request): string {
   const raw = req.header("idempotency-key") ?? req.header("Idempotency-Key");
   return raw && raw.trim().length > 0 ? raw.trim() : crypto.randomUUID();
-}
-
-async function clientMayAccessProperty(token: string, propertyId: string): Promise<{
-  orgId: string;
-} | null> {
-  const turn = await loadTurnRef(turnId);
-  if (!turn) return null;
-  const allowed = await clientMayAccessProperty(token, turn.propertyId);
-  if (!allowed) return null;
-  return { orgId: turn.orgId };
 }
 
 router.get("/v1/properties/:id/board", async (req: Request, res: Response): Promise<void> => {

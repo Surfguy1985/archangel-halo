@@ -97,3 +97,17 @@ export async function clientMayAccessTurn(
   if (!turn) return null;
   return clientMayAccessProperty(token, turn.propertyId);
 }
+
+export type RegionalClientLink =
+  | { ok: true; link: ClientBoardLink }
+  | { ok: false; status: 403 | 404; error: string };
+
+/** Pipeline, import, how-work, and add-property are regional-link only. */
+export async function regionalClientLink(token: string): Promise<RegionalClientLink> {
+  const link = await resolveClientBoardLink(token);
+  if (!link) return { ok: false, status: 404, error: "Invalid link" };
+  if (link.kind !== "regional") {
+    return { ok: false, status: 403, error: "This view is for the regional portfolio" };
+  }
+  return { ok: true, link };
+}

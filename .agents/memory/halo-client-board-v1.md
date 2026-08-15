@@ -112,7 +112,7 @@ Office **`/board/pipeline`**. Existing office `/pipeline` (leads & bids) is unto
 - Resident PII: units by number. `stripResidentPii` / `RESIDENT_PII_KEYS` in `lib/db/src/orgScope.ts`.
 - Signed URLs: 15-minute TTL, single-use `jti` tickets in `client_signed_url_tickets`. First GET 200, second 404. `consumeSignedFile` on evidence + record file GETs.
 - Rate limits: 100/min reads, 20/min writes, 5/min `POST .../turns/:id/records` (`limitClientBoard` on client-board routers; relaxed under Vitest).
-- Audit: `GET /v1/portfolios/:id/audit` (+ `/export` CSV). Auditor + asset_manager 200; regional_manager 403. Flag dark → 404 `{ error: "Audit log is not enabled" }`. Client twins `/client/:token/portfolio/audit`. UI `AuditLog` at office `/audit`, client `/:token/audit`. Pulse `auditHref`.
+- Audit: `GET /v1/portfolios/:id/audit` (+ `/export` CSV). Auditor + asset_manager 200; regional_manager 403. Flag dark → 404 `{ error: "Audit log is not enabled" }`. Client twins `/client/:token/portfolio/audit` are 403 (office-only). UI `AuditLog` at office `/audit`. Pulse `auditHref` is office-only.
 - Retention: `client_orgs.evidence_retention_years` default 7. Nightly `tombstoneExpiredEvidence`. Soft tombstone; `GET /verify` still `matches: true`. `POST /v1/evidence/:id/tombstone`.
 - Secrets: `scripts/src/check-secrets.ts` (AWS access-key prefix, PEM private-key header, Postgres URLs with embedded passwords) in `@workspace/scripts` typecheck. `.githooks/pre-commit` — operators set `core.hooksPath`; agents do not `git config`.
 - Backups: daily `pg_dump` + weekly restore test in `RUNBOOK.md`.
@@ -128,6 +128,18 @@ v1 definition of done: a regional manager opens Pulse and sees vacancy cost this
 - Seed: `pnpm seed:demo` (alias `seed:client-board`) — **12 properties × 40 units × 120 days**. Paloma / Desert Sage / Redbud stay first (bottleneck, two rework loops, in-house CTB). Paloma first open: paint `variance_pending` + `MARBLE-UP` off-schedule. Paloma second open: live 14-line × 3-vendor bid. `pnpm seed:live -- --source=./caf-export/` ingests real Entrata CSVs into `caf-live` (does not depend on the generated set).
 - `DEMO_SAFE=true` redacts emails, phones, capturer names (`Crew`), and actor ids that look like emails on client-board JSON. Resident PII still stripped. Flag `demo` stays **false**. Do **not** enable `realtime`.
 - Tests: `seedClientBoard.test.ts`, `seedClientBoardLive.test.ts`, `seedDemo.integration.test.ts`, `clientBoardFlows.integration.test.ts` (approve / block invoice / award bid / UTR+verify). Playwright spec at `artifacts/api-server/e2e/client-board.spec.ts` skips without `PLAYWRIGHT_BASE_URL`. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+
+## Password-free regional vs property views
+
+Office Pulse (`/portfolio`) still uses `OfficeGate`. Client links are the password-free path:
+
+- **Regional:** `client_portfolios.dashboard_token` = `caf-regional`. Open `/board/caf-regional` (or HALO `/views` → Regional, or `/regional`). Sees every community in North Region. Can attach an existing org property or create a named one (`POST /client/{token}/portfolio/properties`). Pipeline / how-work / Entrata CSV stay on this link.
+- **Property:** `client_accounts.dashboard_token` = `caf-paloma`. Open `/board/caf-paloma` (or `/paloma`). Pulse is Paloma only. Turn board / evidence / invoice for other properties in the same portfolio → 404. Cannot add properties. Audit is office-only (403 on client twins).
+- Session cookie subject is the property UUID, or `r:{portfolioId}` for regional. Do **not** enable `realtime` or `demo`.
+
+## Flight-control Pulse HUD
+
+Client Portfolio Pulse (`lib/board-ui` `PortfolioPulse`) is the same map-stays HUD as office Property Pulse: navy header + left rail, Carto Voyager map, hideable/draggable/resizable boxes. Boxes are **light** (`#F7F8F4` / white) for reading. **Vacancy cost** is its own rail module. **Turns** lists every open unit with a live vacant timer (starts on the uploaded move-out date) and a three-column close-out strip: request received, time to complete (`readyAt`), time to PO. The live timer stops only when complete AND a PO is on file — this is not the vacancy-cost formula (that still stops at `readyAt`, calendar days in the property TZ). Do not invent a second days/cents formula. **Before/after photos** is a hideable box grouped by unit from Base44 Work App (`base44_evidence` kinds `before`/`after`, including nested photos on `field_submissions` and `crew_jobs`). Match on property/unit names — do not invent a second photo store or port Site Twin. Layout keys `halo_client_pulse_hud_v4` / `halo_client_pulse_hud_open_v4`. Stage uses `isolation: isolate`; boxes `z-index` 1100+. Do not add `transform`/`filter`/`will-change` on the stage. Do not port GPS Finder / Site Twin / Twilio onto the client board. Tiles carry optional `latitude` / `longitude` / `city`. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
 
 ## v1 is complete
 

@@ -10,10 +10,10 @@ import {
 import { db, clientPortfoliosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
+import { regionalClientLink } from "../lib/clientBoardLink";
 import { officeActor, sendAccessError } from "../lib/clientBoardAccess";
 import { computeCostToServe } from "../lib/costToServe";
-import { PortfolioNotFoundError, PulseRangeError, resolvePortfolioForProperty, type PulseQuery } from "../lib/portfolioPulse";
+import { PortfolioNotFoundError, PulseRangeError, type PulseQuery } from "../lib/portfolioPulse";
 
 const router: IRouter = Router();
 const DARK = { error: "Work-source views are not enabled" };
@@ -88,20 +88,15 @@ router.get("/client/:token/portfolio/cost-to-serve", async (req: Request, res: R
     res.status(400).json({ error: "Invalid request" });
     return;
   }
-  const propertyId = await resolveClientPropertyIdForToken(path.data.token);
-  if (!propertyId) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const resolved = await resolvePortfolioForProperty(propertyId);
-  if (!resolved) {
-    res.status(404).json({ error: "Invalid link" });
+  const gated = await regionalClientLink(path.data.token);
+  if (!gated.ok) {
+    res.status(gated.status).json({ error: gated.error });
     return;
   }
   try {
     const doc = await computeCostToServe({
-      portfolioId: resolved.portfolioId,
-      orgId: resolved.orgId,
+      portfolioId: gated.link.portfolioId,
+      orgId: gated.link.orgId,
       query: queryFrom(query.data),
     });
     res.json(GetClientPortfolioCostToServeResponse.parse(doc));

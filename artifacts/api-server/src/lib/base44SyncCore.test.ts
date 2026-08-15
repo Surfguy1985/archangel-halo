@@ -205,6 +205,32 @@ describe("Base44 ingest planner", () => {
       expect(JSON.stringify(rec)).not.toMatch(/before_photos/);
     }
   });
+
+  it("projects nested before/after photos from crew_jobs (haloRead resource)", () => {
+    const result = applyIngest(
+      emptyState(),
+      snapshot({
+        crew_jobs: [
+          {
+            _id: "job1",
+            property: "Paloma Creek",
+            unit: { label: "214" },
+            before_photos: ["https://example.com/job-before.jpg"],
+            afterPhotos: [{ url: "https://example.com/job-after.jpg", _id: "p-after" }],
+          },
+        ],
+      }),
+      now,
+    );
+    const photos = result.records.filter((r) => r.kind === "before" || r.kind === "after");
+    expect(photos).toHaveLength(2);
+    expect(photos.every((p) => p.propertyName === "Paloma Creek")).toBe(true);
+    expect(photos.every((p) => p.unitLabel === "214")).toBe(true);
+    expect(photos.map((p) => p.mediaUrl).sort()).toEqual([
+      "https://example.com/job-after.jpg",
+      "https://example.com/job-before.jpg",
+    ]);
+  });
 });
 
 describe("freshness + HTTP classification", () => {

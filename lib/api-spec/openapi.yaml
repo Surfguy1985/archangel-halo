@@ -20116,6 +20116,9 @@ components:
           $ref: "#/components/schemas/PulseTileStatus"
         statusLabel: { type: string }
         href: { type: string }
+        city: { type: ["string", "null"] }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
 
     PortfolioPulseDocument:
       type: object
@@ -20167,6 +20170,14 @@ components:
         unitNumber: { type: string }
         days: { type: number }
         href: { type: string }
+        timezone: { type: string, description: "Property IANA timezone. Clocks use this zone, never the browser." }
+        vacantSince: { type: ["string", "null"], description: "Move-out / actual vacate. Live vacant timer starts here." }
+        requestReceivedAt: { type: ["string", "null"], description: "When the notice/turn request landed." }
+        completedAt: { type: ["string", "null"], description: "readyAt — unit marked complete." }
+        poReceivedAt: { type: ["string", "null"], description: "When the PO landed so the turn can close out." }
+        poNumber: { type: ["string", "null"] }
+        clockStopped: { type: boolean, description: "True only when the unit is complete AND a PO is on file." }
+        clockStoppedAt: { type: ["string", "null"] }
 
     PortfolioAttentionGroup:
       type: object
@@ -20190,6 +20201,58 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortfolioAttentionGroup"
+        turns:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+          description: Every open turn in this view, with live close-out clocks.
+        photoUnits:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioUnitPhotoPair"
+          description: Base44 Work App before/after photos grouped by unit.
+        crewToday:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioCrewToday"
+          description: HALO jobs scheduled today on these communities.
+
+    PortfolioUnitPhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        occurredAt: { type: ["string", "null"] }
+        title: { type: ["string", "null"] }
+
+    PortfolioUnitPhotoPair:
+      type: object
+      required: [propertyName, unitNumber, before, after]
+      properties:
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: string }
+        unitNumber: { type: string }
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioUnitPhoto"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioUnitPhoto"
+
+    PortfolioCrewToday:
+      type: object
+      required: [propertyId, propertyName, crewName, status]
+      properties:
+        propertyId: { type: string }
+        propertyName: { type: string }
+        unitNumber: { type: ["string", "null"] }
+        jobNo: { type: string }
+        crewName: { type: string }
+        status: { type: string }
+        scheduledOn: { type: ["string", "null"] }
 
     PortfolioSavedViewInput:
       type: object
@@ -20749,6 +20812,14 @@ components:
           $ref: "#/components/schemas/TurnStageName"
         ring:
           $ref: "#/components/schemas/TurnRingDocument"
+        timezone: { type: string }
+        vacantSince: { type: ["string", "null"] }
+        requestReceivedAt: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        poReceivedAt: { type: ["string", "null"] }
+        poNumber: { type: ["string", "null"] }
+        clockStopped: { type: boolean }
+        clockStoppedAt: { type: ["string", "null"] }
 
     PropertyTurnBoardDocument:
       type: object
@@ -20869,6 +20940,14 @@ components:
             $ref: "#/components/schemas/TurnActionDocument"
         evidencePlaceholder: { type: string }
         scopePlaceholder: { type: string }
+        timezone: { type: string }
+        vacantSince: { type: ["string", "null"] }
+        requestReceivedAt: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        poReceivedAt: { type: ["string", "null"] }
+        poNumber: { type: ["string", "null"] }
+        clockStopped: { type: boolean }
+        clockStoppedAt: { type: ["string", "null"] }
 
     TurnMutationResultDocument:
       type: object

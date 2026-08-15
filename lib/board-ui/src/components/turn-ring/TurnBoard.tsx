@@ -13,6 +13,7 @@ import type {
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { TurnRing, confidenceGlyph } from "./TurnRing";
 import { actorLabel, formatStageClock, ownerLabel } from "./clock";
+import { TurnCloseoutStrip } from "./TurnCloseout";
 import { EvidenceLedger, type EvidenceRecordVariant } from "./EvidenceLedger";
 import { ScopeCompliance, type ScopeComplianceProps } from "./ScopeCompliance";
 import { VirtualList } from "../virtual/VirtualList";
@@ -342,6 +343,7 @@ export function TurnBoard(props: TurnBoardProps) {
                       {card.isStalled ? (
                         <p style={{ margin: "4px 0 0", fontSize: 11, color: CORAL, fontWeight: 600 }}>Stalled</p>
                       ) : null}
+                      <TurnCloseoutStrip compact tone="dark" {...card} />
                     </div>
                   </button>
                 )}
@@ -408,6 +410,12 @@ export function TurnBoard(props: TurnBoardProps) {
                 {confidenceGlyph(props.detail.ring.confidence)}
               </p>
             ) : null}
+
+            <h3 style={sectionH}>Close-out clock</h3>
+            <p style={{ margin: "0 0 12px", fontSize: 12, color: MUTED, lineHeight: 1.45 }}>
+              Vacant timer starts on the move-out date from the notice we uploaded. It stops when this unit is marked complete and a PO is on file.
+            </p>
+            <TurnCloseoutStrip tone="dark" {...props.detail} />
 
             <h3 style={sectionH}>Stage clock</h3>
             <StageBand

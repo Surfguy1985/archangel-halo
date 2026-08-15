@@ -13,4 +13,32 @@ export interface PortfolioAttentionItem {
   unitNumber: string;
   days: number;
   href: string;
+  /** Property IANA timezone. Clocks use this zone, never the browser. */
+  timezone?: string;
+  /**
+     * Move-out / actual vacate. Live vacant timer starts here.
+     * @nullable
+     */
+  vacantSince?: string | null;
+  /**
+     * When the notice/turn request landed.
+     * @nullable
+     */
+  requestReceivedAt?: string | null;
+  /**
+     * readyAt — unit marked complete.
+     * @nullable
+     */
+  completedAt?: string | null;
+  /**
+     * When the PO landed so the turn can close out.
+     * @nullable
+     */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  /** True only when the unit is complete AND a PO is on file. */
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }

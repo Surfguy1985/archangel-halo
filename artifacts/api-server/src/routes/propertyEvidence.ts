@@ -32,10 +32,9 @@ import {
   propertyIdOfTurn,
   propertyIdOfRecord,
 } from "../lib/clientBoardAccess";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
 import { consumeSignedFile } from "../lib/evidenceSign";
 import { loadTurnRef } from "../lib/clientBoardRepo";
+import { clientMayAccessTurn } from "../lib/clientBoardLink";
 import {
   computeTurnEvidence,
   createTurnRecord,
@@ -60,17 +59,6 @@ function sendErr(res: Response, err: unknown): boolean {
     return true;
   }
   return false;
-}
-
-async function clientMayAccessTurn(token: string, turnId: string): Promise<{ orgId: string } | null> {
-  const turn = await loadTurnRef(turnId);
-  if (!turn) return null;
-  const tokenPropertyId = await resolveClientPropertyIdForToken(token);
-  if (!tokenPropertyId) return null;
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(turn.propertyId);
-  if (!tokenPort || !targetPort || tokenPort.portfolioId !== targetPort.portfolioId) return null;
-  return { orgId: turn.orgId };
 }
 
 async function orgForTurn(turnId: string): Promise<string | null> {

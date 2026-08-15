@@ -1,8 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import {
   db,
   clientPortfoliosTable,
+  clientPortfolioPropertiesTable,
+  propertiesTable,
 } from "@workspace/db";
 import {
   ListClientPortfoliosResponse,
@@ -26,9 +28,14 @@ import {
   PutClientPortfolioSavedViewParams,
   PutClientPortfolioSavedViewBody,
   PutClientPortfolioSavedViewResponse,
+  ListClientPortfolioAvailablePropertiesParams,
+  ListClientPortfolioAvailablePropertiesResponse,
+  AddClientPortfolioPropertyParams,
+  AddClientPortfolioPropertyBody,
+  AddClientPortfolioPropertyResponse,
 } from "@workspace/api-zod";
 import { officeActor, propertyIdsForActor, sendAccessError } from "../lib/clientBoardAccess";
-import { resolveClientBoardLink } from "../lib/clientBoardLink";
+import { resolveClientBoardLink, regionalClientLink } from "../lib/clientBoardLink";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
 import {
@@ -42,6 +49,7 @@ import {
   savePulseView,
   type PulseQuery,
 } from "../lib/portfolioPulse";
+import { answerPortfolioAsk } from "../lib/portfolioAsk";
 
 const router: IRouter = Router();
 
@@ -193,6 +201,59 @@ router.get("/v1/portfolios/:id/attention", async (req: Request, res: Response): 
   }
 });
 
+router.post("/v1/portfolios/:id/ask", async (req: Request, res: Response): Promise<void> => {
+  if (!(await requirePulse())) {
+    res.status(404).json(DARK);
+    return;
+  }
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  if (!question) {
+    res.status(400).json({ error: "Ask a question" });
+    return;
+  }
+  const orgId = await orgIdForPortfolio(req.params.id);
+  if (!orgId) {
+    res.status(404).json({ error: "Portfolio not found" });
+    return;
+  }
+  try {
+    const { allowedPropertyIds } = await officeScope(req, orgId);
+    const [pulse, attention] = await Promise.all([
+      computePortfolioPulse({
+        portfolioId: req.params.id,
+        orgId,
+        query: { range: "this_month" },
+        hrefForProperty: officePropertyHref,
+        allowedPropertyIds,
+      }),
+      computePortfolioAttention({
+        portfolioId: req.params.id,
+        orgId,
+        hrefForProperty: officePropertyHref,
+        allowedPropertyIds,
+      }),
+    ]);
+    const out = await answerPortfolioAsk({
+      question,
+      title: pulse.viewLabel ?? pulse.portfolioName,
+      properties: pulse.tiles.map((t) => ({ id: t.propertyId, name: t.name })),
+      pulse: {
+        vacancyCostCents: pulse.headline.vacancyCostCents,
+        unitsInTurn: pulse.supporting.unitsInTurn,
+        medianTurnDays: pulse.supporting.medianTurnDays,
+        tiles: pulse.tiles,
+      },
+      turns: attention.turns ?? [],
+      photoCount: attention.photoUnits?.length ?? 0,
+      attentionCount: attention.groups.reduce((n, g) => n + g.items.length, 0),
+    });
+    res.json(out);
+  } catch (err) {
+    if (sendAccessError(res, err)) return;
+    if (!sendPulseError(res, err)) throw err;
+  }
+});
+
 router.get("/v1/portfolios/:id/stream", async (req: Request, res: Response): Promise<void> => {
   if (!(await requirePulse())) {
     res.status(404).json(DARK);
@@ -310,6 +371,60 @@ router.get("/client/:token/portfolio/attention", async (req: Request, res: Respo
   }
 });
 
+router.post("/client/:token/portfolio/ask", async (req: Request, res: Response): Promise<void> => {
+  if (!(await requirePulse())) {
+    res.status(404).json(DARK);
+    return;
+  }
+  const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+  if (!question) {
+    res.status(400).json({ error: "Ask a question" });
+    return;
+  }
+  const ctx = await clientContext(String(req.params.token ?? ""));
+  if (!ctx) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  try {
+    const href = clientPropertyHref(String(req.params.token));
+    const [pulse, attention] = await Promise.all([
+      computePortfolioPulse({
+        portfolioId: ctx.portfolioId,
+        orgId: ctx.orgId,
+        query: { range: "this_month" },
+        hrefForProperty: href,
+        allowedPropertyIds: ctx.allowedPropertyIds,
+        viewKind: ctx.kind,
+        viewLabel: ctx.viewLabel,
+      }),
+      computePortfolioAttention({
+        portfolioId: ctx.portfolioId,
+        orgId: ctx.orgId,
+        hrefForProperty: href,
+        allowedPropertyIds: ctx.allowedPropertyIds,
+      }),
+    ]);
+    const out = await answerPortfolioAsk({
+      question,
+      title: pulse.viewLabel ?? pulse.portfolioName,
+      properties: pulse.tiles.map((t) => ({ id: t.propertyId, name: t.name })),
+      pulse: {
+        vacancyCostCents: pulse.headline.vacancyCostCents,
+        unitsInTurn: pulse.supporting.unitsInTurn,
+        medianTurnDays: pulse.supporting.medianTurnDays,
+        tiles: pulse.tiles,
+      },
+      turns: attention.turns ?? [],
+      photoCount: attention.photoUnits?.length ?? 0,
+      attentionCount: attention.groups.reduce((n, g) => n + g.items.length, 0),
+    });
+    res.json(out);
+  } catch (err) {
+    if (!sendPulseError(res, err)) throw err;
+  }
+});
+
 router.get("/client/:token/portfolio/stream", async (req: Request, res: Response): Promise<void> => {
   if (!(await requirePulse())) {
     res.status(404).json(DARK);
@@ -353,6 +468,142 @@ router.put("/client/:token/portfolio/saved-view", async (req: Request, res: Resp
     sort: body.data.sort,
   });
   res.json(PutClientPortfolioSavedViewResponse.parse(saved));
+});
+
+router.get("/client/:token/portfolio/available-properties", async (req: Request, res: Response): Promise<void> => {
+  if (!(await requirePulse())) {
+    res.status(404).json(DARK);
+    return;
+  }
+  const path = ListClientPortfolioAvailablePropertiesParams.safeParse(req.params);
+  if (!path.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const gated = await regionalClientLink(path.data.token);
+  if (!gated.ok) {
+    res.status(gated.status).json({ error: gated.error });
+    return;
+  }
+  const attached = await db
+    .select({ propertyId: clientPortfolioPropertiesTable.propertyId })
+    .from(clientPortfolioPropertiesTable)
+    .where(eq(clientPortfolioPropertiesTable.portfolioId, gated.link.portfolioId));
+  const attachedIds = attached.map((r) => r.propertyId);
+  const where = attachedIds.length
+    ? and(eq(propertiesTable.clientOrgId, gated.link.orgId), notInArray(propertiesTable.id, attachedIds))
+    : eq(propertiesTable.clientOrgId, gated.link.orgId);
+  const rows = await db
+    .select({
+      propertyId: propertiesTable.id,
+      name: propertiesTable.name,
+      city: propertiesTable.city,
+    })
+    .from(propertiesTable)
+    .where(where);
+  res.json(
+    ListClientPortfolioAvailablePropertiesResponse.parse({
+      properties: rows.map((r) => ({
+        propertyId: r.propertyId,
+        name: r.name,
+        city: r.city ?? null,
+      })),
+    }),
+  );
+});
+
+router.post("/client/:token/portfolio/properties", async (req: Request, res: Response): Promise<void> => {
+  if (!(await requirePulse())) {
+    res.status(404).json(DARK);
+    return;
+  }
+  const path = AddClientPortfolioPropertyParams.safeParse(req.params);
+  const body = AddClientPortfolioPropertyBody.safeParse(req.body);
+  if (!path.success || !body.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const gated = await regionalClientLink(path.data.token);
+  if (!gated.ok) {
+    res.status(gated.status).json({ error: gated.error });
+    return;
+  }
+  const propertyId = body.data.propertyId?.trim();
+  if (propertyId) {
+    const [existing] = await db
+      .select({
+        id: propertiesTable.id,
+        name: propertiesTable.name,
+        orgId: propertiesTable.clientOrgId,
+      })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1);
+    if (!existing || existing.orgId !== gated.link.orgId) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    await db
+      .insert(clientPortfolioPropertiesTable)
+      .values({ portfolioId: gated.link.portfolioId, propertyId: existing.id })
+      .onConflictDoNothing();
+    res.json(
+      AddClientPortfolioPropertyResponse.parse({
+        propertyId: existing.id,
+        name: existing.name,
+        created: false,
+      }),
+    );
+    return;
+  }
+
+  const name = body.data.name?.trim();
+  if (!name) {
+    res.status(400).json({ error: "Provide propertyId or name" });
+    return;
+  }
+  const city = body.data.city?.trim() || null;
+  const timezone = body.data.timezone?.trim() || "America/Chicago";
+  let avgDailyRentCents: bigint | null = null;
+  if (body.data.avgDailyRentCents != null && body.data.avgDailyRentCents !== "") {
+    if (!/^-?\d+$/.test(body.data.avgDailyRentCents)) {
+      res.status(400).json({ error: "avgDailyRentCents must be integer cents" });
+      return;
+    }
+    avgDailyRentCents = BigInt(body.data.avgDailyRentCents);
+  }
+  const targetTurnDays =
+    typeof body.data.targetTurnDays === "number" && Number.isFinite(body.data.targetTurnDays)
+      ? Math.max(1, Math.floor(body.data.targetTurnDays))
+      : 7;
+
+  const [created] = await db
+    .insert(propertiesTable)
+    .values({
+      name,
+      city,
+      timezone,
+      avgDailyRentCents,
+      targetTurnDays,
+      clientOrgId: gated.link.orgId,
+      status: "active",
+    })
+    .returning();
+  if (!created) {
+    res.status(500).json({ error: "Could not create property" });
+    return;
+  }
+  await db.insert(clientPortfolioPropertiesTable).values({
+    portfolioId: gated.link.portfolioId,
+    propertyId: created.id,
+  });
+  res.json(
+    AddClientPortfolioPropertyResponse.parse({
+      propertyId: created.id,
+      name: created.name,
+      created: true,
+    }),
+  );
 });
 
 export default router;

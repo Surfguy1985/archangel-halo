@@ -8115,7 +8115,24 @@ export interface PortfolioPulseTile {
   status: PulseTileStatus;
   statusLabel: string;
   href: string;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }
+
+/**
+ * Regional sees every property in the portfolio. Property sees only that community.
+ */
+export type PortfolioPulseDocumentViewKind = typeof PortfolioPulseDocumentViewKind[keyof typeof PortfolioPulseDocumentViewKind];
+
+
+export const PortfolioPulseDocumentViewKind = {
+  regional: 'regional',
+  property: 'property',
+} as const;
 
 export interface ComplianceStatsDocument {
   /** @nullable */
@@ -8132,6 +8149,11 @@ export interface ComplianceStatsDocument {
 export interface PortfolioPulseDocument {
   portfolioId: string;
   portfolioName: string;
+  /** Regional sees every property in the portfolio. Property sees only that community. */
+  viewKind?: PortfolioPulseDocumentViewKind;
+  viewLabel?: string;
+  /** Regional (and office asset manager) may attach more properties. Property links cannot. */
+  canAddProperties?: boolean;
   range: PulseRangePreset;
   from: string;
   to: string;
@@ -8149,6 +8171,34 @@ export interface PortfolioAttentionItem {
   unitNumber: string;
   days: number;
   href: string;
+  /** Property IANA timezone. Clocks use this zone, never the browser. */
+  timezone?: string;
+  /**
+     * Move-out / actual vacate. Live vacant timer starts here.
+     * @nullable
+     */
+  vacantSince?: string | null;
+  /**
+     * When the notice/turn request landed.
+     * @nullable
+     */
+  requestReceivedAt?: string | null;
+  /**
+     * readyAt — unit marked complete.
+     * @nullable
+     */
+  completedAt?: string | null;
+  /**
+     * When the PO landed so the turn can close out.
+     * @nullable
+     */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  /** True only when the unit is complete AND a PO is on file. */
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }
 
 export interface PortfolioAttentionGroup {
@@ -8161,6 +8211,42 @@ export interface PortfolioAttentionGroup {
 export interface PortfolioAttentionDocument {
   portfolioId: string;
   groups: PortfolioAttentionGroup[];
+  /** Every open turn in this view, with live close-out clocks. */
+  turns?: PortfolioAttentionItem[];
+  /** Base44 Work App before/after photos grouped by unit. */
+  photoUnits?: PortfolioUnitPhotoPair[];
+  /** HALO jobs scheduled today on these communities. */
+  crewToday?: PortfolioCrewToday[];
+}
+
+export interface PortfolioCrewToday {
+  propertyId: string;
+  propertyName: string;
+  /** @nullable */
+  unitNumber?: string | null;
+  jobNo?: string;
+  crewName: string;
+  status: string;
+  /** @nullable */
+  scheduledOn?: string | null;
+}
+
+export interface PortfolioUnitPhoto {
+  id: string;
+  url: string;
+  /** @nullable */
+  occurredAt?: string | null;
+  /** @nullable */
+  title?: string | null;
+}
+
+export interface PortfolioUnitPhotoPair {
+  /** @nullable */
+  propertyId?: string | null;
+  propertyName: string;
+  unitNumber: string;
+  before: PortfolioUnitPhoto[];
+  after: PortfolioUnitPhoto[];
 }
 
 export interface PortfolioSavedViewInput {
@@ -8170,6 +8256,34 @@ export interface PortfolioSavedViewInput {
   /** @nullable */
   to?: string | null;
   sort: PulseTileSort;
+}
+
+export interface AddClientPortfolioPropertyInput {
+  /** Attach this existing org property to the regional portfolio */
+  propertyId?: string;
+  /** Create a new property when propertyId is omitted */
+  name?: string;
+  city?: string;
+  timezone?: string;
+  avgDailyRentCents?: string;
+  targetTurnDays?: number;
+}
+
+export interface AvailablePortfolioProperty {
+  propertyId: string;
+  name: string;
+  /** @nullable */
+  city?: string | null;
+}
+
+export interface AvailablePortfolioPropertiesDocument {
+  properties: AvailablePortfolioProperty[];
+}
+
+export interface AddedPortfolioPropertyDocument {
+  propertyId: string;
+  name: string;
+  created: boolean;
 }
 
 export interface PortfolioSavedViewDocument {
@@ -8607,6 +8721,20 @@ export interface TurnBoardCardDocument {
   laneKey: string;
   status: TurnStageName;
   ring: TurnRingDocument;
+  timezone?: string;
+  /** @nullable */
+  vacantSince?: string | null;
+  /** @nullable */
+  requestReceivedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }
 
 export interface PropertyTurnBoardDocument {
@@ -8684,6 +8812,20 @@ export interface TurnDetailDocument {
   actions: TurnActionDocument[];
   evidencePlaceholder: string;
   scopePlaceholder: string;
+  timezone?: string;
+  /** @nullable */
+  vacantSince?: string | null;
+  /** @nullable */
+  requestReceivedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }
 
 export interface TurnMutationResultDocument {

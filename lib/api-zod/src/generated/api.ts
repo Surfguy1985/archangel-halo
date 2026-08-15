@@ -14016,6 +14016,9 @@ export const getPortfolioPulseResponseTilesItemVacancyCostCentsRegExp = new RegE
 export const GetPortfolioPulseResponse = zod.object({
   "portfolioId": zod.string(),
   "portfolioName": zod.string(),
+  "viewKind": zod.enum(['regional', 'property']).optional().describe('Regional sees every property in the portfolio. Property sees only that community.'),
+  "viewLabel": zod.string().optional(),
+  "canAddProperties": zod.boolean().optional().describe('Regional (and office asset manager) may attach more properties. Property links cannot.'),
   "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
   "from": zod.string(),
   "to": zod.string(),
@@ -14043,7 +14046,10 @@ export const GetPortfolioPulseResponse = zod.object({
   "unitsInTurn": zod.number(),
   "status": zod.enum(['on_target', 'drifting', 'at_risk']),
   "statusLabel": zod.string(),
-  "href": zod.string()
+  "href": zod.string(),
+  "city": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish()
 })),
   "compliance": zod.object({
   "propertyId": zod.string().nullish(),
@@ -14080,9 +14086,59 @@ export const GetPortfolioAttentionResponse = zod.object({
   "propertyName": zod.string(),
   "unitNumber": zod.string(),
   "days": zod.number(),
-  "href": zod.string()
+  "href": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 }))
+})),
+  "turns": zod.array(zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "days": zod.number(),
+  "href": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
+})).optional(),
+  "photoUnits": zod.array(zod.object({
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "before": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "occurredAt": zod.string().nullish(),
+  "title": zod.string().nullish()
+})),
+  "after": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "occurredAt": zod.string().nullish(),
+  "title": zod.string().nullish()
 }))
+})).optional(),
+  "crewToday": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "jobNo": zod.string().optional(),
+  "crewName": zod.string(),
+  "status": zod.string(),
+  "scheduledOn": zod.string().nullish()
+})).optional()
 })
 
 
@@ -14305,6 +14361,9 @@ export const getClientPortfolioPulseResponseTilesItemVacancyCostCentsRegExp = ne
 export const GetClientPortfolioPulseResponse = zod.object({
   "portfolioId": zod.string(),
   "portfolioName": zod.string(),
+  "viewKind": zod.enum(['regional', 'property']).optional().describe('Regional sees every property in the portfolio. Property sees only that community.'),
+  "viewLabel": zod.string().optional(),
+  "canAddProperties": zod.boolean().optional().describe('Regional (and office asset manager) may attach more properties. Property links cannot.'),
   "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
   "from": zod.string(),
   "to": zod.string(),
@@ -14332,7 +14391,10 @@ export const GetClientPortfolioPulseResponse = zod.object({
   "unitsInTurn": zod.number(),
   "status": zod.enum(['on_target', 'drifting', 'at_risk']),
   "statusLabel": zod.string(),
-  "href": zod.string()
+  "href": zod.string(),
+  "city": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish()
 })),
   "compliance": zod.object({
   "propertyId": zod.string().nullish(),
@@ -14369,9 +14431,59 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "propertyName": zod.string(),
   "unitNumber": zod.string(),
   "days": zod.number(),
-  "href": zod.string()
+  "href": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 }))
+})),
+  "turns": zod.array(zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "days": zod.number(),
+  "href": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
+})).optional(),
+  "photoUnits": zod.array(zod.object({
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "before": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "occurredAt": zod.string().nullish(),
+  "title": zod.string().nullish()
+})),
+  "after": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "occurredAt": zod.string().nullish(),
+  "title": zod.string().nullish()
 }))
+})).optional(),
+  "crewToday": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "jobNo": zod.string().optional(),
+  "crewName": zod.string(),
+  "status": zod.string(),
+  "scheduledOn": zod.string().nullish()
+})).optional()
 })
 
 
@@ -14686,6 +14798,49 @@ export const PutClientPortfolioSavedViewResponse = zod.object({
 
 
 /**
+ * @summary Org properties not yet on this portfolio. Regional link only.
+ */
+export const ListClientPortfolioAvailablePropertiesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListClientPortfolioAvailablePropertiesResponse = zod.object({
+  "properties": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "city": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Attach an existing org property or create a new one on this regional portfolio
+ */
+export const AddClientPortfolioPropertyParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const AddClientPortfolioPropertyHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const AddClientPortfolioPropertyBody = zod.object({
+  "propertyId": zod.string().optional().describe('Attach this existing org property to the regional portfolio'),
+  "name": zod.string().optional().describe('Create a new property when propertyId is omitted'),
+  "city": zod.string().optional(),
+  "timezone": zod.string().optional(),
+  "avgDailyRentCents": zod.string().optional(),
+  "targetTurnDays": zod.number().optional()
+})
+
+export const AddClientPortfolioPropertyResponse = zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "created": zod.boolean()
+})
+
+
+/**
  * @summary Property Turn Ring board — units in turn as stage columns. Drag is always disabled; the work moves the cards.
  */
 export const GetPropertyTurnBoardParams = zod.object({
@@ -14735,7 +14890,15 @@ export const GetPropertyTurnBoardResponse = zod.object({
   "predicted": zod.boolean(),
   "actorId": zod.string().nullable()
 }))
-})
+}),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 }))
 })
 
@@ -14808,7 +14971,15 @@ export const GetTurnDetailResponse = zod.object({
   "label": zod.string()
 })),
   "evidencePlaceholder": zod.string(),
-  "scopePlaceholder": zod.string()
+  "scopePlaceholder": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 })
 
 
@@ -14920,7 +15091,15 @@ export const GetClientPropertyTurnBoardResponse = zod.object({
   "predicted": zod.boolean(),
   "actorId": zod.string().nullable()
 }))
-})
+}),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 }))
 })
 
@@ -14995,7 +15174,15 @@ export const GetClientTurnDetailResponse = zod.object({
   "label": zod.string()
 })),
   "evidencePlaceholder": zod.string(),
-  "scopePlaceholder": zod.string()
+  "scopePlaceholder": zod.string(),
+  "timezone": zod.string().optional(),
+  "vacantSince": zod.string().nullish(),
+  "requestReceivedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "poReceivedAt": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "clockStopped": zod.boolean().optional(),
+  "clockStoppedAt": zod.string().nullish()
 })
 
 

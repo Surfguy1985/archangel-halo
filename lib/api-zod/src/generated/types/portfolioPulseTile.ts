@@ -25,4 +25,10 @@ export interface PortfolioPulseTile {
   status: PulseTileStatus;
   statusLabel: string;
   href: string;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }

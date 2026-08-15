@@ -1,26 +1,54 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { divIcon } from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "./pulseHud.css";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Camera,
+  CircleDollarSign,
+  Columns3,
+  History,
+  Home,
+  LayoutGrid,
+  MessageCircle,
+  MoreVertical,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  Timer,
+  User,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type {
   PortfolioAttentionDocument,
   PortfolioPulseDocument,
+  PortfolioPulseTile,
   PulseRangePreset,
   PulseTileSort,
   WorkSourceFilter,
 } from "@workspace/api-client-react";
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { formatUsdCents, signedUsdCents } from "./formatUsdCents";
-import { VirtualGrid, VirtualList } from "../virtual/VirtualList";
+import { VirtualList } from "../virtual/VirtualList";
+import { TurnCloseoutStrip } from "../turn-ring/TurnCloseout";
+import { UnitPhotoPairs } from "./UnitPhotoPairs";
+import { PulseGuide } from "./PulseGuide";
+import type { GuideAction, GuideContext } from "./pulseGuideBrain";
 
-const INK = "#07101E";
 const LIME = "#B4FF44";
-const GOLD = "#E8C36A";
-const CORAL = "#F07167";
-const HAIRLINE = "rgba(255,255,255,0.10)";
-const MUTED = "rgba(255,255,255,0.58)";
-const DISPLAY = '"Outfit", "Plus Jakarta Sans", sans-serif';
-const BODY = '"Plus Jakarta Sans", "Outfit", sans-serif';
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
-
+const NAVY = "#0F1B2D";
+const FALLBACK: [number, number] = [32.7767, -96.797];
+const OPEN_KEY = "halo_client_pulse_hud_open_v5";
 export type PortfolioPulseProps = {
   pulse: PortfolioPulseDocument | undefined;
   attention: PortfolioAttentionDocument | undefined;
@@ -42,6 +70,59 @@ export type PortfolioPulseProps = {
   portfolios?: Array<{ id: string; name: string }>;
   selectedPortfolioId?: string;
   onPortfolioChange?: (id: string) => void;
+  addProperty?: {
+    available: Array<{ propertyId: string; name: string; city?: string | null }>;
+    onAttach: (propertyId: string) => Promise<void> | void;
+    onCreate: (input: { name: string; city: string }) => Promise<void> | void;
+    busy?: boolean;
+    error?: string;
+  };
+  onKanban?: (propertyId: string | null) => void;
+  askUrl?: string | null;
+};
+
+type PanelId =
+  | "chat"
+  | "vacancy"
+  | "turns"
+  | "photos"
+  | "overview"
+  | "sites"
+  | "attention"
+  | "crew"
+  | "range"
+  | "compliance"
+  | "activity"
+  | "tools";
+
+const NAV: Array<{ id: PanelId; label: string; Icon: typeof Home }> = [
+  { id: "chat", label: "Ask", Icon: MessageCircle },
+  { id: "vacancy", label: "Vacancy $", Icon: CircleDollarSign },
+  { id: "turns", label: "Turns", Icon: Timer },
+  { id: "photos", label: "Photos", Icon: Camera },
+  { id: "crew", label: "Crew", Icon: User },
+  { id: "overview", label: "Overview", Icon: Home },
+  { id: "sites", label: "Sites", Icon: LayoutGrid },
+  { id: "attention", label: "Needs you", Icon: AlertTriangle },
+  { id: "range", label: "Range", Icon: CalendarDays },
+  { id: "compliance", label: "Compliance", Icon: ShieldCheck },
+  { id: "activity", label: "Activity", Icon: History },
+  { id: "tools", label: "Tools", Icon: Settings },
+];
+
+const DEFAULT_OPEN: Record<PanelId, boolean> = {
+  chat: true,
+  vacancy: true,
+  turns: true,
+  photos: true,
+  crew: true,
+  overview: false,
+  sites: true,
+  attention: true,
+  range: false,
+  compliance: false,
+  activity: false,
+  tools: false,
 };
 
 const RANGES: Array<{ id: PulseRangePreset; label: string }> = [
@@ -64,573 +145,915 @@ const SORTS: Array<{ id: PulseTileSort; label: string }> = [
   { id: "name", label: "Name" },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  on_target: LIME,
-  drifting: GOLD,
-  at_risk: CORAL,
-};
+function loadOpen(): Record<PanelId, boolean> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OPEN_KEY) || "null") as Partial<Record<PanelId, boolean>> | null;
+    if (raw && typeof raw === "object") return { ...DEFAULT_OPEN, ...raw };
+  } catch {
+    /* */
+  }
+  return { ...DEFAULT_OPEN };
+}
+
+function pinIcon(hot: boolean, pulse = false) {
+  const fill = hot ? LIME : NAVY;
+  const inner = hot ? NAVY : "#fff";
+  return divIcon({
+    className: "",
+    iconSize: [28, 34],
+    iconAnchor: [14, 34],
+    html: `<div style="position:relative">${pulse ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-70%);width:36px;height:36px;border-radius:50%;background:${LIME}40;animation:cb-pulse-dot 1.5s infinite"></div>` : ""}<svg width="28" height="34" viewBox="0 0 28 34" fill="none"><path d="M14 0C8.48 0 4 4.48 4 10c0 7.87 10 24 10 24S24 17.87 24 10C24 4.48 19.52 0 14 0z" fill="${fill}"/><circle cx="14" cy="10" r="4.5" fill="${inner}"/></svg></div>`,
+  });
+}
+
+function FitPins({ points, selected }: { points: [number, number][]; selected: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 80);
+    return () => clearTimeout(t);
+  }, [map]);
+  useEffect(() => {
+    const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (selected) {
+      if (reduce) map.setView(selected, Math.max(map.getZoom(), 15));
+      else map.flyTo(selected, Math.max(map.getZoom(), 15), { duration: 0.55 });
+      return;
+    }
+    if (points.length === 0) {
+      map.setView(FALLBACK, 11);
+      return;
+    }
+    if (points.length === 1) {
+      map.setView(points[0], 14);
+      return;
+    }
+    map.fitBounds(points, { padding: [48, 48], maxZoom: 15 });
+  }, [map, points.map((p) => p.join(",")).join("|"), selected?.join(",")]);
+  return null;
+}
+
+function HudBox({
+  id,
+  title,
+  kicker,
+  open,
+  size = "md",
+  onClose,
+  children,
+}: {
+  id: PanelId;
+  title: string;
+  kicker?: string;
+  open: boolean;
+  size?: "sm" | "md" | "lg";
+  z?: number;
+  stageRef?: unknown;
+  onClose: () => void;
+  onFocus?: () => void;
+  children: ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <article className={`cb-hud-box size-${size}`} data-panel={id}>
+      <header className="cb-hud-box-head">
+        <div>
+          <h2>{title}</h2>
+          {kicker ? <p>{kicker}</p> : null}
+        </div>
+        <button type="button" aria-label={`Hide ${title}`} onClick={onClose}>
+          <X size={14} />
+        </button>
+      </header>
+      <div className="cb-hud-box-body">{children}</div>
+    </article>
+  );
+}
+
+function tileCoord(tile: PortfolioPulseTile): [number, number] | null {
+  const lat = tile.latitude;
+  const lng = tile.longitude;
+  if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  return [lat, lng];
+}
 
 export function PortfolioPulse(props: PortfolioPulseProps) {
   const reduceMotion = useReducedMotion();
   const live = useBoardEvents(props.streamUrl, props.onRefetch, "pulse");
   const pulse = props.pulse;
+  const tiles = pulse?.tiles ?? [];
+  const propertyOnly = pulse?.viewKind === "property";
+  const showRegionalLinks = !propertyOnly;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [customFrom, setCustomFrom] = useState(pulse?.from ?? "");
   const [customTo, setCustomTo] = useState(pulse?.to ?? "");
+  const [now, setNow] = useState(() => new Date());
+  const [open, setOpen] = useState<Record<PanelId, boolean>>(loadOpen);
+  const [zOrder, setZOrder] = useState<PanelId[]>(() =>
+    (Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => loadOpen()[id]),
+  );
+
+  useEffect(() => {
+    localStorage.setItem(OPEN_KEY, JSON.stringify(open));
+  }, [open]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (pulse?.from) setCustomFrom(pulse.from);
     if (pulse?.to) setCustomTo(pulse.to);
   }, [pulse?.from, pulse?.to]);
 
-  const portfolioMedian = pulse?.supporting.medianTurnDays ?? null;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tiles;
+    return tiles.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        (t.city ?? "").toLowerCase().includes(q) ||
+        t.statusLabel.toLowerCase().includes(q),
+    );
+  }, [tiles, query]);
+
+  useEffect(() => {
+    if (selectedId && filtered.some((t) => t.propertyId === selectedId)) return;
+    setSelectedId(filtered[0]?.propertyId ?? tiles[0]?.propertyId ?? null);
+  }, [filtered, tiles, selectedId]);
+
+  const selected = tiles.find((t) => t.propertyId === selectedId) ?? null;
+  const mapPoints = tiles.flatMap((t) => {
+    const c = tileCoord(t);
+    return c ? [c] : [];
+  });
+  const selectedCoord = selected ? tileCoord(selected) : null;
+
+  const focus = (id: PanelId) => {
+    setZOrder((z) => [...z.filter((x) => x !== id), id]);
+  };
+  const toggle = (id: PanelId) => {
+    setOpen((o) => {
+      const next = !o[id];
+      if (next) focus(id);
+      return { ...o, [id]: next };
+    });
+  };
+  const zOf = (id: PanelId) => zOrder.indexOf(id) + 1;
+
+  const resetLayout = () => {
+    localStorage.setItem(OPEN_KEY, JSON.stringify(DEFAULT_OPEN));
+    setOpen({ ...DEFAULT_OPEN });
+    setZOrder((Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => DEFAULT_OPEN[id]));
+  };
+
+  const attentionCount = (props.attention?.groups ?? []).reduce((n, g) => n + g.items.length, 0);
+  const title = pulse?.viewLabel ?? pulse?.portfolioName ?? "Portfolio";
+  const crewToday = props.attention?.crewToday ?? [];
+  const guideContext: GuideContext = {
+    title,
+    vacancyLabel: pulse?.headline.label,
+    vacancyCostCents: pulse?.headline.vacancyCostCents,
+    unitsInTurn: pulse?.supporting.unitsInTurn,
+    medianTurnDays: pulse?.supporting.medianTurnDays,
+    sites: tiles.map((t) => ({
+      propertyId: t.propertyId,
+      name: t.name,
+      city: t.city,
+      unitsInTurn: t.unitsInTurn,
+      statusLabel: t.statusLabel,
+      vacancyCostCents: t.vacancyCostCents,
+    })),
+    turns: (props.attention?.turns ?? []).map((t) => ({
+      propertyId: t.propertyId,
+      propertyName: t.propertyName,
+      unitNumber: t.unitNumber,
+      days: t.days,
+    })),
+    photoCount: props.attention?.photoUnits?.length ?? 0,
+    attentionCount,
+    crew: crewToday.map((c) => ({
+      propertyId: c.propertyId,
+      propertyName: c.propertyName,
+      unitNumber: c.unitNumber ?? null,
+      crewName: c.crewName,
+      status: c.status,
+    })),
+  };
+
+  const onGuideAction = (action: GuideAction) => {
+    if (action.type === "open") {
+      setOpen((o) => ({ ...o, [action.panel]: true }));
+      focus(action.panel);
+    } else if (action.type === "select") {
+      setSelectedId(action.propertyId);
+      setOpen((o) => ({ ...o, sites: true }));
+    } else if (action.type === "kanban") {
+      props.onKanban?.(selectedId);
+    } else if (action.type === "turns") {
+      if (action.propertyId) setSelectedId(action.propertyId);
+      setOpen((o) => ({ ...o, turns: true }));
+    }
+  };
+
   const delta = pulse?.headline.vacancyCostDeltaCents ?? "0";
   const deltaUp = !delta.startsWith("-") && delta !== "0";
+  const activityItems = (props.attention?.groups ?? []).flatMap((g) =>
+    g.items.map((item) => ({ ...item, group: g.title })),
+  );
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const kicker = propertyOnly ? "Property Pulse" : "Portfolio Pulse";
 
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: INK,
-        color: "#F4F7F2",
-        fontFamily: BODY,
-      }}
-    >
+    <div className="cb-hud">
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       />
-      <div
-        style={{
-          maxWidth: 1120,
-          margin: "0 auto",
-          padding: "20px 20px 64px",
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 28,
-          }}
+      <header className="cb-hud-head">
+        <button
+          type="button"
+          className="cb-hud-brand"
+          onClick={() => props.homeHref?.onClick()}
+          aria-label={props.homeHref?.label ?? "Client Board"}
         >
-          {props.homeHref ? (
-            <button
-              type="button"
-              onClick={props.homeHref.onClick}
-              style={ghostBtn}
-            >
-              {props.homeHref.label}
-            </button>
-          ) : null}
-          {props.importHref ? (
-            <button
-              type="button"
-              onClick={props.importHref.onClick}
-              style={ghostBtn}
-            >
-              {props.importHref.label}
-            </button>
-          ) : null}
-          {props.costHref ? (
-            <button
-              type="button"
-              onClick={props.costHref.onClick}
-              style={ghostBtn}
-            >
-              {props.costHref.label}
-            </button>
-          ) : null}
-          {props.pipelineHref ? (
-            <button
-              type="button"
-              onClick={props.pipelineHref.onClick}
-              style={ghostBtn}
-            >
-              {props.pipelineHref.label}
-            </button>
-          ) : null}
-          {props.auditHref ? (
-            <button
-              type="button"
-              onClick={props.auditHref.onClick}
-              style={ghostBtn}
-            >
-              {props.auditHref.label}
-            </button>
-          ) : null}
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 11,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: MUTED,
-                fontFamily: DISPLAY,
-                fontWeight: 600,
-              }}
-            >
-              Portfolio Pulse
-            </p>
-            <h1
-              style={{
-                margin: "4px 0 0",
-                fontFamily: DISPLAY,
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "-0.03em",
-              }}
-            >
-              {pulse?.portfolioName ?? "Portfolio"}
-            </h1>
+          <span className="cb-hud-mark">C</span>
+          <div>
+            <p>{kicker}</p>
+            <h1>{title}</h1>
           </div>
-          {props.portfolios && props.portfolios.length > 1 && props.onPortfolioChange ? (
-            <label style={{ ...dateLabel, minWidth: 180 }}>
-              Portfolio
-              <select
-                aria-label="Portfolio"
-                value={props.selectedPortfolioId ?? pulse?.portfolioId ?? ""}
-                onChange={(e) => props.onPortfolioChange?.(e.target.value)}
-                style={{ ...dateInput, minHeight: 44 }}
-              >
-                {props.portfolios.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              minHeight: 44,
-              padding: "0 12px",
-              border: `1px solid ${HAIRLINE}`,
-              borderRadius: 999,
-              fontSize: 12,
-              color: MUTED,
-            }}
-            aria-live="polite"
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: live === "live" ? LIME : MUTED,
-              }}
-            />
+        </button>
+        <div className="cb-hud-head-right">
+          <div className="cb-hud-clock">
+            <strong>{timeStr}</strong>
+            <span>{dateStr}</span>
+          </div>
+          <span className={`cb-hud-live${live === "live" ? " on" : ""}`} aria-live="polite">
+            <i />
             {live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting" : "Idle"}
           </span>
-        </header>
-
-        <div
-          role="tablist"
-          aria-label="Date range"
-          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}
-        >
-          {RANGES.map((r) => {
-            const active = pulse?.range === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => props.onRangeChange(r.id, customFrom, customTo)}
-                style={{
-                  ...chipBtn,
-                  background: active ? LIME : "transparent",
-                  color: active ? INK : "#F4F7F2",
-                  borderColor: active ? LIME : HAIRLINE,
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {props.onWorkSourceChange ? (
-          <div
-            role="tablist"
-            aria-label="Work source"
-            style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}
-          >
-            {SOURCES.map((s) => {
-              const active = (props.workSource ?? "all") === s.id;
-              return (
+          <label className="cb-hud-search">
+            <Search size={14} />
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (e.target.value && !open.sites) {
+                  setOpen((o) => ({ ...o, sites: true }));
+                  focus("sites");
+                }
+              }}
+              placeholder="Search communities"
+              aria-label="Search communities"
+            />
+          </label>
+          <div className="cb-menu-wrap">
+            <button type="button" className="cb-hud-icon" aria-label="More" onClick={() => setMenuOpen((v) => !v)}>
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen ? (
+              <div className="cb-menu" role="menu">
+                {props.homeHref ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      props.homeHref?.onClick();
+                    }}
+                  >
+                    {props.homeHref.label}
+                  </button>
+                ) : null}
+                {showRegionalLinks && props.pipelineHref ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      props.pipelineHref?.onClick();
+                    }}
+                  >
+                    {props.pipelineHref.label}
+                  </button>
+                ) : null}
+                {showRegionalLinks && props.importHref ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      props.importHref?.onClick();
+                    }}
+                  >
+                    {props.importHref.label}
+                  </button>
+                ) : null}
+                {showRegionalLinks && props.costHref ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      props.costHref?.onClick();
+                    }}
+                  >
+                    {props.costHref.label}
+                  </button>
+                ) : null}
+                {showRegionalLinks && props.auditHref ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      props.auditHref?.onClick();
+                    }}
+                  >
+                    {props.auditHref.label}
+                  </button>
+                ) : null}
                 <button
-                  key={s.id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => props.onWorkSourceChange?.(s.id)}
-                  style={{
-                    ...chipBtn,
-                    background: active ? LIME : "transparent",
-                    color: active ? INK : "#F4F7F2",
-                    borderColor: active ? LIME : HAIRLINE,
+                  onClick={() => {
+                    setMenuOpen(false);
+                    resetLayout();
                   }}
                 >
-                  {s.label}
+                  Reset layout
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="cb-hud-dispatch"
+            disabled={!selected}
+            onClick={() => selected && props.onTileClick(selected.propertyId)}
+          >
+            <Send size={14} /> Open turns
+          </button>
+        </div>
+      </header>
+
+      <div className="cb-hud-body">
+        <nav className="cb-hud-nav" aria-label="Pulse panels">
+          {NAV.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              title={label}
+              aria-label={label}
+              aria-pressed={open[id]}
+              className={open[id] ? "on" : ""}
+              onClick={() => toggle(id)}
+            >
+              <Icon size={18} strokeWidth={open[id] ? 2.4 : 1.8} />
+            </button>
+          ))}
+          <div className="cb-hud-nav-spacer" />
+          {props.onKanban ? (
+            <button
+              type="button"
+              title="Full board"
+              aria-label="Open the full kanban board"
+              className="cb-hud-kanban"
+              onClick={() => props.onKanban?.(selectedId)}
+            >
+              <Columns3 size={18} strokeWidth={2.2} />
+            </button>
+          ) : null}
+        </nav>
+
+        <div className="cb-hud-dock">
+          <div className="cb-masonry">
+          <HudBox
+            id="chat"
+            title="Ask this board"
+            kicker="Guide"
+            open={open.chat}
+            size="md"
+            onClose={() => toggle("chat")}
+          >
+            <PulseGuide context={guideContext} askUrl={props.askUrl} onAction={onGuideAction} />
+          </HudBox>
+
+          <HudBox
+            id="vacancy"
+            title="Vacancy cost"
+            kicker="Rent lost"
+            open={open.vacancy}
+            size={tiles.length > 4 ? "lg" : "md"}
+            onClose={() => toggle("vacancy")}
+          >
+            {props.isLoading && !pulse ? <p className="cb-empty">Loading portfolio…</p> : null}
+            {props.errorMessage ? <p className="cb-error">{props.errorMessage}</p> : null}
+            <TweenCents cents={pulse?.headline.vacancyCostCents ?? "0"} reduceMotion={!!reduceMotion} />
+            <p className="cb-vacancy-label">{pulse?.headline.label ?? "rent lost to vacancy days this month"}</p>
+            <p className={`cb-delta${deltaUp ? " up" : " down"}`}>
+              <b>{signedUsdCents(delta)}</b> {pulse?.headline.priorLabel ?? "last month, same day"}
+            </p>
+            {tiles.length > 0 ? (
+              <div className="cb-vacancy-sites">
+                <p className="cb-hud-portfolio">By community</p>
+                {tiles
+                  .slice()
+                  .sort((a, b) => {
+                    try {
+                      const diff = BigInt(b.vacancyCostCents) - BigInt(a.vacancyCostCents);
+                      if (diff === 0n) return a.name.localeCompare(b.name);
+                      return diff > 0n ? 1 : -1;
+                    } catch {
+                      return a.name.localeCompare(b.name);
+                    }
+                  })
+                  .map((tile) => (
+                    <button
+                      key={tile.propertyId}
+                      type="button"
+                      className={`cb-site-row${tile.propertyId === selectedId ? " sel" : ""}`}
+                      onClick={() => {
+                        setSelectedId(tile.propertyId);
+                        if (!open.sites) {
+                          setOpen((o) => ({ ...o, sites: true }));
+                          focus("sites");
+                        }
+                      }}
+                    >
+                      <span>{tile.name}</span>
+                      <em>{formatUsdCents(tile.vacancyCostCents)}</em>
+                      <small>
+                        {tile.unitsInTurn} in turn
+                        {tile.city ? ` · ${tile.city}` : ""}
+                      </small>
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+          </HudBox>
+
+          <HudBox
+            id="turns"
+            title="Turns"
+            kicker={`${(props.attention?.turns ?? []).length} open`}
+            open={open.turns}
+            size={(props.attention?.turns?.length ?? 0) > 3 ? "lg" : "md"}
+            onClose={() => toggle("turns")}
+          >
+            {(props.attention?.turns ?? []).length === 0 ? (
+              <p className="cb-empty">No open turns in this window.</p>
+            ) : (
+              <VirtualList
+                items={props.attention?.turns ?? []}
+                estimateSize={168}
+                maxHeight={420}
+                getKey={(item) => item.turnId}
+                renderItem={(item) => (
+                  <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
+                    <span className="cb-check" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong>
+                        {item.propertyName} · {item.unitNumber}
+                      </strong>
+                      <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
+                    </div>
+                  </button>
+                )}
+              />
+            )}
+          </HudBox>
+
+          <HudBox
+            id="photos"
+            title="Before / after"
+            kicker={
+              (props.attention?.photoUnits?.length ?? 0) > 0
+                ? `${props.attention?.photoUnits?.length} units`
+                : "Work App"
+            }
+            open={open.photos}
+            size={(props.attention?.photoUnits?.length ?? 0) > 0 ? "lg" : "sm"}
+            onClose={() => toggle("photos")}
+          >
+            <UnitPhotoPairs
+              units={props.attention?.photoUnits ?? []}
+              selectedPropertyId={selectedId}
+              selectedPropertyName={selected?.name}
+              propertyOnly={propertyOnly}
+            />
+          </HudBox>
+
+          <HudBox
+            id="crew"
+            title="Crew today"
+            kicker={crewToday.length ? `${crewToday.length} jobs` : "Work App"}
+            open={open.crew}
+            size={crewToday.length > 3 ? "lg" : "md"}
+            onClose={() => toggle("crew")}
+          >
+            {crewToday.length === 0 ? (
+              <p className="cb-empty">No crews scheduled on these communities today.</p>
+            ) : (
+              (selectedId ? crewToday.filter((c) => c.propertyId === selectedId) : crewToday).map((c) => (
+                <button
+                  key={`${c.propertyId}:${c.jobNo}:${c.unitNumber ?? ""}`}
+                  type="button"
+                  className="cb-site-row"
+                  onClick={() => {
+                    setSelectedId(c.propertyId);
+                    setOpen((o) => ({ ...o, sites: true, turns: true }));
+                  }}
+                >
+                  <span>
+                    {c.crewName}
+                    {c.unitNumber ? ` · Unit ${c.unitNumber}` : ""}
+                  </span>
+                  <em>{c.propertyName}</em>
+                  <small>
+                    {c.jobNo} · {c.status.replace(/_/g, " ")}
+                    {c.scheduledOn ? ` · ${c.scheduledOn}` : ""}
+                  </small>
+                </button>
+              ))
+            )}
+          </HudBox>
+
+          <HudBox
+            id="overview"
+            title="Overview"
+            kicker="This window"
+            open={open.overview}
+            z={zOf("overview")}
+            stageRef={stageRef}
+            onClose={() => toggle("overview")}
+            onFocus={() => focus("overview")}
+          >
+            <div className="cb-stat-grid">
+              <div className="cb-stat lime">
+                <b>{pulse?.supporting.unitsInTurn ?? "—"}</b>
+                <span>Units in turn</span>
+              </div>
+              <div className="cb-stat ink">
+                <b>{pulse?.supporting.medianTurnDays ?? "—"}</b>
+                <span>Median days</span>
+              </div>
+              <div className="cb-stat gold">
+                <b>{pulse?.supporting.targetTurnDays ?? "—"}</b>
+                <span>Target days</span>
+              </div>
+              <div className="cb-stat coral">
+                <b>{pulse?.supporting.predictedLateThisWeek ?? "—"}</b>
+                <span>Late this week</span>
+              </div>
+            </div>
+            {selected ? (
+              <div className="cb-overview-site">
+                <strong>{selected.name}</strong>
+                <p>
+                  {selected.unitsInTurn} in turn · {selected.statusLabel}
+                  {selected.city ? ` · ${selected.city}` : ""}
+                </p>
+                <div className="cb-hud-actions">
+                  <button type="button" className="cb-overlay-cta" onClick={() => props.onTileClick(selected.propertyId)}>
+                    Open turns
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </HudBox>
+
+          <HudBox
+            id="sites"
+            title="Sites"
+            kicker={`${filtered.length} ${propertyOnly ? "community" : "communities"}`}
+            open={open.sites}
+            z={zOf("sites")}
+            stageRef={stageRef}
+            onClose={() => toggle("sites")}
+            onFocus={() => focus("sites")}
+          >
+            <p className="cb-hud-portfolio">{title}</p>
+            {filtered.length === 0 ? <p className="cb-empty">No communities match.</p> : null}
+            {filtered.map((tile) => {
+              const on = tile.propertyId === selectedId;
+              return (
+                <button
+                  key={tile.propertyId}
+                  type="button"
+                  className={`cb-site-row${on ? " sel" : ""}${tile.status === "at_risk" ? " hot" : ""}`}
+                  onClick={() => {
+                    if (tile.propertyId === selectedId) props.onTileClick(tile.propertyId);
+                    else setSelectedId(tile.propertyId);
+                  }}
+                >
+                  <span>{tile.name}</span>
+                  <em>
+                    {tile.unitsInTurn} in turn · {tile.statusLabel}
+                  </em>
+                  <small>
+                    {formatUsdCents(tile.vacancyCostCents)} vacancy
+                    {tile.medianTurnDays != null ? ` · ${tile.medianTurnDays}d median` : ""}
+                    {tile.city ? ` · ${tile.city}` : ""}
+                  </small>
+                  <Sparkline values={tile.sparkline} />
+                  <HairlineBar median={tile.medianTurnDays} portfolioMedian={pulse?.supporting.medianTurnDays ?? null} />
                 </button>
               );
             })}
-          </div>
-        ) : null}
+          </HudBox>
 
-        {pulse?.range === "custom" ? (
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            <label style={dateLabel}>
-              From
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                style={dateInput}
-              />
-            </label>
-            <label style={dateLabel}>
-              To
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                style={dateInput}
-              />
-            </label>
-            <button
-              type="button"
-              style={chipBtn}
-              onClick={() => props.onRangeChange("custom", customFrom, customTo)}
-            >
-              Apply
-            </button>
-          </div>
-        ) : null}
-
-        {props.isLoading && !pulse ? (
-          <p style={{ color: MUTED }}>Loading portfolio…</p>
-        ) : null}
-        {props.errorMessage ? (
-          <p style={{ color: CORAL }}>{props.errorMessage}</p>
-        ) : null}
-
-        <section aria-label="Vacancy cost" style={{ margin: "8px 0 28px" }}>
-          <TweenCents
-            cents={pulse?.headline.vacancyCostCents ?? "0"}
-            reduceMotion={!!reduceMotion}
-          />
-          <p
-            style={{
-              margin: "8px 0 0",
-              fontSize: 14,
-              color: MUTED,
-              maxWidth: 420,
-            }}
+          <HudBox
+            id="attention"
+            title="Needs you"
+            kicker={attentionCount === 0 ? "Clear" : `${attentionCount} waiting`}
+            open={open.attention}
+            z={zOf("attention")}
+            stageRef={stageRef}
+            onClose={() => toggle("attention")}
+            onFocus={() => focus("attention")}
           >
-            {pulse?.headline.label ?? "rent lost to vacancy days this month"}
-          </p>
-          <p style={{ margin: "6px 0 0", fontSize: 14 }}>
-            <span style={{ color: deltaUp ? CORAL : LIME, fontVariantNumeric: "tabular-nums", fontFamily: MONO }}>
-              {signedUsdCents(delta)}
-            </span>
-            <span style={{ color: MUTED }}> {pulse?.headline.priorLabel ?? "last month, same day"}</span>
-          </p>
-        </section>
-
-        <section
-          aria-label="Supporting figures"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            borderTop: `1px solid ${HAIRLINE}`,
-            borderBottom: `1px solid ${HAIRLINE}`,
-            marginBottom: 28,
-          }}
-        >
-          <QuietStat
-            label="Units in turn"
-            value={String(pulse?.supporting.unitsInTurn ?? "—")}
-          />
-          <QuietStat
-            label="Median turn days"
-            value={
-              pulse?.supporting.medianTurnDays == null
-                ? "—"
-                : `${pulse.supporting.medianTurnDays}`
-            }
-            hint={`vs ${pulse?.supporting.targetTurnDays ?? "—"} target`}
-            border
-          />
-          <QuietStat
-            label="Predicted late this week"
-            value={String(pulse?.supporting.predictedLateThisWeek ?? "—")}
-            border
-          />
-        </section>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 16,
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              flex: 1,
-              fontFamily: DISPLAY,
-              fontWeight: 600,
-              fontSize: 16,
-            }}
-          >
-            Properties
-          </p>
-          {SORTS.map((s) => {
-            const active = pulse?.sort === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => props.onSortChange(s.id)}
-                style={{
-                  ...chipBtn,
-                  minHeight: 44,
-                  background: active ? "rgba(180,255,68,0.14)" : "transparent",
-                  borderColor: active ? LIME : HAIRLINE,
-                }}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <VirtualGrid
-          items={pulse?.tiles ?? []}
-          columnWidth={280}
-          rowHeight={188}
-          gap={12}
-          maxHeight={720}
-          getKey={(tile) => tile.propertyId}
-          renderItem={(tile) => (
-            <button
-              type="button"
-              onClick={() => props.onTileClick(tile.propertyId)}
-              style={{
-                textAlign: "left",
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${HAIRLINE}`,
-                borderRadius: 16,
-                padding: 16,
-                minHeight: 44,
-                color: "inherit",
-                cursor: "pointer",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.22)",
-                width: "100%",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontFamily: DISPLAY,
-                      fontWeight: 600,
-                      fontSize: 16,
-                    }}
-                  >
-                    {tile.name}
-                  </p>
-                  <p style={{ margin: "4px 0 0", color: MUTED, fontSize: 12 }}>
-                    {tile.unitCount} units · {tile.unitsInTurn} in turn
-                  </p>
-                </div>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 12,
-                    color: MUTED,
-                    minHeight: 44,
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: STATUS_COLOR[tile.status] ?? LIME,
-                    }}
-                  />
-                  {tile.statusLabel}
-                </span>
-              </div>
-              <Sparkline values={tile.sparkline} />
-              <HairlineBar
-                median={tile.medianTurnDays}
-                portfolioMedian={portfolioMedian}
-              />
-              <p
-                style={{
-                  margin: "12px 0 0",
-                  fontFamily: MONO,
-                  fontVariantNumeric: "tabular-nums",
-                  fontSize: 18,
-                  fontWeight: 600,
-                }}
-              >
-                {formatUsdCents(tile.vacancyCostCents)}
-              </p>
-              <p style={{ margin: "2px 0 0", color: MUTED, fontSize: 12 }}>
-                Vacancy this window
-                {tile.medianTurnDays != null ? ` · ${tile.medianTurnDays} day median` : ""}
-              </p>
-            </button>
-          )}
-        />
-
-        {pulse?.compliance ? (
-          <section style={{ marginTop: 28 }} aria-label="Invoice compliance">
-            <h2 style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 600, margin: "0 0 12px" }}>
-              Invoice compliance
-            </h2>
-            <div
-              title={pulse.compliance.assumption}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 12,
-              }}
-            >
-              <QuietStat label="Auto-validated" value={String(pulse.compliance.invoicesAutoValidated)} />
-              <QuietStat label="Blocked before billing" value={String(pulse.compliance.offScheduleBlocked)} />
-              <QuietStat label="Hours saved (assumed)" value={String(pulse.compliance.assumedHoursSaved)} />
-            </div>
-            {pulse.compliance.firstPassAcceptRate != null ? (
-              <p style={{ margin: "10px 0 0", color: MUTED, fontSize: 12, fontFamily: MONO }}>
-                First-pass accept {pulse.compliance.firstPassAcceptRate}%
-              </p>
-            ) : null}
-            <p style={{ margin: "8px 0 0", color: MUTED, fontSize: 12, maxWidth: 640 }}>
-              {pulse.compliance.assumption}
-            </p>
-          </section>
-        ) : null}
-
-        <section style={{ marginTop: 36 }}>
-          <h2
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: 16,
-              fontWeight: 600,
-              margin: "0 0 12px",
-            }}
-          >
-            Needs you
-          </h2>
-          {(props.attention?.groups ?? []).length === 0 ? (
-            <p style={{ color: MUTED, margin: 0 }}>All clear — nothing stalled or waiting.</p>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {props.attention!.groups.map((group) => (
-                <div
-                  key={group.kind}
-                  style={{
-                    border: `1px solid ${HAIRLINE}`,
-                    borderRadius: 16,
-                    padding: 16,
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontFamily: DISPLAY,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {group.title}
-                  </p>
-                  <p style={{ margin: "4px 0 12px", color: MUTED, fontSize: 13 }}>
-                    {group.summary}
-                  </p>
+            {(props.attention?.groups ?? []).length === 0 ? (
+              <p className="cb-empty">All clear — nothing stalled or waiting.</p>
+            ) : (
+              (props.attention?.groups ?? []).map((group) => (
+                <div key={group.kind} className="cb-group">
+                  <h3>{group.title}</h3>
+                  <p>{group.summary}</p>
                   <VirtualList
                     items={group.items}
-                    estimateSize={50}
-                    maxHeight={480}
+                    estimateSize={140}
+                    maxHeight={240}
                     getKey={(item) => item.turnId}
                     renderItem={(item) => (
-                      <button
-                        type="button"
-                        onClick={() => props.onAttentionClick(item.href)}
-                        style={{
-                          ...ghostBtn,
-                          width: "100%",
-                          justifyContent: "space-between",
-                          marginBottom: 6,
-                        }}
-                      >
-                        <span>
-                          {item.propertyName} · {item.unitNumber}
-                        </span>
-                        <span style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
-                          {item.days}d
-                        </span>
+                      <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
+                        <span className="cb-check" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <strong>
+                            {item.propertyName} · {item.unitNumber}
+                          </strong>
+                          <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
+                        </div>
                       </button>
                     )}
                   />
                 </div>
+              ))
+            )}
+          </HudBox>
+
+          <HudBox
+            id="range"
+            title="Range"
+            kicker={pulse?.range?.replace("_", " ") ?? "Window"}
+            open={open.range}
+            z={zOf("range")}
+            stageRef={stageRef}
+            onClose={() => toggle("range")}
+            onFocus={() => focus("range")}
+          >
+            <p className="cb-hud-portfolio">Date window</p>
+            <div className="cb-chips" role="tablist" aria-label="Date range">
+              {RANGES.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={pulse?.range === r.id}
+                  className={`cb-chip${pulse?.range === r.id ? " on" : ""}`}
+                  onClick={() => props.onRangeChange(r.id, customFrom, customTo)}
+                >
+                  {r.label}
+                </button>
               ))}
             </div>
-          )}
-        </section>
-      </div>
-      <style>{`
-        @media (max-width: 720px) {
-          [aria-label="Supporting figures"] { grid-template-columns: 1fr !important; }
-          [aria-label="Invoice compliance"] > div { grid-template-columns: 1fr !important; }
-        }
-        button:focus-visible { outline: 2px solid ${LIME}; outline-offset: 3px; }
-      `}</style>
-    </div>
-  );
-}
+            {pulse?.range === "custom" ? (
+              <>
+                <label className="cb-field">
+                  From
+                  <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                </label>
+                <label className="cb-field">
+                  To
+                  <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                </label>
+                <button
+                  type="button"
+                  className="cb-overlay-cta"
+                  onClick={() => props.onRangeChange("custom", customFrom, customTo)}
+                >
+                  Apply
+                </button>
+              </>
+            ) : null}
+            {props.onWorkSourceChange ? (
+              <>
+                <p className="cb-hud-portfolio" style={{ marginTop: 16 }}>
+                  Work source
+                </p>
+                <div className="cb-chips" role="tablist" aria-label="Work source">
+                  {SOURCES.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={(props.workSource ?? "all") === s.id}
+                      className={`cb-chip${(props.workSource ?? "all") === s.id ? " on" : ""}`}
+                      onClick={() => props.onWorkSourceChange?.(s.id)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <p className="cb-hud-portfolio" style={{ marginTop: 8 }}>
+              Sort sites
+            </p>
+            <div className="cb-chips">
+              {SORTS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`cb-chip${pulse?.sort === s.id ? " on" : ""}`}
+                  onClick={() => props.onSortChange(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </HudBox>
 
-function QuietStat(props: { label: string; value: string; hint?: string; border?: boolean }) {
-  return (
-    <div
-      style={{
-        padding: "16px 12px",
-        borderLeft: props.border ? `1px solid ${HAIRLINE}` : "none",
-      }}
-    >
-      <p style={{ margin: 0, color: MUTED, fontSize: 12 }}>{props.label}</p>
-      <p
-        style={{
-          margin: "6px 0 0",
-          fontFamily: MONO,
-          fontVariantNumeric: "tabular-nums",
-          fontSize: 22,
-          fontWeight: 600,
-        }}
-      >
-        {props.value}
-      </p>
-      {props.hint ? (
-        <p style={{ margin: "4px 0 0", color: MUTED, fontSize: 12 }}>{props.hint}</p>
-      ) : null}
+          <HudBox
+            id="compliance"
+            title="Compliance"
+            kicker="Invoices"
+            open={open.compliance}
+            z={zOf("compliance")}
+            stageRef={stageRef}
+            onClose={() => toggle("compliance")}
+            onFocus={() => focus("compliance")}
+          >
+            {pulse?.compliance ? (
+              <>
+                <div className="cb-stat-grid" title={pulse.compliance.assumption}>
+                  <div className="cb-stat lime">
+                    <b>{pulse.compliance.invoicesAutoValidated}</b>
+                    <span>Auto-validated</span>
+                  </div>
+                  <div className="cb-stat coral">
+                    <b>{pulse.compliance.offScheduleBlocked}</b>
+                    <span>Blocked</span>
+                  </div>
+                  <div className="cb-stat ink">
+                    <b>{pulse.compliance.assumedHoursSaved}</b>
+                    <span>Hours saved</span>
+                  </div>
+                  <div className="cb-stat gold">
+                    <b>{pulse.compliance.firstPassAcceptRate == null ? "—" : `${pulse.compliance.firstPassAcceptRate}%`}</b>
+                    <span>First-pass</span>
+                  </div>
+                </div>
+                <p className="cb-footnote">{pulse.compliance.assumption}</p>
+              </>
+            ) : (
+              <p className="cb-empty">Invoice compliance is not on this view.</p>
+            )}
+          </HudBox>
+
+          <HudBox
+            id="activity"
+            title="Activity"
+            kicker="Waiting on you"
+            open={open.activity}
+            z={zOf("activity")}
+            stageRef={stageRef}
+            onClose={() => toggle("activity")}
+            onFocus={() => focus("activity")}
+          >
+            {activityItems.length === 0 ? (
+              <p className="cb-empty">Waiting on the first site event.</p>
+            ) : (
+              <VirtualList
+                items={activityItems}
+                estimateSize={140}
+                maxHeight={360}
+                getKey={(item) => item.turnId}
+                renderItem={(item) => (
+                  <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
+                    <span className="cb-check" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong>
+                        {item.propertyName} · {item.unitNumber}
+                      </strong>
+                      <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
+                    </div>
+                  </button>
+                )}
+              />
+            )}
+          </HudBox>
+
+          <HudBox
+            id="tools"
+            title="Tools"
+            kicker={propertyOnly ? "This property" : "Regional"}
+            open={open.tools}
+            z={zOf("tools")}
+            stageRef={stageRef}
+            onClose={() => toggle("tools")}
+            onFocus={() => focus("tools")}
+          >
+            {props.portfolios && props.portfolios.length > 1 && props.onPortfolioChange ? (
+              <label className="cb-field">
+                Portfolio
+                <select
+                  aria-label="Portfolio"
+                  value={props.selectedPortfolioId ?? pulse?.portfolioId ?? ""}
+                  onChange={(e) => props.onPortfolioChange?.(e.target.value)}
+                >
+                  {props.portfolios.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className="cb-hud-actions">
+              {showRegionalLinks && props.pipelineHref ? (
+                <button type="button" className="cb-overlay-ghost" onClick={props.pipelineHref.onClick}>
+                  {props.pipelineHref.label}
+                </button>
+              ) : null}
+              {showRegionalLinks && props.importHref ? (
+                <button type="button" className="cb-overlay-ghost" onClick={props.importHref.onClick}>
+                  {props.importHref.label}
+                </button>
+              ) : null}
+              {showRegionalLinks && props.costHref ? (
+                <button type="button" className="cb-overlay-ghost" onClick={props.costHref.onClick}>
+                  {props.costHref.label}
+                </button>
+              ) : null}
+              {showRegionalLinks && props.auditHref ? (
+                <button type="button" className="cb-overlay-ghost" onClick={props.auditHref.onClick}>
+                  {props.auditHref.label}
+                </button>
+              ) : null}
+              <button type="button" className="cb-overlay-ghost" onClick={resetLayout}>
+                Reset layout
+              </button>
+            </div>
+            {pulse?.canAddProperties && props.addProperty ? <AddPropertyPanel add={props.addProperty} /> : null}
+          </HudBox>
+          </div>
+        </div>
+
+        <div className="cb-hud-stage" ref={stageRef}>
+          <MapContainer
+            center={selectedCoord ?? mapPoints[0] ?? FALLBACK}
+            zoom={13}
+            style={{ height: "100%", width: "100%" }}
+            zoomControl
+            attributionControl={false}
+            scrollWheelZoom
+          >
+            <TileLayer
+              attribution="&copy; OSM &copy; CARTO"
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            />
+            <FitPins points={mapPoints} selected={selectedCoord} />
+            {tiles.map((t) => {
+              const coord = tileCoord(t);
+              if (!coord) return null;
+              const hot = t.status === "at_risk" || t.propertyId === selectedId;
+              return (
+                <Marker
+                  key={t.propertyId}
+                  position={coord}
+                  icon={pinIcon(hot, t.status === "at_risk")}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedId(t.propertyId);
+                      if (!open.sites) toggle("sites");
+                    },
+                  }}
+                >
+                  <Popup>
+                    <div className="cb-popup">
+                      <strong>{t.name}</strong>
+                      <em>
+                        {t.unitsInTurn} in turn · {t.statusLabel}
+                      </em>
+                      <span>{t.city || formatUsdCents(t.vacancyCostCents)}</span>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+          <div className="cb-hud-map-fade" aria-hidden />
+        </div>
+      </div>
     </div>
   );
 }
@@ -669,19 +1092,9 @@ function TweenCents(props: { cents: string; reduceMotion: boolean }) {
     <AnimatePresence mode="wait">
       <motion.p
         key={props.cents}
+        className="cb-vacancy"
         initial={props.reduceMotion ? false : { opacity: 0.55 }}
         animate={{ opacity: 1 }}
-        style={{
-          margin: 0,
-          fontFamily: MONO,
-          fontVariantNumeric: "tabular-nums",
-          fontSize: "clamp(40px, 9vw, 84px)",
-          fontWeight: 600,
-          letterSpacing: "-0.04em",
-          // Rent lost to vacancy is money already gone — it reads red, not lime.
-          color: CORAL,
-          lineHeight: 0.95,
-        }}
       >
         {formatUsdCents(shown.toString())}
       </motion.p>
@@ -689,10 +1102,85 @@ function TweenCents(props: { cents: string; reduceMotion: boolean }) {
   );
 }
 
+function AddPropertyPanel(props: { add: NonNullable<PortfolioPulseProps["addProperty"]> }) {
+  const [mode, setMode] = useState<"attach" | "create">("create");
+  const [propertyId, setPropertyId] = useState("");
+  const [name, setName] = useState("");
+  const [city, setCity] = useState("");
+
+  const submit = async () => {
+    if (mode === "attach") {
+      if (!propertyId) return;
+      await props.add.onAttach(propertyId);
+    } else {
+      if (!name.trim() || !city.trim()) return;
+      await props.add.onCreate({ name: name.trim(), city: city.trim() });
+    }
+    setName("");
+    setCity("");
+    setPropertyId("");
+  };
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p className="cb-hud-portfolio">Add property</p>
+      <div className="cb-chips" role="tablist" aria-label="Add property">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "create"}
+          className={`cb-chip${mode === "create" ? " on" : ""}`}
+          onClick={() => setMode("create")}
+        >
+          New
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "attach"}
+          className={`cb-chip${mode === "attach" ? " on" : ""}`}
+          onClick={() => setMode("attach")}
+        >
+          Existing
+        </button>
+      </div>
+      {mode === "attach" ? (
+        <label className="cb-field">
+          Community
+          <select aria-label="Existing property" value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+            <option value="">Select…</option>
+            {props.add.available.map((p) => (
+              <option key={p.propertyId} value={p.propertyId}>
+                {p.name}
+                {p.city ? ` · ${p.city}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <>
+          <label className="cb-field">
+            Name
+            <input aria-label="New property name" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="cb-field">
+            City
+            <input aria-label="New property city" value={city} onChange={(e) => setCity(e.target.value)} />
+          </label>
+        </>
+      )}
+      {props.add.error ? <p className="cb-error">{props.add.error}</p> : null}
+      <button type="button" className="cb-overlay-cta" disabled={props.add.busy} onClick={() => void submit()}>
+        {props.add.busy ? "Saving…" : "Add to region"}
+      </button>
+    </div>
+  );
+}
+
 function Sparkline({ values }: { values: number[] }) {
   const max = Math.max(1, ...values);
-  const w = 240;
-  const h = 36;
+  const w = 200;
+  const h = 28;
   const pts = values
     .map((v, i) => {
       const x = (i / Math.max(1, values.length - 1)) * w;
@@ -701,8 +1189,8 @@ function Sparkline({ values }: { values: number[] }) {
     })
     .join(" ");
   return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden style={{ marginTop: 12 }}>
-      <polyline fill="none" stroke={LIME} strokeWidth="1.5" points={pts} />
+    <svg className="cb-spark" width="100%" height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <polyline fill="none" stroke={NAVY} strokeWidth="1.5" points={pts} />
     </svg>
   );
 }
@@ -714,72 +1202,8 @@ function HairlineBar(props: { median: number | null; portfolioMedian: number | n
       ? Math.min(100, (median / (portfolioMedian * 2)) * 100)
       : 0;
   return (
-    <div
-      style={{
-        position: "relative",
-        height: 6,
-        marginTop: 12,
-        background: "rgba(255,255,255,0.08)",
-        borderRadius: 99,
-      }}
-      aria-label="Median turn days versus portfolio"
-    >
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: -2,
-          width: 1,
-          height: 10,
-          background: "rgba(255,255,255,0.45)",
-        }}
-      />
-      <div
-        style={{
-          width: `${pct}%`,
-          height: "100%",
-          background: LIME,
-          borderRadius: 99,
-        }}
-      />
+    <div className="cb-bar" aria-label="Median turn days versus portfolio">
+      <i style={{ width: `${pct}%` }} />
     </div>
   );
 }
-
-const chipBtn: CSSProperties = {
-  minHeight: 44,
-  padding: "0 14px",
-  borderRadius: 999,
-  border: `1px solid ${HAIRLINE}`,
-  background: "transparent",
-  color: "#F4F7F2",
-  fontFamily: BODY,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const ghostBtn: CSSProperties = {
-  ...chipBtn,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-};
-
-const dateLabel: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-  fontSize: 11,
-  color: MUTED,
-};
-
-const dateInput: CSSProperties = {
-  minHeight: 44,
-  padding: "0 10px",
-  borderRadius: 10,
-  border: `1px solid ${HAIRLINE}`,
-  background: "transparent",
-  color: "#F4F7F2",
-  fontFamily: BODY,
-};

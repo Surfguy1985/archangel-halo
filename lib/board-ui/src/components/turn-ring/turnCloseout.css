@@ -1,0 +1,97 @@
+.turn-closeout {
+  margin-top: 8px;
+}
+.turn-closeout-vacant {
+  margin: 0 0 10px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.turn-closeout-vacant small {
+  display: block;
+  margin-top: 4px;
+  font-family: "Plus Jakarta Sans", "Outfit", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+.turn-clock-live::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #b4ff44;
+  vertical-align: middle;
+}
+.turn-closeout-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.turn-closeout-split > div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(15, 27, 45, 0.04);
+  border: 1px solid rgba(15, 27, 45, 0.08);
+}
+.turn-closeout-split small {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.turn-closeout-split b {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.turn-closeout-split em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+.turn-closeout.compact .turn-closeout-vacant {
+  font-size: 16px;
+}
+.turn-closeout.compact .turn-closeout-split {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.turn-closeout.on-dark .turn-closeout-split > div {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.turn-closeout.on-dark .turn-closeout-vacant,
+.turn-closeout.on-dark .turn-closeout-split b {
+  color: #f4f7f2;
+}
+.cb-hud .turn-closeout-split > div {
+  background: #fff;
+  border-color: rgba(15, 27, 45, 0.1);
+}
+@media (max-width: 720px) {
+  .turn-closeout-split {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-clock-live::after {
+    animation: none;
+  }
+}

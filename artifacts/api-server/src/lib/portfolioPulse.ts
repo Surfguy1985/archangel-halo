@@ -32,6 +32,9 @@ import {
 } from "@workspace/db";
 import { isClientBoardSegmentEnabled } from "./clientBoardFlags";
 import { complianceStats } from "./turnInvoice";
+import { loadPoByTurnIds, shapeTurnClock } from "./turnCloseoutClock";
+import { computePortfolioUnitPhotos, type PortfolioUnitPhotoPair } from "./portfolioUnitPhotos";
+import { computePortfolioCrewToday, type PortfolioCrewToday } from "./portfolioCrewToday";
 
 export const PULSE_VIEW_NAME = "pulse";
 
@@ -341,6 +344,9 @@ type PropertyPulseMeta = {
   targetTurnDays: number;
   timezone: string;
   avgDailyRentCents: bigint | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 function windowedVacancy(
@@ -573,6 +579,9 @@ export async function computePortfolioPulse(args: {
       targetTurnDays: propertiesTable.targetTurnDays,
       timezone: propertiesTable.timezone,
       avgDailyRentCents: propertiesTable.avgDailyRentCents,
+      city: propertiesTable.city,
+      latitude: propertiesTable.latitude,
+      longitude: propertiesTable.longitude,
     })
     .from(clientPortfolioPropertiesTable)
     .innerJoin(
@@ -739,13 +748,13 @@ export async function computePortfolioPulse(args: {
   const unitsInTurn = Number(portRow?.unitsInTurn ?? 0);
 
   const targetTurnDays =
-    linked.length === 0
+    linkedFiltered.length === 0
       ? 7
       : Math.round(
-          linked.reduce((s, p) => s + p.targetTurnDays, 0) / linked.length,
+          linkedFiltered.reduce((s, p) => s + p.targetTurnDays, 0) / linkedFiltered.length,
         );
 
-  const tiles = linked.map((p) => {
+  const tiles = linkedFiltered.map((p) => {
     const agg = tileAgg.get(p.propertyId);
     const completed = agg?.medianCompleted == null ? null : Number(agg.medianCompleted);
     const openMed = agg?.medianOpen == null ? null : Number(agg.medianOpen);
@@ -768,6 +777,9 @@ export async function computePortfolioPulse(args: {
       status,
       statusLabel,
       href: args.hrefForProperty(p.propertyId),
+      city: p.city ?? null,
+      latitude: p.latitude ?? null,
+      longitude: p.longitude ?? null,
     };
   });
 
@@ -830,6 +842,9 @@ function shapePulse(args: {
     status: PulseTileStatus;
     statusLabel: string;
     href: string;
+    city?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   }>;
 }) {
   return {
@@ -882,8 +897,34 @@ export async function computePortfolioAttention(args: {
       unitNumber: string;
       days: number;
       href: string;
+      timezone?: string;
+      vacantSince?: string | null;
+      requestReceivedAt?: string | null;
+      completedAt?: string | null;
+      poReceivedAt?: string | null;
+      poNumber?: string | null;
+      clockStopped?: boolean;
+      clockStoppedAt?: string | null;
     }>;
   }>;
+  turns: Array<{
+    turnId: string;
+    propertyId: string;
+    propertyName: string;
+    unitNumber: string;
+    days: number;
+    href: string;
+    timezone?: string;
+    vacantSince?: string | null;
+    requestReceivedAt?: string | null;
+    completedAt?: string | null;
+    poReceivedAt?: string | null;
+    poNumber?: string | null;
+    clockStopped?: boolean;
+    clockStoppedAt?: string | null;
+  }>;
+  photoUnits: PortfolioUnitPhotoPair[];
+  crewToday: PortfolioCrewToday[];
 }> {
   const portfolio = await loadPortfolio(args.portfolioId);
   if (portfolio.orgId !== args.orgId) throw new PortfolioNotFoundError();
@@ -892,6 +933,7 @@ export async function computePortfolioAttention(args: {
     .select({
       propertyId: clientPortfolioPropertiesTable.propertyId,
       name: propertiesTable.name,
+      timezone: propertiesTable.timezone,
     })
     .from(clientPortfolioPropertiesTable)
     .innerJoin(
@@ -909,7 +951,7 @@ export async function computePortfolioAttention(args: {
   const propertyIds = linkedFiltered.map((p) => p.propertyId);
   const names = new Map(linkedFiltered.map((p) => [p.propertyId, p.name]));
   if (propertyIds.length === 0) {
-    return { portfolioId: args.portfolioId, groups: [] };
+    return { portfolioId: args.portfolioId, groups: [], turns: [], photoUnits: [], crewToday: [] };
   }
 
   const open = await db
@@ -920,13 +962,22 @@ export async function computePortfolioAttention(args: {
       status: clientTurnsTable.status,
       readyAt: clientTurnsTable.readyAt,
       workSource: clientTurnsTable.workSource,
+      noticeGivenAt: clientTurnsTable.noticeGivenAt,
+      scheduledVacateAt: clientTurnsTable.scheduledVacateAt,
+      actualVacateAt: clientTurnsTable.actualVacateAt,
+      createdAt: clientTurnsTable.createdAt,
+      timezone: propertiesTable.timezone,
     })
     .from(clientTurnsTable)
+    .innerJoin(propertiesTable, eq(propertiesTable.id, clientTurnsTable.propertyId))
     .where(
       and(
         eq(clientTurnsTable.orgId, args.orgId),
         inArray(clientTurnsTable.propertyId, propertyIds),
-        isNull(clientTurnsTable.readyAt),
+        or(
+          isNull(clientTurnsTable.readyAt),
+          gte(clientTurnsTable.readyAt, new Date(Date.now() - 90 * 86_400_000)),
+        ),
         args.workSource && args.workSource !== "all" ? eq(clientTurnsTable.workSource, args.workSource) : undefined,
       ),
     );
@@ -963,6 +1014,8 @@ export async function computePortfolioAttention(args: {
         )
     : [];
   const unitNo = new Map(units.map((u) => [u.id, u.unitNumber]));
+  const tzByTurn = new Map(open.map((t) => [t.id, t.timezone]));
+  const pos = await loadPoByTurnIds(open.map((t) => t.id), tzByTurn);
 
   const toItem = (t: (typeof open)[number]) => ({
     turnId: t.id,
@@ -971,11 +1024,20 @@ export async function computePortfolioAttention(args: {
     unitNumber: unitNo.get(t.unitId) ?? "",
     days: round1(metricsByTurn.get(t.id)?.daysVacant ?? 0),
     href: args.hrefForProperty(t.propertyId),
+    ...shapeTurnClock({
+      timezone: t.timezone,
+      noticeGivenAt: t.noticeGivenAt,
+      scheduledVacateAt: t.scheduledVacateAt,
+      actualVacateAt: t.actualVacateAt,
+      createdAt: t.createdAt,
+      readyAt: t.readyAt,
+      po: pos.get(t.id) ?? null,
+    }),
   });
 
-  const stalled = open.filter((t) => metricsByTurn.get(t.id)?.isStalled).map(toItem);
-  const awaiting = open.filter((t) => t.status === "pending_approval").map(toItem);
-  const failedQc = open.filter((t) => t.status === "rework").map(toItem);
+  const stalled = open.filter((t) => !t.readyAt && metricsByTurn.get(t.id)?.isStalled).map(toItem);
+  const awaiting = open.filter((t) => !t.readyAt && t.status === "pending_approval").map(toItem);
+  const failedQc = open.filter((t) => !t.readyAt && t.status === "rework").map(toItem);
 
   const groups: Array<{
     kind: "stalled" | "awaiting_approval" | "failed_qc" | "blocked_invoices" | "variance_pending";
@@ -1079,5 +1141,22 @@ export async function computePortfolioAttention(args: {
     }
   }
 
-  return { portfolioId: args.portfolioId, groups };
+  const photoUnits = await computePortfolioUnitPhotos({
+    properties: linkedFiltered.map((p) => ({ id: p.propertyId, name: p.name })),
+  });
+  const crewToday = await computePortfolioCrewToday({
+    properties: linkedFiltered.map((p) => ({
+      id: p.propertyId,
+      name: p.name,
+      timezone: p.timezone,
+    })),
+  });
+
+  return {
+    portfolioId: args.portfolioId,
+    groups,
+    turns: open.filter((t) => !t.readyAt || !pos.get(t.id)).map(toItem),
+    photoUnits,
+    crewToday,
+  };
 }
