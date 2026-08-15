@@ -9,4 +9,5 @@
 export type GetTurnRecordFileParams = {
 exp: string;
 sig: string;
+jti: string;
 };

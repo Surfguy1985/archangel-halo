@@ -15,6 +15,7 @@ import { TurnRing, confidenceGlyph } from "./TurnRing";
 import { actorLabel, formatStageClock, ownerLabel } from "./clock";
 import { EvidenceLedger, type EvidenceRecordVariant } from "./EvidenceLedger";
 import { ScopeCompliance, type ScopeComplianceProps } from "./ScopeCompliance";
+import { VirtualList } from "../virtual/VirtualList";
 
 const INK = "#07101E";
 const LIME = "#B4FF44";
@@ -292,10 +293,15 @@ export function TurnBoard(props: TurnBoardProps) {
                   {cards.length}
                 </span>
               </header>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {cards.map((card) => (
+              <VirtualList
+                items={cards}
+                estimateSize={96}
+                gap={8}
+                maxHeight={640}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                getKey={(card) => card.turnId}
+                renderItem={(card) => (
                   <button
-                    key={card.turnId}
                     type="button"
                     draggable={false}
                     onClick={() => props.onOpenTurn(card.turnId)}
@@ -338,8 +344,8 @@ export function TurnBoard(props: TurnBoardProps) {
                       ) : null}
                     </div>
                   </button>
-                ))}
-              </div>
+                )}
+              />
             </section>
           );
         })}

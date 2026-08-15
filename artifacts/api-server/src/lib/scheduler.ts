@@ -336,6 +336,16 @@ async function tick(): Promise<void> {
     logger.warn({ err }, "client-board: Entrata drop-folder sweep failed");
   }
 
+  try {
+    if (await isClientBoardSegmentEnabled("security")) {
+      const { tombstoneExpiredEvidence } = await import("./clientBoardRepo");
+      const n = await tombstoneExpiredEvidence();
+      if (n > 0) logger.info({ n }, "client-board: evidence retention tombstone");
+    }
+  } catch (err) {
+    logger.warn({ err }, "client-board: evidence retention sweep failed");
+  }
+
   const stamp = Date.now();
 
   // Every tick (1 min): expire stale emergency pings so an old offer can't

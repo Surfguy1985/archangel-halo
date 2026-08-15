@@ -9,6 +9,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { formatUsdCents, signedUsdCents } from "./formatUsdCents";
+import { VirtualGrid, VirtualList } from "../virtual/VirtualList";
 
 const INK = "#07101E";
 const LIME = "#B4FF44";
@@ -35,6 +36,7 @@ export type PortfolioPulseProps = {
   importHref?: { label: string; onClick: () => void };
   costHref?: { label: string; onClick: () => void };
   pipelineHref?: { label: string; onClick: () => void };
+  auditHref?: { label: string; onClick: () => void };
   workSource?: WorkSourceFilter;
   onWorkSourceChange?: (next: WorkSourceFilter) => void;
   portfolios?: Array<{ id: string; name: string }>;
@@ -147,6 +149,15 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
               style={ghostBtn}
             >
               {props.pipelineHref.label}
+            </button>
+          ) : null}
+          {props.auditHref ? (
+            <button
+              type="button"
+              onClick={props.auditHref.onClick}
+              style={ghostBtn}
+            >
+              {props.auditHref.label}
             </button>
           ) : null}
           <div style={{ flex: 1, minWidth: 160 }}>
@@ -405,16 +416,15 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           })}
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {(pulse?.tiles ?? []).map((tile) => (
+        <VirtualGrid
+          items={pulse?.tiles ?? []}
+          columnWidth={280}
+          rowHeight={188}
+          gap={12}
+          maxHeight={720}
+          getKey={(tile) => tile.propertyId}
+          renderItem={(tile) => (
             <button
-              key={tile.propertyId}
               type="button"
               onClick={() => props.onTileClick(tile.propertyId)}
               style={{
@@ -427,6 +437,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
                 color: "inherit",
                 cursor: "pointer",
                 boxShadow: "0 12px 32px rgba(0,0,0,0.22)",
+                width: "100%",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -488,8 +499,8 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
                 {tile.medianTurnDays != null ? ` · ${tile.medianTurnDays} day median` : ""}
               </p>
             </button>
-          ))}
-        </div>
+          )}
+        />
 
         {pulse?.compliance ? (
           <section style={{ marginTop: 28 }} aria-label="Invoice compliance">
@@ -555,26 +566,31 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
                   <p style={{ margin: "4px 0 12px", color: MUTED, fontSize: 13 }}>
                     {group.summary}
                   </p>
-                  {group.items.map((item) => (
-                    <button
-                      key={item.turnId}
-                      type="button"
-                      onClick={() => props.onAttentionClick(item.href)}
-                      style={{
-                        ...ghostBtn,
-                        width: "100%",
-                        justifyContent: "space-between",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <span>
-                        {item.propertyName} · {item.unitNumber}
-                      </span>
-                      <span style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
-                        {item.days}d
-                      </span>
-                    </button>
-                  ))}
+                  <VirtualList
+                    items={group.items}
+                    estimateSize={50}
+                    maxHeight={480}
+                    getKey={(item) => item.turnId}
+                    renderItem={(item) => (
+                      <button
+                        type="button"
+                        onClick={() => props.onAttentionClick(item.href)}
+                        style={{
+                          ...ghostBtn,
+                          width: "100%",
+                          justifyContent: "space-between",
+                          marginBottom: 6,
+                        }}
+                      >
+                        <span>
+                          {item.propertyName} · {item.unitNumber}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
+                          {item.days}d
+                        </span>
+                      </button>
+                    )}
+                  />
                 </div>
               ))}
             </div>
@@ -662,7 +678,8 @@ function TweenCents(props: { cents: string; reduceMotion: boolean }) {
           fontSize: "clamp(40px, 9vw, 84px)",
           fontWeight: 600,
           letterSpacing: "-0.04em",
-          color: LIME,
+          // Rent lost to vacancy is money already gone — it reads red, not lime.
+          color: CORAL,
           lineHeight: 0.95,
         }}
       >

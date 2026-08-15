@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsx ./src/check-board-contract.ts && tsx ./src/check-card-contrast.ts && tsx ./src/check-demo-narration.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsx ./src/check-board-contract.ts && tsx ./src/check-card-contrast.ts && tsx ./src/check-demo-narration.ts && tsx ./src/check-secrets.ts",
     "check:board-contract": "tsx ./src/check-board-contract.ts",
     "check:demo-narration": "tsx ./src/check-demo-narration.ts",
     "check:card-contrast": "tsx ./src/check-card-contrast.ts"

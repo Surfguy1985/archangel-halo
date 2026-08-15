@@ -49,7 +49,7 @@ import {
   GetClientPropertyComplianceStatsParams,
   GetClientPropertyComplianceStatsResponse,
 } from "@workspace/api-zod";
-import { db, clientTurnsTable, propertiesTable, clientVarianceRequestsTable, clientTurnInvoicesTable } from "@workspace/db";
+import { db, propertiesTable, clientVarianceRequestsTable, clientTurnInvoicesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
 import {
@@ -64,6 +64,7 @@ import {
 } from "../lib/clientBoardAccess";
 import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { loadTurnRef } from "../lib/clientBoardRepo";
 import {
   addScopeLine,
   buildInvoiceExport,
@@ -108,11 +109,7 @@ function sendErr(res: Response, err: unknown): boolean {
 }
 
 async function clientMayAccessTurn(token: string, turnId: string): Promise<{ orgId: string } | null> {
-  const [turn] = await db
-    .select({ propertyId: clientTurnsTable.propertyId, orgId: clientTurnsTable.orgId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, turnId))
-    .limit(1);
+  const turn = await loadTurnRef(turnId);
   if (!turn) return null;
   const tokenPropertyId = await resolveClientPropertyIdForToken(token);
   if (!tokenPropertyId) return null;
@@ -123,11 +120,7 @@ async function clientMayAccessTurn(token: string, turnId: string): Promise<{ org
 }
 
 async function orgForTurn(turnId: string): Promise<string | null> {
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, turnId))
-    .limit(1);
+  const turn = await loadTurnRef(turnId);
   return turn?.orgId ?? null;
 }
 

@@ -1,13 +1,14 @@
 /**
- * CAF Client Board Segment 1 seed.
+ * CAF Client Board demo seed (`pnpm seed:demo`).
  *
  * Double-marker properties (name prefix + brief) so a real community that
  * happens to share a name is never wiped. Idempotent: teardown then rebuild.
  *
- * 3 properties × 40 units × 90 days of turn history, including:
- *   - Paloma Creek: client-approval bottleneck
+ * 12 properties × 40 units × 120 days of turn history, including:
+ *   - Paloma Creek: client-approval bottleneck + marble off-schedule + live 14-line bid
  *   - Desert Sage: a turn with two rework loops
  *   - Redbud Flats: in-house (CTB) work source
+ *   - Paloma first open: blocked variance (paint over schedule) + MARBLE-UP off-schedule
  */
 
 import { sql, eq, and, like, inArray } from "drizzle-orm";
@@ -32,6 +33,8 @@ import {
   clientAuditLogTable,
   clientEvidenceItemsTable,
   clientGpsEventsTable,
+  clientVarianceRequestsTable,
+  clientAccountsTable,
   STAGE_OWNERSHIP_SEED,
   mulCents,
   yymmddInZone,
@@ -46,11 +49,12 @@ import { ensureClientBoardSchema } from "./ensureClientBoardSchema";
 import { logger } from "./logger";
 import { createBidRequest, inviteVendors, submitVendorBid } from "./bidBoard";
 
-export const CAF_SEED_BRIEF = "CAF_CLIENT_BOARD_SEED_v1";
-export const CAF_SEED_NAME_PREFIX = "CAF Demo — ";
+export const CAF_REGIONAL_TOKEN = "caf-regional";
+export const CAF_PALOMA_TOKEN = "caf-paloma";
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
+export const CAF_DEMO_HISTORY_DAYS = 120;
 
 const PRICE_BOOK: {
   code: string;
@@ -182,6 +186,10 @@ async function teardownSeedProperties(): Promise<void> {
     await tx.execute(sql`DELETE FROM client_bid_invitations WHERE bid_request_id IN (
       SELECT id FROM client_bid_requests WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_bid_requests WHERE property_id IN (${inProps})`);
+    await tx.execute(sql`DELETE FROM client_signed_url_tickets WHERE resource_id IN (
+      SELECT id FROM client_turn_records WHERE turn_id IN (SELECT id FROM client_turns WHERE property_id IN (${inProps}))
+      UNION
+      SELECT id FROM client_evidence_items WHERE turn_id IN (SELECT id FROM client_turns WHERE property_id IN (${inProps})))`);
     await tx.execute(sql`DELETE FROM client_turn_records WHERE turn_id IN (
         SELECT id FROM client_turns WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_evidence_items WHERE turn_id IN (
@@ -203,6 +211,7 @@ async function teardownSeedProperties(): Promise<void> {
     await tx.execute(sql`DELETE FROM client_turn_forecasts WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_capacity_declarations WHERE vendor_org_id IN (
       SELECT id FROM client_orgs WHERE slug IN ('archangel-vendor', 'ctb-multifamily', 'summit-turn', 'prairie-star'))`);
+    await tx.execute(sql`DELETE FROM client_accounts WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_units WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_portfolio_properties WHERE property_id IN (${inProps})`);
     await tx.delete(propertiesTable).where(
@@ -288,7 +297,117 @@ const PROPERTY_SPECS: PropertySpec[] = [
     latitude: 36.154,
     longitude: -95.9928,
   },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Cedar Ridge`,
+    city: "Austin, TX",
+    address: "4100 Cedar Ridge Rd, Austin, TX",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 5400n,
+    targetTurnDays: 7,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 30.2672,
+    longitude: -97.7431,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Lakewood Place`,
+    city: "Dallas, TX",
+    address: "8800 Lakewood Blvd, Dallas, TX",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 4600n,
+    targetTurnDays: 8,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 32.7767,
+    longitude: -96.797,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Iron Horse`,
+    city: "San Antonio, TX",
+    address: "150 Iron Horse Pkwy, San Antonio, TX",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 3900n,
+    targetTurnDays: 7,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 29.4241,
+    longitude: -98.4936,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Cottonwood`,
+    city: "Tucson, AZ",
+    address: "6700 E Cottonwood St, Tucson, AZ",
+    timezone: "America/Phoenix",
+    avgDailyRentCents: 3700n,
+    targetTurnDays: 8,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 32.2226,
+    longitude: -110.9747,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Mesa Verde`,
+    city: "Mesa, AZ",
+    address: "2400 S Verde Ave, Mesa, AZ",
+    timezone: "America/Phoenix",
+    avgDailyRentCents: 4300n,
+    targetTurnDays: 7,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 33.4152,
+    longitude: -111.8315,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Riverbend`,
+    city: "Oklahoma City, OK",
+    address: "1200 Riverbend Dr, Oklahoma City, OK",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 3500n,
+    targetTurnDays: 8,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 35.4676,
+    longitude: -97.5164,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Willow Park`,
+    city: "Plano, TX",
+    address: "3300 Willow Park Ln, Plano, TX",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 5100n,
+    targetTurnDays: 7,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 33.0198,
+    longitude: -96.6989,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Stonebridge`,
+    city: "Scottsdale, AZ",
+    address: "8800 E Stonebridge Way, Scottsdale, AZ",
+    timezone: "America/Phoenix",
+    avgDailyRentCents: 6100n,
+    targetTurnDays: 8,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 33.4942,
+    longitude: -111.9261,
+  },
+  {
+    name: `${CAF_SEED_NAME_PREFIX}Pecan Square`,
+    city: "Norman, OK",
+    address: "500 Pecan Square, Norman, OK",
+    timezone: "America/Chicago",
+    avgDailyRentCents: 3300n,
+    targetTurnDays: 7,
+    bottleneck: false,
+    workSource: "third_party",
+    latitude: 35.2226,
+    longitude: -97.4395,
+  },
 ];
+
+export const CAF_DEMO_PROPERTY_SPECS = PROPERTY_SPECS;
 
 export type ClientBoardSeedSummary = {
   orgId: string;
@@ -300,6 +419,7 @@ export type ClientBoardSeedSummary = {
   openTurns: number;
   reworkTurns: number;
   bottleneckTurns: number;
+  variancePending: number;
 };
 
 export async function seedClientBoard(opts?: {
@@ -358,7 +478,7 @@ export async function seedClientBoard(opts?: {
   await db.delete(clientPortfoliosTable).where(eq(clientPortfoliosTable.orgId, caf.id));
   const [portfolio] = await db
     .insert(clientPortfoliosTable)
-    .values({ orgId: caf.id, name: "North Region" })
+    .values({ orgId: caf.id, name: "North Region", dashboardToken: CAF_REGIONAL_TOKEN })
     .returning();
 
   await db.delete(clientCapacityDeclarationsTable).where(
@@ -371,7 +491,7 @@ export async function seedClientBoard(opts?: {
   );
 
   const now = new Date();
-  const horizonStart = addMs(now, -90 * DAY_MS);
+  const horizonStart = addMs(now, -CAF_DEMO_HISTORY_DAYS * DAY_MS);
 
   let unitCount = 0;
   let turnCount = 0;
@@ -381,6 +501,7 @@ export async function seedClientBoard(opts?: {
   let bottleneckTurns = 0;
   let palomaId = "";
   let redbudId = "";
+  let variancePending = 0;
 
   const eventsBatch: (typeof clientTurnStageEventsTable.$inferInsert)[] = [];
   const evidenceTurns: Array<{
@@ -485,7 +606,7 @@ export async function seedClientBoard(opts?: {
         unitCount++;
       }
 
-      const windowStart = addMs(now, -90 * DAY_MS);
+      const windowStart = addMs(now, -CAF_DEMO_HISTORY_DAYS * DAY_MS);
       await db.insert(clientVendorScorecardsTable).values([
         {
           vendorOrgId: archangel.id,
@@ -575,7 +696,7 @@ export async function seedClientBoard(opts?: {
           ? 6 + Math.floor(rng() * 6)
           : isOpen
             ? Math.floor(rng() * 12)
-            : Math.floor(rng() * 80);
+            : Math.floor(rng() * (CAF_DEMO_HISTORY_DAYS - 10));
         const actualVacate = addMs(now, -(vacateOffsetDays * DAY_MS + Math.floor(rng() * DAY_MS)));
         const noticeSpan = spans[0]!;
         let cursor = addMs(actualVacate, -noticeSpan.ms);
@@ -738,30 +859,52 @@ export async function seedClientBoard(opts?: {
               createdBy: "seed:crew.lead",
             })
             .returning();
-          await db.insert(clientScopeLinesTable).values([
-            {
+          const bumpedPaint = bumpCents(paint.unitPriceCents, 20);
+          const insertedLines = await db
+            .insert(clientScopeLinesTable)
+            .values([
+              {
+                scopeId: scope!.id,
+                description: paint.description,
+                code: paint.code,
+                tier: paint.tier,
+                qty: 1,
+                uom: "ea",
+                unitPriceCents: bumpedPaint,
+                extendedCents: mulCents(bumpedPaint, 1),
+                compliance: "variance_pending",
+                varianceReason: "Owner asked for premium sheen after walk.",
+              },
+              {
+                scopeId: scope!.id,
+                description: "Marble counter upgrade",
+                code: "MARBLE-UP",
+                tier: null,
+                qty: 1,
+                uom: "ea",
+                unitPriceCents: 89000n,
+                extendedCents: 89000n,
+                compliance: "off_schedule",
+              },
+            ])
+            .returning();
+          const paintLine = insertedLines.find((l) => l.code === "PAINT-WALLS");
+          if (paintLine) {
+            await db.insert(clientVarianceRequestsTable).values({
+              orgId: caf.id,
               scopeId: scope!.id,
-              description: paint.description,
-              code: paint.code,
-              tier: paint.tier,
-              qty: 1,
-              uom: "ea",
-              unitPriceCents: paint.unitPriceCents,
-              extendedCents: mulCents(paint.unitPriceCents, 1),
-              compliance: "matched",
-            },
-            {
-              scopeId: scope!.id,
-              description: "Marble counter upgrade",
-              code: "MARBLE-UP",
-              tier: null,
-              qty: 1,
-              uom: "ea",
-              unitPriceCents: 89000n,
-              extendedCents: 89000n,
-              compliance: "off_schedule",
-            },
-          ]);
+              scopeLineId: paintLine.id,
+              turnId: turn.id,
+              propertyId: property.id,
+              reason: "Owner asked for premium sheen after walk.",
+              status: "pending",
+              requestedQty: 1,
+              requestedUnitPriceCents: bumpedPaint,
+              scheduleUnitPriceCents: paint.unitPriceCents,
+              deltaCents: bumpedPaint - paint.unitPriceCents,
+            });
+            variancePending++;
+          }
         } else if (spec.name.includes("Paloma Creek") && isOpen && t === completedCount + 1) {
           const tier = unit.bedrooms === 1 ? "1br" : unit.bedrooms === 2 ? "2br" : "3br";
           const book = uniquePriceBook(tier);
@@ -893,7 +1036,13 @@ export async function seedClientBoard(opts?: {
       entityType: "seed",
       entityId: caf.id,
       action: "client_board.seed",
-      after: { properties: PROPERTY_SPECS.length, units: unitCount, turns: turnCount },
+      after: {
+        properties: PROPERTY_SPECS.length,
+        units: unitCount,
+        turns: turnCount,
+        variancePending,
+        historyDays: CAF_DEMO_HISTORY_DAYS,
+      },
     });
   } finally {
     await db.execute(
@@ -914,6 +1063,18 @@ export async function seedClientBoard(opts?: {
       role: "property_manager",
       scope: { propertyIds: [palomaId] },
     });
+    await db
+      .insert(clientAccountsTable)
+      .values({
+        propertyId: palomaId,
+        dashboardToken: CAF_PALOMA_TOKEN,
+        status: "active",
+        notes: "Password-free Paloma property view",
+      })
+      .onConflictDoUpdate({
+        target: clientAccountsTable.propertyId,
+        set: { dashboardToken: CAF_PALOMA_TOKEN, status: "active" },
+      });
   }
   if (redbudId) {
     await db.insert(clientOrgMembersTable).values({
@@ -931,6 +1092,7 @@ export async function seedClientBoard(opts?: {
       turns: turnCount,
       events: eventCount,
       openTurns,
+      variancePending,
     },
     "client-board: seed complete",
   );
@@ -945,6 +1107,7 @@ export async function seedClientBoard(opts?: {
     openTurns,
     reworkTurns,
     bottleneckTurns,
+    variancePending,
   };
 }
 

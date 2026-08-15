@@ -32,7 +32,7 @@ import {
   sha256Hex,
   type TurnRecordVariant,
 } from "@workspace/db";
-import { fileUrl, signFileQuery } from "./evidenceSign";
+import { fileUrl, issueSignedFile, EVIDENCE_URL_TTL_SEC } from "./evidenceSign";
 import { renderTurnRecordPdf } from "./turnRecordPdf";
 
 export class EvidenceNotFoundError extends Error {
@@ -110,9 +110,7 @@ async function loadLeaves(turnId: string) {
         sha256: clientEvidenceItemsTable.sha256,
       })
       .from(clientEvidenceItemsTable)
-      .where(
-        and(eq(clientEvidenceItemsTable.turnId, turnId), isNull(clientEvidenceItemsTable.tombstonedAt)),
-      ),
+      .where(eq(clientEvidenceItemsTable.turnId, turnId)),
     db
       .select({
         id: clientTurnStageEventsTable.id,
@@ -154,14 +152,25 @@ export async function computeTurnEvidence(args: { turnId: string; orgId: string 
     );
   const fenceLat = turn.unitLat ?? turn.propertyLat ?? null;
   const fenceLng = turn.unitLng ?? null;
-  const photos = items.map((item) => {
+  const photos = await Promise.all(
+    items.map(async (item) => {
     const distanceM =
       item.deviceLat != null && item.deviceLng != null && fenceLat != null && fenceLng != null
         ? haversineM(item.deviceLat, item.deviceLng, fenceLat, fenceLng)
         : item.gpsAccuracyM ?? null;
     const captured = item.deviceCapturedAt ?? item.serverReceivedAt;
-    const signedThumb = signFileQuery({ kind: "evidence", id: item.id, size: "thumb", ttlSec: 3600 });
-    const signedView = signFileQuery({ kind: "evidence", id: item.id, size: "view", ttlSec: 3600 });
+    const signedThumb = await issueSignedFile({
+      kind: "evidence",
+      id: item.id,
+      size: "thumb",
+      ttlSec: EVIDENCE_URL_TTL_SEC,
+    });
+    const signedView = await issueSignedFile({
+      kind: "evidence",
+      id: item.id,
+      size: "view",
+      ttlSec: EVIDENCE_URL_TTL_SEC,
+    });
     return {
       id: item.id,
       phase: item.phase as "before" | "during" | "after" | "qc",
@@ -175,7 +184,8 @@ export async function computeTurnEvidence(args: { turnId: string; orgId: string 
       capturedByName: item.capturedByUserId ?? "Crew",
       integrityFlags: explainIntegrityFlags(item.integrityFlags, distanceM),
     };
-  });
+    }),
+  );
   const rooms = pairRooms(photos).map((r) => ({
     room: r.room,
     label: roomLabel(r.room),
@@ -243,7 +253,7 @@ export async function verifyTurn(args: { turnId: string; orgId: string }) {
   };
 }
 
-function toRecordDoc(row: {
+async function toRecordDoc(row: {
   id: string;
   turnId: string;
   variant: TurnRecordVariant;
@@ -254,7 +264,7 @@ function toRecordDoc(row: {
 }) {
   const ready = row.status === "ready";
   const signed = ready
-    ? signFileQuery({ kind: "record", id: row.id, ttlSec: 7 * 24 * 3600 })
+    ? await issueSignedFile({ kind: "record", id: row.id, ttlSec: EVIDENCE_URL_TTL_SEC })
     : null;
   return {
     id: row.id,
@@ -278,7 +288,7 @@ export async function getTurnRecord(args: { recordId: string; orgId: string }) {
     )
     .limit(1);
   if (!row) throw new EvidenceNotFoundError("Record not found");
-  return toRecordDoc(row);
+  return await toRecordDoc(row);
 }
 
 export async function createTurnRecord(args: {
@@ -317,7 +327,7 @@ export async function createTurnRecord(args: {
       .where(eq(clientTurnRecordsTable.id, row.id))
       .returning();
     await persistVerificationHash(args.turnId, args.orgId);
-    return toRecordDoc(updated!);
+    return await toRecordDoc(updated!);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Record failed";
     const [failed] = await db
@@ -325,7 +335,7 @@ export async function createTurnRecord(args: {
       .set({ status: "failed", error: message })
       .where(eq(clientTurnRecordsTable.id, row.id))
       .returning();
-    return toRecordDoc(failed!);
+    return await toRecordDoc(failed!);
   }
 }
 

@@ -87,6 +87,10 @@ export default function ClientPortfolioPulsePage() {
         label: "Pipeline",
         onClick: () => setLocation(`/${token}/pipeline`),
       }}
+      auditHref={{
+        label: "Audit log",
+        onClick: () => setLocation(`/${token}/audit`),
+      }}
       workSource={view.params?.workSource ?? "all"}
       onWorkSourceChange={(next) => {
         view.commitWorkSource(next, {

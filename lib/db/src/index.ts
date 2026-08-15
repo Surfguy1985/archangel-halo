@@ -26,3 +26,4 @@ export * from "./evidenceLedger";
 export * from "./invoiceCompliance";
 export * from "./entrataCsv";
 export * from "./turnPipelineMath";
+export * from "./orgScope";

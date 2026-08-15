@@ -80,6 +80,9 @@ describe("Stage ownership seed", () => {
     expect(CLIENT_BOARD_FLAG_DEFAULTS.csvImport).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.workSource).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.bidBoard).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.pipeline).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.security).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.demo).toBe(false);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.realtime).toBe(false);
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('dataModel', true)");
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('turnEngine', true)");

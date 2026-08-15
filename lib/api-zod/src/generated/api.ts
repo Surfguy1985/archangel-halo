@@ -14532,6 +14532,121 @@ export const ScheduleClientVacateNoticeResponse = zod.object({
 
 
 /**
+ * @summary Filterable append-only audit log for a portfolio org
+ */
+export const GetPortfolioAuditParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPortfolioAuditQueryParams = zod.object({
+  "entityType": zod.coerce.string().optional(),
+  "actorId": zod.coerce.string().optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetPortfolioAuditResponse = zod.object({
+  "portfolioId": zod.string(),
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "occurredAt": zod.string(),
+  "actorId": zod.string().nullish(),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "action": zod.string()
+}))
+})
+
+
+/**
+ * @summary CSV export of the portfolio audit log
+ */
+export const ExportPortfolioAuditParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ExportPortfolioAuditQueryParams = zod.object({
+  "entityType": zod.coerce.string().optional(),
+  "actorId": zod.coerce.string().optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ExportPortfolioAuditResponse = zod.unknown()
+
+
+/**
+ * @summary Soft-delete evidence for retention. Verification hash still resolves.
+ */
+export const TombstoneEvidenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const TombstoneEvidenceResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string()
+})
+
+
+/**
+ * @summary Client twin of the portfolio audit log
+ */
+export const GetClientPortfolioAuditParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientPortfolioAuditQueryParams = zod.object({
+  "entityType": zod.coerce.string().optional(),
+  "actorId": zod.coerce.string().optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetClientPortfolioAuditResponse = zod.object({
+  "portfolioId": zod.string(),
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "occurredAt": zod.string(),
+  "actorId": zod.string().nullish(),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "action": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client twin CSV export of the audit log
+ */
+export const ExportClientPortfolioAuditParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ExportClientPortfolioAuditQueryParams = zod.object({
+  "entityType": zod.coerce.string().optional(),
+  "actorId": zod.coerce.string().optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ExportClientPortfolioAuditResponse = zod.unknown()
+
+
+/**
+ * @summary Client twin — soft-delete evidence for retention
+ */
+export const TombstoneClientEvidenceParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const TombstoneClientEvidenceResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string()
+})
+
+
+/**
  * @summary SSE stream — `pulse` events for the property's portfolio
  */
 export const StreamClientPortfolioPulseParams = zod.object({
@@ -15108,7 +15223,8 @@ export const GetTurnRecordFileParams = zod.object({
 
 export const GetTurnRecordFileQueryParams = zod.object({
   "exp": zod.coerce.string(),
-  "sig": zod.coerce.string()
+  "sig": zod.coerce.string(),
+  "jti": zod.coerce.string()
 })
 
 export const GetTurnRecordFileResponse = zod.unknown()
@@ -15141,7 +15257,8 @@ export const GetEvidenceFileParams = zod.object({
 export const GetEvidenceFileQueryParams = zod.object({
   "size": zod.enum(['original', 'thumb', 'view']).optional(),
   "exp": zod.coerce.string(),
-  "sig": zod.coerce.string()
+  "sig": zod.coerce.string(),
+  "jti": zod.coerce.string()
 })
 
 export const GetEvidenceFileResponse = zod.unknown()

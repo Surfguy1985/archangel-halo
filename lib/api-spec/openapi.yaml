@@ -10838,6 +10838,231 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v1/portfolios/{id}/audit:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPortfolioAudit
+      tags: [portfolios]
+      summary: Filterable append-only audit log for a portfolio org
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entityType
+          in: query
+          required: false
+          schema: { type: string }
+        - name: actorId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioAuditDocument"
+        "403":
+          description: Role cannot read the audit log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown portfolio or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/audit/export:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: exportPortfolioAudit
+      tags: [portfolios]
+      summary: CSV export of the portfolio audit log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entityType
+          in: query
+          required: false
+          schema: { type: string }
+        - name: actorId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: CSV bytes
+          content:
+            text/csv:
+              schema: { type: string }
+        "403":
+          description: Role cannot read the audit log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown portfolio or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/evidence/{id}/tombstone:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: tombstoneEvidence
+      tags: [turns]
+      summary: Soft-delete evidence for retention. Verification hash still resolves.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tombstoned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TombstoneEvidenceDocument"
+        "404":
+          description: Unknown item or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/audit:
+    get:
+      operationId: getClientPortfolioAudit
+      tags: [portfolios]
+      summary: Client twin of the portfolio audit log
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entityType
+          in: query
+          required: false
+          schema: { type: string }
+        - name: actorId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioAuditDocument"
+        "404":
+          description: Invalid link or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/audit/export:
+    get:
+      operationId: exportClientPortfolioAudit
+      tags: [portfolios]
+      summary: Client twin CSV export of the audit log
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entityType
+          in: query
+          required: false
+          schema: { type: string }
+        - name: actorId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: CSV bytes
+          content:
+            text/csv:
+              schema: { type: string }
+        "404":
+          description: Invalid link or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/evidence/{id}/tombstone:
+    post:
+      operationId: tombstoneClientEvidence
+      tags: [turns]
+      summary: Client twin — soft-delete evidence for retention
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tombstoned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TombstoneEvidenceDocument"
+        "404":
+          description: Invalid link or security flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/portfolio/stream:
     get:
       operationId: streamClientPortfolioPulse
@@ -10896,6 +11121,82 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/available-properties:
+    get:
+      operationId: listClientPortfolioAvailableProperties
+      tags: [portfolios]
+      summary: Org properties not yet on this portfolio. Regional link only.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Properties the regional manager can attach
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailablePortfolioPropertiesDocument"
+        "403":
+          description: Property-level link cannot add communities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/properties:
+    post:
+      operationId: addClientPortfolioProperty
+      tags: [portfolios]
+      summary: Attach an existing org property or create a new one on this regional portfolio
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddClientPortfolioPropertyInput"
+      responses:
+        "200":
+          description: Property is on the portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddedPortfolioPropertyDocument"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Property-level link cannot add communities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link, unknown property, or Pulse flag is dark
           content:
             application/json:
               schema:
@@ -11402,6 +11703,10 @@ paths:
           in: query
           required: true
           schema: { type: string }
+        - name: jti
+          in: query
+          required: true
+          schema: { type: string }
       responses:
         "200":
           description: PDF bytes
@@ -11459,6 +11764,10 @@ paths:
           required: true
           schema: { type: string }
         - name: sig
+          in: query
+          required: true
+          schema: { type: string }
+        - name: jti
           in: query
           required: true
           schema: { type: string }
@@ -19823,6 +20132,14 @@ components:
       properties:
         portfolioId: { type: string }
         portfolioName: { type: string }
+        viewKind:
+          type: string
+          enum: [regional, property]
+          description: Regional sees every property in the portfolio. Property sees only that community.
+        viewLabel: { type: string }
+        canAddProperties:
+          type: boolean
+          description: Regional (and office asset manager) may attach more properties. Property links cannot.
         range:
           $ref: "#/components/schemas/PulseRangePreset"
         from: { type: string }
@@ -19884,6 +20201,45 @@ components:
         to: { type: ["string", "null"] }
         sort:
           $ref: "#/components/schemas/PulseTileSort"
+
+    AddClientPortfolioPropertyInput:
+      type: object
+      properties:
+        propertyId:
+          type: string
+          description: Attach this existing org property to the regional portfolio
+        name:
+          type: string
+          description: Create a new property when propertyId is omitted
+        city: { type: string }
+        timezone: { type: string }
+        avgDailyRentCents: { type: string }
+        targetTurnDays: { type: integer }
+
+    AvailablePortfolioProperty:
+      type: object
+      required: [propertyId, name]
+      properties:
+        propertyId: { type: string }
+        name: { type: string }
+        city: { type: ["string", "null"] }
+
+    AvailablePortfolioPropertiesDocument:
+      type: object
+      required: [properties]
+      properties:
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailablePortfolioProperty"
+
+    AddedPortfolioPropertyDocument:
+      type: object
+      required: [propertyId, name, created]
+      properties:
+        propertyId: { type: string }
+        name: { type: string }
+        created: { type: boolean }
 
     PortfolioSavedViewDocument:
       type: object
@@ -20083,6 +20439,34 @@ components:
       type: object
       required: [turnId]
       properties:
+        turnId: { type: string }
+
+    PortfolioAuditEntry:
+      type: object
+      required: [id, occurredAt, entityType, entityId, action]
+      properties:
+        id: { type: string }
+        occurredAt: { type: string }
+        actorId: { type: ["string", "null"] }
+        entityType: { type: string }
+        entityId: { type: string }
+        action: { type: string }
+
+    PortfolioAuditDocument:
+      type: object
+      required: [portfolioId, entries]
+      properties:
+        portfolioId: { type: string }
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAuditEntry"
+
+    TombstoneEvidenceDocument:
+      type: object
+      required: [id, turnId]
+      properties:
+        id: { type: string }
         turnId: { type: string }
 
     CapacityHoldDocument:

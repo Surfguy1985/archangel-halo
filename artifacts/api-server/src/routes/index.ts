@@ -66,12 +66,14 @@ import entrataImportRouter from "./entrataImport";
 import costToServeRouter from "./costToServe";
 import bidBoardRouter from "./bidBoard";
 import turnPipelineRouter from "./turnPipeline";
+import clientBoardAuditRouter from "./clientBoardAudit";
 
 const router: IRouter = Router();
 
 // --- Client board hardening: session exchange, cookie-or-token auth, rate limits ---
 import { clientSessionExchangeHandler, clientAuth, resolveClientPropertyIdForToken } from "../lib/sessionAuth";
-import { limits } from "../lib/rateLimit";
+import { limits, limitClientBoard } from "../lib/rateLimit";
+import { demoSafeJson } from "../lib/demoSafe";
 
 // Concierge must be mounted BEFORE clientAuth so its own resolveViewer()
 // handles both guest and signed-in users. clientAuth's STRICT_MODE would
@@ -172,13 +174,14 @@ router.use(voiceEodRouter);
 router.use(exchangeRouter);
 router.use(intelligenceRouter);
 router.use(remindersRouter);
-router.use(portfolioPulseRouter);
-router.use(propertyTurnBoardRouter);
-router.use(propertyEvidenceRouter);
-router.use(propertyInvoiceRouter);
-router.use(entrataImportRouter);
-router.use(costToServeRouter);
-router.use(bidBoardRouter);
-router.use(turnPipelineRouter);
+router.use(demoSafeJson, limitClientBoard, portfolioPulseRouter);
+router.use(demoSafeJson, limitClientBoard, propertyTurnBoardRouter);
+router.use(demoSafeJson, limitClientBoard, propertyEvidenceRouter);
+router.use(demoSafeJson, limitClientBoard, propertyInvoiceRouter);
+router.use(demoSafeJson, limitClientBoard, entrataImportRouter);
+router.use(demoSafeJson, limitClientBoard, costToServeRouter);
+router.use(demoSafeJson, limitClientBoard, bidBoardRouter);
+router.use(demoSafeJson, limitClientBoard, turnPipelineRouter);
+router.use(demoSafeJson, limitClientBoard, clientBoardAuditRouter);
 
 export default router;

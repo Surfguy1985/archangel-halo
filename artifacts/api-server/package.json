@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "seed:client-board": "tsx ./scripts/seedClientBoard.ts",
+    "seed:demo": "tsx ./scripts/seedClientBoard.ts",
+    "seed:live": "tsx ./scripts/seedLive.ts",
     "render:client-board-ddl": "tsx ./scripts/renderClientBoardMigration.ts"
   },
   "dependencies": {

@@ -23,7 +23,7 @@ import {
   VerifyClientTurnParams,
   VerifyClientTurnResponse,
 } from "@workspace/api-zod";
-import { db, clientTurnsTable, clientTurnRecordsTable } from "@workspace/db";
+import { db, clientTurnRecordsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
 import {
@@ -34,7 +34,8 @@ import {
 } from "../lib/clientBoardAccess";
 import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
-import { verifyFileQuery } from "../lib/evidenceSign";
+import { consumeSignedFile } from "../lib/evidenceSign";
+import { loadTurnRef } from "../lib/clientBoardRepo";
 import {
   computeTurnEvidence,
   createTurnRecord,
@@ -62,11 +63,7 @@ function sendErr(res: Response, err: unknown): boolean {
 }
 
 async function clientMayAccessTurn(token: string, turnId: string): Promise<{ orgId: string } | null> {
-  const [turn] = await db
-    .select({ propertyId: clientTurnsTable.propertyId, orgId: clientTurnsTable.orgId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, turnId))
-    .limit(1);
+  const turn = await loadTurnRef(turnId);
   if (!turn) return null;
   const tokenPropertyId = await resolveClientPropertyIdForToken(token);
   if (!tokenPropertyId) return null;
@@ -77,11 +74,7 @@ async function clientMayAccessTurn(token: string, turnId: string): Promise<{ org
 }
 
 async function orgForTurn(turnId: string): Promise<string | null> {
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, turnId))
-    .limit(1);
+  const turn = await loadTurnRef(turnId);
   return turn?.orgId ?? null;
 }
 
@@ -173,10 +166,17 @@ router.get("/v1/records/:id/file", async (req: Request, res: Response): Promise<
   const path = GetTurnRecordFileParams.safeParse(req.params);
   const query = GetTurnRecordFileQueryParams.safeParse(req.query);
   if (!path.success || !query.success) {
-    res.status(400).json({ error: "Invalid file request" });
+    res.status(404).json({ error: "Invalid link" });
     return;
   }
-  if (!verifyFileQuery({ kind: "record", id: path.data.id, exp: query.data.exp, sig: query.data.sig })) {
+  const ok = await consumeSignedFile({
+    kind: "record",
+    id: path.data.id,
+    exp: query.data.exp,
+    sig: query.data.sig,
+    jti: query.data.jti,
+  });
+  if (!ok) {
     res.status(404).json({ error: "Invalid link" });
     return;
   }
@@ -221,18 +221,18 @@ router.get("/v1/evidence/:id/file", async (req: Request, res: Response): Promise
   const path = GetEvidenceFileParams.safeParse(req.params);
   const query = GetEvidenceFileQueryParams.safeParse(req.query);
   if (!path.success || !query.success) {
-    res.status(400).json({ error: "Invalid file request" });
+    res.status(404).json({ error: "Invalid link" });
     return;
   }
-  if (
-    !verifyFileQuery({
-      kind: "evidence",
-      id: path.data.id,
-      size: query.data.size,
-      exp: query.data.exp,
-      sig: query.data.sig,
-    })
-  ) {
+  const ok = await consumeSignedFile({
+    kind: "evidence",
+    id: path.data.id,
+    size: query.data.size,
+    exp: query.data.exp,
+    sig: query.data.sig,
+    jti: query.data.jti,
+  });
+  if (!ok) {
     res.status(404).json({ error: "Invalid link" });
     return;
   }

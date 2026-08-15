@@ -8381,6 +8381,26 @@ export interface VacateNoticeDocument {
   turnId: string;
 }
 
+export interface PortfolioAuditEntry {
+  id: string;
+  occurredAt: string;
+  /** @nullable */
+  actorId?: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+}
+
+export interface PortfolioAuditDocument {
+  portfolioId: string;
+  entries: PortfolioAuditEntry[];
+}
+
+export interface TombstoneEvidenceDocument {
+  id: string;
+  turnId: string;
+}
+
 export interface CapacityHoldDocument {
   bundleId: string;
   status: string;
@@ -9334,6 +9354,34 @@ to?: string;
 workSource?: WorkSourceFilter;
 };
 
+export type GetPortfolioAuditParams = {
+entityType?: string;
+actorId?: string;
+from?: string;
+to?: string;
+};
+
+export type ExportPortfolioAuditParams = {
+entityType?: string;
+actorId?: string;
+from?: string;
+to?: string;
+};
+
+export type GetClientPortfolioAuditParams = {
+entityType?: string;
+actorId?: string;
+from?: string;
+to?: string;
+};
+
+export type ExportClientPortfolioAuditParams = {
+entityType?: string;
+actorId?: string;
+from?: string;
+to?: string;
+};
+
 export type GetPropertyTurnBoardParams = {
 groupBy?: TurnBoardGroupBy;
 /**
@@ -9353,12 +9401,14 @@ workSource?: WorkSourceFilter;
 export type GetTurnRecordFileParams = {
 exp: string;
 sig: string;
+jti: string;
 };
 
 export type GetEvidenceFileParams = {
 size?: GetEvidenceFileSize;
 exp: string;
 sig: string;
+jti: string;
 };
 
 export type GetEvidenceFileSize = typeof GetEvidenceFileSize[keyof typeof GetEvidenceFileSize];

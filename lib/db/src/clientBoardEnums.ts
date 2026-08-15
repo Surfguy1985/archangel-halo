@@ -126,7 +126,7 @@ export type CapacityHoldStatus = (typeof CAPACITY_HOLD_STATUSES)[number];
 
 export const DEFAULT_CAPACITY_HOLD_HOURS = 72;
 
-/** dataModel + turnEngine + pulse + propertyBoard + evidence + invoiceCompliance + csvImport + workSource + bidBoard + pipeline ship on. Later UI segments stay dark. */
+/** Shipped segments stay on. Do not enable `realtime`. */
 export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   Record<ClientBoardFlagSegment, boolean>
 > = {
@@ -141,6 +141,6 @@ export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   pipeline: true,
   workSource: true,
   realtime: false,
-  security: false,
+  security: true,
   demo: false,
 };

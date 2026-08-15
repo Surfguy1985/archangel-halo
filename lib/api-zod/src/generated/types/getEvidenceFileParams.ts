@@ -11,4 +11,5 @@ export type GetEvidenceFileParams = {
 size?: GetEvidenceFileSize;
 exp: string;
 sig: string;
+jti: string;
 };

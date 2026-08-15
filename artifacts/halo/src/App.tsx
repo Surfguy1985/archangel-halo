@@ -1,9 +1,11 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "./components/Layout";
 import { SplashScreen } from "./components/SplashScreen";
+import { BoardRouteFallback } from "@workspace/board-ui";
 
 // Operational deep-link targets (emails, notifications, menu)
 import JobDetail from "./pages/JobDetail";
@@ -27,12 +29,13 @@ import CrewCheckinPage from "./pages/CrewCheckinPage";
 // Primary interface
 import HaloCommand from "./pages/HaloCommand";
 import PropertyPulse from "./pages/PropertyPulse";
-import ClientPortfolioPulse from "./pages/ClientPortfolioPulse";
-import PropertyTurnBoard from "./pages/PropertyTurnBoard";
-import EntrataImportPage from "./pages/EntrataImport";
-import CostToServePage from "./pages/CostToServe";
-import BidBoardPage from "./pages/BidBoard";
-import TurnPipelinePage from "./pages/TurnPipeline";
+const ClientPortfolioPulse = lazy(() => import("./pages/ClientPortfolioPulse"));
+const PropertyTurnBoard = lazy(() => import("./pages/PropertyTurnBoard"));
+const EntrataImportPage = lazy(() => import("./pages/EntrataImport"));
+const CostToServePage = lazy(() => import("./pages/CostToServe"));
+const BidBoardPage = lazy(() => import("./pages/BidBoard"));
+const TurnPipelinePage = lazy(() => import("./pages/TurnPipeline"));
+const AuditLogPage = lazy(() => import("./pages/AuditLog"));
 import { OfficeGate } from "./components/OfficeGate";
 import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
@@ -72,7 +75,15 @@ function GatedOps({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Wrap a page component with the office gate + stripped Layout chrome. */
+/** Client-board routes: code-split with a navy skeleton matching final layout. */
+function BoardPage({ children }: { children: React.ReactNode }) {
+  return (
+    <OfficeGate>
+      <Suspense fallback={<BoardRouteFallback />}>{children}</Suspense>
+    </OfficeGate>
+  );
+}
+
 function GatedPage({ children }: { children: React.ReactNode }) {
   return (
     <OfficeGate>
@@ -144,39 +155,45 @@ function App() {
             </Route>
 
             <Route path="/portfolio">
-              <OfficeGate>
+              <BoardPage>
                 <ClientPortfolioPulse />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/imports">
-              <OfficeGate>
+              <BoardPage>
                 <EntrataImportPage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/how-work">
-              <OfficeGate>
+              <BoardPage>
                 <CostToServePage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/board/pipeline">
-              <OfficeGate>
+              <BoardPage>
                 <TurnPipelinePage />
-              </OfficeGate>
+              </BoardPage>
+            </Route>
+
+            <Route path="/audit">
+              <BoardPage>
+                <AuditLogPage />
+              </BoardPage>
             </Route>
 
             <Route path="/bid-requests/:id">
-              <OfficeGate>
+              <BoardPage>
                 <BidBoardPage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/properties/:id/turns">
-              <OfficeGate>
+              <BoardPage>
                 <PropertyTurnBoard />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             {/* ── Operational deep-links ─────────────────────────────────

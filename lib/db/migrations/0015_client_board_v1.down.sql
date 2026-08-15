@@ -18,6 +18,7 @@ DROP FUNCTION IF EXISTS refresh_client_turn_metrics(uuid, timestamp with time zo
 DROP FUNCTION IF EXISTS refresh_client_turn_metrics(uuid);
 DROP FUNCTION IF EXISTS halo_append_only_guard();
 
+DROP TABLE IF EXISTS client_signed_url_tickets;
 DROP TABLE IF EXISTS client_idempotency_keys;
 DROP TABLE IF EXISTS client_saved_views;
 DROP TABLE IF EXISTS client_portfolio_notifications;

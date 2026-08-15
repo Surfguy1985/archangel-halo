@@ -555,6 +555,9 @@ export async function computePortfolioPulse(args: {
   hrefForProperty: PulseHrefForProperty;
   now?: Date;
   allowedPropertyIds?: string[] | null;
+  viewKind?: "regional" | "property";
+  viewLabel?: string;
+  canAddProperties?: boolean;
 }): Promise<ReturnType<typeof shapePulse> & { compliance?: Awaited<ReturnType<typeof complianceStats>> }> {
   const portfolio = await loadPortfolio(args.portfolioId);
   if (portfolio.orgId !== args.orgId) throw new PortfolioNotFoundError();
@@ -776,7 +779,8 @@ export async function computePortfolioPulse(args: {
     return a.vacancyCostCents > b.vacancyCostCents ? -1 : 1;
   });
 
-  const pulse = shapePulse({
+  const pulse = {
+    ...shapePulse({
     portfolio,
     window,
     sort,
@@ -789,7 +793,11 @@ export async function computePortfolioPulse(args: {
     headlineCents,
     priorCents,
     tiles,
-  });
+    }),
+    viewKind: args.viewKind ?? (args.allowedPropertyIds?.length === 1 ? "property" : "regional"),
+    viewLabel: args.viewLabel ?? portfolio.name,
+    canAddProperties: args.canAddProperties ?? !args.allowedPropertyIds,
+  };
   if (await isClientBoardSegmentEnabled("invoiceCompliance")) {
     return {
       ...pulse,

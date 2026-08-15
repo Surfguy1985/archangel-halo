@@ -28,8 +28,8 @@ import {
   PutClientPortfolioSavedViewResponse,
 } from "@workspace/api-zod";
 import { officeActor, propertyIdsForActor, sendAccessError } from "../lib/clientBoardAccess";
+import { resolveClientBoardLink } from "../lib/clientBoardLink";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
-import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
 import {
   computePortfolioAttention,
@@ -142,14 +142,17 @@ router.get("/v1/portfolios/:id/pulse", async (req: Request, res: Response): Prom
     return;
   }
   try {
-    const { allowedPropertyIds } = await officeScope(req, orgId);
+    const { actor, allowedPropertyIds } = await officeScope(req, orgId);
     const merged = await mergedQuery("office", path.data.id, pulseQueryFromParsed(query.data));
+    const scoped = Boolean(allowedPropertyIds && allowedPropertyIds.length === 1);
     const doc = await computePortfolioPulse({
       portfolioId: path.data.id,
       orgId,
       query: merged,
       hrefForProperty: officePropertyHref,
       allowedPropertyIds,
+      viewKind: scoped ? "property" : "regional",
+      canAddProperties: actor.role === "regional_manager" || actor.role === "asset_manager",
     });
     res.json(GetPortfolioPulseResponse.parse(doc));
   } catch (err) {
@@ -235,16 +238,8 @@ router.put("/v1/portfolios/:id/saved-view", async (req: Request, res: Response):
   res.json(PutPortfolioSavedViewResponse.parse(saved));
 });
 
-async function clientContext(token: string): Promise<{
-  propertyId: string;
-  portfolioId: string;
-  orgId: string;
-} | null> {
-  const propertyId = await resolveClientPropertyIdForToken(token);
-  if (!propertyId) return null;
-  const resolved = await resolvePortfolioForProperty(propertyId);
-  if (!resolved) return null;
-  return { propertyId, ...resolved };
+async function clientContext(token: string) {
+  return resolveClientBoardLink(token);
 }
 
 router.get("/client/:token/portfolio/pulse", async (req: Request, res: Response): Promise<void> => {
@@ -265,7 +260,7 @@ router.get("/client/:token/portfolio/pulse", async (req: Request, res: Response)
   }
   try {
     const merged = await mergedQuery(
-      `client:${ctx.propertyId}`,
+      `client:${ctx.kind}:${ctx.propertyId ?? ctx.portfolioId}`,
       ctx.portfolioId,
       pulseQueryFromParsed(query.data),
     );
@@ -274,6 +269,10 @@ router.get("/client/:token/portfolio/pulse", async (req: Request, res: Response)
       orgId: ctx.orgId,
       query: merged,
       hrefForProperty: clientPropertyHref(path.data.token),
+      allowedPropertyIds: ctx.allowedPropertyIds,
+      viewKind: ctx.kind,
+      viewLabel: ctx.viewLabel,
+      canAddProperties: ctx.kind === "regional",
     });
     res.json(GetClientPortfolioPulseResponse.parse(doc));
   } catch (err) {
@@ -303,6 +302,7 @@ router.get("/client/:token/portfolio/attention", async (req: Request, res: Respo
       orgId: ctx.orgId,
       hrefForProperty: clientPropertyHref(path.data.token),
       workSource: query.data.workSource,
+      allowedPropertyIds: ctx.allowedPropertyIds,
     });
     res.json(GetClientPortfolioAttentionResponse.parse(doc));
   } catch (err) {
@@ -345,7 +345,7 @@ router.put("/client/:token/portfolio/saved-view", async (req: Request, res: Resp
     return;
   }
   const saved = await savePulseView({
-    userId: `client:${ctx.propertyId}`,
+    userId: `client:${ctx.kind}:${ctx.propertyId ?? ctx.portfolioId}`,
     portfolioId: ctx.portfolioId,
     range: body.data.range,
     from: body.data.from ?? null,

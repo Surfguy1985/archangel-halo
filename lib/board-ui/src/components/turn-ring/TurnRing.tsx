@@ -25,7 +25,7 @@ const STAGE_LABEL: Record<string, string> = {
 
 export function TurnRing(props: {
   ring: TurnRingDocument;
-  size: 44 | 280;
+  size: 44 | 120 | 280;
   /** 44px cards put the unit number in the ring. 280px holds days vacant. */
   center?: "daysVacant" | "unit";
   unitNumber?: string;
@@ -40,8 +40,13 @@ export function TurnRing(props: {
   const centerMode = props.center ?? (size === 44 && props.unitNumber ? "unit" : "daysVacant");
   const cx = size / 2;
   const cy = size / 2;
-  const r = size === 44 ? 16 : 104;
-  const stroke = size === 44 ? 5 : 18;
+  const metrics =
+    size === 44
+      ? { r: 16, stroke: 5, font: 11, unitFont: 10, over: 4, rework: 4, coral: 1.5, dash: "3 3" }
+      : size === 120
+        ? { r: 44, stroke: 10, font: 22, unitFont: 16, over: 7, rework: 7, coral: 2, dash: "5 5" }
+        : { r: 104, stroke: 18, font: 42, unitFont: 28, over: 12, rework: 10, coral: 3, dash: "8 7" };
+  const { r, stroke } = metrics;
   const hatchId = `tr-hatch-${uid}`;
   const tip = pinned ?? hover;
 
@@ -98,19 +103,19 @@ export function TurnRing(props: {
             <g key={`${arc.stage}-${arc.visitIndex}-${i}`}>
               {arc.overP75 ? (
                 <path
-                  d={describeArc(cx, cy, r + (size === 44 ? 4 : 12), arc.startDeg, arc.endDeg)}
+                  d={describeArc(cx, cy, r + metrics.over, arc.startDeg, arc.endDeg)}
                   fill="none"
                   stroke={CORAL}
-                  strokeWidth={size === 44 ? 1.5 : 3}
+                  strokeWidth={metrics.coral}
                   strokeLinecap="round"
                 />
               ) : null}
               {arc.visitIndex > 0 ? (
                 <path
-                  d={describeArc(cx, cy, r - (size === 44 ? 4 : 10), arc.startDeg, arc.endDeg)}
+                  d={describeArc(cx, cy, r - metrics.rework, arc.startDeg, arc.endDeg)}
                   fill="none"
                   stroke={GOLD}
-                  strokeWidth={size === 44 ? 2 : 6}
+                  strokeWidth={size === 44 ? 2 : size === 120 ? 4 : 6}
                   strokeLinecap="round"
                 />
               ) : null}
@@ -129,7 +134,7 @@ export function TurnRing(props: {
                 stroke={strokePaint}
                 strokeWidth={outlineClient ? 1.5 : stroke}
                 strokeLinecap="round"
-                strokeDasharray={arc.predicted ? (size === 44 ? "3 3" : "8 7") : undefined}
+                strokeDasharray={arc.predicted ? metrics.dash : undefined}
                 style={{ cursor: interactive ? "pointer" : "inherit" }}
                 pointerEvents={interactive ? "auto" : "none"}
                 onMouseEnter={interactive ? () => setHover(arc) : undefined}
@@ -167,7 +172,7 @@ export function TurnRing(props: {
           style={{
             fontFamily: centerMode === "unit" ? BODY : MONO,
             fontWeight: 700,
-            fontSize: size === 44 ? (centerMode === "unit" ? 10 : 11) : 42,
+            fontSize: centerMode === "unit" ? metrics.unitFont : metrics.font,
             letterSpacing: "-0.04em",
             color: "#F4F7F2",
             lineHeight: 1,
@@ -176,7 +181,7 @@ export function TurnRing(props: {
         >
           {centerText}
         </span>
-        {size === 280 ? (
+        {size !== 44 ? (
           <span style={{ fontFamily: BODY, fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 6 }}>
             days vacant
           </span>

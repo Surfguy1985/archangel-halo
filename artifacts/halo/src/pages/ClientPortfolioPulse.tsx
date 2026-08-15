@@ -93,6 +93,10 @@ export default function ClientPortfolioPulse() {
         label: "Pipeline",
         onClick: () => navigate(id ? `/board/pipeline?id=${id}` : "/board/pipeline"),
       }}
+      auditHref={{
+        label: "Audit log",
+        onClick: () => navigate(id ? `/audit?id=${id}` : "/audit"),
+      }}
       workSource={view.params?.workSource ?? "all"}
       onWorkSourceChange={(next) => {
         view.commitWorkSource(next, {

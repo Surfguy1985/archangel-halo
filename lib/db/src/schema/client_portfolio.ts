@@ -54,6 +54,8 @@ export const clientOrgsTable = pgTable(
     slug: text("slug").notNull(),
     /** In-house construction org: crew portal at no charge. */
     crewPortalComp: boolean("crew_portal_comp").notNull().default(false),
+    /** Soft-delete evidence after this many years. Verification hash still resolves. */
+    evidenceRetentionYears: integer("evidence_retention_years").notNull().default(7),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -79,14 +81,20 @@ export const clientOrgMembersTable = pgTable(
   ],
 );
 
-export const clientPortfoliosTable = pgTable("client_portfolios", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull(),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const clientPortfoliosTable = pgTable(
+  "client_portfolios",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull(),
+    name: text("name").notNull(),
+    /** Password-free regional Pulse link. Property-level links stay on client_accounts. */
+    dashboardToken: text("dashboard_token"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("client_portfolios_dashboard_token_uq").on(t.dashboardToken)],
+);
 
 export const clientPortfolioPropertiesTable = pgTable(
   "client_portfolio_properties",
@@ -673,6 +681,19 @@ export const clientSavedViewsTable = pgTable("client_saved_views", {
   isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const clientSignedUrlTicketsTable = pgTable(
+  "client_signed_url_tickets",
+  {
+    jti: text("jti").primaryKey(),
+    kind: text("kind").notNull(),
+    resourceId: uuid("resource_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("client_signed_url_tickets_exp_idx").on(t.expiresAt)],
+);
 
 export const clientIdempotencyKeysTable = pgTable(
   "client_idempotency_keys",

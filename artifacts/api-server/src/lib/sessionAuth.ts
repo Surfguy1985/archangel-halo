@@ -24,6 +24,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
 import { db, clientAccountsTable } from '@workspace/db';
+import { resolveClientBoardLink, sessionSubjectForLink } from './clientBoardLink';
 
 /** The same token->property lookup the board feed endpoints already use. */
 export async function resolveClientPropertyIdForToken(token: string): Promise<string | null> {
@@ -106,14 +107,24 @@ export function verifySession(cookie: string | undefined): { propertyId: string 
 
 export function clientSessionExchangeHandler() {
   return async (req: Request, res: Response) => {
-    // Any-status lookup: paused accounts still need a cookie to reach the
-    // billing-resume screen in strict mode. Handlers enforce status themselves.
-    const account = await resolveClientPropertyIdForTokenAnyStatus(String(req.params.token));
-    if (!account) {
-      res.status(404).json({ error: 'Invalid link' });
+    const link = await resolveClientBoardLink(String(req.params.token));
+    if (!link) {
+      const paused = await resolveClientPropertyIdForTokenAnyStatus(String(req.params.token));
+      if (!paused) {
+        res.status(404).json({ error: 'Invalid link' });
+        return;
+      }
+      res.cookie(COOKIE_NAME, mintSession(paused.propertyId), {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: SESSION_TTL_S * 1000,
+        path: '/api',
+      });
+      res.status(204).end();
       return;
     }
-    res.cookie(COOKIE_NAME, mintSession(account.propertyId), {
+    res.cookie(COOKIE_NAME, mintSession(sessionSubjectForLink(link)), {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
@@ -135,11 +146,12 @@ export function clientAuth(
     // Preferred path: the cookie. Token never travels after the first click.
     const session = verifySession(req.cookies?.[COOKIE_NAME]);
     if (session) {
-      // Cookie must agree with the URL's property — a valid session for
-      // property A must not unlock property B's path. Any-status lookup so
-      // paused accounts (billing resume) still authenticate via cookie;
-      // req.propertyId is only set for active accounts, exactly like the
-      // token path, so handlers keep their own status gates.
+      const link = await resolveClientBoardLink(String(req.params.token));
+      if (link && session.propertyId === sessionSubjectForLink(link)) {
+        if (link.propertyId) (req as any).propertyId = link.propertyId;
+        (req as any).authVia = 'cookie';
+        return next();
+      }
       const pathAccount = await resolveClientPropertyIdForTokenAnyStatus(String(req.params.token));
       if (pathAccount && pathAccount.propertyId === session.propertyId) {
         if (pathAccount.status === 'active') {

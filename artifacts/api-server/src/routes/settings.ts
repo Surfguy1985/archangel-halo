@@ -119,6 +119,7 @@ import {
   clientSavedViewsTable,
   clientIdempotencyKeysTable,
   clientOrgsTable,
+  clientSignedUrlTicketsTable,
 } from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
@@ -355,6 +356,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     // Delete children before parents (no DB-level FKs, but keep it safe/ordered).
     await tx.execute(sql`SELECT set_config('halo.allow_append_delete', 'on', true)`);
     // Client Board v1 (append-only tables require the session flag above).
+    await tx.delete(clientSignedUrlTicketsTable);
     await tx.delete(clientTurnInvoiceLinesTable);
     await tx.delete(clientTurnInvoicesTable);
     await tx.delete(clientEntrataPurchaseOrdersTable);

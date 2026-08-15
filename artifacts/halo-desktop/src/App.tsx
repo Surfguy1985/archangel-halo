@@ -1,6 +1,7 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { OfficeGate } from "./components/OfficeGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -31,15 +32,17 @@ import Admin from "@/pages/Admin";
 import AdminAccount from "@/pages/AdminAccount";
 import HaloCommand from "@/pages/HaloCommand";
 import PropertyPulse from "@/pages/PropertyPulse";
-import ClientPortfolioPulse from "@/pages/ClientPortfolioPulse";
-import PropertyTurnBoard from "@/pages/PropertyTurnBoard";
-import EntrataImportPage from "@/pages/EntrataImport";
-import CostToServePage from "@/pages/CostToServe";
-import BidBoardPage from "@/pages/BidBoard";
-import TurnPipelinePage from "@/pages/TurnPipeline";
+const ClientPortfolioPulse = lazy(() => import("@/pages/ClientPortfolioPulse"));
+const PropertyTurnBoard = lazy(() => import("@/pages/PropertyTurnBoard"));
+const EntrataImportPage = lazy(() => import("@/pages/EntrataImport"));
+const CostToServePage = lazy(() => import("@/pages/CostToServe"));
+const BidBoardPage = lazy(() => import("@/pages/BidBoard"));
+const TurnPipelinePage = lazy(() => import("@/pages/TurnPipeline"));
+const AuditLogPage = lazy(() => import("@/pages/AuditLog"));
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
 import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
+import { BoardRouteFallback } from "@workspace/board-ui";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -55,6 +58,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function BoardPage({ children }: { children: React.ReactNode }) {
+  return (
+    <OfficeGate>
+      <SplashScreen />
+      <Suspense fallback={<BoardRouteFallback />}>{children}</Suspense>
+    </OfficeGate>
+  );
+}
 
 function App() {
   return (
@@ -92,45 +104,45 @@ function App() {
             </Route>
 
             <Route path="/portfolio">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <ClientPortfolioPulse />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/imports">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <EntrataImportPage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/how-work">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <CostToServePage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/board/pipeline">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <TurnPipelinePage />
-              </OfficeGate>
+              </BoardPage>
+            </Route>
+
+            <Route path="/audit">
+              <BoardPage>
+                <AuditLogPage />
+              </BoardPage>
             </Route>
 
             <Route path="/bid-requests/:id">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <BidBoardPage />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             <Route path="/properties/:id/turns">
-              <OfficeGate>
-                <SplashScreen />
+              <BoardPage>
                 <PropertyTurnBoard />
-              </OfficeGate>
+              </BoardPage>
             </Route>
 
             {/* ── All other routes — hub layout with sidebar ────────────── */}

@@ -35,7 +35,7 @@ import {
   type ScopeComplianceStatus,
   type VarianceRequestStatus,
 } from "@workspace/db";
-import { fileUrl, signFileQuery } from "./evidenceSign";
+import { EVIDENCE_URL_TTL_SEC, fileUrl, issueSignedFile } from "./evidenceSign";
 import { renderInvoicePdf } from "./invoiceExportPdf";
 import { bidRequestIdForTurn } from "./bidBoard";
 
@@ -242,10 +242,17 @@ async function toVarianceDoc(row: typeof clientVarianceRequestsTable.$inferSelec
     nearestScheduleCode = item?.code ?? null;
     nearestScheduleDescription = item?.description ?? null;
   }
-  const photoUrls = (row.evidenceIds ?? []).map((id) => {
-    const signed = signFileQuery({ kind: "evidence", id, size: "thumb", ttlSec: 3600 });
-    return fileUrl(`/v1/evidence/${id}/file`, signed, "thumb");
-  });
+  const photoUrls = await Promise.all(
+    (row.evidenceIds ?? []).map(async (id) => {
+      const signed = await issueSignedFile({
+        kind: "evidence",
+        id,
+        size: "thumb",
+        ttlSec: EVIDENCE_URL_TTL_SEC,
+      });
+      return fileUrl(`/v1/evidence/${id}/file`, signed, "thumb");
+    }),
+  );
   return {
     id: row.id,
     scopeId: row.scopeId,

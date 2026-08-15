@@ -1,0 +1,8 @@
+#!/bin/sh
+# Local pre-commit hook. Enable with:
+#   git config core.hooksPath .githooks
+# Agents must not run that command.
+
+set -e
+cd "$(git rev-parse --show-toplevel)"
+pnpm exec tsx scripts/src/check-secrets.ts

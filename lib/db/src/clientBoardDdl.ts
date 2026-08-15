@@ -31,6 +31,18 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS client_orgs_slug_uq ON client_orgs (slug)`,
   `ALTER TABLE client_orgs ADD COLUMN IF NOT EXISTS crew_portal_comp boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE client_orgs ADD COLUMN IF NOT EXISTS evidence_retention_years integer NOT NULL DEFAULT 7`,
+
+  `CREATE TABLE IF NOT EXISTS client_signed_url_tickets (
+    jti text PRIMARY KEY,
+    kind text NOT NULL,
+    resource_id uuid NOT NULL,
+    expires_at timestamptz NOT NULL,
+    used_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS client_signed_url_tickets_exp_idx
+     ON client_signed_url_tickets (expires_at)`,
 
   `CREATE TABLE IF NOT EXISTS client_org_members (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -50,6 +62,8 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS client_portfolios_org_idx ON client_portfolios (org_id)`,
+  `ALTER TABLE client_portfolios ADD COLUMN IF NOT EXISTS dashboard_token text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_portfolios_dashboard_token_uq ON client_portfolios (dashboard_token)`,
 
   `CREATE TABLE IF NOT EXISTS client_portfolio_properties (
     portfolio_id uuid NOT NULL,
@@ -902,7 +916,7 @@ INSERT INTO client_board_flags (segment, enabled) VALUES
   ('pipeline', true),
   ('workSource', true),
   ('realtime', false),
-  ('security', false),
+  ('security', true),
   ('demo', false)
 ON CONFLICT (segment) DO NOTHING
 `;

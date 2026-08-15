@@ -200,7 +200,9 @@ import type {
   Error,
   Expense,
   ExpenseInput,
+  ExportClientPortfolioAuditParams,
   ExportClientTurnInvoiceParams,
+  ExportPortfolioAuditParams,
   ExportTurnInvoiceParams,
   FeedDismissInput,
   ForceCompleteInput,
@@ -212,12 +214,14 @@ import type {
   GetCalendarParams,
   GetCashFlowReportParams,
   GetClientPortfolioAttentionParams,
+  GetClientPortfolioAuditParams,
   GetClientPortfolioCostToServeParams,
   GetClientPortfolioPulseParams,
   GetClientPropertyTurnBoardParams,
   GetCrewInvoiceQueueParams,
   GetEvidenceFileParams,
   GetPortfolioAttentionParams,
+  GetPortfolioAuditParams,
   GetPortfolioCostToServeParams,
   GetPortfolioPulseParams,
   GetProfitAndLossParams,
@@ -348,6 +352,7 @@ import type {
   PortalUnseen,
   PortalWings,
   PortfolioAttentionDocument,
+  PortfolioAuditDocument,
   PortfolioPulseDocument,
   PortfolioSavedViewDocument,
   PortfolioSavedViewInput,
@@ -409,6 +414,7 @@ import type {
   TaxPlannerState,
   TaxReport,
   TodayPayload,
+  TombstoneEvidenceDocument,
   TrackPointInput,
   TrackerShare,
   TurnDetailDocument,
@@ -31020,6 +31026,506 @@ export const useScheduleClientVacateNotice = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getScheduleClientVacateNoticeMutationOptions(options));
+    }
+
+export const getGetPortfolioAuditUrl = (id: string,
+    params?: GetPortfolioAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/portfolios/${id}/audit?${stringifiedParams}` : `/api/v1/portfolios/${id}/audit`
+}
+
+/**
+ * @summary Filterable append-only audit log for a portfolio org
+ */
+export const getPortfolioAudit = async (id: string,
+    params?: GetPortfolioAuditParams, options?: RequestInit): Promise<PortfolioAuditDocument> => {
+
+  return customFetch<PortfolioAuditDocument>(getGetPortfolioAuditUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioAuditQueryKey = (id: string,
+    params?: GetPortfolioAuditParams,) => {
+    return [
+    `/api/v1/portfolios/${id}/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPortfolioAuditQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioAudit>>, TError = ErrorType<Error>>(id: string,
+    params?: GetPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioAuditQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioAudit>>> = ({ signal }) => getPortfolioAudit(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioAudit>>>
+export type GetPortfolioAuditQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Filterable append-only audit log for a portfolio org
+ */
+
+export function useGetPortfolioAudit<TData = Awaited<ReturnType<typeof getPortfolioAudit>>, TError = ErrorType<Error>>(
+ id: string,
+    params?: GetPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioAuditQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExportPortfolioAuditUrl = (id: string,
+    params?: ExportPortfolioAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/portfolios/${id}/audit/export?${stringifiedParams}` : `/api/v1/portfolios/${id}/audit/export`
+}
+
+/**
+ * @summary CSV export of the portfolio audit log
+ */
+export const exportPortfolioAudit = async (id: string,
+    params?: ExportPortfolioAuditParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getExportPortfolioAuditUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportPortfolioAuditQueryKey = (id: string,
+    params?: ExportPortfolioAuditParams,) => {
+    return [
+    `/api/v1/portfolios/${id}/audit/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportPortfolioAuditQueryOptions = <TData = Awaited<ReturnType<typeof exportPortfolioAudit>>, TError = ErrorType<Error>>(id: string,
+    params?: ExportPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportPortfolioAuditQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportPortfolioAudit>>> = ({ signal }) => exportPortfolioAudit(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportPortfolioAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportPortfolioAuditQueryResult = NonNullable<Awaited<ReturnType<typeof exportPortfolioAudit>>>
+export type ExportPortfolioAuditQueryError = ErrorType<Error>
+
+
+/**
+ * @summary CSV export of the portfolio audit log
+ */
+
+export function useExportPortfolioAudit<TData = Awaited<ReturnType<typeof exportPortfolioAudit>>, TError = ErrorType<Error>>(
+ id: string,
+    params?: ExportPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportPortfolioAuditQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTombstoneEvidenceUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/evidence/${id}/tombstone`
+}
+
+/**
+ * @summary Soft-delete evidence for retention. Verification hash still resolves.
+ */
+export const tombstoneEvidence = async (id: string, options?: RequestInit): Promise<TombstoneEvidenceDocument> => {
+
+  return customFetch<TombstoneEvidenceDocument>(getTombstoneEvidenceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTombstoneEvidenceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tombstoneEvidence>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tombstoneEvidence>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['tombstoneEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tombstoneEvidence>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  tombstoneEvidence(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TombstoneEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof tombstoneEvidence>>>
+
+    export type TombstoneEvidenceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Soft-delete evidence for retention. Verification hash still resolves.
+ */
+export const useTombstoneEvidence = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tombstoneEvidence>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tombstoneEvidence>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getTombstoneEvidenceMutationOptions(options));
+    }
+
+export const getGetClientPortfolioAuditUrl = (token: string,
+    params?: GetClientPortfolioAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client/${token}/portfolio/audit?${stringifiedParams}` : `/api/client/${token}/portfolio/audit`
+}
+
+/**
+ * @summary Client twin of the portfolio audit log
+ */
+export const getClientPortfolioAudit = async (token: string,
+    params?: GetClientPortfolioAuditParams, options?: RequestInit): Promise<PortfolioAuditDocument> => {
+
+  return customFetch<PortfolioAuditDocument>(getGetClientPortfolioAuditUrl(token,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPortfolioAuditQueryKey = (token: string,
+    params?: GetClientPortfolioAuditParams,) => {
+    return [
+    `/api/client/${token}/portfolio/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetClientPortfolioAuditQueryOptions = <TData = Awaited<ReturnType<typeof getClientPortfolioAudit>>, TError = ErrorType<Error>>(token: string,
+    params?: GetClientPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPortfolioAuditQueryKey(token,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPortfolioAudit>>> = ({ signal }) => getClientPortfolioAudit(token,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPortfolioAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPortfolioAudit>>>
+export type GetClientPortfolioAuditQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client twin of the portfolio audit log
+ */
+
+export function useGetClientPortfolioAudit<TData = Awaited<ReturnType<typeof getClientPortfolioAudit>>, TError = ErrorType<Error>>(
+ token: string,
+    params?: GetClientPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPortfolioAuditQueryOptions(token,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExportClientPortfolioAuditUrl = (token: string,
+    params?: ExportClientPortfolioAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client/${token}/portfolio/audit/export?${stringifiedParams}` : `/api/client/${token}/portfolio/audit/export`
+}
+
+/**
+ * @summary Client twin CSV export of the audit log
+ */
+export const exportClientPortfolioAudit = async (token: string,
+    params?: ExportClientPortfolioAuditParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getExportClientPortfolioAuditUrl(token,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportClientPortfolioAuditQueryKey = (token: string,
+    params?: ExportClientPortfolioAuditParams,) => {
+    return [
+    `/api/client/${token}/portfolio/audit/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportClientPortfolioAuditQueryOptions = <TData = Awaited<ReturnType<typeof exportClientPortfolioAudit>>, TError = ErrorType<Error>>(token: string,
+    params?: ExportClientPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportClientPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportClientPortfolioAuditQueryKey(token,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportClientPortfolioAudit>>> = ({ signal }) => exportClientPortfolioAudit(token,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportClientPortfolioAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportClientPortfolioAuditQueryResult = NonNullable<Awaited<ReturnType<typeof exportClientPortfolioAudit>>>
+export type ExportClientPortfolioAuditQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client twin CSV export of the audit log
+ */
+
+export function useExportClientPortfolioAudit<TData = Awaited<ReturnType<typeof exportClientPortfolioAudit>>, TError = ErrorType<Error>>(
+ token: string,
+    params?: ExportClientPortfolioAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportClientPortfolioAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportClientPortfolioAuditQueryOptions(token,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTombstoneClientEvidenceUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/evidence/${id}/tombstone`
+}
+
+/**
+ * @summary Client twin — soft-delete evidence for retention
+ */
+export const tombstoneClientEvidence = async (token: string,
+    id: string, options?: RequestInit): Promise<TombstoneEvidenceDocument> => {
+
+  return customFetch<TombstoneEvidenceDocument>(getTombstoneClientEvidenceUrl(token,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTombstoneClientEvidenceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tombstoneClientEvidence>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tombstoneClientEvidence>>, TError,{token: string;id: string}, TContext> => {
+
+const mutationKey = ['tombstoneClientEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tombstoneClientEvidence>>, {token: string;id: string}> = (props) => {
+          const {token,id} = props ?? {};
+
+          return  tombstoneClientEvidence(token,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TombstoneClientEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof tombstoneClientEvidence>>>
+
+    export type TombstoneClientEvidenceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client twin — soft-delete evidence for retention
+ */
+export const useTombstoneClientEvidence = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tombstoneClientEvidence>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tombstoneClientEvidence>>,
+        TError,
+        {token: string;id: string},
+        TContext
+      > => {
+      return useMutation(getTombstoneClientEvidenceMutationOptions(options));
     }
 
 export const getStreamClientPortfolioPulseUrl = (token: string,) => {

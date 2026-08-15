@@ -96,6 +96,42 @@ export const limits = {
   checkinWrite: rateLimit({ limit: 20, windowMs: 60_000 }),
 };
 
+const testRelaxed = Boolean(process.env.VITEST) || process.env.NODE_ENV === "test";
+
+const clientBoardRead = rateLimit({
+  limit: testRelaxed ? 10_000 : 100,
+  windowMs: 60_000,
+  key: (req) => `cb-r:${req.ip ?? "unknown"}`,
+});
+const clientBoardWrite = rateLimit({
+  limit: testRelaxed ? 10_000 : 20,
+  windowMs: 60_000,
+  key: (req) => `cb-w:${req.ip ?? "unknown"}`,
+});
+const clientBoardPdf = rateLimit({
+  limit: testRelaxed ? 10_000 : 5,
+  windowMs: 60_000,
+  key: (req) => `cb-pdf:${req.ip ?? "unknown"}`,
+});
+
+/** 100/min reads, 20/min writes, 5/min Unit Turn Record PDFs. */
+export function limitClientBoard(req: Request, res: Response, next: NextFunction) {
+  const method = req.method.toUpperCase();
+  if (method === "OPTIONS" || method === "HEAD") {
+    next();
+    return;
+  }
+  if (method === "POST" && /\/turns\/[^/]+\/records$/.test(req.path)) {
+    clientBoardPdf(req, res, next);
+    return;
+  }
+  if (method === "GET") {
+    clientBoardRead(req, res, next);
+    return;
+  }
+  clientBoardWrite(req, res, next);
+}
+
 /**
  * Wiring example:
  *

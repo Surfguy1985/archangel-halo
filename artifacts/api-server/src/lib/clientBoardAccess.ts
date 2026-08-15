@@ -231,6 +231,12 @@ export async function scopeTotalForTurn(turnId: string): Promise<bigint> {
   return scope ? scopeTotalCents(scope.id) : 0n;
 }
 
+export function assertAuditAccess(actor: ClientBoardActor): void {
+  if (actor.role !== "auditor" && actor.role !== "asset_manager") {
+    throw new ForbiddenError("Not allowed");
+  }
+}
+
 export async function requireProperty(
   req: Request,
   orgId: string,

@@ -35,9 +35,9 @@ A layer **above** the per-property kanban and **below** the card (the unit turn 
 
 ## Ship status
 
-Order: 1 → 2 → 3 → 4 → 5 → 6 → 10 (CSV) → 9 → 7 → **8** → 11 → 12.
+Order: 1 → 2 → 3 → 4 → 5 → 6 → 10 (CSV) → 9 → 7 → 8 → 11 → **12**.
 
-Flags on: `dataModel`, `turnEngine`, `pulse`, `propertyBoard`, `evidence`, `invoiceCompliance`, `csvImport`, `workSource`, `bidBoard`, `pipeline`. Later segments stay dark (404). Do **not** enable `realtime`.
+Flags on: `dataModel`, `turnEngine`, `pulse`, `propertyBoard`, `evidence`, `invoiceCompliance`, `csvImport`, `workSource`, `bidBoard`, `pipeline`, `security`. `demo` and `realtime` stay dark. Do **not** enable `realtime`.
 
 ### Segment 4 — Turn Ring (cleared 10/10)
 
@@ -46,7 +46,7 @@ Office `/properties/:id/turns`, client `/:token/property/:propertyId`. Kanban st
 ### Segment 5 — Evidence ledger + Unit Turn Record
 
 - Viewer: `EvidenceLedger` in `lib/board-ui`. Room-by-room before/after with a draggable divider. Canonical room order. Caption = property-TZ stamp, device, GPS distance, capturer. Integrity chips are never hidden; tap shows plain copy (`Location was 140m from the unit`). SVG GPS trail (check-in, path, check-out, geofence). Full-screen: arrows, Escape, pinch/wheel zoom.
-- PDF: `pdf-lib` (no headless browser, no `@react-pdf/renderer`). `POST /v1/turns/:id/records` `{ variant: full | move_out_condition }` writes to `CLIENT_BOARD_RECORD_DIR` or tmp. Signed URL `/api/v1/records/:id/file?exp=&sig=` valid 7 days. Move-out cut is sections 1, 3, 7, 9.
+- PDF: `pdf-lib` (no headless browser, no `@react-pdf/renderer`). `POST /v1/turns/:id/records` `{ variant: full | move_out_condition }` writes to `CLIENT_BOARD_RECORD_DIR` or tmp. Signed URL `/api/v1/records/:id/file?exp=&sig=&jti=` — 15 minutes, single-use (Segment 11). Move-out cut is sections 1, 3, 7, 9.
 - Verify: Merkle root over evidence hashes + timeline on `client_turns.verification_hash`. `GET /v1/turns/:id/verify` recomputes. Mutating one `sha256` makes `matches: false`.
 - File GETs are officeGuard-exempt. Tests use a 1×1 PNG for every image.
 - After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
@@ -104,4 +104,31 @@ Office **`/board/pipeline`**. Existing office `/pipeline` (leads & bids) is unto
 - UI: `TurnPipeline` in `lib/board-ui`. 13-week property grid, CSS heatmap, spend 30/60/90 bands, pre-staging Hold/Confirm. Hold expiry formats with `doc.timezone` (never the browser zone). Duplicate office UI in halo + halo-desktop. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
 - Seed: ~20% of completed turns miss the scheduled civil day. Leftover units get future notice turns (Paloma cluster week 2; others 4/7; last leftover on non-Paloma is notice-only). Capacity declarations cover **13 weeks**; Paloma week-2 paint capacity = 1 (crunch). Do **not** replace Paloma marble invoice or 14-line bid comparison.
 - Tests: `turnPipelineMath.test.ts` (7/10 → 0.7; spend 200000/480000/600000), `turnPipeline.integration.test.ts` (`caf-pipe-seg8` / `CAF_CLIENT_BOARD_PIPE_SEG8`). `computePipeline` < 400ms on the fixture. Client twin 200. Second hold 409. Orval: strip `vacateNoticeInput`. Boot `ensureClientBoardSchema` flips shipped flags including `pipeline` on existing DBs.
-- Flag `pipeline` on. Do **not** start Segment 11 until this segment is 10/10. Do not enable `realtime`.
+- Flag `pipeline` on. Segment 11 (security) shipped after this slice. Do not enable `realtime`.
+
+### Segment 11 — Security, audit, compliance hardening
+
+- Auth: org/role from session. `ClientBoardRepo` throws `MissingOrgScopeError` without `orgId`. Routes do not `db.select().from(clientTurnsTable|clientEvidenceItemsTable|clientAuditLogTable|clientUnitsTable)` — use `loadTurnRef` / `loadEvidenceRef` / `loadPortfolioRef`.
+- Resident PII: units by number. `stripResidentPii` / `RESIDENT_PII_KEYS` in `lib/db/src/orgScope.ts`.
+- Signed URLs: 15-minute TTL, single-use `jti` tickets in `client_signed_url_tickets`. First GET 200, second 404. `consumeSignedFile` on evidence + record file GETs.
+- Rate limits: 100/min reads, 20/min writes, 5/min `POST .../turns/:id/records` (`limitClientBoard` on client-board routers; relaxed under Vitest).
+- Audit: `GET /v1/portfolios/:id/audit` (+ `/export` CSV). Auditor + asset_manager 200; regional_manager 403. Flag dark → 404 `{ error: "Audit log is not enabled" }`. Client twins `/client/:token/portfolio/audit`. UI `AuditLog` at office `/audit`, client `/:token/audit`. Pulse `auditHref`.
+- Retention: `client_orgs.evidence_retention_years` default 7. Nightly `tombstoneExpiredEvidence`. Soft tombstone; `GET /verify` still `matches: true`. `POST /v1/evidence/:id/tombstone`.
+- Secrets: `scripts/src/check-secrets.ts` (AWS access-key prefix, PEM private-key header, Postgres URLs with embedded passwords) in `@workspace/scripts` typecheck. `.githooks/pre-commit` — operators set `core.hooksPath`; agents do not `git config`.
+- Backups: daily `pg_dump` + weekly restore test in `RUNBOOK.md`.
+- Tests: `orgScope.test.ts`, `clientBoardSecurity.integration.test.ts` (`caf-sec-seg11` / `CAF_CLIENT_BOARD_SEC_SEG11`). After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+- Flag `security` on. Segment 12 (performance, seeding, demo) shipped after this slice. Do not enable `realtime`.
+
+### Segment 12 — Performance, testing, seeding, and demo mode
+
+v1 definition of done: a regional manager opens Pulse and sees vacancy cost this month on live client data; sees which delays are hers; opens any unit and produces a document proving what happened; cannot be overbilled (the system shows that in a number); compares bids from vendors who are not you; sees what next month costs before it arrives.
+
+- Budgets (already guarded): Pulse p95 17k-unit fixture, pipeline `< 400ms`, 40-photo PDF `< 8s`. Lists over 50 rows virtualize with `@tanstack/react-virtual`. Client-board routes are `React.lazy` + navy `#07101E` skeleton (`BoardRouteFallback`) matching Pulse layout. HaloCommand home stays eager.
+- Turn Ring sizes `44 | 120 | 280`. Visual regression: three sizes × vendor gold / client hatch-or-outline / rework+over-p75 coral (`TurnRing.visual.test.tsx`).
+- Seed: `pnpm seed:demo` (alias `seed:client-board`) — **12 properties × 40 units × 120 days**. Paloma / Desert Sage / Redbud stay first (bottleneck, two rework loops, in-house CTB). Paloma first open: paint `variance_pending` + `MARBLE-UP` off-schedule. Paloma second open: live 14-line × 3-vendor bid. `pnpm seed:live -- --source=./caf-export/` ingests real Entrata CSVs into `caf-live` (does not depend on the generated set).
+- `DEMO_SAFE=true` redacts emails, phones, capturer names (`Crew`), and actor ids that look like emails on client-board JSON. Resident PII still stripped. Flag `demo` stays **false**. Do **not** enable `realtime`.
+- Tests: `seedClientBoard.test.ts`, `seedClientBoardLive.test.ts`, `seedDemo.integration.test.ts`, `clientBoardFlows.integration.test.ts` (approve / block invoice / award bid / UTR+verify). Playwright spec at `artifacts/api-server/e2e/client-board.spec.ts` skips without `PLAYWRIGHT_BASE_URL`. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+
+## v1 is complete
+
+Segments 1–12 shipped. Later work is operations (real Entrata export via `seed:live`) and optional `realtime`. Do not flip `realtime` or `demo` as a side effect of deploying.

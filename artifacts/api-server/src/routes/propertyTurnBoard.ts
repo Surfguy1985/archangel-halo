@@ -25,13 +25,14 @@ import {
   RequestClientTurnWorkParams,
   RequestClientTurnWorkResponse,
 } from "@workspace/api-zod";
-import { db, propertiesTable, clientTurnsTable } from "@workspace/db";
+import { db, propertiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireProperty, sendAccessError, scopeTotalForTurn, assertApproveAmount } from "../lib/clientBoardAccess";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
 import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
 import { resolvePortfolioForProperty } from "../lib/portfolioPulse";
+import { loadTurnRef } from "../lib/clientBoardRepo";
 import {
   computePropertyTurnBoard,
   computeTurnDetail,
@@ -81,23 +82,7 @@ function idempotencyKey(req: Request): string {
 async function clientMayAccessProperty(token: string, propertyId: string): Promise<{
   orgId: string;
 } | null> {
-  const tokenPropertyId = await resolveClientPropertyIdForToken(token);
-  if (!tokenPropertyId) return null;
-  const tokenPort = await resolvePortfolioForProperty(tokenPropertyId);
-  const targetPort = await resolvePortfolioForProperty(propertyId);
-  if (!tokenPort || !targetPort) return null;
-  if (tokenPort.portfolioId !== targetPort.portfolioId) return null;
-  return { orgId: targetPort.orgId };
-}
-
-async function clientMayAccessTurn(token: string, turnId: string): Promise<{
-  orgId: string;
-} | null> {
-  const [turn] = await db
-    .select({ propertyId: clientTurnsTable.propertyId, orgId: clientTurnsTable.orgId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, turnId))
-    .limit(1);
+  const turn = await loadTurnRef(turnId);
   if (!turn) return null;
   const allowed = await clientMayAccessProperty(token, turn.propertyId);
   if (!allowed) return null;
@@ -168,11 +153,7 @@ router.get("/v1/turns/:id", async (req: Request, res: Response): Promise<void> =
     res.status(400).json({ error: "Invalid turn request" });
     return;
   }
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId, propertyId: clientTurnsTable.propertyId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, path.data.id))
-    .limit(1);
+  const turn = await loadTurnRef(path.data.id);
   if (!turn) {
     res.status(404).json({ error: "Turn not found" });
     return;
@@ -196,11 +177,7 @@ router.post("/v1/turns/:id/approve-scope", async (req: Request, res: Response): 
     res.status(400).json({ error: "Invalid turn request" });
     return;
   }
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId, propertyId: clientTurnsTable.propertyId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, path.data.id))
-    .limit(1);
+  const turn = await loadTurnRef(path.data.id);
   if (!turn) {
     res.status(404).json({ error: "Turn not found" });
     return;
@@ -232,11 +209,7 @@ router.post("/v1/turns/:id/approve-variance", async (req: Request, res: Response
     res.status(400).json({ error: "Invalid turn request" });
     return;
   }
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId, propertyId: clientTurnsTable.propertyId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, path.data.id))
-    .limit(1);
+  const turn = await loadTurnRef(path.data.id);
   if (!turn) {
     res.status(404).json({ error: "Turn not found" });
     return;
@@ -267,11 +240,7 @@ router.post("/v1/turns/:id/request-work", async (req: Request, res: Response): P
     res.status(400).json({ error: "Invalid turn request" });
     return;
   }
-  const [turn] = await db
-    .select({ orgId: clientTurnsTable.orgId, propertyId: clientTurnsTable.propertyId })
-    .from(clientTurnsTable)
-    .where(eq(clientTurnsTable.id, path.data.id))
-    .limit(1);
+  const turn = await loadTurnRef(path.data.id);
   if (!turn) {
     res.status(404).json({ error: "Turn not found" });
     return;

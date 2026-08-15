@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import type { PipelineDocument } from "@workspace/api-client-react";
 import { formatUsdCents } from "../pulse/formatUsdCents";
+import { VirtualList } from "../virtual/VirtualList";
 
 const INK = "#07101E";
 const LIME = "#B4FF44";
@@ -173,16 +174,24 @@ export function TurnPipeline(props: TurnPipelineProps) {
             {listed.length === 0 ? (
               <p style={{ color: MUTED }}>No units land in this week.</p>
             ) : (
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-                {listed.map((u) => (
-                  <li key={u.turnId} style={{ padding: 12, border: `1px solid ${HAIRLINE}`, borderRadius: 12 }}>
-                    <span style={{ fontWeight: 600 }}>Unit {u.unitNumber}</span>
-                    <span style={{ color: MUTED, fontFamily: MONO, fontSize: 12, marginLeft: 8 }}>
-                      {u.kind} · {u.confidence} · vacate {u.vacateCivil}
-                      {u.predictedReadyCivil ? ` · ready ${u.predictedReadyCivil}` : ""}
-                    </span>
-                  </li>
-                ))}
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                <VirtualList
+                  items={listed}
+                  estimateSize={64}
+                  gap={8}
+                  maxHeight={560}
+                  style={{ display: "grid", gap: 8 }}
+                  getKey={(u) => u.turnId}
+                  renderItem={(u) => (
+                    <li style={{ padding: 12, border: `1px solid ${HAIRLINE}`, borderRadius: 12, listStyle: "none" }}>
+                      <span style={{ fontWeight: 600 }}>Unit {u.unitNumber}</span>
+                      <span style={{ color: MUTED, fontFamily: MONO, fontSize: 12, marginLeft: 8 }}>
+                        {u.kind} · {u.confidence} · vacate {u.vacateCivil}
+                        {u.predictedReadyCivil ? ` · ready ${u.predictedReadyCivil}` : ""}
+                      </span>
+                    </li>
+                  )}
+                />
               </ul>
             )}
           </section>
@@ -252,9 +261,16 @@ export function TurnPipeline(props: TurnPipelineProps) {
           {prestaging.length === 0 ? (
             <p style={{ color: MUTED }}>No scheduled vacates in the next 13 weeks.</p>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-              {prestaging.map((u) => (
-                <li key={u.turnId} style={{ padding: 12, border: `1px solid ${HAIRLINE}`, borderRadius: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              <VirtualList
+                items={prestaging}
+                estimateSize={72}
+                gap={8}
+                maxHeight={560}
+                style={{ display: "grid", gap: 8 }}
+                getKey={(u) => u.turnId}
+                renderItem={(u) => (
+                  <li style={{ padding: 12, border: `1px solid ${HAIRLINE}`, borderRadius: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", listStyle: "none" }}>
                   <span>
                     <span style={{ fontWeight: 600 }}>Unit {u.unitNumber}</span>
                     <span style={{ color: MUTED, fontSize: 12, marginLeft: 8, fontFamily: MONO }}>
@@ -289,7 +305,8 @@ export function TurnPipeline(props: TurnPipelineProps) {
                     ) : null}
                   </span>
                 </li>
-              ))}
+                )}
+              />
             </ul>
           )}
         </section>
