@@ -22,6 +22,9 @@ export default function ClientPortfolioPulsePage() {
   useSessionExchange(token);
   const queryClient = useQueryClient();
   const view = usePulseViewQuery();
+  const attentionParams = view.params?.workSource
+    ? { workSource: view.params.workSource }
+    : undefined;
 
   const pulse = useGetClientPortfolioPulse(token || "pending", view.params, {
     query: {
@@ -29,10 +32,10 @@ export default function ClientPortfolioPulsePage() {
       queryKey: getGetClientPortfolioPulseQueryKey(token || "pending", view.params),
     },
   });
-  const attention = useGetClientPortfolioAttention(token || "pending", {
+  const attention = useGetClientPortfolioAttention(token || "pending", attentionParams, {
     query: {
       enabled: Boolean(token),
-      queryKey: getGetClientPortfolioAttentionQueryKey(token || "pending"),
+      queryKey: getGetClientPortfolioAttentionQueryKey(token || "pending", attentionParams),
     },
   });
 
@@ -75,6 +78,25 @@ export default function ClientPortfolioPulsePage() {
         persist(pulseViewPersistBody(committed, pulse.data));
       }}
       homeHref={{ label: "Halo One", onClick: () => setLocation(`/${token}/halo-one`) }}
+      importHref={{ label: "Entrata CSV", onClick: () => setLocation(`/${token}/imports`) }}
+      costHref={{
+        label: "How work gets done",
+        onClick: () => setLocation(`/${token}/how-work`),
+      }}
+      pipelineHref={{
+        label: "Pipeline",
+        onClick: () => setLocation(`/${token}/pipeline`),
+      }}
+      workSource={view.params?.workSource ?? "all"}
+      onWorkSourceChange={(next) => {
+        view.commitWorkSource(next, {
+          range: view.params?.range ?? pulse.data?.range ?? "this_month",
+          sort: view.params?.sort ?? pulse.data?.sort ?? "vacancy_cost",
+          from: view.params?.from ?? pulse.data?.from,
+          to: view.params?.to ?? pulse.data?.to,
+          workSource: next,
+        });
+      }}
     />
   );
 }

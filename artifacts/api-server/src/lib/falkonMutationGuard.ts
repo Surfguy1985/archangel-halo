@@ -9,7 +9,7 @@ import { db, invoicesTable } from "@workspace/db";
 import { classifyMutation, httpStatusForDecision, targetIdFromPath, actorChannelFromRequest } from "./falkonPolicyCore";
 import { enforceFalkonMutation } from "./falkonPolicy";
 import { logger } from "./logger";
-import { isPublicApiPath } from "./officeAuth";
+import { isPublicApiPath, isVendorBidAuth } from "./officeAuth";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,7 +58,7 @@ async function resolveAmount(
 
 export function falkonMutationGuard() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (isPublicApiPath(req.path)) {
+    if (isPublicApiPath(req.path) || isVendorBidAuth(req)) {
       next();
       return;
     }

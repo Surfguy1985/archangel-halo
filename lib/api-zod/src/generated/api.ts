@@ -14000,7 +14000,8 @@ export const GetPortfolioPulseQueryParams = zod.object({
   "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional().describe('Date-range preset. Default this_month in the org IANA timezone.'),
   "from": zod.coerce.string().optional().describe('Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
   "to": zod.coerce.string().optional().describe('Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
-  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.')
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.'),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional().describe('Filter turns. Default all — in-house and third-party share one board.')
 })
 
 export const getPortfolioPulseResponseHeadlineVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
@@ -14043,21 +14044,34 @@ export const GetPortfolioPulseResponse = zod.object({
   "status": zod.enum(['on_target', 'drifting', 'at_risk']),
   "statusLabel": zod.string(),
   "href": zod.string()
-}))
+})),
+  "compliance": zod.object({
+  "propertyId": zod.string().nullish(),
+  "invoicesAutoValidated": zod.number(),
+  "offScheduleBlocked": zod.number(),
+  "assumedHoursSaved": zod.number(),
+  "assumedMinutesPerReview": zod.number(),
+  "firstPassAcceptRate": zod.number().nullable(),
+  "assumption": zod.string()
+}).optional()
 })
 
 
 /**
- * @summary Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+ * @summary Attention list — stalled, waiting on you, failed QC, blocked invoices, variance
  */
 export const GetPortfolioAttentionParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const GetPortfolioAttentionQueryParams = zod.object({
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional()
+})
+
 export const GetPortfolioAttentionResponse = zod.object({
   "portfolioId": zod.string(),
   "groups": zod.array(zod.object({
-  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices']),
+  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices', 'variance_pending']),
   "title": zod.string(),
   "summary": zod.string(),
   "items": zod.array(zod.object({
@@ -14069,6 +14083,159 @@ export const GetPortfolioAttentionResponse = zod.object({
   "href": zod.string()
 }))
 }))
+})
+
+
+/**
+ * @summary How work gets done across the portfolio — in-house vs third-party cost, days, and rework by work type
+ */
+export const GetPortfolioCostToServeParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPortfolioCostToServeQueryParams = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional()
+})
+
+export const getPortfolioCostToServeResponseRowsItemInHouseCostPerUnitCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioCostToServeResponseRowsItemThirdPartyCostPerUnitCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetPortfolioCostToServeResponse = zod.object({
+  "portfolioId": zod.string(),
+  "title": zod.string(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']),
+  "from": zod.string(),
+  "to": zod.string(),
+  "rows": zod.array(zod.object({
+  "workType": zod.string(),
+  "bedrooms": zod.number(),
+  "inHouse": zod.object({
+  "unitCount": zod.number(),
+  "costPerUnitCents": zod.string().regex(getPortfolioCostToServeResponseRowsItemInHouseCostPerUnitCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "daysPerUnit": zod.number().nullable(),
+  "reworkRateBps": zod.number().describe('Rework rate in basis points (1250 = 12.50%)')
+}),
+  "thirdParty": zod.object({
+  "unitCount": zod.number(),
+  "costPerUnitCents": zod.string().regex(getPortfolioCostToServeResponseRowsItemThirdPartyCostPerUnitCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "daysPerUnit": zod.number().nullable(),
+  "reworkRateBps": zod.number().describe('Rework rate in basis points (1250 = 12.50%)')
+})
+}))
+})
+
+
+/**
+ * @summary 13-week turn pipeline, capacity heatmap, and projected-spend band
+ */
+export const GetPortfolioPipelineParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getPortfolioPipelineResponseSpendItemHorizonsItemLowCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioPipelineResponseSpendItemHorizonsItemMidCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioPipelineResponseSpendItemHorizonsItemHighCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetPortfolioPipelineResponse = zod.object({
+  "portfolioId": zod.string(),
+  "title": zod.string(),
+  "timezone": zod.string().describe('Portfolio IANA timezone. Display civil days in this zone.'),
+  "method": zod.string(),
+  "conversionRate": zod.number(),
+  "weekStarts": zod.array(zod.string()),
+  "properties": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string()
+})),
+  "cells": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "weekStart": zod.string().describe('Monday civil YYYY-MM-DD in the portfolio timezone.'),
+  "units": zod.number(),
+  "crunch": zod.boolean(),
+  "ratio": zod.number()
+})),
+  "heatmap": zod.array(zod.object({
+  "trade": zod.enum(['paint', 'flooring', 'clean', 'drywall', 'hvac', 'punch']),
+  "weekStart": zod.string(),
+  "demandUnits": zod.number(),
+  "capacityUnits": zod.number(),
+  "ratio": zod.number(),
+  "crunch": zod.boolean()
+})),
+  "spend": zod.array(zod.object({
+  "propertyId": zod.string().nullable(),
+  "label": zod.string(),
+  "horizons": zod.array(zod.object({
+  "days": zod.number(),
+  "lowCents": zod.string().regex(getPortfolioPipelineResponseSpendItemHorizonsItemLowCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "midCents": zod.string().regex(getPortfolioPipelineResponseSpendItemHorizonsItemMidCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "highCents": zod.string().regex(getPortfolioPipelineResponseSpendItemHorizonsItemHighCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.')
+}))
+})),
+  "units": zod.array(zod.object({
+  "turnId": zod.string(),
+  "unitId": zod.string(),
+  "unitNumber": zod.string(),
+  "propertyId": zod.string(),
+  "bedrooms": zod.number(),
+  "kind": zod.enum(['scheduled', 'notice']),
+  "vacateCivil": zod.string(),
+  "confidence": zod.enum(['high', 'medium', 'low']),
+  "predictedReadyCivil": zod.string().nullable(),
+  "holdStatus": zod.enum(['none', 'held', 'confirmed', 'expired']),
+  "holdBundleId": zod.string().nullable(),
+  "holdExpiresAt": zod.string().nullable(),
+  "scopeId": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Soft-reserve crew capacity for a turn's vacate week
+ */
+export const HoldTurnCapacityParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const HoldTurnCapacityResponse = zod.object({
+  "bundleId": zod.string(),
+  "status": zod.string(),
+  "expiresAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Confirm a soft capacity hold before it expires
+ */
+export const ConfirmCapacityHoldParams = zod.object({
+  "bundleId": zod.coerce.string()
+})
+
+export const ConfirmCapacityHoldResponse = zod.object({
+  "bundleId": zod.string(),
+  "status": zod.string(),
+  "expiresAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Enter a scheduled vacate date by hand (Entrata CSV is the other path)
+ */
+export const ScheduleVacateNoticeParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ScheduleVacateNoticeBody = zod.object({
+  "scheduledVacate": zod.string().describe('Civil YYYY-MM-DD in the property timezone.')
+})
+
+export const ScheduleVacateNoticeResponse = zod.object({
+  "turnId": zod.string()
 })
 
 
@@ -14122,7 +14289,8 @@ export const GetClientPortfolioPulseQueryParams = zod.object({
   "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional().describe('Date-range preset. Default this_month in the org IANA timezone.'),
   "from": zod.coerce.string().optional().describe('Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
   "to": zod.coerce.string().optional().describe('Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
-  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.')
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.'),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional().describe('Filter turns. Default all — in-house and third-party share one board.')
 })
 
 export const getClientPortfolioPulseResponseHeadlineVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
@@ -14165,7 +14333,16 @@ export const GetClientPortfolioPulseResponse = zod.object({
   "status": zod.enum(['on_target', 'drifting', 'at_risk']),
   "statusLabel": zod.string(),
   "href": zod.string()
-}))
+})),
+  "compliance": zod.object({
+  "propertyId": zod.string().nullish(),
+  "invoicesAutoValidated": zod.number(),
+  "offScheduleBlocked": zod.number(),
+  "assumedHoursSaved": zod.number(),
+  "assumedMinutesPerReview": zod.number(),
+  "firstPassAcceptRate": zod.number().nullable(),
+  "assumption": zod.string()
+}).optional()
 })
 
 
@@ -14176,10 +14353,14 @@ export const GetClientPortfolioAttentionParams = zod.object({
   "token": zod.coerce.string()
 })
 
+export const GetClientPortfolioAttentionQueryParams = zod.object({
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional()
+})
+
 export const GetClientPortfolioAttentionResponse = zod.object({
   "portfolioId": zod.string(),
   "groups": zod.array(zod.object({
-  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices']),
+  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices', 'variance_pending']),
   "title": zod.string(),
   "summary": zod.string(),
   "items": zod.array(zod.object({
@@ -14191,6 +14372,162 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "href": zod.string()
 }))
 }))
+})
+
+
+/**
+ * @summary Client twin of how-work-gets-done
+ */
+export const GetClientPortfolioCostToServeParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientPortfolioCostToServeQueryParams = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional()
+})
+
+export const getClientPortfolioCostToServeResponseRowsItemInHouseCostPerUnitCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioCostToServeResponseRowsItemThirdPartyCostPerUnitCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetClientPortfolioCostToServeResponse = zod.object({
+  "portfolioId": zod.string(),
+  "title": zod.string(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']),
+  "from": zod.string(),
+  "to": zod.string(),
+  "rows": zod.array(zod.object({
+  "workType": zod.string(),
+  "bedrooms": zod.number(),
+  "inHouse": zod.object({
+  "unitCount": zod.number(),
+  "costPerUnitCents": zod.string().regex(getClientPortfolioCostToServeResponseRowsItemInHouseCostPerUnitCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "daysPerUnit": zod.number().nullable(),
+  "reworkRateBps": zod.number().describe('Rework rate in basis points (1250 = 12.50%)')
+}),
+  "thirdParty": zod.object({
+  "unitCount": zod.number(),
+  "costPerUnitCents": zod.string().regex(getClientPortfolioCostToServeResponseRowsItemThirdPartyCostPerUnitCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "daysPerUnit": zod.number().nullable(),
+  "reworkRateBps": zod.number().describe('Rework rate in basis points (1250 = 12.50%)')
+})
+}))
+})
+
+
+/**
+ * @summary Client twin of the 13-week turn pipeline
+ */
+export const GetClientPortfolioPipelineParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const getClientPortfolioPipelineResponseSpendItemHorizonsItemLowCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioPipelineResponseSpendItemHorizonsItemMidCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioPipelineResponseSpendItemHorizonsItemHighCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetClientPortfolioPipelineResponse = zod.object({
+  "portfolioId": zod.string(),
+  "title": zod.string(),
+  "timezone": zod.string().describe('Portfolio IANA timezone. Display civil days in this zone.'),
+  "method": zod.string(),
+  "conversionRate": zod.number(),
+  "weekStarts": zod.array(zod.string()),
+  "properties": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string()
+})),
+  "cells": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "weekStart": zod.string().describe('Monday civil YYYY-MM-DD in the portfolio timezone.'),
+  "units": zod.number(),
+  "crunch": zod.boolean(),
+  "ratio": zod.number()
+})),
+  "heatmap": zod.array(zod.object({
+  "trade": zod.enum(['paint', 'flooring', 'clean', 'drywall', 'hvac', 'punch']),
+  "weekStart": zod.string(),
+  "demandUnits": zod.number(),
+  "capacityUnits": zod.number(),
+  "ratio": zod.number(),
+  "crunch": zod.boolean()
+})),
+  "spend": zod.array(zod.object({
+  "propertyId": zod.string().nullable(),
+  "label": zod.string(),
+  "horizons": zod.array(zod.object({
+  "days": zod.number(),
+  "lowCents": zod.string().regex(getClientPortfolioPipelineResponseSpendItemHorizonsItemLowCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "midCents": zod.string().regex(getClientPortfolioPipelineResponseSpendItemHorizonsItemMidCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "highCents": zod.string().regex(getClientPortfolioPipelineResponseSpendItemHorizonsItemHighCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.')
+}))
+})),
+  "units": zod.array(zod.object({
+  "turnId": zod.string(),
+  "unitId": zod.string(),
+  "unitNumber": zod.string(),
+  "propertyId": zod.string(),
+  "bedrooms": zod.number(),
+  "kind": zod.enum(['scheduled', 'notice']),
+  "vacateCivil": zod.string(),
+  "confidence": zod.enum(['high', 'medium', 'low']),
+  "predictedReadyCivil": zod.string().nullable(),
+  "holdStatus": zod.enum(['none', 'held', 'confirmed', 'expired']),
+  "holdBundleId": zod.string().nullable(),
+  "holdExpiresAt": zod.string().nullable(),
+  "scopeId": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Client twin — soft-reserve crew capacity
+ */
+export const HoldClientTurnCapacityParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const HoldClientTurnCapacityResponse = zod.object({
+  "bundleId": zod.string(),
+  "status": zod.string(),
+  "expiresAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Client twin — confirm a capacity hold
+ */
+export const ConfirmClientCapacityHoldParams = zod.object({
+  "token": zod.coerce.string(),
+  "bundleId": zod.coerce.string()
+})
+
+export const ConfirmClientCapacityHoldResponse = zod.object({
+  "bundleId": zod.string(),
+  "status": zod.string(),
+  "expiresAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Client twin — enter a scheduled vacate date
+ */
+export const ScheduleClientVacateNoticeParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ScheduleClientVacateNoticeBody = zod.object({
+  "scheduledVacate": zod.string().describe('Civil YYYY-MM-DD in the property timezone.')
+})
+
+export const ScheduleClientVacateNoticeResponse = zod.object({
+  "turnId": zod.string()
 })
 
 
@@ -14241,7 +14578,8 @@ export const GetPropertyTurnBoardParams = zod.object({
 })
 
 export const GetPropertyTurnBoardQueryParams = zod.object({
-  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional()
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional().describe('Filter turns. Default all.')
 })
 
 export const GetPropertyTurnBoardResponse = zod.object({
@@ -14425,7 +14763,8 @@ export const GetClientPropertyTurnBoardParams = zod.object({
 })
 
 export const GetClientPropertyTurnBoardQueryParams = zod.object({
-  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional()
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional(),
+  "workSource": zod.enum(['all', 'in_house', 'third_party']).optional().describe('Filter turns. Default all.')
 })
 
 export const GetClientPropertyTurnBoardResponse = zod.object({
@@ -14602,6 +14941,1881 @@ export const RequestClientTurnWorkResponse = zod.object({
   "from": zod.string().nullable(),
   "to": zod.string(),
   "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Room-by-room evidence ledger for a turn
+ */
+export const GetTurnEvidenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetTurnEvidenceResponse = zod.object({
+  "turnId": zod.string(),
+  "timezone": zod.string(),
+  "rooms": zod.array(zod.object({
+  "room": zod.string(),
+  "label": zod.string(),
+  "before": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "after": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "during": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "qc": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+}))
+})),
+  "trail": zod.object({
+  "checkIn": zod.union([zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+}),zod.null()]),
+  "checkOut": zod.union([zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+}),zod.null()]),
+  "points": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+})),
+  "geofence": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "radiusM": zod.number()
+})
+}),
+  "verificationHash": zod.string().nullable()
+})
+
+
+/**
+ * @summary Queue a Unit Turn Record PDF
+ */
+export const CreateTurnRecordParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateTurnRecordHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateTurnRecordBody = zod.object({
+  "variant": zod.enum(['full', 'move_out_condition'])
+})
+
+export const CreateTurnRecordResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "variant": zod.enum(['full', 'move_out_condition']),
+  "status": zod.enum(['queued', 'rendering', 'ready', 'failed']),
+  "url": zod.string().nullable(),
+  "expiresAt": zod.string().nullable(),
+  "sha256": zod.string().nullable(),
+  "bytes": zod.string().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Signed URL and status for a Unit Turn Record
+ */
+export const GetTurnRecordParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetTurnRecordResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "variant": zod.enum(['full', 'move_out_condition']),
+  "status": zod.enum(['queued', 'rendering', 'ready', 'failed']),
+  "url": zod.string().nullable(),
+  "expiresAt": zod.string().nullable(),
+  "sha256": zod.string().nullable(),
+  "bytes": zod.string().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Stream a Unit Turn Record PDF via a signed query
+ */
+export const GetTurnRecordFileParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetTurnRecordFileQueryParams = zod.object({
+  "exp": zod.coerce.string(),
+  "sig": zod.coerce.string()
+})
+
+export const GetTurnRecordFileResponse = zod.unknown()
+
+
+/**
+ * @summary Recompute the Merkle verification hash
+ */
+export const VerifyTurnParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const VerifyTurnResponse = zod.object({
+  "turnId": zod.string(),
+  "storedHash": zod.string().nullable(),
+  "computedHash": zod.string(),
+  "matches": zod.boolean(),
+  "evidenceCount": zod.number(),
+  "timelineEventCount": zod.number()
+})
+
+
+/**
+ * @summary Stream an evidence original or derivative via a signed query
+ */
+export const GetEvidenceFileParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEvidenceFileQueryParams = zod.object({
+  "size": zod.enum(['original', 'thumb', 'view']).optional(),
+  "exp": zod.coerce.string(),
+  "sig": zod.coerce.string()
+})
+
+export const GetEvidenceFileResponse = zod.unknown()
+
+
+/**
+ * @summary Client twin of the evidence ledger
+ */
+export const GetClientTurnEvidenceParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientTurnEvidenceResponse = zod.object({
+  "turnId": zod.string(),
+  "timezone": zod.string(),
+  "rooms": zod.array(zod.object({
+  "room": zod.string(),
+  "label": zod.string(),
+  "before": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "after": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "during": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+})),
+  "qc": zod.array(zod.object({
+  "id": zod.string(),
+  "phase": zod.enum(['before', 'during', 'after', 'qc']),
+  "room": zod.string(),
+  "thumbUrl": zod.string(),
+  "viewUrl": zod.string(),
+  "capturedAt": zod.string(),
+  "capturedAtLabel": zod.string(),
+  "device": zod.string(),
+  "distanceM": zod.number().nullable(),
+  "capturedByName": zod.string(),
+  "integrityFlags": zod.array(zod.object({
+  "code": zod.string(),
+  "explanation": zod.string()
+}))
+}))
+})),
+  "trail": zod.object({
+  "checkIn": zod.union([zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+}),zod.null()]),
+  "checkOut": zod.union([zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+}),zod.null()]),
+  "points": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string(),
+  "type": zod.string()
+})),
+  "geofence": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "radiusM": zod.number()
+})
+}),
+  "verificationHash": zod.string().nullable()
+})
+
+
+/**
+ * @summary Client twin — queue a Unit Turn Record
+ */
+export const CreateClientTurnRecordParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const CreateClientTurnRecordHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateClientTurnRecordBody = zod.object({
+  "variant": zod.enum(['full', 'move_out_condition'])
+})
+
+export const CreateClientTurnRecordResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "variant": zod.enum(['full', 'move_out_condition']),
+  "status": zod.enum(['queued', 'rendering', 'ready', 'failed']),
+  "url": zod.string().nullable(),
+  "expiresAt": zod.string().nullable(),
+  "sha256": zod.string().nullable(),
+  "bytes": zod.string().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Client twin of a Unit Turn Record
+ */
+export const GetClientTurnRecordParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientTurnRecordResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "variant": zod.enum(['full', 'move_out_condition']),
+  "status": zod.enum(['queued', 'rendering', 'ready', 'failed']),
+  "url": zod.string().nullable(),
+  "expiresAt": zod.string().nullable(),
+  "sha256": zod.string().nullable(),
+  "bytes": zod.string().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Client twin of Merkle verify
+ */
+export const VerifyClientTurnParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const VerifyClientTurnResponse = zod.object({
+  "turnId": zod.string(),
+  "storedHash": zod.string().nullable(),
+  "computedHash": zod.string(),
+  "matches": zod.boolean(),
+  "evidenceCount": zod.number(),
+  "timelineEventCount": zod.number()
+})
+
+
+/**
+ * @summary Scope lines, compliance, and invoice status for a turn
+ */
+export const GetTurnScopeParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetTurnScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Add a scope line and resolve it against the active price list
+ */
+export const AddScopeLineParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AddScopeLineHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const AddScopeLineBody = zod.object({
+  "description": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "qty": zod.number().min(1),
+  "unitPriceCents": zod.string().describe('Integer cents as a decimal string'),
+  "uom": zod.string().optional()
+})
+
+export const AddScopeLineResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Re-resolve every line against the active price list
+ */
+export const ValidateScopeParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ValidateScopeHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ValidateScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Raise a pre-approval request for a non-compliant line
+ */
+export const CreateVarianceRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateVarianceRequestBody = zod.object({
+  "scopeLineId": zod.string(),
+  "reason": zod.string(),
+  "evidenceIds": zod.array(zod.string()).optional()
+})
+
+export const CreateVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Approve a variance request
+ */
+export const ApproveVarianceRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Reject a variance request
+ */
+export const RejectVarianceRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RejectVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const RejectVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Counter a variance with a different price or qty
+ */
+export const CounterVarianceRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CounterVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const CounterVarianceRequestBody = zod.object({
+  "unitPriceCents": zod.string(),
+  "qty": zod.number().min(1).optional(),
+  "reason": zod.string().optional()
+})
+
+export const CounterVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Create an invoice from a fully compliant scope
+ */
+export const CreateScopeInvoiceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateScopeInvoiceHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateScopeInvoiceBody = zod.object({
+  "poNumber": zod.string().nullish()
+})
+
+export const CreateScopeInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+})
+
+
+/**
+ * @summary Publish a scope as a vendor-neutral bid request
+ */
+export const CreateScopeBidRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateScopeBidRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateScopeBidRequestBody = zod.object({
+  "dueAt": zod.string().describe('ISO due time. Bids after this are rejected.')
+})
+
+export const CreateScopeBidRequestResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "dueAt": zod.string(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Invite vendor orgs so the board is never single-vendor
+ */
+export const InviteBidVendorsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const InviteBidVendorsHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const InviteBidVendorsBody = zod.object({
+  "vendorOrgIds": zod.array(zod.string()).min(1)
+})
+
+export const InviteBidVendorsResponse = zod.object({
+  "invited": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string()
+}))
+})
+
+
+/**
+ * @summary Submit normalized bid lines against the property price-item codes
+ */
+export const SubmitVendorBidParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SubmitVendorBidHeader = zod.object({
+  "Idempotency-Key": zod.string().optional(),
+  "X-Halo-Vendor-Org-Id": zod.string().optional().describe('Vendor org submitting the bid. Office may also pass vendorOrgId in the body on a vendor\'s behalf.')
+})
+
+export const submitVendorBidBodyLinesItemUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+
+export const SubmitVendorBidBody = zod.object({
+  "vendorOrgId": zod.string().optional().describe('Required when the office submits on a vendor\'s behalf.'),
+  "earliestStartAt": zod.string().nullish(),
+  "promisedDays": zod.number().nullish(),
+  "lines": zod.array(zod.object({
+  "code": zod.string(),
+  "tier": zod.string().nullish(),
+  "unitPriceCents": zod.string().regex(submitVendorBidBodyLinesItemUnitPriceCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.')
+})).min(1)
+})
+
+export const submitVendorBidResponseTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const SubmitVendorBidResponse = zod.object({
+  "bidId": zod.string(),
+  "totalCents": zod.string().regex(submitVendorBidResponseTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "score": zod.number()
+})
+
+
+/**
+ * @summary Line-aligned comparison with an open, weighted score
+ */
+export const GetBidComparisonParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getBidComparisonResponseScheduleTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getBidComparisonResponseLinesItemScheduleUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getBidComparisonResponseLinesItemCellsItemUnitPriceCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getBidComparisonResponseLinesItemCellsItemExtendedCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getBidComparisonResponseLinesItemCellsItemDeltaCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getBidComparisonResponseVendorsItemTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetBidComparisonResponse = zod.object({
+  "bidRequestId": zod.string(),
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "scopeId": zod.string(),
+  "dueAt": zod.string().describe('ISO instant. Display in timezone, never the browser\'s zone.'),
+  "timezone": zod.string().describe('Property IANA timezone for civil-day display.'),
+  "status": zod.string(),
+  "title": zod.string(),
+  "weights": zod.object({
+  "priceVsSchedule": zod.number().describe('Default 35. Price vs the property schedule.'),
+  "onTime": zod.number().describe('Default 25. On-time percentage, trailing 90 days.'),
+  "rework": zod.number().describe('Default 20. Rework rate, inverted.'),
+  "capacity": zod.number().describe('Default 20. Available capacity in the requested window.')
+}),
+  "scheduleTotalCents": zod.string().regex(getBidComparisonResponseScheduleTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "lines": zod.array(zod.object({
+  "code": zod.string(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "scheduleUnitPriceCents": zod.string().regex(getBidComparisonResponseLinesItemScheduleUnitPriceCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "cells": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "unitPriceCents": zod.union([zod.string().regex(getBidComparisonResponseLinesItemCellsItemUnitPriceCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional(),
+  "extendedCents": zod.union([zod.string().regex(getBidComparisonResponseLinesItemCellsItemExtendedCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional(),
+  "deltaCents": zod.union([zod.string().regex(getBidComparisonResponseLinesItemCellsItemDeltaCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional()
+}))
+})),
+  "vendors": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string(),
+  "invited": zod.boolean(),
+  "submitted": zod.boolean(),
+  "totalCents": zod.string().regex(getBidComparisonResponseVendorsItemTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "earliestStartAt": zod.string().nullish(),
+  "promisedDays": zod.number().nullish(),
+  "score": zod.number(),
+  "components": zod.object({
+  "priceVsSchedule": zod.number(),
+  "onTime": zod.number(),
+  "rework": zod.number(),
+  "capacity": zod.number()
+}),
+  "awarded": zod.boolean(),
+  "bidId": zod.string().nullish()
+})),
+  "awardedVendorOrgId": zod.string().nullish(),
+  "poPayload": zod.record(zod.string(), zod.unknown()).nullish(),
+  "eligibleVendors": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string()
+}))
+})
+
+
+/**
+ * @summary Award the bid — assign vendor, schedule the turn, notify every bidder with their score, emit Entrata PO payload
+ */
+export const AwardBidRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AwardBidRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const AwardBidRequestBody = zod.object({
+  "vendorOrgId": zod.string()
+})
+
+export const AwardBidRequestResponse = zod.object({
+  "bidRequestId": zod.string(),
+  "turnId": zod.string(),
+  "vendorOrgId": zod.string(),
+  "from": zod.string(),
+  "to": zod.string(),
+  "poPayload": zod.record(zod.string(), zod.unknown()),
+  "scores": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string(),
+  "score": zod.number(),
+  "awarded": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Entrata-ready invoice export (PDF, CSV, or JSON)
+ */
+export const ExportTurnInvoiceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ExportTurnInvoiceQueryParams = zod.object({
+  "format": zod.enum(['pdf', 'csv', 'json'])
+})
+
+export const ExportTurnInvoiceResponse = zod.object({
+  "invoiceNumber": zod.string(),
+  "propertyCode": zod.string(),
+  "propertyName": zod.string().optional(),
+  "unitNumber": zod.string(),
+  "poNumber": zod.string(),
+  "issuedOn": zod.string().optional(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "lines": zod.array(zod.object({
+  "description": zod.string(),
+  "code": zod.string().nullish(),
+  "qty": zod.number(),
+  "uom": zod.string().optional(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "glCode": zod.string().nullish(),
+  "unitNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "propertyCode": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Compliance counters for a property
+ */
+export const GetPropertyComplianceStatsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPropertyComplianceStatsResponse = zod.object({
+  "propertyId": zod.string().nullish(),
+  "invoicesAutoValidated": zod.number(),
+  "offScheduleBlocked": zod.number(),
+  "assumedHoursSaved": zod.number(),
+  "assumedMinutesPerReview": zod.number(),
+  "firstPassAcceptRate": zod.number().nullable(),
+  "assumption": zod.string()
+})
+
+
+/**
+ * @summary Client twin of turn scope
+ */
+export const GetClientTurnScopeParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientTurnScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Client twin of add scope line
+ */
+export const AddClientScopeLineParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const AddClientScopeLineHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const AddClientScopeLineBody = zod.object({
+  "description": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "qty": zod.number().min(1),
+  "unitPriceCents": zod.string().describe('Integer cents as a decimal string'),
+  "uom": zod.string().optional()
+})
+
+export const AddClientScopeLineResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Client twin of validate scope
+ */
+export const ValidateClientScopeParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ValidateClientScopeHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ValidateClientScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "scopeId": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "priceListRevision": zod.string().nullish(),
+  "priceListEffectiveLabel": zod.string().nullish(),
+  "canInvoice": zod.boolean(),
+  "blockingMessage": zod.string().nullish(),
+  "badge": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().nullish(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "compliance": zod.enum(['matched', 'variance_pending', 'variance_approved', 'off_schedule']),
+  "varianceReason": zod.string().nullish(),
+  "scheduleCode": zod.string().nullish(),
+  "scheduleDescription": zod.string().nullish(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string()
+})),
+  "variances": zod.array(zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+}),zod.null()]).optional(),
+  "bidRequestId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Client twin of variance request
+ */
+export const CreateClientVarianceRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const CreateClientVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateClientVarianceRequestBody = zod.object({
+  "scopeLineId": zod.string(),
+  "reason": zod.string(),
+  "evidenceIds": zod.array(zod.string()).optional()
+})
+
+export const CreateClientVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Client twin of variance approve
+ */
+export const ApproveClientVarianceRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ApproveClientVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveClientVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Client twin of variance reject
+ */
+export const RejectClientVarianceRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const RejectClientVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const RejectClientVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Client twin of variance counter
+ */
+export const CounterClientVarianceRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const CounterClientVarianceRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const CounterClientVarianceRequestBody = zod.object({
+  "unitPriceCents": zod.string(),
+  "qty": zod.number().min(1).optional(),
+  "reason": zod.string().optional()
+})
+
+export const CounterClientVarianceRequestResponse = zod.object({
+  "id": zod.string(),
+  "scopeId": zod.string(),
+  "scopeLineId": zod.string(),
+  "turnId": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'countered']),
+  "evidenceIds": zod.array(zod.string()),
+  "nearestScheduleCode": zod.string().nullish(),
+  "nearestScheduleDescription": zod.string().nullish(),
+  "requestedQty": zod.number().optional(),
+  "requestedUnitPriceCents": zod.string(),
+  "scheduleUnitPriceCents": zod.string().nullish(),
+  "deltaCents": zod.string(),
+  "photoUrls": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Client twin of create invoice
+ */
+export const CreateClientScopeInvoiceParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const CreateClientScopeInvoiceHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateClientScopeInvoiceBody = zod.object({
+  "poNumber": zod.string().nullish()
+})
+
+export const CreateClientScopeInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "scopeId": zod.string(),
+  "invoiceNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "complianceScore": zod.string().nullish(),
+  "firstPassAccepted": zod.boolean()
+})
+
+
+/**
+ * @summary Client twin of publish bid request
+ */
+export const CreateClientScopeBidRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const CreateClientScopeBidRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const CreateClientScopeBidRequestBody = zod.object({
+  "dueAt": zod.string().describe('ISO due time. Bids after this are rejected.')
+})
+
+export const CreateClientScopeBidRequestResponse = zod.object({
+  "id": zod.string(),
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "dueAt": zod.string(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Client twin of invite vendors
+ */
+export const InviteClientBidVendorsParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const InviteClientBidVendorsHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+
+
+
+export const InviteClientBidVendorsBody = zod.object({
+  "vendorOrgIds": zod.array(zod.string()).min(1)
+})
+
+export const InviteClientBidVendorsResponse = zod.object({
+  "invited": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client twin of submit bid
+ */
+export const SubmitClientVendorBidParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const SubmitClientVendorBidHeader = zod.object({
+  "Idempotency-Key": zod.string().optional(),
+  "X-Halo-Vendor-Org-Id": zod.string().optional()
+})
+
+export const submitClientVendorBidBodyLinesItemUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+
+export const SubmitClientVendorBidBody = zod.object({
+  "vendorOrgId": zod.string().optional().describe('Required when the office submits on a vendor\'s behalf.'),
+  "earliestStartAt": zod.string().nullish(),
+  "promisedDays": zod.number().nullish(),
+  "lines": zod.array(zod.object({
+  "code": zod.string(),
+  "tier": zod.string().nullish(),
+  "unitPriceCents": zod.string().regex(submitClientVendorBidBodyLinesItemUnitPriceCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.')
+})).min(1)
+})
+
+export const submitClientVendorBidResponseTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const SubmitClientVendorBidResponse = zod.object({
+  "bidId": zod.string(),
+  "totalCents": zod.string().regex(submitClientVendorBidResponseTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "score": zod.number()
+})
+
+
+/**
+ * @summary Client twin of bid comparison
+ */
+export const GetClientBidComparisonParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const getClientBidComparisonResponseScheduleTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientBidComparisonResponseLinesItemScheduleUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientBidComparisonResponseLinesItemCellsItemUnitPriceCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getClientBidComparisonResponseLinesItemCellsItemExtendedCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getClientBidComparisonResponseLinesItemCellsItemDeltaCentsOneRegExp = new RegExp('^-?[0-9]+$');
+export const getClientBidComparisonResponseVendorsItemTotalCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetClientBidComparisonResponse = zod.object({
+  "bidRequestId": zod.string(),
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "scopeId": zod.string(),
+  "dueAt": zod.string().describe('ISO instant. Display in timezone, never the browser\'s zone.'),
+  "timezone": zod.string().describe('Property IANA timezone for civil-day display.'),
+  "status": zod.string(),
+  "title": zod.string(),
+  "weights": zod.object({
+  "priceVsSchedule": zod.number().describe('Default 35. Price vs the property schedule.'),
+  "onTime": zod.number().describe('Default 25. On-time percentage, trailing 90 days.'),
+  "rework": zod.number().describe('Default 20. Rework rate, inverted.'),
+  "capacity": zod.number().describe('Default 20. Available capacity in the requested window.')
+}),
+  "scheduleTotalCents": zod.string().regex(getClientBidComparisonResponseScheduleTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "lines": zod.array(zod.object({
+  "code": zod.string(),
+  "tier": zod.string().nullish(),
+  "description": zod.string(),
+  "qty": zod.number(),
+  "uom": zod.string(),
+  "scheduleUnitPriceCents": zod.string().regex(getClientBidComparisonResponseLinesItemScheduleUnitPriceCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "cells": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "unitPriceCents": zod.union([zod.string().regex(getClientBidComparisonResponseLinesItemCellsItemUnitPriceCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional(),
+  "extendedCents": zod.union([zod.string().regex(getClientBidComparisonResponseLinesItemCellsItemExtendedCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional(),
+  "deltaCents": zod.union([zod.string().regex(getClientBidComparisonResponseLinesItemCellsItemDeltaCentsOneRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),zod.null()]).optional()
+}))
+})),
+  "vendors": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string(),
+  "invited": zod.boolean(),
+  "submitted": zod.boolean(),
+  "totalCents": zod.string().regex(getClientBidComparisonResponseVendorsItemTotalCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "earliestStartAt": zod.string().nullish(),
+  "promisedDays": zod.number().nullish(),
+  "score": zod.number(),
+  "components": zod.object({
+  "priceVsSchedule": zod.number(),
+  "onTime": zod.number(),
+  "rework": zod.number(),
+  "capacity": zod.number()
+}),
+  "awarded": zod.boolean(),
+  "bidId": zod.string().nullish()
+})),
+  "awardedVendorOrgId": zod.string().nullish(),
+  "poPayload": zod.record(zod.string(), zod.unknown()).nullish(),
+  "eligibleVendors": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client twin of award bid
+ */
+export const AwardClientBidRequestParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const AwardClientBidRequestHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const AwardClientBidRequestBody = zod.object({
+  "vendorOrgId": zod.string()
+})
+
+export const AwardClientBidRequestResponse = zod.object({
+  "bidRequestId": zod.string(),
+  "turnId": zod.string(),
+  "vendorOrgId": zod.string(),
+  "from": zod.string(),
+  "to": zod.string(),
+  "poPayload": zod.record(zod.string(), zod.unknown()),
+  "scores": zod.array(zod.object({
+  "vendorOrgId": zod.string(),
+  "vendorName": zod.string(),
+  "score": zod.number(),
+  "awarded": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Client twin of invoice export
+ */
+export const ExportClientTurnInvoiceParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ExportClientTurnInvoiceQueryParams = zod.object({
+  "format": zod.enum(['pdf', 'csv', 'json'])
+})
+
+export const ExportClientTurnInvoiceResponse = zod.object({
+  "invoiceNumber": zod.string(),
+  "propertyCode": zod.string(),
+  "propertyName": zod.string().optional(),
+  "unitNumber": zod.string(),
+  "poNumber": zod.string(),
+  "issuedOn": zod.string().optional(),
+  "subtotalCents": zod.string(),
+  "taxCents": zod.string().optional(),
+  "totalCents": zod.string(),
+  "lines": zod.array(zod.object({
+  "description": zod.string(),
+  "code": zod.string().nullish(),
+  "qty": zod.number(),
+  "uom": zod.string().optional(),
+  "unitPriceCents": zod.string(),
+  "extendedCents": zod.string(),
+  "glCode": zod.string().nullish(),
+  "unitNumber": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "propertyCode": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Client twin of property compliance stats
+ */
+export const GetClientPropertyComplianceStatsParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientPropertyComplianceStatsResponse = zod.object({
+  "propertyId": zod.string().nullish(),
+  "invoicesAutoValidated": zod.number(),
+  "offScheduleBlocked": zod.number(),
+  "assumedHoursSaved": zod.number(),
+  "assumedMinutesPerReview": zod.number(),
+  "firstPassAcceptRate": zod.number().nullable(),
+  "assumption": zod.string()
+})
+
+
+/**
+ * @summary Import an Entrata CSV export (units, leases, notices, or POs)
+ */
+export const ImportEntrataCsvHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ImportEntrataCsvBody = zod.object({
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "csv": zod.string()
+})
+
+export const ImportEntrataCsvResponse = zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Recent Entrata import batches
+ */
+export const ListEntrataImportsResponse = zod.object({
+  "adapter": zod.enum(['csv', 'api']),
+  "imports": zod.array(zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Sample CSV header + one row for an export kind
+ */
+export const GetEntrataCsvTemplateParams = zod.object({
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders'])
+})
+
+export const GetEntrataCsvTemplateResponse = zod.object({
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "csv": zod.string()
+})
+
+
+/**
+ * @summary One import batch
+ */
+export const GetEntrataImportParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEntrataImportResponse = zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Write VendorAccess PDF plus JSON sidecar (CSV adapter). API adapter is a stub.
+ */
+export const SubmitTurnInvoiceToEntrataParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SubmitTurnInvoiceToEntrataHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const SubmitTurnInvoiceToEntrataResponse = zod.object({
+  "invoiceId": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "pdfPath": zod.string(),
+  "sidecarPath": zod.string()
+})
+
+
+/**
+ * @summary Client twin of Entrata CSV import
+ */
+export const ImportClientEntrataCsvParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ImportClientEntrataCsvHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ImportClientEntrataCsvBody = zod.object({
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "csv": zod.string()
+})
+
+export const ImportClientEntrataCsvResponse = zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client twin of import list
+ */
+export const ListClientEntrataImportsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListClientEntrataImportsResponse = zod.object({
+  "adapter": zod.enum(['csv', 'api']),
+  "imports": zod.array(zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Client twin of CSV template
+ */
+export const GetClientEntrataCsvTemplateParams = zod.object({
+  "token": zod.coerce.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders'])
+})
+
+export const GetClientEntrataCsvTemplateResponse = zod.object({
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "csv": zod.string()
+})
+
+
+/**
+ * @summary Client twin of one import batch
+ */
+export const GetClientEntrataImportParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientEntrataImportResponse = zod.object({
+  "id": zod.string(),
+  "orgId": zod.string(),
+  "kind": zod.enum(['units', 'leases', 'notices', 'purchase_orders']),
+  "filename": zod.string(),
+  "sha256": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "status": zod.enum(['applied', 'replayed', 'failed']),
+  "createdCount": zod.number(),
+  "updatedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "errorCount": zod.number(),
+  "errors": zod.array(zod.object({
+  "row": zod.number(),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client twin of Entrata invoice submit
+ */
+export const SubmitClientTurnInvoiceToEntrataParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const SubmitClientTurnInvoiceToEntrataHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const SubmitClientTurnInvoiceToEntrataResponse = zod.object({
+  "invoiceId": zod.string(),
+  "adapter": zod.enum(['csv', 'api']),
+  "pdfPath": zod.string(),
+  "sidecarPath": zod.string()
 })
 
 

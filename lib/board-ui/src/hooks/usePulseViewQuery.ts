@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import type { PulseRangePreset, PulseTileSort } from "@workspace/api-client-react";
+import { useCallback, useRef, useState } from "react";
+import type { PulseRangePreset, PulseTileSort, WorkSourceFilter } from "@workspace/api-client-react";
 
 /**
  * First GET must omit range/sort so the server applies `client_saved_views`.
@@ -11,6 +11,7 @@ export type PulseViewQuery = {
   sort?: PulseTileSort;
   from?: string;
   to?: string;
+  workSource?: WorkSourceFilter;
 };
 
 export function pulseViewPersistBody(
@@ -36,6 +37,8 @@ export function idempotencyHeaders(): { "Idempotency-Key": string } {
 
 export function usePulseViewQuery() {
   const [override, setOverride] = useState<PulseViewQuery | null>(null);
+  const overrideRef = useRef(override);
+  overrideRef.current = override;
 
   const commitRange = useCallback(
     (
@@ -49,6 +52,7 @@ export function usePulseViewQuery() {
         sort,
         ...(from ? { from } : {}),
         ...(to ? { to } : {}),
+        ...(overrideRef.current?.workSource ? { workSource: overrideRef.current.workSource } : {}),
       };
       setOverride(next);
       return next;
@@ -62,9 +66,16 @@ export function usePulseViewQuery() {
     return next;
   }, []);
 
+  const commitWorkSource = useCallback((workSource: WorkSourceFilter, current: PulseViewQuery): PulseViewQuery => {
+    const next: PulseViewQuery = { ...current, workSource };
+    setOverride(next);
+    return next;
+  }, []);
+
   return {
     params: override ?? undefined,
     commitRange,
     commitSort,
+    commitWorkSource,
   };
 }

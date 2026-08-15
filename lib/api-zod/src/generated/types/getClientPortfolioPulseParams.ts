@@ -7,6 +7,7 @@
  */
 import type { PulseRangePreset } from './pulseRangePreset';
 import type { PulseTileSort } from './pulseTileSort';
+import type { WorkSourceFilter } from './workSourceFilter';
 
 export type GetClientPortfolioPulseParams = {
 /**
@@ -25,4 +26,8 @@ to?: string;
  * Property tile sort. Default vacancy_cost descending.
  */
 sort?: PulseTileSort;
+/**
+ * Filter turns. Default all — in-house and third-party share one board.
+ */
+workSource?: WorkSourceFilter;
 };

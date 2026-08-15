@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ComplianceStatsDocument } from './complianceStatsDocument';
 import type { PortfolioPulseHeadline } from './portfolioPulseHeadline';
 import type { PortfolioPulseSupporting } from './portfolioPulseSupporting';
 import type { PortfolioPulseTile } from './portfolioPulseTile';
@@ -21,4 +22,5 @@ export interface PortfolioPulseDocument {
   headline: PortfolioPulseHeadline;
   supporting: PortfolioPulseSupporting;
   tiles: PortfolioPulseTile[];
+  compliance?: ComplianceStatsDocument;
 }

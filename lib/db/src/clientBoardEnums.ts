@@ -47,6 +47,25 @@ export const STAGE_OWNERSHIP_SEED: Readonly<Record<TurnStage, StageOwner>> = {
 export const WORK_SOURCES = ["in_house", "third_party"] as const;
 export type WorkSource = (typeof WORK_SOURCES)[number];
 
+export const WORK_SOURCE_FILTERS = ["all", "in_house", "third_party"] as const;
+export type WorkSourceFilter = (typeof WORK_SOURCE_FILTERS)[number];
+
+export const CLIENT_ORG_ROLES = [
+  "asset_manager",
+  "regional_manager",
+  "property_manager",
+  "maintenance_lead",
+  "vendor_admin",
+  "crew",
+  "auditor",
+] as const;
+export type ClientOrgRole = (typeof CLIENT_ORG_ROLES)[number];
+
+export type ClientMemberScope = {
+  portfolioIds?: string[];
+  propertyIds?: string[];
+};
+
 export const ORG_TYPES = ["pm_company", "vendor"] as const;
 export type ClientOrgType = (typeof ORG_TYPES)[number];
 
@@ -72,6 +91,7 @@ export const CLIENT_BOARD_FLAG_SEGMENTS = [
   "propertyBoard",
   "evidence",
   "invoiceCompliance",
+  "csvImport",
   "bidBoard",
   "pipeline",
   "workSource",
@@ -82,7 +102,31 @@ export const CLIENT_BOARD_FLAG_SEGMENTS = [
 
 export type ClientBoardFlagSegment = (typeof CLIENT_BOARD_FLAG_SEGMENTS)[number];
 
-/** dataModel + turnEngine + pulse + propertyBoard + evidence ship on. Later UI segments stay dark. */
+export const DEFAULT_BID_SCORE_WEIGHTS = {
+  priceVsSchedule: 35,
+  onTime: 25,
+  rework: 20,
+  capacity: 20,
+} as const;
+
+export type BidScoreWeights = {
+  priceVsSchedule: number;
+  onTime: number;
+  rework: number;
+  capacity: number;
+};
+
+export const PIPELINE_TRADES = ["paint", "flooring", "clean", "drywall", "hvac", "punch"] as const;
+export type PipelineTrade = (typeof PIPELINE_TRADES)[number];
+
+export const PIPELINE_WEEKS = 13;
+
+export const CAPACITY_HOLD_STATUSES = ["held", "confirmed", "expired", "released"] as const;
+export type CapacityHoldStatus = (typeof CAPACITY_HOLD_STATUSES)[number];
+
+export const DEFAULT_CAPACITY_HOLD_HOURS = 72;
+
+/** dataModel + turnEngine + pulse + propertyBoard + evidence + invoiceCompliance + csvImport + workSource + bidBoard + pipeline ship on. Later UI segments stay dark. */
 export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   Record<ClientBoardFlagSegment, boolean>
 > = {
@@ -91,10 +135,11 @@ export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   pulse: true,
   propertyBoard: true,
   evidence: true,
-  invoiceCompliance: false,
-  bidBoard: false,
-  pipeline: false,
-  workSource: false,
+  invoiceCompliance: true,
+  csvImport: true,
+  bidBoard: true,
+  pipeline: true,
+  workSource: true,
   realtime: false,
   security: false,
   demo: false,

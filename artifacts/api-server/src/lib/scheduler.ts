@@ -326,6 +326,16 @@ async function tick(): Promise<void> {
     logger.warn({ err }, "client-board: outbox / nightly recompute failed");
   }
 
+  try {
+    if (await isClientBoardSegmentEnabled("csvImport")) {
+      const { sweepEntrataDropFolder } = await import("./entrataCsvAdapter");
+      const n = await sweepEntrataDropFolder();
+      if (n > 0) logger.info({ n }, "client-board: Entrata drop-folder import");
+    }
+  } catch (err) {
+    logger.warn({ err }, "client-board: Entrata drop-folder sweep failed");
+  }
+
   const stamp = Date.now();
 
   // Every tick (1 min): expire stale emergency pings so an old offer can't

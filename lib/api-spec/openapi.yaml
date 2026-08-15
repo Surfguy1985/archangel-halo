@@ -42,6 +42,12 @@ tags:
     description: Client Board v1 Portfolio Pulse — reads client_turn_metrics_mv, never raw stage events
   - name: turns
     description: Client Board v1 property Turn Ring — stage columns, unit detail, client verbs
+  - name: invoices
+    description: Client Board v1 invoice compliance — price-list gate, variance, Entrata export
+  - name: imports
+    description: Client Board v1 Entrata CSV import — units, leases, notices, purchase orders
+  - name: client-bids
+    description: Client Board v1 vendor-neutral bid board — comparable lines, open score, award to scheduled
 paths:
   /healthz:
     get:
@@ -10301,6 +10307,12 @@ paths:
           schema:
             $ref: "#/components/schemas/PulseTileSort"
           description: Property tile sort. Default vacancy_cost descending.
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+          description: Filter turns. Default all — in-house and third-party share one board.
       responses:
         "200":
           description: Pulse document
@@ -10326,12 +10338,17 @@ paths:
       security: [{ adminSession: [] }]
       operationId: getPortfolioAttention
       tags: [portfolios]
-      summary: Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+      summary: Attention list — stalled, waiting on you, failed QC, blocked invoices, variance
       parameters:
         - name: id
           in: path
           required: true
           schema: { type: string }
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
       responses:
         "200":
           description: Grouped attention items
@@ -10341,6 +10358,173 @@ paths:
                 $ref: "#/components/schemas/PortfolioAttentionDocument"
         "404":
           description: Unknown portfolio or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/cost-to-serve:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPortfolioCostToServe
+      tags: [portfolios]
+      summary: How work gets done across the portfolio — in-house vs third-party cost, days, and rework by work type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseRangePreset"
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+      responses:
+        "200":
+          description: Cost-to-serve comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostToServeDocument"
+        "404":
+          description: Unknown portfolio or workSource flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/pipeline:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPortfolioPipeline
+      tags: [portfolios]
+      summary: 13-week turn pipeline, capacity heatmap, and projected-spend band
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pipeline forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineDocument"
+        "404":
+          description: Unknown portfolio or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/capacity-hold:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: holdTurnCapacity
+      tags: [turns]
+      summary: Soft-reserve crew capacity for a turn's vacate week
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hold placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityHoldDocument"
+        "404":
+          description: Unknown turn or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already held or turn is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/capacity-holds/{bundleId}/confirm:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: confirmCapacityHold
+      tags: [turns]
+      summary: Confirm a soft capacity hold before it expires
+      parameters:
+        - name: bundleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hold confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityHoldDocument"
+        "404":
+          description: Unknown hold or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Hold expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/units/{id}/vacate-notice:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: scheduleVacateNotice
+      tags: [units]
+      summary: Enter a scheduled vacate date by hand (Entrata CSV is the other path)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VacateNoticeInput"
+      responses:
+        "200":
+          description: Notice recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacateNoticeDocument"
+        "400":
+          description: scheduledVacate must be YYYY-MM-DD
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown unit or pipeline flag is dark
           content:
             application/json:
               schema:
@@ -10443,6 +10627,12 @@ paths:
           schema:
             $ref: "#/components/schemas/PulseTileSort"
           description: Property tile sort. Default vacancy_cost descending.
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+          description: Filter turns. Default all — in-house and third-party share one board.
       responses:
         "200":
           description: Pulse document
@@ -10473,6 +10663,11 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
       responses:
         "200":
           description: Grouped attention items
@@ -10482,6 +10677,162 @@ paths:
                 $ref: "#/components/schemas/PortfolioAttentionDocument"
         "404":
           description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/cost-to-serve:
+    get:
+      operationId: getClientPortfolioCostToServe
+      tags: [portfolios]
+      summary: Client twin of how-work-gets-done
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseRangePreset"
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+      responses:
+        "200":
+          description: Cost-to-serve comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostToServeDocument"
+        "404":
+          description: Invalid link or workSource flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/pipeline:
+    get:
+      operationId: getClientPortfolioPipeline
+      tags: [portfolios]
+      summary: Client twin of the 13-week turn pipeline
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pipeline forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineDocument"
+        "404":
+          description: Invalid link or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/capacity-hold:
+    post:
+      operationId: holdClientTurnCapacity
+      tags: [turns]
+      summary: Client twin — soft-reserve crew capacity
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hold placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityHoldDocument"
+        "404":
+          description: Invalid link or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/capacity-holds/{bundleId}/confirm:
+    post:
+      operationId: confirmClientCapacityHold
+      tags: [turns]
+      summary: Client twin — confirm a capacity hold
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: bundleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hold confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapacityHoldDocument"
+        "404":
+          description: Invalid link or pipeline flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/units/{id}/vacate-notice:
+    post:
+      operationId: scheduleClientVacateNotice
+      tags: [units]
+      summary: Client twin — enter a scheduled vacate date
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VacateNoticeInput"
+      responses:
+        "200":
+          description: Notice recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacateNoticeDocument"
+        "404":
+          description: Invalid link or pipeline flag is dark
           content:
             application/json:
               schema:
@@ -10566,6 +10917,12 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/TurnBoardGroupBy"
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+          description: Filter turns. Default all.
       responses:
         "200":
           description: Turn board document
@@ -10753,6 +11110,12 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/TurnBoardGroupBy"
+        - name: workSource
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkSourceFilter"
+          description: Filter turns. Default all.
       responses:
         "200":
           description: Turn board document
@@ -11229,6 +11592,1301 @@ paths:
                 $ref: "#/components/schemas/TurnVerifyDocument"
         "404":
           description: Invalid link or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/scope:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getTurnScope
+      tags: [invoices]
+      summary: Scope lines, compliance, and invoice status for a turn
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Scope document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Unknown turn or invoiceCompliance flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/scopes/{id}/lines:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: addScopeLine
+      tags: [invoices]
+      summary: Add a scope line and resolve it against the active price list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddScopeLineInput"
+      responses:
+        "200":
+          description: Updated scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Unknown scope or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/scopes/{id}/validate:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: validateScope
+      tags: [invoices]
+      summary: Re-resolve every line against the active price list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Unknown scope or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/scopes/{id}/variance-request:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createVarianceRequest
+      tags: [invoices]
+      summary: Raise a pre-approval request for a non-compliant line
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVarianceRequestInput"
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "400":
+          description: Reason missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown scope or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/variances/{id}/approve:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: approveVarianceRequest
+      tags: [invoices]
+      summary: Approve a variance request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Unknown variance or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/variances/{id}/reject:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: rejectVarianceRequest
+      tags: [invoices]
+      summary: Reject a variance request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Unknown variance or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/variances/{id}/counter:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: counterVarianceRequest
+      tags: [invoices]
+      summary: Counter a variance with a different price or qty
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterVarianceRequestInput"
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Unknown variance or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/scopes/{id}/invoice:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createScopeInvoice
+      tags: [invoices]
+      summary: Create an invoice from a fully compliant scope
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScopeInvoiceInput"
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnInvoiceDocument"
+        "422":
+          description: Scope is not invoice-compliant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceBlockedDocument"
+        "404":
+          description: Unknown scope or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/scopes/{id}/bid-requests:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createScopeBidRequest
+      tags: [client-bids]
+      summary: Publish a scope as a vendor-neutral bid request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBidRequestInput"
+      responses:
+        "200":
+          description: Bid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidRequestDocument"
+        "404":
+          description: Unknown scope or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/bid-requests/{id}/invitations:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: inviteBidVendors
+      tags: [client-bids]
+      summary: Invite vendor orgs so the board is never single-vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteBidVendorsInput"
+      responses:
+        "200":
+          description: Invited vendors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidInvitationDocument"
+        "404":
+          description: Unknown request or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/bid-requests/{id}/bids:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: submitVendorBid
+      tags: [client-bids]
+      summary: Submit normalized bid lines against the property price-item codes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+        - name: X-Halo-Vendor-Org-Id
+          in: header
+          required: false
+          schema: { type: string }
+          description: Vendor org submitting the bid. Office may also pass vendorOrgId in the body on a vendor's behalf.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitVendorBidInput"
+      responses:
+        "200":
+          description: Submitted bid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorBidReceiptDocument"
+        "404":
+          description: Unknown request or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/bid-requests/{id}/comparison:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getBidComparison
+      tags: [client-bids]
+      summary: Line-aligned comparison with an open, weighted score
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Comparison table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidComparisonDocument"
+        "404":
+          description: Unknown request or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/bid-requests/{id}/award:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: awardBidRequest
+      tags: [client-bids]
+      summary: Award the bid — assign vendor, schedule the turn, notify every bidder with their score, emit Entrata PO payload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AwardBidRequestInput"
+      responses:
+        "200":
+          description: Award result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AwardBidDocument"
+        "404":
+          description: Unknown request or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/invoices/{id}/export:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: exportTurnInvoice
+      tags: [invoices]
+      summary: Entrata-ready invoice export (PDF, CSV, or JSON)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [pdf, csv, json]
+      responses:
+        "200":
+          description: Export payload
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            text/csv:
+              schema: { type: string }
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnInvoiceExportDocument"
+        "404":
+          description: Unknown invoice or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/properties/{id}/compliance-stats:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPropertyComplianceStats
+      tags: [invoices]
+      summary: Compliance counters for a property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Compliance stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceStatsDocument"
+        "404":
+          description: Unknown property or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/scope:
+    get:
+      operationId: getClientTurnScope
+      tags: [invoices]
+      summary: Client twin of turn scope
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Scope document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/scopes/{id}/lines:
+    post:
+      operationId: addClientScopeLine
+      tags: [invoices]
+      summary: Client twin of add scope line
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddScopeLineInput"
+      responses:
+        "200":
+          description: Updated scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/scopes/{id}/validate:
+    post:
+      operationId: validateClientScope
+      tags: [invoices]
+      summary: Client twin of validate scope
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnScopeDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/scopes/{id}/variance-request:
+    post:
+      operationId: createClientVarianceRequest
+      tags: [invoices]
+      summary: Client twin of variance request
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVarianceRequestInput"
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/variances/{id}/approve:
+    post:
+      operationId: approveClientVarianceRequest
+      tags: [invoices]
+      summary: Client twin of variance approve
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/variances/{id}/reject:
+    post:
+      operationId: rejectClientVarianceRequest
+      tags: [invoices]
+      summary: Client twin of variance reject
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/variances/{id}/counter:
+    post:
+      operationId: counterClientVarianceRequest
+      tags: [invoices]
+      summary: Client twin of variance counter
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterVarianceRequestInput"
+      responses:
+        "200":
+          description: Variance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VarianceRequestDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/scopes/{id}/invoice:
+    post:
+      operationId: createClientScopeInvoice
+      tags: [invoices]
+      summary: Client twin of create invoice
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScopeInvoiceInput"
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnInvoiceDocument"
+        "422":
+          description: Scope is not invoice-compliant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceBlockedDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/scopes/{id}/bid-requests:
+    post:
+      operationId: createClientScopeBidRequest
+      tags: [client-bids]
+      summary: Client twin of publish bid request
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBidRequestInput"
+      responses:
+        "200":
+          description: Bid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidRequestDocument"
+        "404":
+          description: Invalid link or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/bid-requests/{id}/invitations:
+    post:
+      operationId: inviteClientBidVendors
+      tags: [client-bids]
+      summary: Client twin of invite vendors
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteBidVendorsInput"
+      responses:
+        "200":
+          description: Invited vendors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidInvitationDocument"
+        "404":
+          description: Invalid link or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/bid-requests/{id}/bids:
+    post:
+      operationId: submitClientVendorBid
+      tags: [client-bids]
+      summary: Client twin of submit bid
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+        - name: X-Halo-Vendor-Org-Id
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitVendorBidInput"
+      responses:
+        "200":
+          description: Submitted bid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorBidReceiptDocument"
+        "404":
+          description: Invalid link or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/bid-requests/{id}/comparison:
+    get:
+      operationId: getClientBidComparison
+      tags: [client-bids]
+      summary: Client twin of bid comparison
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Comparison table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidComparisonDocument"
+        "404":
+          description: Invalid link or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/bid-requests/{id}/award:
+    post:
+      operationId: awardClientBidRequest
+      tags: [client-bids]
+      summary: Client twin of award bid
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AwardBidRequestInput"
+      responses:
+        "200":
+          description: Award result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AwardBidDocument"
+        "404":
+          description: Invalid link or bidBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/invoices/{id}/export:
+    get:
+      operationId: exportClientTurnInvoice
+      tags: [invoices]
+      summary: Client twin of invoice export
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [pdf, csv, json]
+      responses:
+        "200":
+          description: Export payload
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            text/csv:
+              schema: { type: string }
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnInvoiceExportDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/properties/{id}/compliance-stats:
+    get:
+      operationId: getClientPropertyComplianceStats
+      tags: [invoices]
+      summary: Client twin of property compliance stats
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Compliance stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceStatsDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/imports/entrata:
+    post:
+      operationId: importEntrataCsv
+      tags: [imports]
+      summary: Import an Entrata CSV export (units, leases, notices, or POs)
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEntrataCsvInput"
+      responses:
+        "200":
+          description: Import batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportDocument"
+        "404":
+          description: Flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: listEntrataImports
+      tags: [imports]
+      summary: Recent Entrata import batches
+      responses:
+        "200":
+          description: Batches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportListDocument"
+        "404":
+          description: Flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/imports/entrata/templates/{kind}:
+    get:
+      operationId: getEntrataCsvTemplate
+      tags: [imports]
+      summary: Sample CSV header + one row for an export kind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EntrataImportKind"
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataCsvTemplateDocument"
+        "404":
+          description: Flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/imports/entrata/{id}:
+    get:
+      operationId: getEntrataImport
+      tags: [imports]
+      summary: One import batch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportDocument"
+        "404":
+          description: Not found or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/invoices/{id}/entrata:
+    post:
+      operationId: submitTurnInvoiceToEntrata
+      tags: [imports]
+      summary: Write VendorAccess PDF plus JSON sidecar (CSV adapter). API adapter is a stub.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sidecar written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataSubmitDocument"
+        "404":
+          description: Not found or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/imports/entrata:
+    post:
+      operationId: importClientEntrataCsv
+      tags: [imports]
+      summary: Client twin of Entrata CSV import
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEntrataCsvInput"
+      responses:
+        "200":
+          description: Import batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: listClientEntrataImports
+      tags: [imports]
+      summary: Client twin of import list
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Batches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportListDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/imports/entrata/templates/{kind}:
+    get:
+      operationId: getClientEntrataCsvTemplate
+      tags: [imports]
+      summary: Client twin of CSV template
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: kind
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EntrataImportKind"
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataCsvTemplateDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/imports/entrata/{id}:
+    get:
+      operationId: getClientEntrataImport
+      tags: [imports]
+      summary: Client twin of one import batch
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataImportDocument"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/invoices/{id}/entrata:
+    post:
+      operationId: submitClientTurnInvoiceToEntrata
+      tags: [imports]
+      summary: Client twin of Entrata invoice submit
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sidecar written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntrataSubmitDocument"
+        "404":
+          description: Invalid link or flag dark
           content:
             application/json:
               schema:
@@ -18076,7 +19734,7 @@ components:
 
     PulseAttentionGroupKind:
       type: string
-      enum: [stalled, awaiting_approval, failed_qc, blocked_invoices]
+      enum: [stalled, awaiting_approval, failed_qc, blocked_invoices, variance_pending]
 
     ClientPortfolioSummary:
       type: object
@@ -18179,6 +19837,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortfolioPulseTile"
+        compliance:
+          $ref: "#/components/schemas/ComplianceStatsDocument"
 
     PortfolioAttentionItem:
       type: object
@@ -18265,6 +19925,380 @@ components:
     TurnWorkSource:
       type: string
       enum: [in_house, third_party]
+
+    WorkSourceFilter:
+      type: string
+      enum: [all, in_house, third_party]
+
+    CostToServeSide:
+      type: object
+      required: [unitCount, costPerUnitCents, daysPerUnit, reworkRateBps]
+      properties:
+        unitCount: { type: integer }
+        costPerUnitCents:
+          $ref: "#/components/schemas/CentsString"
+        daysPerUnit: { type: ["number", "null"] }
+        reworkRateBps: { type: integer, description: "Rework rate in basis points (1250 = 12.50%)" }
+
+    CostToServeRow:
+      type: object
+      required: [workType, bedrooms, inHouse, thirdParty]
+      properties:
+        workType: { type: string }
+        bedrooms: { type: integer }
+        inHouse:
+          $ref: "#/components/schemas/CostToServeSide"
+        thirdParty:
+          $ref: "#/components/schemas/CostToServeSide"
+
+    CostToServeDocument:
+      type: object
+      required: [portfolioId, title, workSource, from, to, rows]
+      properties:
+        portfolioId: { type: string }
+        title: { type: string }
+        workSource:
+          $ref: "#/components/schemas/WorkSourceFilter"
+        from: { type: string }
+        to: { type: string }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostToServeRow"
+
+    PipelineTrade:
+      type: string
+      enum: [paint, flooring, clean, drywall, hvac, punch]
+
+    PipelineCell:
+      type: object
+      required: [propertyId, weekStart, units, crunch, ratio]
+      properties:
+        propertyId: { type: string }
+        weekStart: { type: string, description: "Monday civil YYYY-MM-DD in the portfolio timezone." }
+        units: { type: integer }
+        crunch: { type: boolean }
+        ratio: { type: number }
+
+    PipelineHeatmapCell:
+      type: object
+      required: [trade, weekStart, demandUnits, capacityUnits, ratio, crunch]
+      properties:
+        trade:
+          $ref: "#/components/schemas/PipelineTrade"
+        weekStart: { type: string }
+        demandUnits: { type: number }
+        capacityUnits: { type: integer }
+        ratio: { type: number }
+        crunch: { type: boolean }
+
+    PipelineUnit:
+      type: object
+      required: [turnId, unitId, unitNumber, propertyId, bedrooms, kind, vacateCivil, confidence, predictedReadyCivil, holdStatus, holdBundleId, holdExpiresAt, scopeId]
+      properties:
+        turnId: { type: string }
+        unitId: { type: string }
+        unitNumber: { type: string }
+        propertyId: { type: string }
+        bedrooms: { type: integer }
+        kind: { type: string, enum: [scheduled, notice] }
+        vacateCivil: { type: string }
+        confidence: { type: string, enum: [high, medium, low] }
+        predictedReadyCivil: { type: ["string", "null"] }
+        holdStatus: { type: string, enum: [none, held, confirmed, expired] }
+        holdBundleId: { type: ["string", "null"] }
+        holdExpiresAt: { type: ["string", "null"] }
+        scopeId: { type: ["string", "null"] }
+
+    SpendHorizon:
+      type: object
+      required: [days, lowCents, midCents, highCents]
+      properties:
+        days: { type: integer }
+        lowCents:
+          $ref: "#/components/schemas/CentsString"
+        midCents:
+          $ref: "#/components/schemas/CentsString"
+        highCents:
+          $ref: "#/components/schemas/CentsString"
+
+    PipelineSpendRow:
+      type: object
+      required: [propertyId, label, horizons]
+      properties:
+        propertyId: { type: ["string", "null"] }
+        label: { type: string }
+        horizons:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpendHorizon"
+
+    PipelineProperty:
+      type: object
+      required: [propertyId, name]
+      properties:
+        propertyId: { type: string }
+        name: { type: string }
+
+    PipelineDocument:
+      type: object
+      required: [portfolioId, title, timezone, method, conversionRate, weekStarts, properties, cells, heatmap, spend, units]
+      properties:
+        portfolioId: { type: string }
+        title: { type: string }
+        timezone: { type: string, description: "Portfolio IANA timezone. Display civil days in this zone." }
+        method: { type: string }
+        conversionRate: { type: number }
+        weekStarts:
+          type: array
+          items: { type: string }
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineProperty"
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineCell"
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineHeatmapCell"
+        spend:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineSpendRow"
+        units:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineUnit"
+
+    VacateNoticeInput:
+      type: object
+      required: [scheduledVacate]
+      properties:
+        scheduledVacate: { type: string, description: "Civil YYYY-MM-DD in the property timezone." }
+
+    VacateNoticeDocument:
+      type: object
+      required: [turnId]
+      properties:
+        turnId: { type: string }
+
+    CapacityHoldDocument:
+      type: object
+      required: [bundleId, status]
+      properties:
+        bundleId: { type: string }
+        status: { type: string }
+        expiresAt: { type: string }
+
+    BidScoreWeights:
+      type: object
+      required: [priceVsSchedule, onTime, rework, capacity]
+      properties:
+        priceVsSchedule: { type: integer, description: "Default 35. Price vs the property schedule." }
+        onTime: { type: integer, description: "Default 25. On-time percentage, trailing 90 days." }
+        rework: { type: integer, description: "Default 20. Rework rate, inverted." }
+        capacity: { type: integer, description: "Default 20. Available capacity in the requested window." }
+
+    BidScoreComponents:
+      type: object
+      required: [priceVsSchedule, onTime, rework, capacity]
+      properties:
+        priceVsSchedule: { type: integer }
+        onTime: { type: integer }
+        rework: { type: integer }
+        capacity: { type: integer }
+
+    CreateBidRequestInput:
+      type: object
+      required: [dueAt]
+      properties:
+        dueAt: { type: string, description: "ISO due time. Bids after this are rejected." }
+
+    InviteBidVendorsInput:
+      type: object
+      required: [vendorOrgIds]
+      properties:
+        vendorOrgIds:
+          type: array
+          items: { type: string }
+          minItems: 1
+
+    SubmitVendorBidLineInput:
+      type: object
+      required: [code, unitPriceCents]
+      properties:
+        code: { type: string }
+        tier: { type: ["string", "null"] }
+        unitPriceCents:
+          $ref: "#/components/schemas/CentsString"
+
+    SubmitVendorBidInput:
+      type: object
+      required: [lines]
+      properties:
+        vendorOrgId: { type: string, description: "Required when the office submits on a vendor's behalf." }
+        earliestStartAt: { type: ["string", "null"] }
+        promisedDays: { type: ["integer", "null"] }
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubmitVendorBidLineInput"
+          minItems: 1
+
+    AwardBidRequestInput:
+      type: object
+      required: [vendorOrgId]
+      properties:
+        vendorOrgId: { type: string }
+
+    BidRequestDocument:
+      type: object
+      required: [id, turnId, propertyId, dueAt, status]
+      properties:
+        id: { type: string }
+        turnId: { type: string }
+        propertyId: { type: string }
+        dueAt: { type: string }
+        status: { type: string }
+
+    BidInvitationDocument:
+      type: object
+      required: [invited]
+      properties:
+        invited:
+          type: array
+          items:
+            type: object
+            required: [vendorOrgId, vendorName]
+            properties:
+              vendorOrgId: { type: string }
+              vendorName: { type: string }
+
+    VendorBidReceiptDocument:
+      type: object
+      required: [bidId, totalCents, score]
+      properties:
+        bidId: { type: string }
+        totalCents:
+          $ref: "#/components/schemas/CentsString"
+        score: { type: integer }
+
+    BidComparisonCell:
+      type: object
+      required: [vendorOrgId]
+      properties:
+        vendorOrgId: { type: string }
+        unitPriceCents:
+          oneOf:
+            - $ref: "#/components/schemas/CentsString"
+            - type: "null"
+        extendedCents:
+          oneOf:
+            - $ref: "#/components/schemas/CentsString"
+            - type: "null"
+        deltaCents:
+          oneOf:
+            - $ref: "#/components/schemas/CentsString"
+            - type: "null"
+
+    BidComparisonLine:
+      type: object
+      required: [code, description, qty, uom, scheduleUnitPriceCents, cells]
+      properties:
+        code: { type: string }
+        tier: { type: ["string", "null"] }
+        description: { type: string }
+        qty: { type: integer }
+        uom: { type: string }
+        scheduleUnitPriceCents:
+          $ref: "#/components/schemas/CentsString"
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidComparisonCell"
+
+    BidComparisonVendor:
+      type: object
+      required: [vendorOrgId, vendorName, invited, submitted, totalCents, score, components, awarded]
+      properties:
+        vendorOrgId: { type: string }
+        vendorName: { type: string }
+        invited: { type: boolean }
+        submitted: { type: boolean }
+        totalCents:
+          $ref: "#/components/schemas/CentsString"
+        earliestStartAt: { type: ["string", "null"] }
+        promisedDays: { type: ["integer", "null"] }
+        score: { type: integer }
+        components:
+          $ref: "#/components/schemas/BidScoreComponents"
+        awarded: { type: boolean }
+        bidId: { type: ["string", "null"] }
+
+    BidComparisonDocument:
+      type: object
+      required: [bidRequestId, turnId, propertyId, scopeId, dueAt, timezone, status, title, weights, scheduleTotalCents, lines, vendors, eligibleVendors]
+      properties:
+        bidRequestId: { type: string }
+        turnId: { type: string }
+        propertyId: { type: string }
+        scopeId: { type: string }
+        dueAt: { type: string, description: "ISO instant. Display in timezone, never the browser's zone." }
+        timezone: { type: string, description: "Property IANA timezone for civil-day display." }
+        status: { type: string }
+        title: { type: string }
+        weights:
+          $ref: "#/components/schemas/BidScoreWeights"
+        scheduleTotalCents:
+          $ref: "#/components/schemas/CentsString"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidComparisonLine"
+        vendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidComparisonVendor"
+        awardedVendorOrgId: { type: ["string", "null"] }
+        poPayload: { type: ["object", "null"], additionalProperties: true }
+        eligibleVendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidInvitationVendor"
+
+    BidInvitationVendor:
+      type: object
+      required: [vendorOrgId, vendorName]
+      properties:
+        vendorOrgId: { type: string }
+        vendorName: { type: string }
+
+    AwardBidScoreRow:
+      type: object
+      required: [vendorOrgId, vendorName, score, awarded]
+      properties:
+        vendorOrgId: { type: string }
+        vendorName: { type: string }
+        score: { type: integer }
+        awarded: { type: boolean }
+
+    AwardBidDocument:
+      type: object
+      required: [bidRequestId, turnId, vendorOrgId, from, to, poPayload, scores]
+      properties:
+        bidRequestId: { type: string }
+        turnId: { type: string }
+        vendorOrgId: { type: string }
+        from: { type: string }
+        to: { type: string }
+        poPayload: { type: object, additionalProperties: true }
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/AwardBidScoreRow"
 
     TurnRingArcDocument:
       type: object
@@ -18598,4 +20632,294 @@ components:
         matches: { type: boolean }
         evidenceCount: { type: integer }
         timelineEventCount: { type: integer }
+
+    ScopeLineCompliance:
+      type: string
+      enum: [matched, variance_pending, variance_approved, off_schedule]
+
+    AddScopeLineInput:
+      type: object
+      required: [description, qty, unitPriceCents]
+      properties:
+        description: { type: string }
+        code: { type: ["string", "null"] }
+        tier: { type: ["string", "null"] }
+        qty: { type: integer, minimum: 1 }
+        unitPriceCents: { type: string, description: Integer cents as a decimal string }
+        uom: { type: string }
+
+    CreateVarianceRequestInput:
+      type: object
+      required: [scopeLineId, reason]
+      properties:
+        scopeLineId: { type: string }
+        reason: { type: string }
+        evidenceIds:
+          type: array
+          items: { type: string }
+
+    CounterVarianceRequestInput:
+      type: object
+      required: [unitPriceCents]
+      properties:
+        unitPriceCents: { type: string }
+        qty: { type: integer, minimum: 1 }
+        reason: { type: string }
+
+    CreateScopeInvoiceInput:
+      type: object
+      properties:
+        poNumber: { type: ["string", "null"] }
+
+    ScopeLineDocument:
+      type: object
+      required:
+        - id
+        - description
+        - qty
+        - uom
+        - unitPriceCents
+        - extendedCents
+        - compliance
+        - deltaCents
+      properties:
+        id: { type: string }
+        code: { type: ["string", "null"] }
+        tier: { type: ["string", "null"] }
+        description: { type: string }
+        qty: { type: integer }
+        uom: { type: string }
+        unitPriceCents: { type: string }
+        extendedCents: { type: string }
+        compliance:
+          $ref: "#/components/schemas/ScopeLineCompliance"
+        varianceReason: { type: ["string", "null"] }
+        scheduleCode: { type: ["string", "null"] }
+        scheduleDescription: { type: ["string", "null"] }
+        scheduleUnitPriceCents: { type: ["string", "null"] }
+        deltaCents: { type: string }
+
+    VarianceRequestDocument:
+      type: object
+      required:
+        - id
+        - scopeId
+        - scopeLineId
+        - turnId
+        - reason
+        - status
+        - requestedUnitPriceCents
+        - deltaCents
+        - evidenceIds
+      properties:
+        id: { type: string }
+        scopeId: { type: string }
+        scopeLineId: { type: string }
+        turnId: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, countered] }
+        evidenceIds:
+          type: array
+          items: { type: string }
+        nearestScheduleCode: { type: ["string", "null"] }
+        nearestScheduleDescription: { type: ["string", "null"] }
+        requestedQty: { type: integer }
+        requestedUnitPriceCents: { type: string }
+        scheduleUnitPriceCents: { type: ["string", "null"] }
+        deltaCents: { type: string }
+        photoUrls:
+          type: array
+          items: { type: string }
+
+    TurnScopeDocument:
+      type: object
+      required:
+        - turnId
+        - canInvoice
+        - badge
+        - lines
+        - variances
+      properties:
+        turnId: { type: string }
+        scopeId: { type: ["string", "null"] }
+        status: { type: string }
+        priceListRevision: { type: ["string", "null"] }
+        priceListEffectiveLabel: { type: ["string", "null"] }
+        canInvoice: { type: boolean }
+        blockingMessage: { type: ["string", "null"] }
+        badge: { type: string }
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScopeLineDocument"
+        variances:
+          type: array
+          items:
+            $ref: "#/components/schemas/VarianceRequestDocument"
+        invoice:
+          oneOf:
+            - $ref: "#/components/schemas/TurnInvoiceDocument"
+            - type: "null"
+        bidRequestId: { type: ["string", "null"] }
+
+    TurnInvoiceDocument:
+      type: object
+      required: [id, turnId, scopeId, invoiceNumber, status, subtotalCents, totalCents, firstPassAccepted]
+      properties:
+        id: { type: string }
+        turnId: { type: string }
+        scopeId: { type: string }
+        invoiceNumber: { type: string }
+        poNumber: { type: ["string", "null"] }
+        status: { type: string }
+        subtotalCents: { type: string }
+        taxCents: { type: string }
+        totalCents: { type: string }
+        complianceScore: { type: ["string", "null"] }
+        firstPassAccepted: { type: boolean }
+
+    InvoiceBlockedDocument:
+      type: object
+      required: [error, priceListRevision, lines]
+      properties:
+        error: { type: string }
+        priceListRevision: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [description, compliance]
+            properties:
+              description: { type: string }
+              compliance:
+                $ref: "#/components/schemas/ScopeLineCompliance"
+
+    TurnInvoiceExportLine:
+      type: object
+      required: [description, qty, unitPriceCents, extendedCents, unitNumber]
+      properties:
+        description: { type: string }
+        code: { type: ["string", "null"] }
+        qty: { type: integer }
+        uom: { type: string }
+        unitPriceCents: { type: string }
+        extendedCents: { type: string }
+        glCode: { type: ["string", "null"] }
+        unitNumber: { type: string }
+        poNumber: { type: ["string", "null"] }
+        propertyCode: { type: ["string", "null"] }
+
+    TurnInvoiceExportDocument:
+      type: object
+      required: [invoiceNumber, propertyCode, unitNumber, poNumber, lines, subtotalCents, totalCents]
+      properties:
+        invoiceNumber: { type: string }
+        propertyCode: { type: string }
+        propertyName: { type: string }
+        unitNumber: { type: string }
+        poNumber: { type: string }
+        issuedOn: { type: string }
+        subtotalCents: { type: string }
+        taxCents: { type: string }
+        totalCents: { type: string }
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnInvoiceExportLine"
+
+    ComplianceStatsDocument:
+      type: object
+      required:
+        - invoicesAutoValidated
+        - offScheduleBlocked
+        - assumedHoursSaved
+        - assumedMinutesPerReview
+        - assumption
+        - firstPassAcceptRate
+      properties:
+        propertyId: { type: ["string", "null"] }
+        invoicesAutoValidated: { type: integer }
+        offScheduleBlocked: { type: integer }
+        assumedHoursSaved: { type: number }
+        assumedMinutesPerReview: { type: integer }
+        firstPassAcceptRate: { type: ["number", "null"] }
+        assumption: { type: string }
+
+    EntrataImportKind:
+      type: string
+      enum: [units, leases, notices, purchase_orders]
+
+    ImportEntrataCsvInput:
+      type: object
+      required: [kind, filename, csv]
+      properties:
+        kind:
+          $ref: "#/components/schemas/EntrataImportKind"
+        filename: { type: string }
+        csv: { type: string }
+
+    EntrataImportError:
+      type: object
+      required: [row, message]
+      properties:
+        row: { type: integer }
+        message: { type: string }
+
+    EntrataImportDocument:
+      type: object
+      required: [id, orgId, kind, filename, sha256, adapter, status, createdCount, updatedCount, skippedCount, errorCount, errors]
+      properties:
+        id: { type: string }
+        orgId: { type: string }
+        kind:
+          $ref: "#/components/schemas/EntrataImportKind"
+        filename: { type: string }
+        sha256: { type: string }
+        adapter:
+          type: string
+          enum: [csv, api]
+        status:
+          type: string
+          enum: [applied, replayed, failed]
+        createdCount: { type: integer }
+        updatedCount: { type: integer }
+        skippedCount: { type: integer }
+        errorCount: { type: integer }
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntrataImportError"
+
+    EntrataImportListDocument:
+      type: object
+      required: [adapter, imports]
+      properties:
+        adapter:
+          type: string
+          enum: [csv, api]
+        imports:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntrataImportDocument"
+
+    EntrataCsvTemplateDocument:
+      type: object
+      required: [kind, csv]
+      properties:
+        kind:
+          $ref: "#/components/schemas/EntrataImportKind"
+        csv: { type: string }
+
+    EntrataSubmitDocument:
+      type: object
+      required: [invoiceId, adapter, pdfPath, sidecarPath]
+      properties:
+        invoiceId: { type: string }
+        adapter:
+          type: string
+          enum: [csv, api]
+        pdfPath: { type: string }
+        sidecarPath: { type: string }
+
+
 

@@ -9,7 +9,9 @@ import {
   timestamp,
   date,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
+import type { BidScoreWeights } from "../clientBoardEnums";
 import { sql } from "drizzle-orm";
 
 export const propertiesTable = pgTable("properties", {
@@ -48,6 +50,19 @@ export const propertiesTable = pgTable("properties", {
   occupiedAddonApplies: boolean("occupied_addon_applies").notNull().default(false),
   entrataPropertyId: text("entrata_property_id"),
   clientOrgId: uuid("client_org_id"),
+  invoiceToleranceBps: integer("invoice_tolerance_bps").notNull().default(0),
+  varianceReviewMinutes: integer("variance_review_minutes").notNull().default(12),
+  /** Property-manager may approve scopes/invoices at or under this integer-cents cap. */
+  scopeApprovalCents: bigint("scope_approval_cents", { mode: "bigint" }).notNull().default(500000n),
+  /** Bid-board score weights. Shown openly; must sum toward 100. */
+  bidScoreWeights: jsonb("bid_score_weights").$type<BidScoreWeights>().notNull().default({
+    priceVsSchedule: 35,
+    onTime: 25,
+    rework: 20,
+    capacity: 20,
+  }),
+  /** Soft capacity hold expires if not confirmed within this many hours. */
+  capacityHoldHours: integer("capacity_hold_hours").notNull().default(72),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

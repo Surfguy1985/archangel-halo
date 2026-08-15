@@ -10,6 +10,7 @@ import {
   GetPortfolioPulseQueryParams,
   GetPortfolioPulseResponse,
   GetPortfolioAttentionParams,
+  GetPortfolioAttentionQueryParams,
   GetPortfolioAttentionResponse,
   StreamPortfolioPulseParams,
   PutPortfolioSavedViewParams,
@@ -19,12 +20,14 @@ import {
   GetClientPortfolioPulseQueryParams,
   GetClientPortfolioPulseResponse,
   GetClientPortfolioAttentionParams,
+  GetClientPortfolioAttentionQueryParams,
   GetClientPortfolioAttentionResponse,
   StreamClientPortfolioPulseParams,
   PutClientPortfolioSavedViewParams,
   PutClientPortfolioSavedViewBody,
   PutClientPortfolioSavedViewResponse,
 } from "@workspace/api-zod";
+import { officeActor, propertyIdsForActor, sendAccessError } from "../lib/clientBoardAccess";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
 import { resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
@@ -61,12 +64,14 @@ function pulseQueryFromParsed(q: {
   from?: string | null;
   to?: string | null;
   sort?: PulseQuery["sort"];
+  workSource?: PulseQuery["workSource"];
 }): PulseQuery {
   return {
     range: q.range,
     from: q.from ?? null,
     to: q.to ?? null,
     sort: q.sort,
+    workSource: q.workSource,
   };
 }
 
@@ -102,7 +107,13 @@ async function mergedQuery(
     from: requestQuery.from ?? saved.from,
     to: requestQuery.to ?? saved.to,
     sort: requestQuery.sort ?? saved.sort,
+    workSource: requestQuery.workSource,
   };
+}
+
+async function officeScope(req: Request, orgId: string) {
+  const actor = await officeActor(req, orgId);
+  return { actor, allowedPropertyIds: await propertyIdsForActor(actor) };
 }
 
 router.get("/v1/portfolios", async (_req: Request, res: Response): Promise<void> => {
@@ -131,15 +142,18 @@ router.get("/v1/portfolios/:id/pulse", async (req: Request, res: Response): Prom
     return;
   }
   try {
+    const { allowedPropertyIds } = await officeScope(req, orgId);
     const merged = await mergedQuery("office", path.data.id, pulseQueryFromParsed(query.data));
     const doc = await computePortfolioPulse({
       portfolioId: path.data.id,
       orgId,
       query: merged,
       hrefForProperty: officePropertyHref,
+      allowedPropertyIds,
     });
     res.json(GetPortfolioPulseResponse.parse(doc));
   } catch (err) {
+    if (sendAccessError(res, err)) return;
     if (!sendPulseError(res, err)) throw err;
   }
 });
@@ -150,7 +164,8 @@ router.get("/v1/portfolios/:id/attention", async (req: Request, res: Response): 
     return;
   }
   const path = GetPortfolioAttentionParams.safeParse(req.params);
-  if (!path.success) {
+  const query = GetPortfolioAttentionQueryParams.safeParse(req.query);
+  if (!path.success || !query.success) {
     res.status(400).json({ error: "Invalid attention request" });
     return;
   }
@@ -160,13 +175,17 @@ router.get("/v1/portfolios/:id/attention", async (req: Request, res: Response): 
     return;
   }
   try {
+    const { allowedPropertyIds } = await officeScope(req, orgId);
     const doc = await computePortfolioAttention({
       portfolioId: path.data.id,
       orgId,
       hrefForProperty: officePropertyHref,
+      workSource: query.data.workSource,
+      allowedPropertyIds,
     });
     res.json(GetPortfolioAttentionResponse.parse(doc));
   } catch (err) {
+    if (sendAccessError(res, err)) return;
     if (!sendPulseError(res, err)) throw err;
   }
 });
@@ -268,7 +287,8 @@ router.get("/client/:token/portfolio/attention", async (req: Request, res: Respo
     return;
   }
   const path = GetClientPortfolioAttentionParams.safeParse(req.params);
-  if (!path.success) {
+  const query = GetClientPortfolioAttentionQueryParams.safeParse(req.query);
+  if (!path.success || !query.success) {
     res.status(400).json({ error: "Invalid attention request" });
     return;
   }
@@ -282,6 +302,7 @@ router.get("/client/:token/portfolio/attention", async (req: Request, res: Respo
       portfolioId: ctx.portfolioId,
       orgId: ctx.orgId,
       hrefForProperty: clientPropertyHref(path.data.token),
+      workSource: query.data.workSource,
     });
     res.json(GetClientPortfolioAttentionResponse.parse(doc));
   } catch (err) {

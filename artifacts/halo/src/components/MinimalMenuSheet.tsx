@@ -14,6 +14,7 @@ import {
   X,
   LayoutGrid,
   Briefcase,
+  PanelsTopLeft,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -28,9 +29,12 @@ import {
 export function MinimalMenuSheet({
   open,
   onOpenChange,
+  onOpenClientBoard,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opens the client-board chooser. Omitted when the host has no picker. */
+  onOpenClientBoard?: () => void;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -119,6 +123,24 @@ export function MinimalMenuSheet({
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
               </a>
+            )}
+
+            {onOpenClientBoard && (
+              <button
+                type="button"
+                onClick={onOpenClientBoard}
+                data-testid="menu-client-board"
+                className="w-full flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5 text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-white/[0.06] grid place-items-center shrink-0">
+                  <PanelsTopLeft className="w-4 h-4 text-[#B4FF44]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-medium text-white/80">Client board</div>
+                  <div className="text-[11.5px] text-white/35">See exactly what the client sees</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+              </button>
             )}
 
             <Link href="/pulse" onClick={close}>

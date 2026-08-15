@@ -6,7 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TurnBoardGroupBy } from './turnBoardGroupBy';
+import type { WorkSourceFilter } from './workSourceFilter';
 
 export type GetClientPropertyTurnBoardParams = {
 groupBy?: TurnBoardGroupBy;
+/**
+ * Filter turns. Default all.
+ */
+workSource?: WorkSourceFilter;
 };

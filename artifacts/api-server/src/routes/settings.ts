@@ -88,6 +88,9 @@ import {
   base44EvidenceTable,
   clientTurnInvoiceLinesTable,
   clientTurnInvoicesTable,
+  clientVarianceRequestsTable,
+  clientEntrataImportsTable,
+  clientEntrataPurchaseOrdersTable,
   clientScopeLinesTable,
   clientScopesTable,
   clientVendorBidLinesTable,
@@ -354,6 +357,9 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     // Client Board v1 (append-only tables require the session flag above).
     await tx.delete(clientTurnInvoiceLinesTable);
     await tx.delete(clientTurnInvoicesTable);
+    await tx.delete(clientEntrataPurchaseOrdersTable);
+    await tx.delete(clientEntrataImportsTable);
+    await tx.delete(clientVarianceRequestsTable);
     await tx.delete(clientScopeLinesTable);
     await tx.delete(clientScopesTable);
     await tx.delete(clientVendorBidLinesTable);

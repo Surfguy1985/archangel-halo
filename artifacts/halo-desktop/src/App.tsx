@@ -33,6 +33,10 @@ import HaloCommand from "@/pages/HaloCommand";
 import PropertyPulse from "@/pages/PropertyPulse";
 import ClientPortfolioPulse from "@/pages/ClientPortfolioPulse";
 import PropertyTurnBoard from "@/pages/PropertyTurnBoard";
+import EntrataImportPage from "@/pages/EntrataImport";
+import CostToServePage from "@/pages/CostToServe";
+import BidBoardPage from "@/pages/BidBoard";
+import TurnPipelinePage from "@/pages/TurnPipeline";
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
 import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
@@ -91,6 +95,34 @@ function App() {
               <OfficeGate>
                 <SplashScreen />
                 <ClientPortfolioPulse />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/imports">
+              <OfficeGate>
+                <SplashScreen />
+                <EntrataImportPage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/how-work">
+              <OfficeGate>
+                <SplashScreen />
+                <CostToServePage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/board/pipeline">
+              <OfficeGate>
+                <SplashScreen />
+                <TurnPipelinePage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/bid-requests/:id">
+              <OfficeGate>
+                <SplashScreen />
+                <BidBoardPage />
               </OfficeGate>
             </Route>
 

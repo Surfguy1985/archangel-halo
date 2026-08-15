@@ -56,6 +56,19 @@ export function vacancyCostCents(args: {
   return (days * args.marketRentCents) / monthDays;
 }
 
+/** Parse a dollar string from an Entrata CSV ("$1,450.00") into bigint cents. */
+export function dollarsToCents(value: string): Cents {
+  const cleaned = value.trim().replace(/[$,]/g, "");
+  if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) {
+    throw new Error(`invalid dollar string: ${value}`);
+  }
+  const negative = cleaned.startsWith("-");
+  const unsigned = negative ? cleaned.slice(1) : cleaned;
+  const [dollars, frac = ""] = unsigned.split(".");
+  const cents = BigInt(dollars || "0") * CENTS_PER_DOLLAR + BigInt((frac + "00").slice(0, 2));
+  return negative ? -cents : cents;
+}
+
 /** Display only. Never round-trip this string back into arithmetic. */
 export function formatUsd(cents: Cents): string {
   const negative = cents < 0n;

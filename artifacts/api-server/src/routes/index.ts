@@ -60,6 +60,12 @@ import falkonTestHelperRouter from "./falkonTestHelper";
 import remindersRouter from "./reminders";
 import portfolioPulseRouter from "./portfolioPulse";
 import propertyTurnBoardRouter from "./propertyTurnBoard";
+import propertyEvidenceRouter from "./propertyEvidence";
+import propertyInvoiceRouter from "./propertyInvoice";
+import entrataImportRouter from "./entrataImport";
+import costToServeRouter from "./costToServe";
+import bidBoardRouter from "./bidBoard";
+import turnPipelineRouter from "./turnPipeline";
 
 const router: IRouter = Router();
 
@@ -168,5 +174,11 @@ router.use(intelligenceRouter);
 router.use(remindersRouter);
 router.use(portfolioPulseRouter);
 router.use(propertyTurnBoardRouter);
+router.use(propertyEvidenceRouter);
+router.use(propertyInvoiceRouter);
+router.use(entrataImportRouter);
+router.use(costToServeRouter);
+router.use(bidBoardRouter);
+router.use(turnPipelineRouter);
 
 export default router;

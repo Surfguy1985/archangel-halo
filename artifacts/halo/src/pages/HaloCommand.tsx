@@ -15,6 +15,7 @@ import {
   Paperclip, ArrowUp, Bell, MoreHorizontal, Loader2,
   CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
   List, CalendarDays, Mic, LayoutGrid, BrainCircuit, MessageSquare, Headphones, Building2,
+  PanelsTopLeft,
 } from "lucide-react";
 
 import {
@@ -38,6 +39,7 @@ import { EarpieceMode } from "@/components/EarpieceMode";
 import { ArrivalDetection } from "@/components/ArrivalSheet";
 import { NotificationsDrawer } from "@/components/NotificationsDrawer";
 import { MinimalMenuSheet } from "@/components/MinimalMenuSheet";
+import { ClientBoardPicker } from "@/components/ClientBoardPicker";
 import { FalkonControlCenter } from "@/components/command/FalkonControlCenter";
 import { ConfirmCard } from "@/components/command/ConfirmCard";
 import { LiveMapPanel } from "@/components/panels/LiveMapPanel";
@@ -938,6 +940,7 @@ export default function HaloCommand() {
   const [earpieceOpen, setEarpieceOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [clientBoardOpen, setClientBoardOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
 
   // ── Scroll ────────────────────────────────────────────────────────────────
@@ -1770,6 +1773,16 @@ export default function HaloCommand() {
           >
             <LayoutGrid className="w-[15px] h-[15px]" strokeWidth={1.8} />
           </button>
+          <button
+            type="button"
+            onClick={() => setClientBoardOpen(true)}
+            className="w-8 h-8 rounded-full grid place-items-center text-white/35 hover:text-[#B4FF44] transition-colors"
+            aria-label="Client board"
+            title="Client board"
+            data-testid="button-client-board"
+          >
+            <PanelsTopLeft className="w-[15px] h-[15px]" strokeWidth={1.8} />
+          </button>
 
           {/* View mode toggle — chat ↔ intelligence */}
           <button
@@ -2000,7 +2013,15 @@ export default function HaloCommand() {
       />
       <ArrivalDetection />
       <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
-      <MinimalMenuSheet open={menuOpen}    onOpenChange={setMenuOpen} />
+      <MinimalMenuSheet
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onOpenClientBoard={() => {
+          setMenuOpen(false);
+          setClientBoardOpen(true);
+        }}
+      />
+      <ClientBoardPicker open={clientBoardOpen} onOpenChange={setClientBoardOpen} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
     </>
   );

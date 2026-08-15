@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import {
   Paperclip, ArrowUp, Loader2, CheckCircle2, AlertCircle,
   List, CalendarDays, Mic, LayoutGrid, MapPin, BrainCircuit, MessageSquare, Headphones, Building2,
+  PanelsTopLeft,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ import { ReminderCard, type ReminderData } from "@/components/command/ReminderCa
 import { DispatchCard, type DispatchData } from "@/components/command/DispatchCard";
 import { LiveMapCard } from "@/components/command/LiveMapCard";
 import { LensCard, type LensType } from "@/components/command/LensCard";
+import { ClientBoardPicker } from "@/components/ClientBoardPicker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -664,6 +666,7 @@ export default function HaloCommand() {
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [earpieceOpen, setEarpieceOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
+  const [clientBoardOpen, setClientBoardOpen] = useState(false);
 
   // ── View mode — persisted so the user's preference survives navigation ───
   const [isIntelView, setIsIntelView] = useState<boolean>(() => {
@@ -1308,6 +1311,9 @@ export default function HaloCommand() {
           <button type="button" onClick={() => navigate("/pulse")} className="w-9 h-9 rounded-full grid place-items-center text-[#B4FF44] hover:text-white" aria-label="Property Pulse">
             <LayoutGrid className="w-4 h-4" />
           </button>
+          <button type="button" onClick={() => setClientBoardOpen(true)} className="w-9 h-9 rounded-full grid place-items-center text-white/40 hover:text-[#B4FF44]" aria-label="Client board" title="Client board" data-testid="button-client-board">
+            <PanelsTopLeft className="w-4 h-4" />
+          </button>
 
           {/* View mode toggle — chat ↔ intelligence */}
           <button
@@ -1452,6 +1458,7 @@ export default function HaloCommand() {
       <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} onHeard={(text) => { void handleSubmit(text); }} />
       <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={(text) => { void handleSubmit(text); }} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
+      <ClientBoardPicker open={clientBoardOpen} onOpenChange={setClientBoardOpen} />
     </>
   );
 }

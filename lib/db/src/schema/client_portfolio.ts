@@ -37,6 +37,9 @@ import type {
   ClientOrgType,
   StageEventKind,
   ClientBoardFlagSegment,
+  ClientMemberScope,
+  BidScoreWeights,
+  CapacityHoldStatus,
 } from "../clientBoardEnums";
 
 // ── Tenancy ────────────────────────────────────────────────────────────────
@@ -49,6 +52,8 @@ export const clientOrgsTable = pgTable(
     type: text("type").$type<ClientOrgType>().notNull(),
     timezone: text("timezone").notNull().default("America/Chicago"),
     slug: text("slug").notNull(),
+    /** In-house construction org: crew portal at no charge. */
+    crewPortalComp: boolean("crew_portal_comp").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -56,17 +61,23 @@ export const clientOrgsTable = pgTable(
   (t) => [uniqueIndex("client_orgs_slug_uq").on(t.slug)],
 );
 
-export const clientOrgMembersTable = pgTable("client_org_members", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull(),
-  userId: text("user_id").notNull(),
-  role: text("role").notNull(),
-  // Portfolio ids this member can see. Empty/null = inherit from role.
-  scope: jsonb("scope").$type<{ portfolioIds?: string[] } | null>(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const clientOrgMembersTable = pgTable(
+  "client_org_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    role: text("role").notNull(),
+    scope: jsonb("scope").$type<ClientMemberScope | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("client_org_members_org_idx").on(t.orgId),
+    uniqueIndex("client_org_members_org_user_uq").on(t.orgId, t.userId),
+  ],
+);
 
 export const clientPortfoliosTable = pgTable("client_portfolios", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -115,12 +126,16 @@ export const clientUnitsTable = pgTable(
     marketRentCents: bigint("market_rent_cents", { mode: "bigint" }).notNull(),
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
+    entrataUnitId: text("entrata_unit_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     uniqueIndex("client_units_property_number_uq").on(t.propertyId, t.unitNumber),
+    uniqueIndex("client_units_property_entrata_unit_uq")
+      .on(t.propertyId, t.entrataUnitId)
+      .where(sql`${t.entrataUnitId} IS NOT NULL`),
     index("client_units_property_idx").on(t.propertyId),
   ],
 );
@@ -146,6 +161,8 @@ export const clientTurnsTable = pgTable(
     workSource: text("work_source").$type<WorkSource>().notNull().default("third_party"),
     assignedVendorOrgId: uuid("assigned_vendor_org_id"),
     verificationHash: text("verification_hash"),
+    entrataNoticeId: text("entrata_notice_id"),
+    entrataLeaseId: text("entrata_lease_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -155,6 +172,9 @@ export const clientTurnsTable = pgTable(
   },
   (t) => [
     index("client_turns_property_status_idx").on(t.propertyId, t.status),
+    uniqueIndex("client_turns_org_notice_uq")
+      .on(t.orgId, t.entrataNoticeId)
+      .where(sql`${t.entrataNoticeId} IS NOT NULL`),
     index("client_turns_open_idx")
       .on(t.propertyId, t.actualVacateAt)
       .where(sql`${t.readyAt} IS NULL`),
@@ -413,12 +433,43 @@ export const clientScopeLinesTable = pgTable(
     uom: text("uom").notNull().default("ea"),
     unitPriceCents: bigint("unit_price_cents", { mode: "bigint" }).notNull(),
     extendedCents: bigint("extended_cents", { mode: "bigint" }).notNull(),
+    code: text("code"),
+    tier: text("tier"),
     compliance: text("compliance").notNull().default("matched"),
     varianceReason: text("variance_reason"),
     approvedBy: text("approved_by"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
   },
   (t) => [index("client_scope_lines_scope_compliance_idx").on(t.scopeId, t.compliance)],
+);
+
+export const VARIANCE_REQUEST_STATUSES = ["pending", "approved", "rejected", "countered"] as const;
+export type VarianceRequestStatus = (typeof VARIANCE_REQUEST_STATUSES)[number];
+
+export const clientVarianceRequestsTable = pgTable(
+  "client_variance_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull(),
+    scopeId: uuid("scope_id").notNull(),
+    scopeLineId: uuid("scope_line_id").notNull(),
+    turnId: uuid("turn_id").notNull(),
+    propertyId: uuid("property_id").notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").$type<VarianceRequestStatus>().notNull().default("pending"),
+    evidenceIds: jsonb("evidence_ids").$type<string[]>().notNull().default([]),
+    nearestPriceItemId: uuid("nearest_price_item_id"),
+    requestedQty: integer("requested_qty").notNull().default(1),
+    requestedUnitPriceCents: bigint("requested_unit_price_cents", { mode: "bigint" }).notNull(),
+    scheduleUnitPriceCents: bigint("schedule_unit_price_cents", { mode: "bigint" }),
+    deltaCents: bigint("delta_cents", { mode: "bigint" }).notNull().default(0n),
+    counterQty: integer("counter_qty"),
+    counterUnitPriceCents: bigint("counter_unit_price_cents", { mode: "bigint" }),
+    decidedBy: text("decided_by"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("client_variance_requests_turn_idx").on(t.turnId, t.status)],
 );
 
 export const clientTurnInvoicesTable = pgTable("client_turn_invoices", {
@@ -434,6 +485,7 @@ export const clientTurnInvoicesTable = pgTable("client_turn_invoices", {
   complianceScore: text("compliance_score"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
   entrataExportAt: timestamp("entrata_export_at", { withTimezone: true }),
+  firstPassAccepted: boolean("first_pass_accepted").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -456,32 +508,50 @@ export const clientTurnInvoiceLinesTable = pgTable("client_turn_invoice_lines", 
 
 export const clientBidRequestsTable = pgTable("client_bid_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id"),
   turnId: uuid("turn_id").notNull(),
   scopeId: uuid("scope_id").notNull(),
   propertyId: uuid("property_id").notNull(),
   dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
   status: text("status").notNull().default("open"),
+  scoreWeights: jsonb("score_weights").$type<BidScoreWeights>().notNull().default({
+    priceVsSchedule: 35,
+    onTime: 25,
+    rework: 20,
+    capacity: 20,
+  }),
+  awardedVendorOrgId: uuid("awarded_vendor_org_id"),
+  awardedAt: timestamp("awarded_at", { withTimezone: true }),
+  poPayload: jsonb("po_payload"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const clientBidInvitationsTable = pgTable("client_bid_invitations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  bidRequestId: uuid("bid_request_id").notNull(),
-  vendorOrgId: uuid("vendor_org_id").notNull(),
-  status: text("status").notNull().default("invited"),
-  viewedAt: timestamp("viewed_at", { withTimezone: true }),
-});
+export const clientBidInvitationsTable = pgTable(
+  "client_bid_invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bidRequestId: uuid("bid_request_id").notNull(),
+    vendorOrgId: uuid("vendor_org_id").notNull(),
+    status: text("status").notNull().default("invited"),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("client_bid_invitations_req_vendor_uq").on(t.bidRequestId, t.vendorOrgId)],
+);
 
-export const clientVendorBidsTable = pgTable("client_vendor_bids", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  bidRequestId: uuid("bid_request_id").notNull(),
-  vendorOrgId: uuid("vendor_org_id").notNull(),
-  totalCents: bigint("total_cents", { mode: "bigint" }).notNull(),
-  earliestStartAt: timestamp("earliest_start_at", { withTimezone: true }),
-  promisedDays: integer("promised_days"),
-  submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
-  score: integer("score"),
-});
+export const clientVendorBidsTable = pgTable(
+  "client_vendor_bids",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bidRequestId: uuid("bid_request_id").notNull(),
+    vendorOrgId: uuid("vendor_org_id").notNull(),
+    totalCents: bigint("total_cents", { mode: "bigint" }).notNull(),
+    earliestStartAt: timestamp("earliest_start_at", { withTimezone: true }),
+    promisedDays: integer("promised_days"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+    score: integer("score"),
+  },
+  (t) => [uniqueIndex("client_vendor_bids_req_vendor_uq").on(t.bidRequestId, t.vendorOrgId)],
+);
 
 export const clientVendorBidLinesTable = pgTable("client_vendor_bid_lines", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -490,6 +560,8 @@ export const clientVendorBidLinesTable = pgTable("client_vendor_bid_lines", {
   description: text("description").notNull(),
   qty: integer("qty").notNull().default(1),
   unitPriceCents: bigint("unit_price_cents", { mode: "bigint" }).notNull(),
+  extendedCents: bigint("extended_cents", { mode: "bigint" }).notNull().default(0n),
+  tier: text("tier"),
 });
 
 export const clientVendorScorecardsTable = pgTable("client_vendor_scorecards", {
@@ -525,15 +597,45 @@ export const clientCapacityDeclarationsTable = pgTable(
   ],
 );
 
-export const clientTurnForecastsTable = pgTable("client_turn_forecasts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  propertyId: uuid("property_id").notNull(),
-  weekStart: timestamp("week_start", { withTimezone: true }).notNull(),
-  projectedUnits: integer("projected_units").notNull(),
-  projectedSpendCents: bigint("projected_spend_cents", { mode: "bigint" }).notNull(),
-  confidence: text("confidence").notNull(),
-  generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const clientCapacityHoldsTable = pgTable(
+  "client_capacity_holds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bundleId: uuid("bundle_id").notNull(),
+    orgId: uuid("org_id").notNull(),
+    propertyId: uuid("property_id").notNull(),
+    unitId: uuid("unit_id").notNull(),
+    turnId: uuid("turn_id").notNull(),
+    vendorOrgId: uuid("vendor_org_id").notNull(),
+    trade: text("trade").notNull(),
+    weekStart: timestamp("week_start", { withTimezone: true }).notNull(),
+    units: integer("units").notNull().default(1),
+    status: text("status").$type<CapacityHoldStatus>().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("client_capacity_holds_turn_trade_live_uq")
+      .on(t.turnId, t.trade)
+      .where(sql`${t.status} IN ('held', 'confirmed')`),
+    index("client_capacity_holds_week_idx").on(t.weekStart, t.trade, t.status),
+  ],
+);
+
+export const clientTurnForecastsTable = pgTable(
+  "client_turn_forecasts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull(),
+    weekStart: timestamp("week_start", { withTimezone: true }).notNull(),
+    projectedUnits: integer("projected_units").notNull(),
+    projectedSpendCents: bigint("projected_spend_cents", { mode: "bigint" }).notNull(),
+    confidence: text("confidence").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("client_turn_forecasts_property_week_uq").on(t.propertyId, t.weekStart)],
+);
 
 // ── Cross-cutting ──────────────────────────────────────────────────────────
 
@@ -584,6 +686,49 @@ export const clientIdempotencyKeysTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("client_idempotency_keys_org_key_uq").on(t.orgId, t.key)],
+);
+
+export const ENTRATA_IMPORT_KINDS = ["units", "leases", "notices", "purchase_orders"] as const;
+export type EntrataImportKind = (typeof ENTRATA_IMPORT_KINDS)[number];
+
+export const clientEntrataImportsTable = pgTable(
+  "client_entrata_imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull(),
+    kind: text("kind").$type<EntrataImportKind>().notNull(),
+    filename: text("filename").notNull(),
+    sha256: text("sha256").notNull(),
+    adapter: text("adapter").notNull().default("csv"),
+    status: text("status").notNull().default("applied"),
+    createdCount: integer("created_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    errorCount: integer("error_count").notNull().default(0),
+    errors: jsonb("errors").$type<Array<{ row: number; message: string }>>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("client_entrata_imports_org_sha_uq").on(t.orgId, t.sha256),
+    index("client_entrata_imports_org_idx").on(t.orgId, t.createdAt),
+  ],
+);
+
+export const clientEntrataPurchaseOrdersTable = pgTable(
+  "client_entrata_purchase_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull(),
+    propertyId: uuid("property_id").notNull(),
+    unitId: uuid("unit_id"),
+    poNumber: text("po_number").notNull(),
+    amountCents: bigint("amount_cents", { mode: "bigint" }).notNull(),
+    glCode: text("gl_code"),
+    issuedOn: text("issued_on"),
+    invoiceId: uuid("invoice_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("client_entrata_purchase_orders_org_po_uq").on(t.orgId, t.poNumber)],
 );
 
 export type ClientOrg = typeof clientOrgsTable.$inferSelect;

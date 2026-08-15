@@ -28,6 +28,7 @@ import {
   type TurnStage,
   type StageVisit,
   type WorkSource,
+  type WorkSourceFilter,
 } from "@workspace/db";
 import { transitionTurn } from "./turnEngine";
 
@@ -197,6 +198,7 @@ export async function computePropertyTurnBoard(args: {
   propertyId: string;
   orgId: string;
   groupBy?: TurnBoardGroupBy;
+  workSource?: WorkSourceFilter;
   now?: Date;
 }): Promise<{
   propertyId: string;
@@ -250,6 +252,7 @@ export async function computePropertyTurnBoard(args: {
         eq(clientTurnsTable.orgId, args.orgId),
         eq(clientTurnsTable.propertyId, args.propertyId),
         isNull(clientTurnsTable.readyAt),
+        args.workSource && args.workSource !== "all" ? eq(clientTurnsTable.workSource, args.workSource) : undefined,
       ),
     );
 

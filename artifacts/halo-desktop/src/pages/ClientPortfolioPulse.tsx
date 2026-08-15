@@ -30,14 +30,20 @@ export default function ClientPortfolioPulse() {
     "";
 
   const view = usePulseViewQuery();
+  const attentionParams = view.params?.workSource
+    ? { workSource: view.params.workSource }
+    : undefined;
   const pulse = useGetPortfolioPulse(id || "pending", view.params, {
     query: {
       enabled: Boolean(id),
       queryKey: getGetPortfolioPulseQueryKey(id || "pending", view.params),
     },
   });
-  const attention = useGetPortfolioAttention(id || "pending", {
-    query: { enabled: Boolean(id), queryKey: getGetPortfolioAttentionQueryKey(id || "pending") },
+  const attention = useGetPortfolioAttention(id || "pending", attentionParams, {
+    query: {
+      enabled: Boolean(id),
+      queryKey: getGetPortfolioAttentionQueryKey(id || "pending", attentionParams),
+    },
   });
 
   const refetch = () => {
@@ -78,6 +84,25 @@ export default function ClientPortfolioPulse() {
         persist(pulseViewPersistBody(committed, pulse.data));
       }}
       homeHref={{ label: "HALO", onClick: () => navigate("/") }}
+      importHref={{ label: "Entrata CSV", onClick: () => navigate("/imports") }}
+      costHref={{
+        label: "How work gets done",
+        onClick: () => navigate(id ? `/how-work?id=${id}` : "/how-work"),
+      }}
+      pipelineHref={{
+        label: "Pipeline",
+        onClick: () => navigate(id ? `/board/pipeline?id=${id}` : "/board/pipeline"),
+      }}
+      workSource={view.params?.workSource ?? "all"}
+      onWorkSourceChange={(next) => {
+        view.commitWorkSource(next, {
+          range: view.params?.range ?? pulse.data?.range ?? "this_month",
+          sort: view.params?.sort ?? pulse.data?.sort ?? "vacancy_cost",
+          from: view.params?.from ?? pulse.data?.from,
+          to: view.params?.to ?? pulse.data?.to,
+          workSource: next,
+        });
+      }}
       portfolios={portfolios}
       selectedPortfolioId={id}
       onPortfolioChange={(next) => navigate(`/portfolio?id=${next}`)}

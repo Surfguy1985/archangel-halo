@@ -5,10 +5,16 @@ import type {
   TurnDetailDocument,
   TurnActionDocument,
   TurnRingArcDocument,
+  TurnEvidenceDocument,
+  TurnVerifyDocument,
+  TurnScopeDocument,
+  WorkSourceFilter,
 } from "@workspace/api-client-react";
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { TurnRing, confidenceGlyph } from "./TurnRing";
 import { actorLabel, formatStageClock, ownerLabel } from "./clock";
+import { EvidenceLedger, type EvidenceRecordVariant } from "./EvidenceLedger";
+import { ScopeCompliance, type ScopeComplianceProps } from "./ScopeCompliance";
 
 const INK = "#07101E";
 const LIME = "#B4FF44";
@@ -19,6 +25,12 @@ const MUTED = "rgba(255,255,255,0.58)";
 const DISPLAY = '"Outfit", "Plus Jakarta Sans", sans-serif';
 const BODY = '"Plus Jakarta Sans", "Outfit", sans-serif';
 const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+
+const SOURCES: Array<{ id: WorkSourceFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "in_house", label: "In-house" },
+  { id: "third_party", label: "Third-party" },
+];
 
 const GROUPS: Array<{ id: TurnBoardGroupBy; label: string }> = [
   { id: "stage", label: "By stage" },
@@ -65,9 +77,25 @@ export type TurnBoardProps = {
   streamUrl: string | null;
   onRefetch: () => void;
   onGroupBy: (groupBy: TurnBoardGroupBy) => void;
+  workSource?: WorkSourceFilter;
+  onWorkSourceChange?: (next: WorkSourceFilter) => void;
   onOpenTurn: (turnId: string) => void;
   onCloseDetail: () => void;
   onAction: (action: TurnActionDocument["id"]) => void | Promise<void>;
+  evidence?: TurnEvidenceDocument;
+  verify?: TurnVerifyDocument;
+  onDownloadRecord?: (variant: EvidenceRecordVariant) => void | Promise<void>;
+  onVerify?: () => void | Promise<void>;
+  evidenceLoading?: boolean;
+  scope?: TurnScopeDocument;
+  scopeLoading?: boolean;
+  onAddScopeLine?: ScopeComplianceProps["onAddLine"];
+  onCreateInvoice?: ScopeComplianceProps["onInvoice"];
+  onVarianceRequest?: ScopeComplianceProps["onVarianceRequest"];
+  onVarianceDecide?: ScopeComplianceProps["onVarianceDecide"];
+  onExportInvoice?: ScopeComplianceProps["onExport"];
+  onCreateBidRequest?: ScopeComplianceProps["onCreateBidRequest"];
+  onOpenBidBoard?: ScopeComplianceProps["onOpenBidBoard"];
   isLoading?: boolean;
   errorMessage?: string;
   homeHref?: { label: string; onClick: () => void };
@@ -99,7 +127,7 @@ export function TurnBoard(props: TurnBoardProps) {
   useEffect(() => {
     if (!props.detail) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onCloseDetail();
+      if (e.key === "Escape" && !e.defaultPrevented) props.onCloseDetail();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -181,6 +209,30 @@ export function TurnBoard(props: TurnBoardProps) {
               );
             })}
           </div>
+          {props.onWorkSourceChange ? (
+            <div role="tablist" aria-label="Work source" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {SOURCES.map((s) => {
+                const active = (props.workSource ?? "all") === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => props.onWorkSourceChange?.(s.id)}
+                    style={{
+                      ...chipBtn,
+                      background: active ? LIME : "transparent",
+                      color: active ? INK : "#F4F7F2",
+                      borderColor: active ? LIME : HAIRLINE,
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <span style={livePill} aria-live="polite">
             <span
               style={{
@@ -317,7 +369,7 @@ export function TurnBoard(props: TurnBoardProps) {
               position: "fixed",
               top: 0,
               right: 0,
-              width: "min(480px, 100vw)",
+              width: "min(560px, 100vw)",
               height: "100dvh",
               background: "#0A1220",
               borderLeft: `1px solid ${HAIRLINE}`,
@@ -360,9 +412,34 @@ export function TurnBoard(props: TurnBoardProps) {
             />
 
             <h3 style={sectionH}>Evidence</h3>
-            <p style={{ color: MUTED, fontSize: 13 }}>{props.detail.evidencePlaceholder}</p>
+            {props.onDownloadRecord ? (
+              <EvidenceLedger
+                evidence={props.evidence}
+                verify={props.verify}
+                loading={props.evidenceLoading}
+                onDownloadRecord={props.onDownloadRecord}
+                onVerify={props.onVerify}
+              />
+            ) : (
+              <p style={{ color: MUTED, fontSize: 13 }}>{props.detail.evidencePlaceholder}</p>
+            )}
             <h3 style={sectionH}>Scope and pricing</h3>
-            <p style={{ color: MUTED, fontSize: 13 }}>{props.detail.scopePlaceholder}</p>
+            {props.onCreateInvoice && props.onAddScopeLine && props.onVarianceRequest && props.onVarianceDecide && props.onExportInvoice ? (
+              <ScopeCompliance
+                scope={props.scope}
+                loading={props.scopeLoading}
+                onAddLine={props.onAddScopeLine}
+                onInvoice={props.onCreateInvoice}
+                onVarianceRequest={props.onVarianceRequest}
+                onVarianceDecide={props.onVarianceDecide}
+                onExport={props.onExportInvoice}
+                bidRequestId={props.scope?.bidRequestId}
+                onCreateBidRequest={props.onCreateBidRequest}
+                onOpenBidBoard={props.onOpenBidBoard}
+              />
+            ) : (
+              <p style={{ color: MUTED, fontSize: 13 }}>{props.detail.scopePlaceholder}</p>
+            )}
 
             <h3 style={sectionH}>Activity</h3>
             <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>

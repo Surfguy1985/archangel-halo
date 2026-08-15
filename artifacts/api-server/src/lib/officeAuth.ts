@@ -194,13 +194,33 @@ const WALK_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
 const DEMO_ACTION_RE = /^\/admin\/accounts\/([^/]+)\/board\/actions$/;
 
 export function isPublicApiPath(path: string): boolean {
+  if (/^\/v1\/records\/[^/]+\/file$/.test(path)) return true;
+  if (/^\/v1\/evidence\/[^/]+\/file$/.test(path)) return true;
   return PUBLIC_PREFIXES.some((p) => path.startsWith(p));
 }
 
-export function isIdentityExemptPath(path: string, method: string): boolean {
+/** Invited vendor submitting via x-halo-vendor-org-id — not an office session. */
+export function isVendorBidAuth(req: {
+  method?: string;
+  path: string;
+  headers: { [key: string]: string | string[] | undefined };
+}): boolean {
+  if ((req.method ?? "GET").toUpperCase() !== "POST") return false;
+  if (!/^\/v1\/bid-requests\/[^/]+\/bids$/.test(req.path)) return false;
+  const raw = req.headers["x-halo-vendor-org-id"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function isIdentityExemptPath(
+  path: string,
+  method: string,
+  headers?: { [key: string]: string | string[] | undefined },
+): boolean {
   if (isPublicApiPath(path)) return true;
   if (WALK_RE.test(path)) return true;
   if ((method === "GET" || method === "HEAD") && path === "/presentation/demo") return true;
+  if (headers && isVendorBidAuth({ method, path, headers })) return true;
   return false;
 }
 
@@ -209,6 +229,7 @@ export function officeGuard() {
     if (req.method === "OPTIONS") return next();
     const path = req.path;
     if (isPublicApiPath(path)) return next();
+    if (isVendorBidAuth(req)) return next();
     // Enforcer bearer tokens are verified by enforcerGuard — do not require
     // the office cookie when a Bearer credential is present.
     const authz = req.headers.authorization;

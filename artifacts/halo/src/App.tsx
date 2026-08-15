@@ -29,6 +29,10 @@ import HaloCommand from "./pages/HaloCommand";
 import PropertyPulse from "./pages/PropertyPulse";
 import ClientPortfolioPulse from "./pages/ClientPortfolioPulse";
 import PropertyTurnBoard from "./pages/PropertyTurnBoard";
+import EntrataImportPage from "./pages/EntrataImport";
+import CostToServePage from "./pages/CostToServe";
+import BidBoardPage from "./pages/BidBoard";
+import TurnPipelinePage from "./pages/TurnPipeline";
 import { OfficeGate } from "./components/OfficeGate";
 import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
@@ -142,6 +146,30 @@ function App() {
             <Route path="/portfolio">
               <OfficeGate>
                 <ClientPortfolioPulse />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/imports">
+              <OfficeGate>
+                <EntrataImportPage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/how-work">
+              <OfficeGate>
+                <CostToServePage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/board/pipeline">
+              <OfficeGate>
+                <TurnPipelinePage />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/bid-requests/:id">
+              <OfficeGate>
+                <BidBoardPage />
               </OfficeGate>
             </Route>
 

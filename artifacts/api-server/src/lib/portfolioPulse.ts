@@ -25,7 +25,13 @@ import {
   calendarDaysBetween,
   vacancyCostCents,
   type TurnStage,
+  type WorkSourceFilter,
+  clientScopeLinesTable,
+  clientScopesTable,
+  clientVarianceRequestsTable,
 } from "@workspace/db";
+import { isClientBoardSegmentEnabled } from "./clientBoardFlags";
+import { complianceStats } from "./turnInvoice";
 
 export const PULSE_VIEW_NAME = "pulse";
 
@@ -38,6 +44,7 @@ export type PulseQuery = {
   from?: string | null;
   to?: string | null;
   sort?: PulseTileSort;
+  workSource?: WorkSourceFilter;
 };
 
 export type PulseWindow = {
@@ -520,7 +527,7 @@ export async function resolvePortfolioForProperty(propertyId: string): Promise<{
   return { portfolioId: link.portfolioId, orgId: link.orgId };
 }
 
-async function loadPortfolio(portfolioId: string): Promise<{
+export async function loadPortfolio(portfolioId: string): Promise<{
   id: string;
   name: string;
   orgId: string;
@@ -547,7 +554,8 @@ export async function computePortfolioPulse(args: {
   query: PulseQuery;
   hrefForProperty: PulseHrefForProperty;
   now?: Date;
-}): Promise<ReturnType<typeof shapePulse>> {
+  allowedPropertyIds?: string[] | null;
+}): Promise<ReturnType<typeof shapePulse> & { compliance?: Awaited<ReturnType<typeof complianceStats>> }> {
   const portfolio = await loadPortfolio(args.portfolioId);
   if (portfolio.orgId !== args.orgId) throw new PortfolioNotFoundError();
   const now = args.now ?? new Date();
@@ -570,8 +578,14 @@ export async function computePortfolioPulse(args: {
     )
     .where(eq(clientPortfolioPropertiesTable.portfolioId, args.portfolioId));
 
-  const propertyIds = linked.map((p) => p.propertyId);
-  const propertyById = new Map(linked.map((p) => [p.propertyId, p]));
+  const linkedFiltered =
+    args.allowedPropertyIds && args.allowedPropertyIds.length > 0
+      ? linked.filter((p) => args.allowedPropertyIds!.includes(p.propertyId))
+      : args.allowedPropertyIds
+        ? []
+        : linked;
+  const propertyIds = linkedFiltered.map((p) => p.propertyId);
+  const propertyById = new Map(linkedFiltered.map((p) => [p.propertyId, p]));
   const empty = shapePulse({
     portfolio,
     window,
@@ -579,7 +593,7 @@ export async function computePortfolioPulse(args: {
     supporting: {
       unitsInTurn: 0,
       medianTurnDays: null,
-      targetTurnDays: linked[0]?.targetTurnDays ?? 7,
+      targetTurnDays: linkedFiltered[0]?.targetTurnDays ?? 7,
       predictedLateThisWeek: 0,
     },
     headlineCents: 0n,
@@ -612,6 +626,11 @@ export async function computePortfolioPulse(args: {
     sql`, `,
   );
 
+  const workSourceSql =
+    args.query.workSource && args.query.workSource !== "all"
+      ? sql`AND t.work_source = ${args.query.workSource}`
+      : sql``;
+
   const [aggResult, overTarget] = await Promise.all([
     db.execute(sql`
       WITH filtered AS (
@@ -630,6 +649,7 @@ export async function computePortfolioPulse(args: {
         WHERE t.org_id = ${args.orgId}::uuid
           AND t.property_id IN (${propertyIdList})
           AND (t.ready_at IS NULL OR t.ready_at >= ${cutoff})
+          ${workSourceSql}
       )
       SELECT
         property_id AS "propertyId",
@@ -683,6 +703,9 @@ export async function computePortfolioPulse(args: {
             and(isNotNull(clientTurnsTable.targetReadyAt), lt(clientTurnsTable.targetReadyAt, now)),
             and(isNull(clientTurnsTable.targetReadyAt), isNotNull(clientTurnsTable.actualVacateAt), lt(clientTurnsTable.actualVacateAt, now)),
           ),
+          args.query.workSource && args.query.workSource !== "all"
+            ? eq(clientTurnsTable.workSource, args.query.workSource)
+            : undefined,
         ),
       ),
   ]);
@@ -753,7 +776,7 @@ export async function computePortfolioPulse(args: {
     return a.vacancyCostCents > b.vacancyCostCents ? -1 : 1;
   });
 
-  return shapePulse({
+  const pulse = shapePulse({
     portfolio,
     window,
     sort,
@@ -767,6 +790,13 @@ export async function computePortfolioPulse(args: {
     priorCents,
     tiles,
   });
+  if (await isClientBoardSegmentEnabled("invoiceCompliance")) {
+    return {
+      ...pulse,
+      compliance: await complianceStats({ orgId: args.orgId, propertyIds }),
+    };
+  }
+  return pulse;
 }
 
 function shapePulse(args: {
@@ -829,10 +859,12 @@ export async function computePortfolioAttention(args: {
   portfolioId: string;
   orgId: string;
   hrefForProperty: PulseHrefForProperty;
+  workSource?: WorkSourceFilter;
+  allowedPropertyIds?: string[] | null;
 }): Promise<{
   portfolioId: string;
   groups: Array<{
-    kind: "stalled" | "awaiting_approval" | "failed_qc" | "blocked_invoices";
+    kind: "stalled" | "awaiting_approval" | "failed_qc" | "blocked_invoices" | "variance_pending";
     title: string;
     summary: string;
     items: Array<{
@@ -860,8 +892,14 @@ export async function computePortfolioAttention(args: {
     )
     .where(eq(clientPortfolioPropertiesTable.portfolioId, args.portfolioId));
 
-  const propertyIds = linked.map((p) => p.propertyId);
-  const names = new Map(linked.map((p) => [p.propertyId, p.name]));
+  const linkedFiltered =
+    args.allowedPropertyIds && args.allowedPropertyIds.length > 0
+      ? linked.filter((p) => args.allowedPropertyIds!.includes(p.propertyId))
+      : args.allowedPropertyIds
+        ? []
+        : linked;
+  const propertyIds = linkedFiltered.map((p) => p.propertyId);
+  const names = new Map(linkedFiltered.map((p) => [p.propertyId, p.name]));
   if (propertyIds.length === 0) {
     return { portfolioId: args.portfolioId, groups: [] };
   }
@@ -873,6 +911,7 @@ export async function computePortfolioAttention(args: {
       unitId: clientTurnsTable.unitId,
       status: clientTurnsTable.status,
       readyAt: clientTurnsTable.readyAt,
+      workSource: clientTurnsTable.workSource,
     })
     .from(clientTurnsTable)
     .where(
@@ -880,6 +919,7 @@ export async function computePortfolioAttention(args: {
         eq(clientTurnsTable.orgId, args.orgId),
         inArray(clientTurnsTable.propertyId, propertyIds),
         isNull(clientTurnsTable.readyAt),
+        args.workSource && args.workSource !== "all" ? eq(clientTurnsTable.workSource, args.workSource) : undefined,
       ),
     );
   const metrics = open.length
@@ -930,7 +970,7 @@ export async function computePortfolioAttention(args: {
   const failedQc = open.filter((t) => t.status === "rework").map(toItem);
 
   const groups: Array<{
-    kind: "stalled" | "awaiting_approval" | "failed_qc" | "blocked_invoices";
+    kind: "stalled" | "awaiting_approval" | "failed_qc" | "blocked_invoices" | "variance_pending";
     title: string;
     summary: string;
     items: ReturnType<typeof toItem>[];
@@ -961,6 +1001,74 @@ export async function computePortfolioAttention(args: {
       summary: `${failedQc.length} unit${failedQc.length === 1 ? "" : "s"} in rework`,
       items: failedQc,
     });
+  }
+
+  if (await isClientBoardSegmentEnabled("invoiceCompliance") && open.length) {
+    const blockedRows = await db
+      .select({
+        turnId: clientTurnsTable.id,
+        propertyId: clientTurnsTable.propertyId,
+        unitId: clientTurnsTable.unitId,
+      })
+      .from(clientScopeLinesTable)
+      .innerJoin(clientScopesTable, eq(clientScopesTable.id, clientScopeLinesTable.scopeId))
+      .innerJoin(clientTurnsTable, eq(clientTurnsTable.id, clientScopesTable.turnId))
+      .where(
+        and(
+          inArray(clientTurnsTable.id, open.map((t) => t.id)),
+          inArray(clientScopeLinesTable.compliance, ["off_schedule", "variance_pending"]),
+        ),
+      );
+    const seen = new Set<string>();
+    const blockedItems = blockedRows
+      .filter((r) => {
+        if (seen.has(r.turnId)) return false;
+        seen.add(r.turnId);
+        return true;
+      })
+      .map((r) => {
+        const t = open.find((o) => o.id === r.turnId);
+        return t ? toItem(t) : null;
+      })
+      .filter((x): x is ReturnType<typeof toItem> => Boolean(x));
+    if (blockedItems.length) {
+      groups.push({
+        kind: "blocked_invoices",
+        title: "Blocked invoices",
+        summary: `${blockedItems.length} scope${blockedItems.length === 1 ? "" : "s"} cannot bill until variance is resolved`,
+        items: blockedItems,
+      });
+    }
+    const pending = await db
+      .select({ turnId: clientVarianceRequestsTable.turnId })
+      .from(clientVarianceRequestsTable)
+      .where(
+        and(
+          eq(clientVarianceRequestsTable.orgId, args.orgId),
+          eq(clientVarianceRequestsTable.status, "pending"),
+          inArray(clientVarianceRequestsTable.turnId, open.map((t) => t.id)),
+        ),
+      );
+    const vSeen = new Set<string>();
+    const vItems = pending
+      .filter((r) => {
+        if (vSeen.has(r.turnId)) return false;
+        vSeen.add(r.turnId);
+        return true;
+      })
+      .map((r) => {
+        const t = open.find((o) => o.id === r.turnId);
+        return t ? toItem(t) : null;
+      })
+      .filter((x): x is ReturnType<typeof toItem> => Boolean(x));
+    if (vItems.length) {
+      groups.push({
+        kind: "variance_pending",
+        title: "Variance waiting on you",
+        summary: `${vItems.length} pre-approval request${vItems.length === 1 ? "" : "s"}`,
+        items: vItems,
+      });
+    }
   }
 
   return { portfolioId: args.portfolioId, groups };

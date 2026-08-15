@@ -70,17 +70,25 @@ describe("Stage ownership seed", () => {
     }
   });
 
-  it("ships dataModel, turnEngine, pulse, propertyBoard, and evidence on; later UI segments stay dark", () => {
+  it("ships dataModel, turnEngine, pulse, propertyBoard, evidence, invoiceCompliance, csvImport, workSource, and bidBoard on; later UI segments stay dark", () => {
     expect(CLIENT_BOARD_FLAG_DEFAULTS.dataModel).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.turnEngine).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.pulse).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.propertyBoard).toBe(true);
     expect(CLIENT_BOARD_FLAG_DEFAULTS.evidence).toBe(true);
-    expect(CLIENT_BOARD_FLAG_DEFAULTS.invoiceCompliance).toBe(false);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.invoiceCompliance).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.csvImport).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.workSource).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.bidBoard).toBe(true);
+    expect(CLIENT_BOARD_FLAG_DEFAULTS.realtime).toBe(false);
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('dataModel', true)");
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('turnEngine', true)");
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('pulse', true)");
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('propertyBoard', true)");
     expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('evidence', true)");
+    expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('invoiceCompliance', true)");
+    expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('csvImport', true)");
+    expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('workSource', true)");
+    expect(CLIENT_BOARD_FLAGS_SEED_SQL).toContain("('bidBoard', true)");
   });
 });

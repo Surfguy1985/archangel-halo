@@ -30,16 +30,21 @@ import {
   clientVendorScorecardsTable,
   clientCapacityDeclarationsTable,
   clientAuditLogTable,
+  clientEvidenceItemsTable,
+  clientGpsEventsTable,
   STAGE_OWNERSHIP_SEED,
   mulCents,
   yymmddInZone,
+  formatInvoiceNumber,
   startOfWeekMondayInZone,
   addCivilDaysInZone,
+  sha256Hex,
   type TurnStage,
   type WorkSource,
 } from "@workspace/db";
 import { ensureClientBoardSchema } from "./ensureClientBoardSchema";
 import { logger } from "./logger";
+import { createBidRequest, inviteVendors, submitVendorBid } from "./bidBoard";
 
 export const CAF_SEED_BRIEF = "CAF_CLIENT_BOARD_SEED_v1";
 export const CAF_SEED_NAME_PREFIX = "CAF Demo — ";
@@ -66,7 +71,27 @@ const PRICE_BOOK: {
   { code: "APPL-WIPE", description: "Appliance wipe-down", category: "Clean", unitPriceCents: 3500n, tier: null },
   { code: "CARPET-STEAM", description: "Carpet steam clean", category: "Clean", unitPriceCents: 12000n, tier: null },
   { code: "TUB-REGROUT", description: "Tub / surround regrout", category: "Punch", unitPriceCents: 14500n, tier: null },
+  { code: "TOILET-SEAT", description: "Toilet seat replace", category: "Punch", unitPriceCents: 4200n, tier: null },
+  { code: "OUTLET-COVER", description: "Outlet cover replace", category: "Punch", unitPriceCents: 1500n, tier: null },
+  { code: "CAULK-KITCHEN", description: "Kitchen backsplash recaulk", category: "Punch", unitPriceCents: 3800n, tier: null },
+  { code: "SCREEN-REPAIR", description: "Window screen repair", category: "Punch", unitPriceCents: 2800n, tier: null },
 ];
+
+function uniquePriceBook(tier: string) {
+  const seen = new Set<string>();
+  const out: typeof PRICE_BOOK = [];
+  for (const item of PRICE_BOOK) {
+    if (item.code === "PAINT-WALLS" && item.tier !== tier) continue;
+    if (seen.has(item.code)) continue;
+    seen.add(item.code);
+    out.push(item);
+  }
+  return out;
+}
+
+function bumpCents(cents: bigint, pct: number): bigint {
+  return cents + (cents * BigInt(pct)) / 100n;
+}
 
 type Rng = () => number;
 
@@ -140,6 +165,11 @@ async function teardownSeedProperties(): Promise<void> {
       SELECT id FROM client_turn_invoices WHERE turn_id IN (SELECT id FROM client_turns WHERE property_id IN (${inProps})))`);
     await tx.execute(sql`DELETE FROM client_turn_invoices WHERE turn_id IN (
       SELECT id FROM client_turns WHERE property_id IN (${inProps}))`);
+    await tx.execute(sql`DELETE FROM client_entrata_purchase_orders WHERE property_id IN (${inProps})`);
+    await tx.execute(sql`DELETE FROM client_entrata_imports WHERE org_id IN (
+      SELECT client_org_id FROM properties WHERE id IN (${inProps}))`);
+    await tx.execute(sql`DELETE FROM client_variance_requests WHERE turn_id IN (
+      SELECT id FROM client_turns WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_scope_lines WHERE scope_id IN (
       SELECT id FROM client_scopes WHERE turn_id IN (SELECT id FROM client_turns WHERE property_id IN (${inProps})))`);
     await tx.execute(sql`DELETE FROM client_scopes WHERE turn_id IN (
@@ -169,7 +199,10 @@ async function teardownSeedProperties(): Promise<void> {
       SELECT id FROM client_price_lists WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_price_lists WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_vendor_scorecards WHERE property_id IN (${inProps})`);
+    await tx.execute(sql`DELETE FROM client_capacity_holds WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_turn_forecasts WHERE property_id IN (${inProps})`);
+    await tx.execute(sql`DELETE FROM client_capacity_declarations WHERE vendor_org_id IN (
+      SELECT id FROM client_orgs WHERE slug IN ('archangel-vendor', 'ctb-multifamily', 'summit-turn', 'prairie-star'))`);
     await tx.execute(sql`DELETE FROM client_units WHERE property_id IN (${inProps})`);
     await tx.execute(sql`DELETE FROM client_portfolio_properties WHERE property_id IN (${inProps})`);
     await tx.delete(propertiesTable).where(
@@ -186,13 +219,20 @@ async function upsertOrg(input: {
   type: "pm_company" | "vendor";
   timezone: string;
   slug: string;
+  crewPortalComp?: boolean;
 }) {
+  const crewPortalComp = input.crewPortalComp ?? false;
   const [row] = await db
     .insert(clientOrgsTable)
-    .values(input)
+    .values({ ...input, crewPortalComp })
     .onConflictDoUpdate({
       target: clientOrgsTable.slug,
-      set: { name: input.name, type: input.type, timezone: input.timezone },
+      set: {
+        name: input.name,
+        type: input.type,
+        timezone: input.timezone,
+        crewPortalComp,
+      },
     })
     .returning();
   return row!;
@@ -289,6 +329,7 @@ export async function seedClientBoard(opts?: {
     type: "vendor",
     timezone: "America/Chicago",
     slug: "ctb-multifamily",
+    crewPortalComp: true,
   });
   const vendorB = await upsertOrg({
     name: "Summit Turn Services",
@@ -303,10 +344,15 @@ export async function seedClientBoard(opts?: {
     slug: "prairie-star",
   });
 
-  await db.delete(clientOrgMembersTable).where(eq(clientOrgMembersTable.orgId, caf.id));
+  await db.delete(clientOrgMembersTable).where(
+    inArray(clientOrgMembersTable.orgId, [caf.id, archangel.id, ctb.id, vendorB.id, vendorC.id]),
+  );
   await db.insert(clientOrgMembersTable).values([
     { orgId: caf.id, userId: "seed:regional.north", role: "regional_manager", scope: null },
     { orgId: caf.id, userId: "seed:asset.manager", role: "asset_manager", scope: null },
+    { orgId: archangel.id, userId: "seed:vendor.archangel", role: "vendor_admin", scope: null },
+    { orgId: vendorB.id, userId: "seed:vendor.summit", role: "vendor_admin", scope: null },
+    { orgId: vendorC.id, userId: "seed:vendor.prairie", role: "vendor_admin", scope: null },
   ]);
 
   await db.delete(clientPortfoliosTable).where(eq(clientPortfoliosTable.orgId, caf.id));
@@ -333,8 +379,17 @@ export async function seedClientBoard(opts?: {
   let openTurns = 0;
   let reworkTurns = 0;
   let bottleneckTurns = 0;
+  let palomaId = "";
+  let redbudId = "";
 
   const eventsBatch: (typeof clientTurnStageEventsTable.$inferInsert)[] = [];
+  const evidenceTurns: Array<{
+    turnId: string;
+    unitId: string;
+    lat: number;
+    lng: number;
+    at: Date;
+  }> = [];
 
   await db.execute(
     sql`ALTER TABLE client_turn_stage_events DISABLE TRIGGER client_turn_stage_events_refresh_metrics`,
@@ -365,6 +420,8 @@ export async function seedClientBoard(opts?: {
         })
         .returning();
       if (!property) throw new Error("failed to insert seed property");
+      if (pIdx === 0) palomaId = property.id;
+      if (pIdx === 2) redbudId = property.id;
 
       await db.insert(clientPortfolioPropertiesTable).values({
         portfolioId: portfolio!.id,
@@ -398,6 +455,8 @@ export async function seedClientBoard(opts?: {
         id: string;
         bedrooms: number;
         unitNumber: string;
+        latitude: number;
+        longitude: number;
       }[] = [];
       for (let u = 0; u < 40; u++) {
         const bedrooms = (u % 3) + 1;
@@ -416,7 +475,13 @@ export async function seedClientBoard(opts?: {
             longitude: spec.longitude + Math.floor(u / 8) * 0.00018,
           })
           .returning();
-        units.push({ id: row!.id, bedrooms, unitNumber });
+        units.push({
+          id: row!.id,
+          bedrooms,
+          unitNumber,
+          latitude: spec.latitude + (u % 8) * 0.00015,
+          longitude: spec.longitude + Math.floor(u / 8) * 0.00018,
+        });
         unitCount++;
       }
 
@@ -496,11 +561,15 @@ export async function seedClientBoard(opts?: {
           reworkLoops,
         );
         // pending_approval is index 4; cut there so the client-owned wait is visible.
-        const cutAt = bottleneck
-          ? 5
-          : isOpen
-            ? 2 + Math.floor(rng() * 7)
-            : spans.length;
+        // Paloma's second open turn is the 14-line bid board demo — stop at approved.
+        const isBidDemo = spec.name.includes("Paloma Creek") && isOpen && t === completedCount + 1;
+        const cutAt = isBidDemo
+          ? 6
+          : bottleneck
+            ? 5
+            : isOpen
+              ? 2 + Math.floor(rng() * 7)
+              : spans.length;
 
         const vacateOffsetDays = bottleneck
           ? 6 + Math.floor(rng() * 6)
@@ -520,6 +589,11 @@ export async function seedClientBoard(opts?: {
             ? addMs(actualVacate, activeSpans.slice(1).reduce((s, x) => s + x.ms, 0))
             : null;
 
+        const onSchedule = isOpen || rng() >= 0.2;
+        const scheduledVacateAt = onSchedule
+          ? actualVacate
+          : addMs(actualVacate, (rng() < 0.5 ? -2 : 2) * DAY_MS);
+
         const [turn] = await db
           .insert(clientTurnsTable)
           .values({
@@ -528,7 +602,7 @@ export async function seedClientBoard(opts?: {
             orgId: caf.id,
             status: lastStage,
             noticeGivenAt,
-            scheduledVacateAt: actualVacate,
+            scheduledVacateAt,
             actualVacateAt: actualVacate,
             readyAt,
             nextMoveInAt: readyAt ? addMs(readyAt, 2 * DAY_MS) : addMs(targetReadyAt, 2 * DAY_MS),
@@ -536,12 +610,25 @@ export async function seedClientBoard(opts?: {
             predictedReadyAt: readyAt ?? addMs(now, (3 + Math.floor(rng() * 6)) * DAY_MS),
             predictionConfidence: "medium",
             workSource: spec.workSource,
-            assignedVendorOrgId: vendorOrgId,
+            assignedVendorOrgId: isBidDemo ? null : vendorOrgId,
           })
           .returning();
         if (!turn) throw new Error("failed to insert turn");
         turnCount++;
         if (isOpen) openTurns++;
+        if (
+          (spec.name.includes("Desert Sage") && t === 0) ||
+          bottleneck ||
+          (spec.name.includes("Redbud") && isOpen && t === completedCount)
+        ) {
+          evidenceTurns.push({
+            turnId: turn.id,
+            unitId: unit.id,
+            lat: unit.latitude,
+            lng: unit.longitude,
+            at: addMs(actualVacate, 6 * HOUR_MS),
+          });
+        }
 
         for (let s = 0; s < activeSpans.length; s++) {
           const span = activeSpans[s]!;
@@ -593,6 +680,8 @@ export async function seedClientBoard(opts?: {
           const scopeLines = lines.map((item) => ({
             scopeId: scope!.id,
             description: item.description,
+            code: item.code,
+            tier: item.tier,
             qty: 1,
             uom: "ea",
             unitPriceCents: item.unitPriceCents,
@@ -602,12 +691,18 @@ export async function seedClientBoard(opts?: {
           await db.insert(clientScopeLinesTable).values(scopeLines);
           const subtotal = scopeLines.reduce((s, l) => s + l.extendedCents, 0n);
           const ymd = yymmddInZone(actualVacate, spec.timezone);
+          const propertyCode = property.entrataPropertyId || "PROP";
           const [invoice] = await db
             .insert(clientTurnInvoicesTable)
             .values({
               turnId: turn.id,
               scopeId: scope!.id,
-              invoiceNumber: `CAF${pIdx + 1}-${unit.unitNumber}-${ymd}-${String(t + 1).padStart(3, "0")}`,
+              invoiceNumber: formatInvoiceNumber({
+                propertyCode,
+                unitNumber: unit.unitNumber,
+                yymmdd: ymd,
+                seq: t + 1,
+              }),
               poNumber: `PO-${unit.unitNumber}-${ymd}`,
               status: "submitted",
               subtotalCents: subtotal,
@@ -615,6 +710,7 @@ export async function seedClientBoard(opts?: {
               totalCents: subtotal,
               complianceScore: "3/3",
               submittedAt: readyAt,
+              firstPassAccepted: true,
             })
             .returning();
           await db.insert(clientTurnInvoiceLinesTable).values(
@@ -631,7 +727,138 @@ export async function seedClientBoard(opts?: {
               sortOrder: i,
             })),
           );
+        } else if (spec.name.includes("Paloma Creek") && isOpen && t === completedCount) {
+          const tier = unit.bedrooms === 1 ? "1br" : unit.bedrooms === 2 ? "2br" : "3br";
+          const paint = PRICE_BOOK.find((i) => i.code === "PAINT-WALLS" && i.tier === tier)!;
+          const [scope] = await db
+            .insert(clientScopesTable)
+            .values({
+              turnId: turn.id,
+              status: "draft",
+              createdBy: "seed:crew.lead",
+            })
+            .returning();
+          await db.insert(clientScopeLinesTable).values([
+            {
+              scopeId: scope!.id,
+              description: paint.description,
+              code: paint.code,
+              tier: paint.tier,
+              qty: 1,
+              uom: "ea",
+              unitPriceCents: paint.unitPriceCents,
+              extendedCents: mulCents(paint.unitPriceCents, 1),
+              compliance: "matched",
+            },
+            {
+              scopeId: scope!.id,
+              description: "Marble counter upgrade",
+              code: "MARBLE-UP",
+              tier: null,
+              qty: 1,
+              uom: "ea",
+              unitPriceCents: 89000n,
+              extendedCents: 89000n,
+              compliance: "off_schedule",
+            },
+          ]);
+        } else if (spec.name.includes("Paloma Creek") && isOpen && t === completedCount + 1) {
+          const tier = unit.bedrooms === 1 ? "1br" : unit.bedrooms === 2 ? "2br" : "3br";
+          const book = uniquePriceBook(tier);
+          const [scope] = await db
+            .insert(clientScopesTable)
+            .values({
+              turnId: turn.id,
+              status: "draft",
+              createdBy: "seed:crew.lead",
+            })
+            .returning();
+          await db.insert(clientScopeLinesTable).values(
+            book.map((item) => ({
+              scopeId: scope!.id,
+              description: item.description,
+              code: item.code,
+              tier: item.tier,
+              qty: 1,
+              uom: "ea",
+              unitPriceCents: item.unitPriceCents,
+              extendedCents: mulCents(item.unitPriceCents, 1),
+              compliance: "matched",
+            })),
+          );
+          const published = await createBidRequest({
+            scopeId: scope!.id,
+            orgId: caf.id,
+            actorId: "seed:regional.north",
+            dueAt: addMs(now, 14 * DAY_MS),
+          });
+          await inviteVendors({
+            bidRequestId: published.id,
+            orgId: caf.id,
+            actorId: "seed:regional.north",
+            vendorOrgIds: [archangel.id, vendorB.id, vendorC.id],
+          });
+          const bidders = [
+            { id: archangel.id, pct: 0, days: 5 },
+            { id: vendorB.id, pct: 10, days: 7 },
+            { id: vendorC.id, pct: 20, days: 10 },
+          ];
+          for (const bidder of bidders) {
+            await submitVendorBid({
+              bidRequestId: published.id,
+              orgId: caf.id,
+              vendorOrgId: bidder.id,
+              actorId: `seed:vendor.${bidder.id.slice(0, 8)}`,
+              earliestStartAt: addMs(now, bidder.days * DAY_MS),
+              promisedDays: bidder.days,
+              lines: book.map((item) => ({
+                code: item.code,
+                tier: item.tier,
+                unitPriceCents: bumpCents(item.unitPriceCents, bidder.pct),
+              })),
+            });
+          }
         }
+      }
+
+      const leftovers = units.map((_, i) => i).filter((i) => !usedUnits.has(i));
+      const pipeMonday = startOfWeekMondayInZone(now, spec.timezone);
+      for (let n = 0; n < leftovers.length; n++) {
+        const unit = units[leftovers[n]!]!;
+        const weekOffset = spec.name.includes("Paloma") ? 2 : n === 0 ? 4 : 7;
+        const vacateAt = addCivilDaysInZone(pipeMonday, weekOffset * 7 + 2, spec.timezone);
+        const asNoticeOnly = n === leftovers.length - 1 && !spec.name.includes("Paloma");
+        const [future] = await db
+          .insert(clientTurnsTable)
+          .values({
+            unitId: unit.id,
+            propertyId: property.id,
+            orgId: caf.id,
+            status: "notice",
+            noticeGivenAt: now,
+            scheduledVacateAt: asNoticeOnly ? null : vacateAt,
+            actualVacateAt: null,
+            readyAt: null,
+            nextMoveInAt: addCivilDaysInZone(vacateAt, spec.targetTurnDays + 2, spec.timezone),
+            targetReadyAt: addCivilDaysInZone(vacateAt, spec.targetTurnDays, spec.timezone),
+            predictedReadyAt: addCivilDaysInZone(vacateAt, spec.targetTurnDays, spec.timezone),
+            predictionConfidence: asNoticeOnly ? "low" : "high",
+            workSource: spec.workSource,
+            assignedVendorOrgId: vendorOrgId,
+          })
+          .returning();
+        if (!future) continue;
+        turnCount++;
+        openTurns++;
+        eventsBatch.push({
+          turnId: future.id,
+          stage: "notice" as TurnStage,
+          event: "entered" as const,
+          occurredAt: now,
+          actorId: "seed:pipeline",
+          source: "import",
+          meta: { pipeline: true },
+        });
       }
     }
 
@@ -641,17 +868,19 @@ export async function seedClientBoard(opts?: {
       eventCount += chunk.length;
     }
 
+    await seedFeaturedEvidence(evidenceTurns);
+
     const trades = ["paint", "flooring", "clean", "drywall", "hvac", "punch"];
     const monday = startOfWeekMondayInZone(now, "America/Chicago");
     const capRows = [];
-    for (const vendor of [archangel, ctb, vendorB]) {
-      for (let w = 0; w < 8; w++) {
+    for (const vendor of [archangel, ctb, vendorB, vendorC]) {
+      for (let w = 0; w < 13; w++) {
         for (const trade of trades) {
           capRows.push({
             vendorOrgId: vendor.id,
             trade,
             weekStart: addCivilDaysInZone(monday, w * 7, "America/Chicago"),
-            unitsCapacity: 4 + Math.floor(rng() * 6),
+            unitsCapacity: w === 2 && trade === "paint" ? 1 : 4 + Math.floor(rng() * 6),
           });
         }
       }
@@ -678,6 +907,23 @@ export async function seedClientBoard(opts?: {
      WHERE org_id = ${caf.id}
   `);
 
+  if (palomaId) {
+    await db.insert(clientOrgMembersTable).values({
+      orgId: caf.id,
+      userId: "seed:pm.paloma",
+      role: "property_manager",
+      scope: { propertyIds: [palomaId] },
+    });
+  }
+  if (redbudId) {
+    await db.insert(clientOrgMembersTable).values({
+      orgId: caf.id,
+      userId: "seed:ml.redbud",
+      role: "maintenance_lead",
+      scope: { propertyIds: [redbudId] },
+    });
+  }
+
   logger.info(
     {
       properties: PROPERTY_SPECS.length,
@@ -700,4 +946,70 @@ export async function seedClientBoard(opts?: {
     reworkTurns,
     bottleneckTurns,
   };
+}
+
+const SEED_ROOMS = ["living", "kitchen", "bed 1", "bed 2", "bath 1", "bath 2", "exterior", "other"];
+
+async function seedFeaturedEvidence(
+  turns: Array<{ turnId: string; unitId: string; lat: number; lng: number; at: Date }>,
+): Promise<void> {
+  for (const turn of turns) {
+    const photos = [];
+    for (const room of SEED_ROOMS) {
+      const phases = room === "living" || room === "kitchen" ? ["before", "after", "during", "qc"] : ["before", "after"];
+      for (const phase of phases) {
+        const offset = room === "living" && phase === "before";
+        const key = `${turn.turnId}:${room}:${phase}`;
+        photos.push({
+          turnId: turn.turnId,
+          unitId: turn.unitId,
+          kind: "photo",
+          phase,
+          room,
+          storageKey: `seed/${key}.png`,
+          sha256: sha256Hex(key),
+          mime: "image/png",
+          bytes: 70n,
+          deviceCapturedAt: turn.at,
+          serverReceivedAt: turn.at,
+          deviceLat: offset ? turn.lat + 0.0013 : turn.lat,
+          deviceLng: turn.lng,
+          gpsAccuracyM: 7,
+          exif: { Make: "Apple", Model: "iPhone 15 Pro" },
+          capturedByUserId: "Maya Chen",
+          integrityFlags: offset ? { gps_outside_geofence: true } : null,
+        });
+      }
+    }
+    await db.insert(clientEvidenceItemsTable).values(photos);
+    await db.insert(clientGpsEventsTable).values([
+      {
+        turnId: turn.turnId,
+        userId: "Maya Chen",
+        type: "check_in",
+        lat: turn.lat,
+        lng: turn.lng,
+        occurredAt: turn.at,
+        distanceFromUnitM: 3,
+      },
+      {
+        turnId: turn.turnId,
+        userId: "Maya Chen",
+        type: "trail",
+        lat: turn.lat + 0.00018,
+        lng: turn.lng + 0.00012,
+        occurredAt: addMs(turn.at, 12 * 60_000),
+        distanceFromUnitM: 22,
+      },
+      {
+        turnId: turn.turnId,
+        userId: "Maya Chen",
+        type: "check_out",
+        lat: turn.lat + 0.00004,
+        lng: turn.lng,
+        occurredAt: addMs(turn.at, 50 * 60_000),
+        distanceFromUnitM: 5,
+      },
+    ]);
+  }
 }

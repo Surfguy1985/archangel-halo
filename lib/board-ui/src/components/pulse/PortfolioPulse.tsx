@@ -5,6 +5,7 @@ import type {
   PortfolioPulseDocument,
   PulseRangePreset,
   PulseTileSort,
+  WorkSourceFilter,
 } from "@workspace/api-client-react";
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { formatUsdCents, signedUsdCents } from "./formatUsdCents";
@@ -31,6 +32,11 @@ export type PortfolioPulseProps = {
   isLoading?: boolean;
   errorMessage?: string;
   homeHref?: { label: string; onClick: () => void };
+  importHref?: { label: string; onClick: () => void };
+  costHref?: { label: string; onClick: () => void };
+  pipelineHref?: { label: string; onClick: () => void };
+  workSource?: WorkSourceFilter;
+  onWorkSourceChange?: (next: WorkSourceFilter) => void;
   portfolios?: Array<{ id: string; name: string }>;
   selectedPortfolioId?: string;
   onPortfolioChange?: (id: string) => void;
@@ -41,6 +47,12 @@ const RANGES: Array<{ id: PulseRangePreset; label: string }> = [
   { id: "last_30", label: "Last 30" },
   { id: "qtd", label: "QTD" },
   { id: "custom", label: "Custom" },
+];
+
+const SOURCES: Array<{ id: WorkSourceFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "in_house", label: "In-house" },
+  { id: "third_party", label: "Third-party" },
 ];
 
 const SORTS: Array<{ id: PulseTileSort; label: string }> = [
@@ -108,6 +120,33 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
               style={ghostBtn}
             >
               {props.homeHref.label}
+            </button>
+          ) : null}
+          {props.importHref ? (
+            <button
+              type="button"
+              onClick={props.importHref.onClick}
+              style={ghostBtn}
+            >
+              {props.importHref.label}
+            </button>
+          ) : null}
+          {props.costHref ? (
+            <button
+              type="button"
+              onClick={props.costHref.onClick}
+              style={ghostBtn}
+            >
+              {props.costHref.label}
+            </button>
+          ) : null}
+          {props.pipelineHref ? (
+            <button
+              type="button"
+              onClick={props.pipelineHref.onClick}
+              style={ghostBtn}
+            >
+              {props.pipelineHref.label}
             </button>
           ) : null}
           <div style={{ flex: 1, minWidth: 160 }}>
@@ -205,6 +244,35 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             );
           })}
         </div>
+
+        {props.onWorkSourceChange ? (
+          <div
+            role="tablist"
+            aria-label="Work source"
+            style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}
+          >
+            {SOURCES.map((s) => {
+              const active = (props.workSource ?? "all") === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => props.onWorkSourceChange?.(s.id)}
+                  style={{
+                    ...chipBtn,
+                    background: active ? LIME : "transparent",
+                    color: active ? INK : "#F4F7F2",
+                    borderColor: active ? LIME : HAIRLINE,
+                  }}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         {pulse?.range === "custom" ? (
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -423,6 +491,34 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           ))}
         </div>
 
+        {pulse?.compliance ? (
+          <section style={{ marginTop: 28 }} aria-label="Invoice compliance">
+            <h2 style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 600, margin: "0 0 12px" }}>
+              Invoice compliance
+            </h2>
+            <div
+              title={pulse.compliance.assumption}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 12,
+              }}
+            >
+              <QuietStat label="Auto-validated" value={String(pulse.compliance.invoicesAutoValidated)} />
+              <QuietStat label="Blocked before billing" value={String(pulse.compliance.offScheduleBlocked)} />
+              <QuietStat label="Hours saved (assumed)" value={String(pulse.compliance.assumedHoursSaved)} />
+            </div>
+            {pulse.compliance.firstPassAcceptRate != null ? (
+              <p style={{ margin: "10px 0 0", color: MUTED, fontSize: 12, fontFamily: MONO }}>
+                First-pass accept {pulse.compliance.firstPassAcceptRate}%
+              </p>
+            ) : null}
+            <p style={{ margin: "8px 0 0", color: MUTED, fontSize: 12, maxWidth: 640 }}>
+              {pulse.compliance.assumption}
+            </p>
+          </section>
+        ) : null}
+
         <section style={{ marginTop: 36 }}>
           <h2
             style={{
@@ -488,6 +584,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
       <style>{`
         @media (max-width: 720px) {
           [aria-label="Supporting figures"] { grid-template-columns: 1fr !important; }
+          [aria-label="Invoice compliance"] > div { grid-template-columns: 1fr !important; }
         }
         button:focus-visible { outline: 2px solid ${LIME}; outline-offset: 3px; }
       `}</style>

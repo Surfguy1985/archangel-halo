@@ -14,4 +14,5 @@ export const PulseAttentionGroupKind = {
   awaiting_approval: 'awaiting_approval',
   failed_qc: 'failed_qc',
   blocked_invoices: 'blocked_invoices',
+  variance_pending: 'variance_pending',
 } as const;

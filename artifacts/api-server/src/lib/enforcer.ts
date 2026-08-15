@@ -201,7 +201,7 @@ export function enforcerGuard(deps: EnforcerDeps = {}) {
       next();
       return;
     }
-    if (isIdentityExemptPath(req.path, req.method)) {
+    if (isIdentityExemptPath(req.path, req.method, req.headers)) {
       next();
       return;
     }

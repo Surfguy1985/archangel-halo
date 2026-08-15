@@ -14,6 +14,11 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   `ALTER TABLE properties ADD COLUMN IF NOT EXISTS occupied_addon_applies boolean NOT NULL DEFAULT false`,
   `ALTER TABLE properties ADD COLUMN IF NOT EXISTS entrata_property_id text`,
   `ALTER TABLE properties ADD COLUMN IF NOT EXISTS client_org_id uuid`,
+  `ALTER TABLE properties ADD COLUMN IF NOT EXISTS invoice_tolerance_bps integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE properties ADD COLUMN IF NOT EXISTS variance_review_minutes integer NOT NULL DEFAULT 12`,
+  `ALTER TABLE properties ADD COLUMN IF NOT EXISTS scope_approval_cents bigint NOT NULL DEFAULT 500000`,
+  `ALTER TABLE properties ADD COLUMN IF NOT EXISTS bid_score_weights jsonb NOT NULL DEFAULT '{"priceVsSchedule":35,"onTime":25,"rework":20,"capacity":20}'::jsonb`,
+  `ALTER TABLE properties ADD COLUMN IF NOT EXISTS capacity_hold_hours integer NOT NULL DEFAULT 72`,
 
   // ── tenancy ────────────────────────────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS client_orgs (
@@ -25,6 +30,7 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS client_orgs_slug_uq ON client_orgs (slug)`,
+  `ALTER TABLE client_orgs ADD COLUMN IF NOT EXISTS crew_portal_comp boolean NOT NULL DEFAULT false`,
 
   `CREATE TABLE IF NOT EXISTS client_org_members (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,6 +41,7 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS client_org_members_org_idx ON client_org_members (org_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_org_members_org_user_uq ON client_org_members (org_id, user_id)`,
 
   `CREATE TABLE IF NOT EXISTS client_portfolios (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -72,6 +79,9 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS client_units_property_number_uq
      ON client_units (property_id, unit_number)`,
   `CREATE INDEX IF NOT EXISTS client_units_property_idx ON client_units (property_id)`,
+  `ALTER TABLE client_units ADD COLUMN IF NOT EXISTS entrata_unit_id text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_units_property_entrata_unit_uq
+     ON client_units (property_id, entrata_unit_id) WHERE entrata_unit_id IS NOT NULL`,
 
   // ── turns (no mutable days_vacant column — events are the truth) ───────
   `CREATE TABLE IF NOT EXISTS client_turns (
@@ -101,6 +111,10 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
      WHERE ready_at IS NULL`,
   `CREATE INDEX IF NOT EXISTS client_turns_org_idx ON client_turns (org_id)`,
   `CREATE INDEX IF NOT EXISTS client_turns_unit_idx ON client_turns (unit_id)`,
+  `ALTER TABLE client_turns ADD COLUMN IF NOT EXISTS entrata_notice_id text`,
+  `ALTER TABLE client_turns ADD COLUMN IF NOT EXISTS entrata_lease_id text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_turns_org_notice_uq
+     ON client_turns (org_id, entrata_notice_id) WHERE entrata_notice_id IS NOT NULL`,
 
   `CREATE TABLE IF NOT EXISTS client_turn_stage_events (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -279,6 +293,32 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS client_scope_lines_scope_compliance_idx
      ON client_scope_lines (scope_id, compliance)`,
+  `ALTER TABLE client_scope_lines ADD COLUMN IF NOT EXISTS code text`,
+  `ALTER TABLE client_scope_lines ADD COLUMN IF NOT EXISTS tier text`,
+
+  `CREATE TABLE IF NOT EXISTS client_variance_requests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL,
+    scope_id uuid NOT NULL,
+    scope_line_id uuid NOT NULL,
+    turn_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    reason text NOT NULL,
+    status text NOT NULL DEFAULT 'pending',
+    evidence_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    nearest_price_item_id uuid,
+    requested_qty integer NOT NULL DEFAULT 1,
+    requested_unit_price_cents bigint NOT NULL,
+    schedule_unit_price_cents bigint,
+    delta_cents bigint NOT NULL DEFAULT 0,
+    counter_qty integer,
+    counter_unit_price_cents bigint,
+    decided_by text,
+    decided_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS client_variance_requests_turn_idx
+     ON client_variance_requests (turn_id, status)`,
 
   `CREATE TABLE IF NOT EXISTS client_turn_invoices (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -297,6 +337,42 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS client_turn_invoices_number_uq
      ON client_turn_invoices (invoice_number)`,
+  `ALTER TABLE client_turn_invoices ADD COLUMN IF NOT EXISTS first_pass_accepted boolean NOT NULL DEFAULT false`,
+
+  `CREATE TABLE IF NOT EXISTS client_entrata_imports (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL,
+    kind text NOT NULL,
+    filename text NOT NULL,
+    sha256 text NOT NULL,
+    adapter text NOT NULL DEFAULT 'csv',
+    status text NOT NULL DEFAULT 'applied',
+    created_count integer NOT NULL DEFAULT 0,
+    updated_count integer NOT NULL DEFAULT 0,
+    skipped_count integer NOT NULL DEFAULT 0,
+    error_count integer NOT NULL DEFAULT 0,
+    errors jsonb NOT NULL DEFAULT '[]'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_entrata_imports_org_sha_uq
+     ON client_entrata_imports (org_id, sha256)`,
+  `CREATE INDEX IF NOT EXISTS client_entrata_imports_org_idx
+     ON client_entrata_imports (org_id, created_at DESC)`,
+
+  `CREATE TABLE IF NOT EXISTS client_entrata_purchase_orders (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    unit_id uuid,
+    po_number text NOT NULL,
+    amount_cents bigint NOT NULL,
+    gl_code text,
+    issued_on text,
+    invoice_id uuid,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_entrata_purchase_orders_org_po_uq
+     ON client_entrata_purchase_orders (org_id, po_number)`,
 
   `CREATE TABLE IF NOT EXISTS client_turn_invoice_lines (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -351,6 +427,19 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
     qty integer NOT NULL DEFAULT 1,
     unit_price_cents bigint NOT NULL
   )`,
+  `ALTER TABLE client_bid_requests ADD COLUMN IF NOT EXISTS org_id uuid`,
+  `ALTER TABLE client_bid_requests ADD COLUMN IF NOT EXISTS score_weights jsonb NOT NULL DEFAULT '{"priceVsSchedule":35,"onTime":25,"rework":20,"capacity":20}'::jsonb`,
+  `ALTER TABLE client_bid_requests ADD COLUMN IF NOT EXISTS awarded_vendor_org_id uuid`,
+  `ALTER TABLE client_bid_requests ADD COLUMN IF NOT EXISTS awarded_at timestamptz`,
+  `ALTER TABLE client_bid_requests ADD COLUMN IF NOT EXISTS po_payload jsonb`,
+  `ALTER TABLE client_vendor_bid_lines ADD COLUMN IF NOT EXISTS extended_cents bigint NOT NULL DEFAULT 0`,
+  `ALTER TABLE client_vendor_bid_lines ADD COLUMN IF NOT EXISTS tier text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_bid_invitations_req_vendor_uq
+     ON client_bid_invitations (bid_request_id, vendor_org_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_vendor_bids_req_vendor_uq
+     ON client_vendor_bids (bid_request_id, vendor_org_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_vendor_bid_lines_bid_code_tier_uq
+     ON client_vendor_bid_lines (bid_id, price_item_code, COALESCE(tier, ''))`,
 
   `CREATE TABLE IF NOT EXISTS client_vendor_scorecards (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -376,6 +465,28 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS client_capacity_declarations_uq
      ON client_capacity_declarations (vendor_org_id, trade, week_start)`,
 
+  `CREATE TABLE IF NOT EXISTS client_capacity_holds (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    bundle_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    unit_id uuid NOT NULL,
+    turn_id uuid NOT NULL,
+    vendor_org_id uuid NOT NULL,
+    trade text NOT NULL,
+    week_start timestamptz NOT NULL,
+    units integer NOT NULL DEFAULT 1,
+    status text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    confirmed_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_capacity_holds_turn_trade_live_uq
+     ON client_capacity_holds (turn_id, trade)
+     WHERE status IN ('held', 'confirmed')`,
+  `CREATE INDEX IF NOT EXISTS client_capacity_holds_week_idx
+     ON client_capacity_holds (week_start, trade, status)`,
+
   `CREATE TABLE IF NOT EXISTS client_turn_forecasts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id uuid NOT NULL,
@@ -385,6 +496,8 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
     confidence text NOT NULL,
     generated_at timestamptz NOT NULL DEFAULT now()
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS client_turn_forecasts_property_week_uq
+     ON client_turn_forecasts (property_id, week_start)`,
 
   // ── cross-cutting ──────────────────────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS client_audit_log (
@@ -783,10 +896,11 @@ INSERT INTO client_board_flags (segment, enabled) VALUES
   ('pulse', true),
   ('propertyBoard', true),
   ('evidence', true),
-  ('invoiceCompliance', false),
-  ('bidBoard', false),
-  ('pipeline', false),
-  ('workSource', false),
+  ('invoiceCompliance', true),
+  ('csvImport', true),
+  ('bidBoard', true),
+  ('pipeline', true),
+  ('workSource', true),
   ('realtime', false),
   ('security', false),
   ('demo', false)

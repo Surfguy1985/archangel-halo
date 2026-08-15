@@ -34,6 +34,15 @@ export type PortfolioSseFrame =
       propertyId: string;
       predictedReadyAt: string;
       confidence: string;
+    }
+  | {
+      type: "bid.awarded";
+      bidRequestId: string;
+      turnId: string;
+      propertyId: string;
+      vendorOrgId: string;
+      occurredAt: string;
+      scores: Array<{ vendorOrgId: string; vendorName: string; score: number; awarded: boolean }>;
     };
 
 export function emitPortfolioFrame(portfolioId: string, frame: PortfolioSseFrame): void {

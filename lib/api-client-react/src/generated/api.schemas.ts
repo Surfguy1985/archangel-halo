@@ -8067,6 +8067,7 @@ export const PulseAttentionGroupKind = {
   awaiting_approval: 'awaiting_approval',
   failed_qc: 'failed_qc',
   blocked_invoices: 'blocked_invoices',
+  variance_pending: 'variance_pending',
 } as const;
 
 export interface ClientPortfolioSummary {
@@ -8116,6 +8117,18 @@ export interface PortfolioPulseTile {
   href: string;
 }
 
+export interface ComplianceStatsDocument {
+  /** @nullable */
+  propertyId?: string | null;
+  invoicesAutoValidated: number;
+  offScheduleBlocked: number;
+  assumedHoursSaved: number;
+  assumedMinutesPerReview: number;
+  /** @nullable */
+  firstPassAcceptRate: number | null;
+  assumption: string;
+}
+
 export interface PortfolioPulseDocument {
   portfolioId: string;
   portfolioName: string;
@@ -8126,6 +8139,7 @@ export interface PortfolioPulseDocument {
   headline: PortfolioPulseHeadline;
   supporting: PortfolioPulseSupporting;
   tiles: PortfolioPulseTile[];
+  compliance?: ComplianceStatsDocument;
 }
 
 export interface PortfolioAttentionItem {
@@ -8212,6 +8226,325 @@ export const TurnWorkSource = {
   in_house: 'in_house',
   third_party: 'third_party',
 } as const;
+
+export type WorkSourceFilter = typeof WorkSourceFilter[keyof typeof WorkSourceFilter];
+
+
+export const WorkSourceFilter = {
+  all: 'all',
+  in_house: 'in_house',
+  third_party: 'third_party',
+} as const;
+
+export interface CostToServeSide {
+  unitCount: number;
+  costPerUnitCents: CentsString;
+  /** @nullable */
+  daysPerUnit: number | null;
+  /** Rework rate in basis points (1250 = 12.50%) */
+  reworkRateBps: number;
+}
+
+export interface CostToServeRow {
+  workType: string;
+  bedrooms: number;
+  inHouse: CostToServeSide;
+  thirdParty: CostToServeSide;
+}
+
+export interface CostToServeDocument {
+  portfolioId: string;
+  title: string;
+  workSource: WorkSourceFilter;
+  from: string;
+  to: string;
+  rows: CostToServeRow[];
+}
+
+export type PipelineTrade = typeof PipelineTrade[keyof typeof PipelineTrade];
+
+
+export const PipelineTrade = {
+  paint: 'paint',
+  flooring: 'flooring',
+  clean: 'clean',
+  drywall: 'drywall',
+  hvac: 'hvac',
+  punch: 'punch',
+} as const;
+
+export interface PipelineCell {
+  propertyId: string;
+  /** Monday civil YYYY-MM-DD in the portfolio timezone. */
+  weekStart: string;
+  units: number;
+  crunch: boolean;
+  ratio: number;
+}
+
+export interface PipelineHeatmapCell {
+  trade: PipelineTrade;
+  weekStart: string;
+  demandUnits: number;
+  capacityUnits: number;
+  ratio: number;
+  crunch: boolean;
+}
+
+export type PipelineUnitKind = typeof PipelineUnitKind[keyof typeof PipelineUnitKind];
+
+
+export const PipelineUnitKind = {
+  scheduled: 'scheduled',
+  notice: 'notice',
+} as const;
+
+export type PipelineUnitConfidence = typeof PipelineUnitConfidence[keyof typeof PipelineUnitConfidence];
+
+
+export const PipelineUnitConfidence = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export type PipelineUnitHoldStatus = typeof PipelineUnitHoldStatus[keyof typeof PipelineUnitHoldStatus];
+
+
+export const PipelineUnitHoldStatus = {
+  none: 'none',
+  held: 'held',
+  confirmed: 'confirmed',
+  expired: 'expired',
+} as const;
+
+export interface PipelineUnit {
+  turnId: string;
+  unitId: string;
+  unitNumber: string;
+  propertyId: string;
+  bedrooms: number;
+  kind: PipelineUnitKind;
+  vacateCivil: string;
+  confidence: PipelineUnitConfidence;
+  /** @nullable */
+  predictedReadyCivil: string | null;
+  holdStatus: PipelineUnitHoldStatus;
+  /** @nullable */
+  holdBundleId: string | null;
+  /** @nullable */
+  holdExpiresAt: string | null;
+  /** @nullable */
+  scopeId: string | null;
+}
+
+export interface SpendHorizon {
+  days: number;
+  lowCents: CentsString;
+  midCents: CentsString;
+  highCents: CentsString;
+}
+
+export interface PipelineSpendRow {
+  /** @nullable */
+  propertyId: string | null;
+  label: string;
+  horizons: SpendHorizon[];
+}
+
+export interface PipelineProperty {
+  propertyId: string;
+  name: string;
+}
+
+export interface PipelineDocument {
+  portfolioId: string;
+  title: string;
+  /** Portfolio IANA timezone. Display civil days in this zone. */
+  timezone: string;
+  method: string;
+  conversionRate: number;
+  weekStarts: string[];
+  properties: PipelineProperty[];
+  cells: PipelineCell[];
+  heatmap: PipelineHeatmapCell[];
+  spend: PipelineSpendRow[];
+  units: PipelineUnit[];
+}
+
+export interface VacateNoticeInput {
+  /** Civil YYYY-MM-DD in the property timezone. */
+  scheduledVacate: string;
+}
+
+export interface VacateNoticeDocument {
+  turnId: string;
+}
+
+export interface CapacityHoldDocument {
+  bundleId: string;
+  status: string;
+  expiresAt?: string;
+}
+
+export interface BidScoreWeights {
+  /** Default 35. Price vs the property schedule. */
+  priceVsSchedule: number;
+  /** Default 25. On-time percentage, trailing 90 days. */
+  onTime: number;
+  /** Default 20. Rework rate, inverted. */
+  rework: number;
+  /** Default 20. Available capacity in the requested window. */
+  capacity: number;
+}
+
+export interface BidScoreComponents {
+  priceVsSchedule: number;
+  onTime: number;
+  rework: number;
+  capacity: number;
+}
+
+export interface CreateBidRequestInput {
+  /** ISO due time. Bids after this are rejected. */
+  dueAt: string;
+}
+
+export interface InviteBidVendorsInput {
+  /** @minItems 1 */
+  vendorOrgIds: string[];
+}
+
+export interface SubmitVendorBidLineInput {
+  code: string;
+  /** @nullable */
+  tier?: string | null;
+  unitPriceCents: CentsString;
+}
+
+export interface SubmitVendorBidInput {
+  /** Required when the office submits on a vendor's behalf. */
+  vendorOrgId?: string;
+  /** @nullable */
+  earliestStartAt?: string | null;
+  /** @nullable */
+  promisedDays?: number | null;
+  /** @minItems 1 */
+  lines: SubmitVendorBidLineInput[];
+}
+
+export interface AwardBidRequestInput {
+  vendorOrgId: string;
+}
+
+export interface BidRequestDocument {
+  id: string;
+  turnId: string;
+  propertyId: string;
+  dueAt: string;
+  status: string;
+}
+
+export type BidInvitationDocumentInvitedItem = {
+  vendorOrgId: string;
+  vendorName: string;
+};
+
+export interface BidInvitationDocument {
+  invited: BidInvitationDocumentInvitedItem[];
+}
+
+export interface VendorBidReceiptDocument {
+  bidId: string;
+  totalCents: CentsString;
+  score: number;
+}
+
+export interface BidComparisonCell {
+  vendorOrgId: string;
+  unitPriceCents?: CentsString | null;
+  extendedCents?: CentsString | null;
+  deltaCents?: CentsString | null;
+}
+
+export interface BidComparisonLine {
+  code: string;
+  /** @nullable */
+  tier?: string | null;
+  description: string;
+  qty: number;
+  uom: string;
+  scheduleUnitPriceCents: CentsString;
+  cells: BidComparisonCell[];
+}
+
+export interface BidComparisonVendor {
+  vendorOrgId: string;
+  vendorName: string;
+  invited: boolean;
+  submitted: boolean;
+  totalCents: CentsString;
+  /** @nullable */
+  earliestStartAt?: string | null;
+  /** @nullable */
+  promisedDays?: number | null;
+  score: number;
+  components: BidScoreComponents;
+  awarded: boolean;
+  /** @nullable */
+  bidId?: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type BidComparisonDocumentPoPayload = { [key: string]: unknown } | null;
+
+export interface BidInvitationVendor {
+  vendorOrgId: string;
+  vendorName: string;
+}
+
+export interface BidComparisonDocument {
+  bidRequestId: string;
+  turnId: string;
+  propertyId: string;
+  scopeId: string;
+  /** ISO instant. Display in timezone, never the browser's zone. */
+  dueAt: string;
+  /** Property IANA timezone for civil-day display. */
+  timezone: string;
+  status: string;
+  title: string;
+  weights: BidScoreWeights;
+  scheduleTotalCents: CentsString;
+  lines: BidComparisonLine[];
+  vendors: BidComparisonVendor[];
+  /** @nullable */
+  awardedVendorOrgId?: string | null;
+  /** @nullable */
+  poPayload?: BidComparisonDocumentPoPayload;
+  eligibleVendors: BidInvitationVendor[];
+}
+
+export interface AwardBidScoreRow {
+  vendorOrgId: string;
+  vendorName: string;
+  score: number;
+  awarded: boolean;
+}
+
+export type AwardBidDocumentPoPayload = { [key: string]: unknown };
+
+export interface AwardBidDocument {
+  bidRequestId: string;
+  turnId: string;
+  vendorOrgId: string;
+  from: string;
+  to: string;
+  poPayload: AwardBidDocumentPoPayload;
+  scores: AwardBidScoreRow[];
+}
 
 export interface TurnRingArcDocument {
   stage: TurnStageName;
@@ -8339,6 +8672,388 @@ export interface TurnMutationResultDocument {
   from: string | null;
   to: string;
   occurredAt: string;
+}
+
+export interface EvidenceIntegrityFlagDocument {
+  code: string;
+  explanation: string;
+}
+
+export type EvidencePhotoDocumentPhase = typeof EvidencePhotoDocumentPhase[keyof typeof EvidencePhotoDocumentPhase];
+
+
+export const EvidencePhotoDocumentPhase = {
+  before: 'before',
+  during: 'during',
+  after: 'after',
+  qc: 'qc',
+} as const;
+
+export interface EvidencePhotoDocument {
+  id: string;
+  phase: EvidencePhotoDocumentPhase;
+  room: string;
+  thumbUrl: string;
+  viewUrl: string;
+  capturedAt: string;
+  capturedAtLabel: string;
+  device: string;
+  /** @nullable */
+  distanceM: number | null;
+  capturedByName: string;
+  integrityFlags: EvidenceIntegrityFlagDocument[];
+}
+
+export interface EvidenceRoomDocument {
+  room: string;
+  label: string;
+  before: EvidencePhotoDocument[];
+  after: EvidencePhotoDocument[];
+  during: EvidencePhotoDocument[];
+  qc: EvidencePhotoDocument[];
+}
+
+export interface EvidenceTrailPointDocument {
+  lat: number;
+  lng: number;
+  at: string;
+  type: string;
+}
+
+export type EvidenceTrailDocumentGeofence = {
+  lat: number;
+  lng: number;
+  radiusM: number;
+};
+
+export interface EvidenceTrailDocument {
+  checkIn: EvidenceTrailPointDocument | null;
+  checkOut: EvidenceTrailPointDocument | null;
+  points: EvidenceTrailPointDocument[];
+  geofence: EvidenceTrailDocumentGeofence;
+}
+
+export interface TurnEvidenceDocument {
+  turnId: string;
+  timezone: string;
+  rooms: EvidenceRoomDocument[];
+  trail: EvidenceTrailDocument;
+  /** @nullable */
+  verificationHash: string | null;
+}
+
+export type CreateTurnRecordBodyVariant = typeof CreateTurnRecordBodyVariant[keyof typeof CreateTurnRecordBodyVariant];
+
+
+export const CreateTurnRecordBodyVariant = {
+  full: 'full',
+  move_out_condition: 'move_out_condition',
+} as const;
+
+export interface CreateTurnRecordBody {
+  variant: CreateTurnRecordBodyVariant;
+}
+
+export type TurnRecordDocumentVariant = typeof TurnRecordDocumentVariant[keyof typeof TurnRecordDocumentVariant];
+
+
+export const TurnRecordDocumentVariant = {
+  full: 'full',
+  move_out_condition: 'move_out_condition',
+} as const;
+
+export type TurnRecordDocumentStatus = typeof TurnRecordDocumentStatus[keyof typeof TurnRecordDocumentStatus];
+
+
+export const TurnRecordDocumentStatus = {
+  queued: 'queued',
+  rendering: 'rendering',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
+export interface TurnRecordDocument {
+  id: string;
+  turnId: string;
+  variant: TurnRecordDocumentVariant;
+  status: TurnRecordDocumentStatus;
+  /** @nullable */
+  url: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  sha256: string | null;
+  /** @nullable */
+  bytes: string | null;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface TurnVerifyDocument {
+  turnId: string;
+  /** @nullable */
+  storedHash: string | null;
+  computedHash: string;
+  matches: boolean;
+  evidenceCount: number;
+  timelineEventCount: number;
+}
+
+export type ScopeLineCompliance = typeof ScopeLineCompliance[keyof typeof ScopeLineCompliance];
+
+
+export const ScopeLineCompliance = {
+  matched: 'matched',
+  variance_pending: 'variance_pending',
+  variance_approved: 'variance_approved',
+  off_schedule: 'off_schedule',
+} as const;
+
+export interface AddScopeLineInput {
+  description: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  tier?: string | null;
+  /** @minimum 1 */
+  qty: number;
+  /** Integer cents as a decimal string */
+  unitPriceCents: string;
+  uom?: string;
+}
+
+export interface CreateVarianceRequestInput {
+  scopeLineId: string;
+  reason: string;
+  evidenceIds?: string[];
+}
+
+export interface CounterVarianceRequestInput {
+  unitPriceCents: string;
+  /** @minimum 1 */
+  qty?: number;
+  reason?: string;
+}
+
+export interface CreateScopeInvoiceInput {
+  /** @nullable */
+  poNumber?: string | null;
+}
+
+export interface ScopeLineDocument {
+  id: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  tier?: string | null;
+  description: string;
+  qty: number;
+  uom: string;
+  unitPriceCents: string;
+  extendedCents: string;
+  compliance: ScopeLineCompliance;
+  /** @nullable */
+  varianceReason?: string | null;
+  /** @nullable */
+  scheduleCode?: string | null;
+  /** @nullable */
+  scheduleDescription?: string | null;
+  /** @nullable */
+  scheduleUnitPriceCents?: string | null;
+  deltaCents: string;
+}
+
+export type VarianceRequestDocumentStatus = typeof VarianceRequestDocumentStatus[keyof typeof VarianceRequestDocumentStatus];
+
+
+export const VarianceRequestDocumentStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  countered: 'countered',
+} as const;
+
+export interface VarianceRequestDocument {
+  id: string;
+  scopeId: string;
+  scopeLineId: string;
+  turnId: string;
+  reason: string;
+  status: VarianceRequestDocumentStatus;
+  evidenceIds: string[];
+  /** @nullable */
+  nearestScheduleCode?: string | null;
+  /** @nullable */
+  nearestScheduleDescription?: string | null;
+  requestedQty?: number;
+  requestedUnitPriceCents: string;
+  /** @nullable */
+  scheduleUnitPriceCents?: string | null;
+  deltaCents: string;
+  photoUrls?: string[];
+}
+
+export interface TurnInvoiceDocument {
+  id: string;
+  turnId: string;
+  scopeId: string;
+  invoiceNumber: string;
+  /** @nullable */
+  poNumber?: string | null;
+  status: string;
+  subtotalCents: string;
+  taxCents?: string;
+  totalCents: string;
+  /** @nullable */
+  complianceScore?: string | null;
+  firstPassAccepted: boolean;
+}
+
+export interface TurnScopeDocument {
+  turnId: string;
+  /** @nullable */
+  scopeId?: string | null;
+  status?: string;
+  /** @nullable */
+  priceListRevision?: string | null;
+  /** @nullable */
+  priceListEffectiveLabel?: string | null;
+  canInvoice: boolean;
+  /** @nullable */
+  blockingMessage?: string | null;
+  badge: string;
+  lines: ScopeLineDocument[];
+  variances: VarianceRequestDocument[];
+  invoice?: TurnInvoiceDocument | null;
+  /** @nullable */
+  bidRequestId?: string | null;
+}
+
+export type InvoiceBlockedDocumentLinesItem = {
+  description: string;
+  compliance: ScopeLineCompliance;
+};
+
+export interface InvoiceBlockedDocument {
+  error: string;
+  priceListRevision: string;
+  lines: InvoiceBlockedDocumentLinesItem[];
+}
+
+export interface TurnInvoiceExportLine {
+  description: string;
+  /** @nullable */
+  code?: string | null;
+  qty: number;
+  uom?: string;
+  unitPriceCents: string;
+  extendedCents: string;
+  /** @nullable */
+  glCode?: string | null;
+  unitNumber: string;
+  /** @nullable */
+  poNumber?: string | null;
+  /** @nullable */
+  propertyCode?: string | null;
+}
+
+export interface TurnInvoiceExportDocument {
+  invoiceNumber: string;
+  propertyCode: string;
+  propertyName?: string;
+  unitNumber: string;
+  poNumber: string;
+  issuedOn?: string;
+  subtotalCents: string;
+  taxCents?: string;
+  totalCents: string;
+  lines: TurnInvoiceExportLine[];
+}
+
+export type EntrataImportKind = typeof EntrataImportKind[keyof typeof EntrataImportKind];
+
+
+export const EntrataImportKind = {
+  units: 'units',
+  leases: 'leases',
+  notices: 'notices',
+  purchase_orders: 'purchase_orders',
+} as const;
+
+export interface ImportEntrataCsvInput {
+  kind: EntrataImportKind;
+  filename: string;
+  csv: string;
+}
+
+export interface EntrataImportError {
+  row: number;
+  message: string;
+}
+
+export type EntrataImportDocumentAdapter = typeof EntrataImportDocumentAdapter[keyof typeof EntrataImportDocumentAdapter];
+
+
+export const EntrataImportDocumentAdapter = {
+  csv: 'csv',
+  api: 'api',
+} as const;
+
+export type EntrataImportDocumentStatus = typeof EntrataImportDocumentStatus[keyof typeof EntrataImportDocumentStatus];
+
+
+export const EntrataImportDocumentStatus = {
+  applied: 'applied',
+  replayed: 'replayed',
+  failed: 'failed',
+} as const;
+
+export interface EntrataImportDocument {
+  id: string;
+  orgId: string;
+  kind: EntrataImportKind;
+  filename: string;
+  sha256: string;
+  adapter: EntrataImportDocumentAdapter;
+  status: EntrataImportDocumentStatus;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  errors: EntrataImportError[];
+}
+
+export type EntrataImportListDocumentAdapter = typeof EntrataImportListDocumentAdapter[keyof typeof EntrataImportListDocumentAdapter];
+
+
+export const EntrataImportListDocumentAdapter = {
+  csv: 'csv',
+  api: 'api',
+} as const;
+
+export interface EntrataImportListDocument {
+  adapter: EntrataImportListDocumentAdapter;
+  imports: EntrataImportDocument[];
+}
+
+export interface EntrataCsvTemplateDocument {
+  kind: EntrataImportKind;
+  csv: string;
+}
+
+export type EntrataSubmitDocumentAdapter = typeof EntrataSubmitDocumentAdapter[keyof typeof EntrataSubmitDocumentAdapter];
+
+
+export const EntrataSubmitDocumentAdapter = {
+  csv: 'csv',
+  api: 'api',
+} as const;
+
+export interface EntrataSubmitDocument {
+  invoiceId: string;
+  adapter: EntrataSubmitDocumentAdapter;
+  pdfPath: string;
+  sidecarPath: string;
 }
 
 export type ListRemindersParams = {
@@ -8568,6 +9283,21 @@ to?: string;
  * Property tile sort. Default vacancy_cost descending.
  */
 sort?: PulseTileSort;
+/**
+ * Filter turns. Default all — in-house and third-party share one board.
+ */
+workSource?: WorkSourceFilter;
+};
+
+export type GetPortfolioAttentionParams = {
+workSource?: WorkSourceFilter;
+};
+
+export type GetPortfolioCostToServeParams = {
+range?: PulseRangePreset;
+from?: string;
+to?: string;
+workSource?: WorkSourceFilter;
 };
 
 export type GetClientPortfolioPulseParams = {
@@ -8587,13 +9317,82 @@ to?: string;
  * Property tile sort. Default vacancy_cost descending.
  */
 sort?: PulseTileSort;
+/**
+ * Filter turns. Default all — in-house and third-party share one board.
+ */
+workSource?: WorkSourceFilter;
+};
+
+export type GetClientPortfolioAttentionParams = {
+workSource?: WorkSourceFilter;
+};
+
+export type GetClientPortfolioCostToServeParams = {
+range?: PulseRangePreset;
+from?: string;
+to?: string;
+workSource?: WorkSourceFilter;
 };
 
 export type GetPropertyTurnBoardParams = {
 groupBy?: TurnBoardGroupBy;
+/**
+ * Filter turns. Default all.
+ */
+workSource?: WorkSourceFilter;
 };
 
 export type GetClientPropertyTurnBoardParams = {
 groupBy?: TurnBoardGroupBy;
+/**
+ * Filter turns. Default all.
+ */
+workSource?: WorkSourceFilter;
 };
+
+export type GetTurnRecordFileParams = {
+exp: string;
+sig: string;
+};
+
+export type GetEvidenceFileParams = {
+size?: GetEvidenceFileSize;
+exp: string;
+sig: string;
+};
+
+export type GetEvidenceFileSize = typeof GetEvidenceFileSize[keyof typeof GetEvidenceFileSize];
+
+
+export const GetEvidenceFileSize = {
+  original: 'original',
+  thumb: 'thumb',
+  view: 'view',
+} as const;
+
+export type ExportTurnInvoiceParams = {
+format: ExportTurnInvoiceFormat;
+};
+
+export type ExportTurnInvoiceFormat = typeof ExportTurnInvoiceFormat[keyof typeof ExportTurnInvoiceFormat];
+
+
+export const ExportTurnInvoiceFormat = {
+  pdf: 'pdf',
+  csv: 'csv',
+  json: 'json',
+} as const;
+
+export type ExportClientTurnInvoiceParams = {
+format: ExportClientTurnInvoiceFormat;
+};
+
+export type ExportClientTurnInvoiceFormat = typeof ExportClientTurnInvoiceFormat[keyof typeof ExportClientTurnInvoiceFormat];
+
+
+export const ExportClientTurnInvoiceFormat = {
+  pdf: 'pdf',
+  csv: 'csv',
+  json: 'json',
+} as const;
 

@@ -31,3 +31,77 @@ A layer **above** the per-property kanban and **below** the card (the unit turn 
 - Polar/ring math is duplicated for the browser on purpose — the DB package must not be imported client-side.
 - Append-only guards block UPDATE/DELETE on events, the audit log, and invoice line snapshots. Settings reset and seed teardown must set the bypass config **inside the same transaction**.
 - Reset wipes the `client_*` operational tables but preserves stage ownership and the flags row.
+- Orval Get*Params / Body collisions: add the type-folder path to `lib/api-spec/stripCollidingZodParams.mjs` (Pulse, Turn Board, evidence file params, `createTurnRecordBody`, invoice export params, scope/variance `*Input`).
+
+## Ship status
+
+Order: 1 → 2 → 3 → 4 → 5 → 6 → 10 (CSV) → 9 → 7 → **8** → 11 → 12.
+
+Flags on: `dataModel`, `turnEngine`, `pulse`, `propertyBoard`, `evidence`, `invoiceCompliance`, `csvImport`, `workSource`, `bidBoard`, `pipeline`. Later segments stay dark (404). Do **not** enable `realtime`.
+
+### Segment 4 — Turn Ring (cleared 10/10)
+
+Office `/properties/:id/turns`, client `/:token/property/:propertyId`. Kanban stays at `/properties/:id/board` and `/:token/board`. 44px ring centers the unit number (outlined gold client arcs); 280px centers days vacant (hatched gold). Drag off.
+
+### Segment 5 — Evidence ledger + Unit Turn Record
+
+- Viewer: `EvidenceLedger` in `lib/board-ui`. Room-by-room before/after with a draggable divider. Canonical room order. Caption = property-TZ stamp, device, GPS distance, capturer. Integrity chips are never hidden; tap shows plain copy (`Location was 140m from the unit`). SVG GPS trail (check-in, path, check-out, geofence). Full-screen: arrows, Escape, pinch/wheel zoom.
+- PDF: `pdf-lib` (no headless browser, no `@react-pdf/renderer`). `POST /v1/turns/:id/records` `{ variant: full | move_out_condition }` writes to `CLIENT_BOARD_RECORD_DIR` or tmp. Signed URL `/api/v1/records/:id/file?exp=&sig=` valid 7 days. Move-out cut is sections 1, 3, 7, 9.
+- Verify: Merkle root over evidence hashes + timeline on `client_turns.verification_hash`. `GET /v1/turns/:id/verify` recomputes. Mutating one `sha256` makes `matches: false`.
+- File GETs are officeGuard-exempt. Tests use a 1×1 PNG for every image.
+- After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+
+### Segment 6 — Invoice compliance engine
+
+- Engine: `lib/db/src/invoiceCompliance.ts`. Active price list is the one whose `effective_from`/`effective_to` covers the scope date — never “the latest”. Exact `code`+`tier` at schedule price → `matched`. Price delta beyond `invoice_tolerance_bps` (default 0) → `variance_pending`. No match → `off_schedule`. `variance_approved` lines may invoice; `first_pass_accepted` is true only when every line is `matched`.
+- Hard gate in `turnInvoice.createScopeInvoice`, not the UI. Non-compliant POST `/v1/scopes/:id/invoice` → **422** naming the line and the schedule (`Rev 01`, effective month). Empty variance reason → 400.
+- Viewer: `ScopeCompliance` on the Turn Ring sheet (office + client). Badge expands line-by-line with price-item code. Variance approve/reject writes `client_audit_log`. Export PDF/CSV/JSON via `window.open('/api/v1/invoices/:id/export?format=')` (office cookie; client twin under `/api/client/:token/...`). Invoice number `{propertyCode}-{unitNumber}-{YYMMDD}-{seq}`.
+- Pulse: compliance strip (auto-validated / blocked / assumed hours saved). Tooltip + footnote state the hours figure is a **configured assumption**, not a measured duration. Attention adds `blocked_invoices` and `variance_pending`.
+- Seed: ready-turn lines carry `code`/`tier`; Paloma’s first open turn has a draft scope with matched paint + `MARBLE-UP` off-schedule. Flag `invoiceCompliance` on. Tests: `invoiceCompliance.test.ts`, `propertyInvoice.integration.test.ts` (`caf-invoice-seg6` / `CAF_CLIENT_BOARD_INVOICE_SEG6`).
+- Orval collisions: strip `exportTurnInvoiceParams`, `exportClientTurnInvoiceParams`, `getTurnInvoiceExportParams`, `getClientTurnInvoiceExportParams`, plus `*Input` request bodies. Helvetica PDFs must WinAnsi-sanitize `—` / `→`.
+- Do not start Segment 10 (CSV) until this segment is 10/10.
+
+### Segment 10 — CSV import only (not emails / SSE extras)
+
+Usable with **no Entrata API**. `getEntrataAdapter()` reads `ENTRATA_ADAPTER` (`csv` default). `EntrataApiAdapter` throws `EntrataApiDisabledError` (“Import a CSV export instead.”) — 409. Nothing hard-depends on the API adapter.
+
+- Parser: `lib/db/src/entrataCsv.ts`. Civil dates `YYYY-MM-DD` / `MM/DD/YYYY`. Money via `dollarsToCents` (`$1,450.00` → `145000n`). `guardCsvCell` prefixes formula chars. `firstPropertyCode` so office POST resolves org from CSV Property ID (not `listPortfoliosForOffice()[0]`).
+- Apply: `artifacts/api-server/src/lib/entrataCsvAdapter.ts`. Units upsert by `(property, unitNumber)`. Notices `createTurn({ source: "import" })` then stamp `entrataNoticeId`; same notice id skips. Same file sha → `replayed`. POs unique `(org, poNumber)`; attach onto an invoice on that unit with null PO. Submit invoice writes `{CLIENT_BOARD_IMPORT_DIR or tmp/halo-entrata}/outbound/{invoiceNumber}.pdf` + `.json`. Drop-folder: `CLIENT_BOARD_IMPORT_DIR/{units|leases|notices|purchase_orders}/*.csv` after nightly recompute.
+- HTTP: `POST/GET /v1/imports/entrata`, templates before `:id`, `POST /v1/invoices/:id/entrata`, client twins. Flag dark → 404. Office list aggregates every portfolio org.
+- UI: `EntrataImport` in `lib/board-ui`. Office `/imports` (not `/import`). Client `/:token/imports`. Pulse “Entrata CSV” via `importHref`. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+- Tests: `entrataCsv.test.ts`, `entrataImport.integration.test.ts` (`caf-import-seg10` / `CAF_CLIENT_BOARD_IMPORT_SEG10`). Orval: strip `importEntrataCsvInput`.
+- Do **not** build React Email, digests, or extra SSE. Segment 9 (work-source) shipped after this slice.
+
+### Segment 9 — Work-source unification + permissions
+
+- Filter `workSource=all|in_house|third_party` (default all) on Pulse, attention, Turn Board, and cost-to-serve. In-house cards use the same ring, evidence, and metrics as third-party.
+- CTB vendor org (`ctb-multifamily`) has `crew_portal_comp = true` (full crew portal, no charge). Paloma seed member `property_manager` scoped to Paloma; Redbud `maintenance_lead`.
+- Cost-to-serve: office `/how-work`, client `/:token/how-work`. Title **“How work gets done across the portfolio”** — not a vendor scorecard. Cost / days / rework by bedroom count, in-house vs third-party. Money as string integers. Flag dark → 404 `{ error: "Work-source views are not enabled" }`.
+- Office without `x-halo-member-id` stays `asset_manager`. With the header, a `property_manager` scoped to A receives **403** on every property B office v1 resource in `CLIENT_BOARD_PROPERTY_BOUND_OFFICE_PATHS`. Scope/invoice approve over `properties.scope_approval_cents` (default 500000) is 403 server-side.
+- Tests: `workSource.integration.test.ts` (`caf-work-seg9` / `CAF_CLIENT_BOARD_WORK_SEG9`). After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+- Segment 7 (Bid Board) shipped after this slice. Do not enable `realtime`.
+
+### Segment 7 — Bid Board
+
+Vendor-neutral comparison. A single-vendor board is not a product. Lines align on price-item `code` + `tier`. Weights are per-property and shown openly (defaults 35 / 25 / 20 / 20: price vs schedule, on-time 90d, rework inverted, capacity). Hover/focus/click on the score opens a popover with weight % and component → contribution (not native `title=`). Award assigns the vendor, moves the turn to `scheduled`, writes an Entrata PO payload, notifies **every bidder including losers with their score**, and emits SSE `bid.awarded` with `scores[]`.
+
+- Engine: `artifacts/api-server/src/lib/bidBoard.ts`. At-schedule price = 100, 2× = 0. Award walks `pending_approval` → `approved` → `scheduled` when needed. **Hard gate:** fewer than two submitted bids → 409 `"A single-vendor board is not a product..."`. `notifyVendorOrgs` on invite (`kind: bid.invited`). `notifyBidders` writes `client_portfolio_notifications` (`kind: bid.awarded`, payload `score` / `awarded` / full `scores`) to each submitted vendor’s org members (fallback `userId: vendor-org:{id}`) plus PM org members.
+- Vendor auth: invited vendor POSTs `/v1/bid-requests/:id/bids` with **only** `x-halo-vendor-org-id` (no office cookie). Office-on-behalf still works with cookie + body `vendorOrgId`. Invited-only still 403 in `submitVendorBid`. `isVendorBidAuth` skips cookie / identity / Falkon mutation on that path when the header is set.
+- HTTP: `POST /v1/scopes/:id/bid-requests`, `POST /v1/bid-requests/:id/invitations`, `POST /v1/bid-requests/:id/bids`, `GET /v1/bid-requests/:id/comparison`, `POST /v1/bid-requests/:id/award`. Client twins under `/client/:token/...`. Flag dark → 404 `{ error: "Bid board is not enabled" }`. Comparison document includes `timezone` (property IANA) and `eligibleVendors` (named `client_orgs` type vendor, excluding already invited). Segment 9 403 sweep includes these bid paths (`CLIENT_BOARD_PROPERTY_BOUND_OFFICE_PATHS` + `ResourceIds.bidRequestId`).
+- UI: `BidBoard` in `lib/board-ui`. Named invite chips from `eligibleVendors` (not UUID paste). Coral warning if only one vendor invited; Award disabled unless ≥2 submitted. `ScoreHover` popover: 44px target, Escape closes, gold score. Due and earliest start format with `Intl` in `doc.timezone` (never the browser zone). Waiting columns have **Enter bid**: 14-line dollar form, civil date in the property zone, qty locked. Office `/bid-requests/:id`, client `/:token/bid-requests/:id`. Turn Ring: “Put out to bid” / “Compare bids”. Duplicate office UI in halo + halo-desktop.
+- Seed: Paloma **second** open turn (`t === completedCount + 1`) is a live 14-line × 3-vendor comparison (Archangel / Summit / Prairie Star at 0% / +10% / +20%). Do **not** replace Paloma’s first-open marble+paint invoice demo.
+- Tests: `bidBoard.test.ts`, `bidBoard.integration.test.ts` (`caf-bid-seg7` / `CAF_CLIENT_BOARD_BID_SEG7`). Office cookie for first bid; vendor header only for bids 2–3. Client twin GET comparison 200. Award SSE has 3 scores; 3 vendor notifications, exactly one awarded. One-bidder award → 409. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+- Flag `bidBoard` on. Segment 8 (Pipeline) shipped after this slice. Do not enable `realtime`.
+
+### Segment 8 — Turn pipeline (the only forward-looking screen)
+
+Office **`/board/pipeline`**. Existing office `/pipeline` (leads & bids) is untouched. Client twin `/:token/pipeline` (browser `/board/:token/pipeline` because Vite base is `/board/`). Pulse “Pipeline” links there.
+
+- Engine: `artifacts/api-server/src/lib/turnPipeline.ts`. Math in `lib/db/src/turnPipelineMath.ts` (no ML). Vacate volume = scheduled + notices × on-schedule conversion (fraction of notices that vacated **on the scheduled civil day** — not 100%). Duration = property×bedroom vacate-to-ready × month seasonal index. Spend band: **low** = scheduled only; **mid** = scheduled + converted notices; **high** = scheduled + all notices. Method string is on the document and the page. Week starts are Monday civil days in the **portfolio IANA** timezone.
+- Heatmap: 13 weeks × trades `paint` / `flooring` / `clean` / `drywall` / `hvac` / `punch`. Cell = projected demand / declared capacity. Ratio > 1.0 = crunch. Zero capacity + demand → 2.0. Plain CSS grid, no charting library. Timeline cell color is week-level portfolio crunch (capacity is vendor-global).
+- Hold: `POST /v1/turns/:id/capacity-hold` writes six trade rows in one bundle against `capacity_declarations`, minus live holds. Expires in `properties.capacity_hold_hours` (default 72) unless `POST /v1/capacity-holds/:bundleId/confirm`. Second hold on the same turn → 409. Auto-drafts scope from the unit’s last ready turn. Manual vacate: `POST /v1/units/:id/vacate-notice` `{ scheduledVacate: YYYY-MM-DD }` in the property timezone via `zonedCivilToUtc`.
+- HTTP: `GET /v1/portfolios/:id/pipeline`, client twins under `/client/:token/...`. Flag dark → 404 `{ error: "Pipeline is not enabled" }`. Segment 9 403 sweep includes hold + vacate-notice (`ResourceIds.unitId`).
+- UI: `TurnPipeline` in `lib/board-ui`. 13-week property grid, CSS heatmap, spend 30/60/90 bands, pre-staging Hold/Confirm. Hold expiry formats with `doc.timezone` (never the browser zone). Duplicate office UI in halo + halo-desktop. After `lib/board-ui` edits: `pnpm exec tsc --build lib/board-ui --force`.
+- Seed: ~20% of completed turns miss the scheduled civil day. Leftover units get future notice turns (Paloma cluster week 2; others 4/7; last leftover on non-Paloma is notice-only). Capacity declarations cover **13 weeks**; Paloma week-2 paint capacity = 1 (crunch). Do **not** replace Paloma marble invoice or 14-line bid comparison.
+- Tests: `turnPipelineMath.test.ts` (7/10 → 0.7; spend 200000/480000/600000), `turnPipeline.integration.test.ts` (`caf-pipe-seg8` / `CAF_CLIENT_BOARD_PIPE_SEG8`). `computePipeline` < 400ms on the fixture. Client twin 200. Second hold 409. Orval: strip `vacateNoticeInput`. Boot `ensureClientBoardSchema` flips shipped flags including `pipeline` on existing DBs.
+- Flag `pipeline` on. Do **not** start Segment 11 until this segment is 10/10. Do not enable `realtime`.
