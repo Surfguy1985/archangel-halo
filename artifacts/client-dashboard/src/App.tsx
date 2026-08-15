@@ -9,6 +9,7 @@ import HubPage from '@/pages/hub';
 import TeamPage from '@/pages/team';
 import HaloOne from '@/pages/halo-one';
 import ClientPortfolioPulsePage from '@/pages/pulse';
+import ClientPropertyTurnBoardPage from '@/pages/property-turns';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { UpdatePrompt } from '@/components/UpdatePrompt';
 import './auth-init';
@@ -18,6 +19,7 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
+      <Route path="/:token/property/:propertyId" component={ClientPropertyTurnBoardPage} />
       <Route path="/:token/board" component={KanbanBoard} />
       <Route path="/:token/map" component={MapView} />
       <Route path="/:token/units" component={UnitsPage} />

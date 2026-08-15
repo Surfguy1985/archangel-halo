@@ -8222,6 +8222,8 @@ export interface TurnRingArcDocument {
   durationMs: number;
   overP75: boolean;
   predicted: boolean;
+  /** @nullable */
+  actorId: string | null;
 }
 
 export interface TurnRingDocument {

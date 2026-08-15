@@ -1,5 +1,5 @@
-- [HALO Client Board v1 CAF](halo-client-board-v1.md) — event-sourced turns + Segment 2 engine; client-owned stages; cents; `client_*` tables; seed via `pnpm --filter @workspace/api-server seed:client-board`.
-- [HALO GPS Finder + Site Twin](halo-site-twin.md) — Pulse pin FAB + property edit search/drop-pin GPS; Site Twin snaps crew phone GPS onto georeferenced unit boxes with a live UNIT title.
+- [HALO Client Board v1 CAF](halo-client-board-v1.md) — event-sourced turn clock, client-owned stages, bigint cents, `client_*` namespacing; flags dark-launch; never drizzle-kit push.
+- [HALO GPS Finder + Site Twin](halo-site-twin.md) — drop-pin GPS lock + georeferenced unit plate; never cap twin GPS reads globally, and a far ping must split dwell, not bridge it.
 - [HALO Pulse dock rails](halo-pulse-dock-layout.md) — /pulse panels must outrank Leaflet (isolate stage, z>1000) or they vanish under the map; rails are pointer-events:none. Desktop only.
 - [HALO Field Jarvis](halo-field-jarvis.md) — Earpiece (AirPods + Whisper, not in-browser HF), GPS presence briefing, Morning Watch from autopilot; Command headphones icon; iOS mic dies when locked.
 - [HALO Property Pulse](halo-property-pulse.md) — `/pulse` is the optional Property Pulse tablet dashboard (live properties/jobs/crew GPS + Base44 sync + Twilio status); HUD grid opens it; autopilot SMS pings crew/admin once per local day.
@@ -72,7 +72,6 @@
 - [HALO SOP Invoice Wizard](halo-sop-invoice-wizard.md) — per-property AI-extracted billing rules; every invoice-create path must call applySopToInvoice (user values win, missing PO → 400).
 - [HALO job summary](halo-job-summary.md) — close-out opens prefilled recap form; public /summary/:token must serve the redacted public DTO, never the internal serializer.
 - [HALO client board](halo-client-board.md) — every client-facing send must raiseClientCard (dedupe by source, never break the send); webhook mirror is SSRF-guarded at save and dispatch.
-- [HALO Client Board v1 CAF](halo-client-board-v1.md) — event-sourced turns + Segment 2 engine (`turnEngine.ts`); client-owned stages; bigint cents; `client_*` tables; seed via `seed:client-board`; do not drizzle-kit push.
 - [HALO client card digest](halo-client-card-digest.md) — new-card pings are an hourly scheduler sweep on notifiedAt, claim-before-send; per-account notifyNewCards toggle; email only (no Twilio helper yet).
 - [HALO client access control](halo-client-access.md) — client dashboard gates by effectivePermissions (NULL=role defaults); feature catalog+defaults server-side; seat-cap changes need FOR UPDATE tx.
 - [HALO client dashboard board](halo-client-dashboard.md) — /dashboard/:token PWA; HALO cards recomputed on read, client edits/overrides in client_board_cards; Bearer HMAC sessions; blocked actions audited, not errors.

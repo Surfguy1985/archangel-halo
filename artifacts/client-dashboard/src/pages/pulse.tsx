@@ -59,8 +59,8 @@ export default function ClientPortfolioPulsePage() {
       onRefetch={refetch}
       isLoading={pulse.isLoading}
       errorMessage={(pulse.error as { error?: string } | undefined)?.error}
-      onTileClick={() => setLocation(`/${token}/board`)}
-      onAttentionClick={() => setLocation(`/${token}/board`)}
+      onTileClick={(propertyId) => setLocation(`/${token}/property/${propertyId}`)}
+      onAttentionClick={(href) => setLocation(href.startsWith("/") ? href : `/${token}/board`)}
       onRangeChange={(next, f, t) => {
         const committed = view.commitRange(next, f, t, pulse.data?.sort ?? "vacancy_cost");
         persist(pulseViewPersistBody(committed, pulse.data));

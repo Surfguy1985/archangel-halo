@@ -14279,7 +14279,8 @@ export const GetPropertyTurnBoardResponse = zod.object({
   "endDeg": zod.number(),
   "durationMs": zod.number(),
   "overP75": zod.boolean(),
-  "predicted": zod.boolean()
+  "predicted": zod.boolean(),
+  "actorId": zod.string().nullable()
 }))
 })
 }))
@@ -14327,7 +14328,8 @@ export const GetTurnDetailResponse = zod.object({
   "endDeg": zod.number(),
   "durationMs": zod.number(),
   "overP75": zod.boolean(),
-  "predicted": zod.boolean()
+  "predicted": zod.boolean(),
+  "actorId": zod.string().nullable()
 }))
 }),
   "band": zod.array(zod.object({
@@ -14461,7 +14463,8 @@ export const GetClientPropertyTurnBoardResponse = zod.object({
   "endDeg": zod.number(),
   "durationMs": zod.number(),
   "overP75": zod.boolean(),
-  "predicted": zod.boolean()
+  "predicted": zod.boolean(),
+  "actorId": zod.string().nullable()
 }))
 })
 }))
@@ -14511,7 +14514,8 @@ export const GetClientTurnDetailResponse = zod.object({
   "endDeg": zod.number(),
   "durationMs": zod.number(),
   "overP75": zod.boolean(),
-  "predicted": zod.boolean()
+  "predicted": zod.boolean(),
+  "actorId": zod.string().nullable()
 }))
 }),
   "band": zod.array(zod.object({

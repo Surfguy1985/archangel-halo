@@ -62,7 +62,7 @@ export default function ClientPortfolioPulse() {
         (list.error as { error?: string } | undefined)?.error ??
         (pulse.error as { error?: string } | undefined)?.error
       }
-      onTileClick={(propertyId) => navigate(`/properties/${propertyId}/board`)}
+      onTileClick={(propertyId) => navigate(`/properties/${propertyId}/turns`)}
       onAttentionClick={(href) => navigate(href)}
       onRangeChange={(next, f, t) => {
         const committed = view.commitRange(next, f, t, pulse.data?.sort ?? "vacancy_cost");

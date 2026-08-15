@@ -59,6 +59,7 @@ import intelligenceRouter from "./intelligence";
 import falkonTestHelperRouter from "./falkonTestHelper";
 import remindersRouter from "./reminders";
 import portfolioPulseRouter from "./portfolioPulse";
+import propertyTurnBoardRouter from "./propertyTurnBoard";
 
 const router: IRouter = Router();
 
@@ -166,5 +167,6 @@ router.use(exchangeRouter);
 router.use(intelligenceRouter);
 router.use(remindersRouter);
 router.use(portfolioPulseRouter);
+router.use(propertyTurnBoardRouter);
 
 export default router;

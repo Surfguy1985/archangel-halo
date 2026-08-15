@@ -168,6 +168,207 @@ export function unitTitleSummary(opts: {
   return `${unit} — ${bits.join(" · ")}`;
 }
 
+// ---------------------------------------------------------------------------
+// Presence & dwell — turn raw breadcrumbs into "who was in which unit, for how
+// long". Pings arrive roughly every 30s while a crew session is open, so the
+// thresholds below are tuned to that cadence: a long gap means the phone slept
+// (end the visit), a short one means GPS jitter (keep the visit whole).
+// ---------------------------------------------------------------------------
+
+export type TrackPing = { lat: number; lng: number; at: string | Date };
+
+export type UnitVisit = {
+  unitId: string;
+  label: string | null;
+  startAt: string;
+  endAt: string;
+  minutes: number;
+  pings: number;
+};
+
+export type PresenceDay = {
+  visits: UnitVisit[];
+  /** unitId -> minutes spent inside it today */
+  minutesByUnit: Record<string, number>;
+  onSiteMinutes: number;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+};
+
+/** Longer than this between pings and the phone was asleep — close the visit. */
+export const DWELL_GAP_MS = 10 * 60_000;
+/** A blip out of the box shorter than this is jitter, not a real departure. */
+export const DWELL_MERGE_MS = 3 * 60_000;
+/** Walking past a door is not a visit. */
+export const DWELL_MIN_MS = 60_000;
+
+function pingTime(at: string | Date): number {
+  return at instanceof Date ? at.getTime() : new Date(at).getTime();
+}
+
+/**
+ * Reduce one crew's day of breadcrumbs to unit visits.
+ *
+ * A "visit" is a run of consecutive pings that snap to the same unit. Runs are
+ * split on long gaps, rejoined across brief jitter, and drive-by noise is
+ * dropped — otherwise a two-hour stay reads as forty separate visits.
+ */
+export function computePresenceDay(
+  pings: readonly TrackPing[],
+  bbox: GeoBBox,
+  units: readonly FloorUnit[],
+  siteCenter: GeoPoint,
+): PresenceDay {
+  const ordered = pings
+    .map((p) => ({ lat: p.lat, lng: p.lng, t: pingTime(p.at) }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Number.isFinite(p.t))
+    .sort((a, b) => a.t - b.t);
+
+  if (ordered.length === 0) {
+    return { visits: [], minutesByUnit: {}, onSiteMinutes: 0, firstSeenAt: null, lastSeenAt: null };
+  }
+
+  type Run = {
+    unitId: string;
+    label: string | null;
+    start: number;
+    end: number;
+    pings: number;
+    // True when the crew was off the property between this run and the one
+    // before it. Such a run can never be stitched onto its predecessor.
+    afterOffSite: boolean;
+  };
+  const runs: Run[] = [];
+  let onSiteMs = 0;
+  let prevOnSite: number | null = null;
+  // A ping that lands off the property ends the stay outright. Dwell is
+  // evidence — "in unit 204 for two hours" must never be bridged across the
+  // crew actually leaving, no matter how briefly, or the number is a lie.
+  let leftSite = false;
+  let firstOnSite: number | null = null;
+  let lastOnSite: number | null = null;
+
+  for (const p of ordered) {
+    const snap = snapGpsToFloor({ lat: p.lat, lng: p.lng }, bbox, units, siteCenter);
+    const here = snap.confidence === "inside" || snap.confidence === "near" ? snap.unitId : null;
+
+    if (snap.confidence !== "far") {
+      if (firstOnSite == null) firstOnSite = p.t;
+      lastOnSite = p.t;
+      if (prevOnSite != null && p.t - prevOnSite <= DWELL_GAP_MS) onSiteMs += p.t - prevOnSite;
+      prevOnSite = p.t;
+    } else {
+      prevOnSite = null;
+      leftSite = true;
+    }
+
+    const last = runs[runs.length - 1];
+    if (here && !leftSite && last && last.unitId === here && p.t - last.end <= DWELL_GAP_MS) {
+      last.end = p.t;
+      last.pings += 1;
+      continue;
+    }
+    if (here) {
+      runs.push({
+        unitId: here,
+        label: snap.label,
+        start: p.t,
+        end: p.t,
+        pings: 1,
+        afterOffSite: leftSite,
+      });
+      leftSite = false;
+    }
+  }
+
+  // Rejoin runs the crew briefly stepped out of — a GPS wobble across a box
+  // edge must not read as leaving and re-entering the apartment. Two shapes of
+  // wobble occur in the field: stepping into the hallway (a gap with no unit at
+  // all), and a single ping landing in the unit next door. Standing on a shared
+  // wall produces the second shape over and over, so the blip is hopped rather
+  // than treated as a divider — otherwise a two-hour stay shreds into nothing.
+  const merged: Run[] = [];
+  for (const run of runs) {
+    const last = merged[merged.length - 1];
+    if (
+      last &&
+      !run.afterOffSite &&
+      last.unitId === run.unitId &&
+      run.start - last.end <= DWELL_MERGE_MS
+    ) {
+      last.end = run.end;
+      last.pings += run.pings;
+      continue;
+    }
+    const prev = merged[merged.length - 2];
+    const blipMs = last ? last.end - last.start : Infinity;
+    if (
+      prev &&
+      last &&
+      !run.afterOffSite &&
+      !last.afterOffSite &&
+      prev.unitId === run.unitId &&
+      blipMs < DWELL_MIN_MS &&
+      run.start - prev.end <= DWELL_MERGE_MS
+    ) {
+      prev.end = run.end;
+      prev.pings += run.pings;
+      merged.pop();
+      continue;
+    }
+    merged.push({ ...run });
+  }
+
+  const visits: UnitVisit[] = [];
+  const minutesByUnit: Record<string, number> = {};
+  for (const run of merged) {
+    const ms = run.end - run.start;
+    if (ms < DWELL_MIN_MS) continue;
+    const minutes = Math.round(ms / 60_000);
+    visits.push({
+      unitId: run.unitId,
+      label: run.label,
+      startAt: new Date(run.start).toISOString(),
+      endAt: new Date(run.end).toISOString(),
+      minutes,
+      pings: run.pings,
+    });
+    minutesByUnit[run.unitId] = (minutesByUnit[run.unitId] ?? 0) + minutes;
+  }
+
+  return {
+    visits,
+    minutesByUnit,
+    onSiteMinutes: Math.round(onSiteMs / 60_000),
+    // Seen ON SITE, not merely seen: the roster prints this as "in at 7:14a",
+    // so a ping from the crew's driveway must not become an arrival time.
+    firstSeenAt: firstOnSite == null ? null : new Date(firstOnSite).toISOString(),
+    lastSeenAt: lastOnSite == null ? null : new Date(lastOnSite).toISOString(),
+  };
+}
+
+/** "2h14m" / "47m" / "just arrived" — used in HUD titles and the roster. */
+export function humanMinutes(minutes: number | null | undefined): string {
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return "just arrived";
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m === 0 ? `${h}h` : `${h}h${m}m`;
+}
+
+/**
+ * Thin a day of breadcrumbs for the replay scrubber. Keeps the first and last
+ * ping so the timeline still spans the real working day.
+ */
+export function downsampleTrail<T>(points: readonly T[], max: number): T[] {
+  const cap = Math.max(2, Math.floor(max));
+  if (points.length <= cap) return [...points];
+  const step = (points.length - 1) / (cap - 1);
+  const out: T[] = [];
+  for (let i = 0; i < cap; i++) out.push(points[Math.round(i * step)]!);
+  return out;
+}
+
 export type GridBox = { label: string; x: number; y: number; w: number; h: number };
 
 /** Fractional unit plate used by Admin unit map and Site Twin one-tap layout. */

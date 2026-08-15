@@ -535,6 +535,39 @@ export default function PropertyPulse() {
   const [gpsPinging, setGpsPinging] = useState(false);
   const [gpsOpen, setGpsOpen] = useState(false);
   const [twinOpen, setTwinOpen] = useState(false);
+  // The twin's unit sheet can ask whoever is standing in that unit for proof.
+  const requestUnitPhotos = async (u: { unitId: string; label: string; crewId: string | null }) => {
+    if (!u.crewId) {
+      toast({
+        title: `No crew on Unit ${u.label} yet`,
+        description: "Assign a crew to that unit before asking for photos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const r = await fetch("/api/sms/send", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          crewId: u.crewId,
+          body: `HALO: please post photos of Unit ${u.label} in your crew portal — before and after for the work you are on.`,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 202) toast({ title: "Photo request waiting on Falkon approval" });
+      else if (!r.ok) throw new Error((j as { error?: string }).error || "Photo request failed");
+      else toast({ title: `Asked the crew for Unit ${u.label} photos` });
+    } catch (e) {
+      toast({
+        title: "Could not text the crew",
+        description: e instanceof Error ? e.message : "Twilio or Falkon blocked the send",
+        variant: "destructive",
+      });
+    }
+  };
+
   const [now, setNow] = useState(() => new Date());
   const [open, setOpen] = useState<Record<PanelId, boolean>>(loadOpen);
   const [mode, setMode] = useState<Record<PanelId, PanelMode>>(loadModes);
@@ -1220,6 +1253,11 @@ export default function PropertyPulse() {
           onClose={() => setTwinOpen(false)}
           onNeedPin={() => { setTwinOpen(false); setGpsOpen(true); }}
           onRequestGps={() => void pingGps()}
+          onOpenJob={(jobId) => {
+            setTwinOpen(false);
+            navigate(`/jobs/${jobId}`);
+          }}
+          onRequestPhotos={(u) => void requestUnitPhotos(u)}
         />
       )}
     </div>

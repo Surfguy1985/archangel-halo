@@ -15,6 +15,7 @@ export type TurnRingArc = {
   durationMs: number;
   overP75: boolean;
   predicted: boolean;
+  actorId: string | null;
 };
 
 export function polarToCartesian(
@@ -67,6 +68,7 @@ export function buildTurnRingArcs(args: {
       durationMs: ms,
       overP75: typeof p75 === "number" && p75 > 0 && ms > p75,
       predicted: false,
+      actorId: visit.actorId,
     });
     cursor += sweep;
   }
@@ -80,6 +82,7 @@ export function buildTurnRingArcs(args: {
       durationMs: remaining,
       overP75: false,
       predicted: true,
+      actorId: null,
     });
   }
   return arcs;

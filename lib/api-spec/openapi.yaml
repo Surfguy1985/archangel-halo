@@ -10936,6 +10936,304 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v1/turns/{id}/evidence:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getTurnEvidence
+      tags: [turns]
+      summary: Room-by-room evidence ledger for a turn
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evidence document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnEvidenceDocument"
+        "404":
+          description: Unknown turn or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/records:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createTurnRecord
+      tags: [turns]
+      summary: Queue a Unit Turn Record PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTurnRecordBody"
+      responses:
+        "200":
+          description: Record job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnRecordDocument"
+        "404":
+          description: Unknown turn or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/records/{id}:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getTurnRecord
+      tags: [turns]
+      summary: Signed URL and status for a Unit Turn Record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Record document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnRecordDocument"
+        "404":
+          description: Unknown record or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/records/{id}/file:
+    get:
+      operationId: getTurnRecordFile
+      tags: [turns]
+      summary: Stream a Unit Turn Record PDF via a signed query
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: exp
+          in: query
+          required: true
+          schema: { type: string }
+        - name: sig
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "404":
+          description: Unknown record, expired signature, or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/verify:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: verifyTurn
+      tags: [turns]
+      summary: Recompute the Merkle verification hash
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Verify document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnVerifyDocument"
+        "404":
+          description: Unknown turn or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/evidence/{id}/file:
+    get:
+      operationId: getEvidenceFile
+      tags: [turns]
+      summary: Stream an evidence original or derivative via a signed query
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: size
+          in: query
+          required: false
+          schema: { type: string, enum: [original, thumb, view] }
+        - name: exp
+          in: query
+          required: true
+          schema: { type: string }
+        - name: sig
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404":
+          description: Unknown item, expired signature, or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/evidence:
+    get:
+      operationId: getClientTurnEvidence
+      tags: [turns]
+      summary: Client twin of the evidence ledger
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evidence document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnEvidenceDocument"
+        "404":
+          description: Invalid link or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/records:
+    post:
+      operationId: createClientTurnRecord
+      tags: [turns]
+      summary: Client twin — queue a Unit Turn Record
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTurnRecordBody"
+      responses:
+        "200":
+          description: Record job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnRecordDocument"
+        "404":
+          description: Invalid link or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/records/{id}:
+    get:
+      operationId: getClientTurnRecord
+      tags: [turns]
+      summary: Client twin of a Unit Turn Record
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Record document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnRecordDocument"
+        "404":
+          description: Invalid link or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/verify:
+    get:
+      operationId: verifyClientTurn
+      tags: [turns]
+      summary: Client twin of Merkle verify
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Verify document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnVerifyDocument"
+        "404":
+          description: Invalid link or evidence flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     adminSession:
@@ -17970,7 +18268,7 @@ components:
 
     TurnRingArcDocument:
       type: object
-      required: [stage, owner, visitIndex, startDeg, endDeg, durationMs, overP75, predicted]
+      required: [stage, owner, visitIndex, startDeg, endDeg, durationMs, overP75, predicted, actorId]
       properties:
         stage:
           $ref: "#/components/schemas/TurnStageName"
@@ -17982,6 +18280,7 @@ components:
         durationMs: { type: integer }
         overP75: { type: boolean }
         predicted: { type: boolean }
+        actorId: { type: ["string", "null"] }
 
     TurnRingDocument:
       type: object
@@ -18161,4 +18460,142 @@ components:
         from: { type: ["string", "null"] }
         to: { type: string }
         occurredAt: { type: string }
+
+    EvidenceIntegrityFlagDocument:
+      type: object
+      required: [code, explanation]
+      properties:
+        code: { type: string }
+        explanation: { type: string }
+
+    EvidencePhotoDocument:
+      type: object
+      required:
+        - id
+        - phase
+        - room
+        - thumbUrl
+        - viewUrl
+        - capturedAt
+        - capturedAtLabel
+        - device
+        - distanceM
+        - capturedByName
+        - integrityFlags
+      properties:
+        id: { type: string }
+        phase: { type: string, enum: [before, during, after, qc] }
+        room: { type: string }
+        thumbUrl: { type: string }
+        viewUrl: { type: string }
+        capturedAt: { type: string }
+        capturedAtLabel: { type: string }
+        device: { type: string }
+        distanceM: { type: ["number", "null"] }
+        capturedByName: { type: string }
+        integrityFlags:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceIntegrityFlagDocument"
+
+    EvidenceRoomDocument:
+      type: object
+      required: [room, label, before, after, during, qc]
+      properties:
+        room: { type: string }
+        label: { type: string }
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidencePhotoDocument"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidencePhotoDocument"
+        during:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidencePhotoDocument"
+        qc:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidencePhotoDocument"
+
+    EvidenceTrailPointDocument:
+      type: object
+      required: [lat, lng, at, type]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+        at: { type: string }
+        type: { type: string }
+
+    EvidenceTrailDocument:
+      type: object
+      required: [checkIn, checkOut, points, geofence]
+      properties:
+        checkIn:
+          oneOf:
+            - $ref: "#/components/schemas/EvidenceTrailPointDocument"
+            - type: "null"
+        checkOut:
+          oneOf:
+            - $ref: "#/components/schemas/EvidenceTrailPointDocument"
+            - type: "null"
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceTrailPointDocument"
+        geofence:
+          type: object
+          required: [lat, lng, radiusM]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+            radiusM: { type: number }
+
+    TurnEvidenceDocument:
+      type: object
+      required: [turnId, timezone, rooms, trail, verificationHash]
+      properties:
+        turnId: { type: string }
+        timezone: { type: string }
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceRoomDocument"
+        trail:
+          $ref: "#/components/schemas/EvidenceTrailDocument"
+        verificationHash: { type: ["string", "null"] }
+
+    CreateTurnRecordBody:
+      type: object
+      required: [variant]
+      properties:
+        variant: { type: string, enum: [full, move_out_condition] }
+
+    TurnRecordDocument:
+      type: object
+      required: [id, turnId, variant, status, url, expiresAt, sha256, bytes, error]
+      properties:
+        id: { type: string }
+        turnId: { type: string }
+        variant: { type: string, enum: [full, move_out_condition] }
+        status: { type: string, enum: [queued, rendering, ready, failed] }
+        url: { type: ["string", "null"] }
+        expiresAt: { type: ["string", "null"] }
+        sha256: { type: ["string", "null"] }
+        bytes: { type: ["string", "null"] }
+        error: { type: ["string", "null"] }
+
+    TurnVerifyDocument:
+      type: object
+      required: [turnId, storedHash, computedHash, matches, evidenceCount, timelineEventCount]
+      properties:
+        turnId: { type: string }
+        storedHash: { type: ["string", "null"] }
+        computedHash: { type: string }
+        matches: { type: boolean }
+        evidenceCount: { type: integer }
+        timelineEventCount: { type: integer }
 

@@ -18,3 +18,8 @@ export type { WaybillStage, WaybillStageEntryView } from './components/card/Wayb
 export { PortfolioPulse } from './components/pulse/PortfolioPulse';
 export type { PortfolioPulseProps } from './components/pulse/PortfolioPulse';
 export { formatUsdCents, signedUsdCents } from './components/pulse/formatUsdCents';
+export { TurnRing, confidenceGlyph } from './components/turn-ring/TurnRing';
+export { TurnBoard } from './components/turn-ring/TurnBoard';
+export type { TurnBoardProps } from './components/turn-ring/TurnBoard';
+export { polarToCartesian, describeArc } from './components/turn-ring/polar';
+export { formatStageClock, actorLabel } from './components/turn-ring/clock';

@@ -49,11 +49,11 @@ async function requirePulse(): Promise<boolean> {
 }
 
 function officePropertyHref(propertyId: string): string {
-  return `/properties/${propertyId}/board`;
+  return `/properties/${propertyId}/turns`;
 }
 
 function clientPropertyHref(token: string): (propertyId: string) => string {
-  return () => `/${token}/board`;
+  return (propertyId: string) => `/${token}/property/${propertyId}`;
 }
 
 function pulseQueryFromParsed(q: {

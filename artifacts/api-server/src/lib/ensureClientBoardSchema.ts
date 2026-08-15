@@ -27,7 +27,7 @@ export async function ensureClientBoardSchema(): Promise<void> {
     await db.execute(sql.raw(CLIENT_BOARD_FLAGS_SEED_SQL));
     await db.execute(
       sql.raw(
-        `UPDATE client_board_flags SET enabled = true, updated_at = now() WHERE segment IN ('turnEngine', 'pulse', 'propertyBoard') AND enabled IS DISTINCT FROM true`,
+        `UPDATE client_board_flags SET enabled = true, updated_at = now() WHERE segment IN ('turnEngine', 'pulse', 'propertyBoard', 'evidence') AND enabled IS DISTINCT FROM true`,
       ),
     );
   } catch (err) {

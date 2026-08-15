@@ -32,6 +32,7 @@ import AdminAccount from "@/pages/AdminAccount";
 import HaloCommand from "@/pages/HaloCommand";
 import PropertyPulse from "@/pages/PropertyPulse";
 import ClientPortfolioPulse from "@/pages/ClientPortfolioPulse";
+import PropertyTurnBoard from "@/pages/PropertyTurnBoard";
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
 import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
@@ -90,6 +91,13 @@ function App() {
               <OfficeGate>
                 <SplashScreen />
                 <ClientPortfolioPulse />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/properties/:id/turns">
+              <OfficeGate>
+                <SplashScreen />
+                <PropertyTurnBoard />
               </OfficeGate>
             </Route>
 

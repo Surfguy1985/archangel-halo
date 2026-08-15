@@ -2,7 +2,8 @@ import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateP
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap, MessageSquare, MapPin, Box } from "lucide-react";
 import { useState } from "react";
 import { CommandSheet } from "@/components/command/CommandSheet";
@@ -53,6 +54,41 @@ export default function PropertyDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [gpsOpen, setGpsOpen] = useState(false);
   const [twinOpen, setTwinOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  // The twin's unit sheet can ask whoever is standing in that unit for proof.
+  const requestUnitPhotos = async (u: { unitId: string; label: string; crewId: string | null }) => {
+    if (!u.crewId) {
+      toast({
+        title: `No crew on Unit ${u.label} yet`,
+        description: "Assign a crew to that unit before asking for photos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const r = await fetch("/api/sms/send", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          crewId: u.crewId,
+          body: `HALO: please post photos of Unit ${u.label} in your crew portal — before and after for the work you are on.`,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 202) toast({ title: "Photo request waiting on Falkon approval" });
+      else if (!r.ok) throw new Error((j as { error?: string }).error || "Photo request failed");
+      else toast({ title: `Asked the crew for Unit ${u.label} photos` });
+    } catch (e) {
+      toast({
+        title: "Could not text the crew",
+        description: e instanceof Error ? e.message : "Twilio or Falkon blocked the send",
+        variant: "destructive",
+      });
+    }
+  };
+
   const [contactOpen, setContactOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importCatalogOpen, setImportCatalogOpen] = useState(false);
@@ -796,6 +832,11 @@ export default function PropertyDetail() {
             setTwinOpen(false);
             setGpsOpen(true);
           }}
+          onOpenJob={(jobId) => {
+            setTwinOpen(false);
+            navigate(`/jobs/${jobId}`);
+          }}
+          onRequestPhotos={(u) => void requestUnitPhotos(u)}
         />
       )}
       <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />

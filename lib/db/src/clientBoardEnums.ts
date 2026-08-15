@@ -82,7 +82,7 @@ export const CLIENT_BOARD_FLAG_SEGMENTS = [
 
 export type ClientBoardFlagSegment = (typeof CLIENT_BOARD_FLAG_SEGMENTS)[number];
 
-/** dataModel + turnEngine + pulse + propertyBoard ship on. Later UI segments stay dark. */
+/** dataModel + turnEngine + pulse + propertyBoard + evidence ship on. Later UI segments stay dark. */
 export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   Record<ClientBoardFlagSegment, boolean>
 > = {
@@ -90,7 +90,7 @@ export const CLIENT_BOARD_FLAG_DEFAULTS: Readonly<
   turnEngine: true,
   pulse: true,
   propertyBoard: true,
-  evidence: false,
+  evidence: true,
   invoiceCompliance: false,
   bidBoard: false,
   pipeline: false,

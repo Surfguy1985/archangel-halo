@@ -210,6 +210,22 @@ export const CLIENT_BOARD_DDL: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS client_gps_events_turn_occurred_idx
      ON client_gps_events (turn_id, occurred_at)`,
 
+  `CREATE TABLE IF NOT EXISTS client_turn_records (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    turn_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    variant text NOT NULL,
+    status text NOT NULL DEFAULT 'queued',
+    storage_key text,
+    sha256 text,
+    bytes bigint,
+    error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    ready_at timestamptz
+  )`,
+  `CREATE INDEX IF NOT EXISTS client_turn_records_turn_idx
+     ON client_turn_records (turn_id, created_at)`,
+
   // ── pricing / scopes / invoices (integer cents; not office tables) ─────
   `CREATE TABLE IF NOT EXISTS client_price_lists (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -766,7 +782,7 @@ INSERT INTO client_board_flags (segment, enabled) VALUES
   ('turnEngine', true),
   ('pulse', true),
   ('propertyBoard', true),
-  ('evidence', false),
+  ('evidence', true),
   ('invoiceCompliance', false),
   ('bidBoard', false),
   ('pipeline', false),

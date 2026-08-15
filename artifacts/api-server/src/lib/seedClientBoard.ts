@@ -152,6 +152,8 @@ async function teardownSeedProperties(): Promise<void> {
     await tx.execute(sql`DELETE FROM client_bid_invitations WHERE bid_request_id IN (
       SELECT id FROM client_bid_requests WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_bid_requests WHERE property_id IN (${inProps})`);
+    await tx.execute(sql`DELETE FROM client_turn_records WHERE turn_id IN (
+        SELECT id FROM client_turns WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_evidence_items WHERE turn_id IN (
       SELECT id FROM client_turns WHERE property_id IN (${inProps}))`);
     await tx.execute(sql`DELETE FROM client_gps_events WHERE turn_id IN (

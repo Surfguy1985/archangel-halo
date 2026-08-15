@@ -341,6 +341,29 @@ export const clientGpsEventsTable = pgTable(
   (t) => [index("client_gps_events_turn_occurred_idx").on(t.turnId, t.occurredAt)],
 );
 
+export const TURN_RECORD_VARIANTS = ["full", "move_out_condition"] as const;
+export type TurnRecordVariant = (typeof TURN_RECORD_VARIANTS)[number];
+export const TURN_RECORD_STATUSES = ["queued", "rendering", "ready", "failed"] as const;
+export type TurnRecordStatus = (typeof TURN_RECORD_STATUSES)[number];
+
+export const clientTurnRecordsTable = pgTable(
+  "client_turn_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    turnId: uuid("turn_id").notNull(),
+    orgId: uuid("org_id").notNull(),
+    variant: text("variant").$type<TurnRecordVariant>().notNull(),
+    status: text("status").$type<TurnRecordStatus>().notNull().default("queued"),
+    storageKey: text("storage_key"),
+    sha256: text("sha256"),
+    bytes: bigint("bytes", { mode: "bigint" }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+  },
+  (t) => [index("client_turn_records_turn_idx").on(t.turnId, t.createdAt)],
+);
+
 // ── Pricing / scopes / invoices (cents; not office price_items/invoices) ───
 
 export const clientPriceListsTable = pgTable("client_price_lists", {

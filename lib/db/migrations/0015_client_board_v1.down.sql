@@ -35,6 +35,7 @@ DROP TABLE IF EXISTS client_scope_lines;
 DROP TABLE IF EXISTS client_scopes;
 DROP TABLE IF EXISTS client_price_list_items;
 DROP TABLE IF EXISTS client_price_lists;
+DROP TABLE IF EXISTS client_turn_records;
 DROP TABLE IF EXISTS client_gps_events;
 DROP TABLE IF EXISTS client_evidence_items;
 DROP TABLE IF EXISTS client_turn_outbox;

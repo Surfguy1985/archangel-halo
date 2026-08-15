@@ -95,6 +95,7 @@ import {
   clientBidInvitationsTable,
   clientBidRequestsTable,
   clientEvidenceItemsTable,
+  clientTurnRecordsTable,
   clientGpsEventsTable,
   clientPredictionLogTable,
   clientTurnOutboxTable,
@@ -359,6 +360,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(clientVendorBidsTable);
     await tx.delete(clientBidInvitationsTable);
     await tx.delete(clientBidRequestsTable);
+    await tx.delete(clientTurnRecordsTable);
     await tx.delete(clientEvidenceItemsTable);
     await tx.delete(clientGpsEventsTable);
     await tx.delete(clientPredictionLogTable);
