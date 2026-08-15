@@ -13976,3 +13976,628 @@ export const ConfirmConciergeActionResponse = zod.object({
 })
 
 
+/**
+ * @summary Portfolios in the office session — org is taken from each row, never a request param
+ */
+export const ListClientPortfoliosResponse = zod.object({
+  "portfolios": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "orgId": zod.string(),
+  "propertyCount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Portfolio Pulse read model — headline, supporting figures, property tiles. Reads client_turn_metrics_mv, never raw stage events.
+ */
+export const GetPortfolioPulseParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPortfolioPulseQueryParams = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional().describe('Date-range preset. Default this_month in the org IANA timezone.'),
+  "from": zod.coerce.string().optional().describe('Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
+  "to": zod.coerce.string().optional().describe('Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.')
+})
+
+export const getPortfolioPulseResponseHeadlineVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioPulseResponseHeadlinePriorVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioPulseResponseHeadlineVacancyCostDeltaCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getPortfolioPulseResponseTilesItemSparklineMin = 12;
+export const getPortfolioPulseResponseTilesItemSparklineMax = 12;
+
+export const getPortfolioPulseResponseTilesItemVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetPortfolioPulseResponse = zod.object({
+  "portfolioId": zod.string(),
+  "portfolioName": zod.string(),
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string(),
+  "to": zod.string(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']),
+  "headline": zod.object({
+  "vacancyCostCents": zod.string().regex(getPortfolioPulseResponseHeadlineVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "priorVacancyCostCents": zod.string().regex(getPortfolioPulseResponseHeadlinePriorVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "vacancyCostDeltaCents": zod.string().regex(getPortfolioPulseResponseHeadlineVacancyCostDeltaCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "label": zod.string().describe('rent lost to vacancy days this month'),
+  "priorLabel": zod.string()
+}),
+  "supporting": zod.object({
+  "unitsInTurn": zod.number(),
+  "medianTurnDays": zod.number().nullable(),
+  "targetTurnDays": zod.number(),
+  "predictedLateThisWeek": zod.number()
+}),
+  "tiles": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "unitCount": zod.number(),
+  "sparkline": zod.array(zod.number()).min(getPortfolioPulseResponseTilesItemSparklineMin).max(getPortfolioPulseResponseTilesItemSparklineMax).describe('Units in turn at each of the trailing 12 week starts'),
+  "medianTurnDays": zod.number().nullable(),
+  "vacancyCostCents": zod.string().regex(getPortfolioPulseResponseTilesItemVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "unitsInTurn": zod.number(),
+  "status": zod.enum(['on_target', 'drifting', 'at_risk']),
+  "statusLabel": zod.string(),
+  "href": zod.string()
+}))
+})
+
+
+/**
+ * @summary Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+ */
+export const GetPortfolioAttentionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPortfolioAttentionResponse = zod.object({
+  "portfolioId": zod.string(),
+  "groups": zod.array(zod.object({
+  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices']),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "items": zod.array(zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "days": zod.number(),
+  "href": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary SSE stream — `pulse` events. Reconnect then refetch pulse + attention to catch up.
+ */
+export const StreamPortfolioPulseParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamPortfolioPulseResponse = zod.unknown()
+
+
+/**
+ * @summary Persist Pulse date range and tile sort in client_saved_views
+ */
+export const PutPortfolioSavedViewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const PutPortfolioSavedViewHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const PutPortfolioSavedViewBody = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name'])
+})
+
+export const PutPortfolioSavedViewResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']),
+  "isDefault": zod.boolean()
+})
+
+
+/**
+ * @summary Client-token Portfolio Pulse — same document as the office pulse, scoped to the property's org
+ */
+export const GetClientPortfolioPulseParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientPortfolioPulseQueryParams = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']).optional().describe('Date-range preset. Default this_month in the org IANA timezone.'),
+  "from": zod.coerce.string().optional().describe('Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
+  "to": zod.coerce.string().optional().describe('Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.'),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']).optional().describe('Property tile sort. Default vacancy_cost descending.')
+})
+
+export const getClientPortfolioPulseResponseHeadlineVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioPulseResponseHeadlinePriorVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioPulseResponseHeadlineVacancyCostDeltaCentsRegExp = new RegExp('^-?[0-9]+$');
+export const getClientPortfolioPulseResponseTilesItemSparklineMin = 12;
+export const getClientPortfolioPulseResponseTilesItemSparklineMax = 12;
+
+export const getClientPortfolioPulseResponseTilesItemVacancyCostCentsRegExp = new RegExp('^-?[0-9]+$');
+
+
+export const GetClientPortfolioPulseResponse = zod.object({
+  "portfolioId": zod.string(),
+  "portfolioName": zod.string(),
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string(),
+  "to": zod.string(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']),
+  "headline": zod.object({
+  "vacancyCostCents": zod.string().regex(getClientPortfolioPulseResponseHeadlineVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "priorVacancyCostCents": zod.string().regex(getClientPortfolioPulseResponseHeadlinePriorVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "vacancyCostDeltaCents": zod.string().regex(getClientPortfolioPulseResponseHeadlineVacancyCostDeltaCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "label": zod.string().describe('rent lost to vacancy days this month'),
+  "priorLabel": zod.string()
+}),
+  "supporting": zod.object({
+  "unitsInTurn": zod.number(),
+  "medianTurnDays": zod.number().nullable(),
+  "targetTurnDays": zod.number(),
+  "predictedLateThisWeek": zod.number()
+}),
+  "tiles": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "unitCount": zod.number(),
+  "sparkline": zod.array(zod.number()).min(getClientPortfolioPulseResponseTilesItemSparklineMin).max(getClientPortfolioPulseResponseTilesItemSparklineMax).describe('Units in turn at each of the trailing 12 week starts'),
+  "medianTurnDays": zod.number().nullable(),
+  "vacancyCostCents": zod.string().regex(getClientPortfolioPulseResponseTilesItemVacancyCostCentsRegExp).describe('Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.'),
+  "unitsInTurn": zod.number(),
+  "status": zod.enum(['on_target', 'drifting', 'at_risk']),
+  "statusLabel": zod.string(),
+  "href": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client-token attention list
+ */
+export const GetClientPortfolioAttentionParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientPortfolioAttentionResponse = zod.object({
+  "portfolioId": zod.string(),
+  "groups": zod.array(zod.object({
+  "kind": zod.enum(['stalled', 'awaiting_approval', 'failed_qc', 'blocked_invoices']),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "items": zod.array(zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "days": zod.number(),
+  "href": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary SSE stream — `pulse` events for the property's portfolio
+ */
+export const StreamClientPortfolioPulseParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const StreamClientPortfolioPulseResponse = zod.unknown()
+
+
+/**
+ * @summary Persist Pulse date range and tile sort for this client link
+ */
+export const PutClientPortfolioSavedViewParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const PutClientPortfolioSavedViewHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const PutClientPortfolioSavedViewBody = zod.object({
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name'])
+})
+
+export const PutClientPortfolioSavedViewResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "range": zod.enum(['this_month', 'last_30', 'qtd', 'custom']),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish(),
+  "sort": zod.enum(['vacancy_cost', 'turn_days', 'units_in_turn', 'name']),
+  "isDefault": zod.boolean()
+})
+
+
+/**
+ * @summary Property Turn Ring board — units in turn as stage columns. Drag is always disabled; the work moves the cards.
+ */
+export const GetPropertyTurnBoardParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPropertyTurnBoardQueryParams = zod.object({
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional()
+})
+
+export const GetPropertyTurnBoardResponse = zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "timezone": zod.string(),
+  "targetTurnDays": zod.number(),
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']),
+  "dragEnabled": zod.boolean(),
+  "lanes": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "owner": zod.enum(['client', 'vendor', 'shared']).optional()
+})),
+  "cards": zod.array(zod.object({
+  "turnId": zod.string(),
+  "unitNumber": zod.string(),
+  "bedrooms": zod.number(),
+  "daysVacant": zod.number(),
+  "isStalled": zod.boolean(),
+  "workSource": zod.enum(['in_house', 'third_party']),
+  "vendorName": zod.string().nullable(),
+  "laneKey": zod.string(),
+  "status": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "ring": zod.object({
+  "daysVacant": zod.number(),
+  "predictedReadyAt": zod.string().nullable(),
+  "confidence": zod.string().nullable(),
+  "remainingPredictedMs": zod.number(),
+  "arcs": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "startDeg": zod.number(),
+  "endDeg": zod.number(),
+  "durationMs": zod.number(),
+  "overP75": zod.boolean(),
+  "predicted": zod.boolean()
+}))
+})
+}))
+})
+
+
+/**
+ * @summary SSE stream — `turn` events. Reconnect then refetch the board.
+ */
+export const StreamPropertyTurnBoardParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StreamPropertyTurnBoardResponse = zod.unknown()
+
+
+/**
+ * @summary Unit turn detail — large Turn Ring, stage band, activity, client actions
+ */
+export const GetTurnDetailParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetTurnDetailResponse = zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "bedrooms": zod.number(),
+  "status": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "daysVacant": zod.number(),
+  "isStalled": zod.boolean(),
+  "workSource": zod.enum(['in_house', 'third_party']),
+  "vendorName": zod.string().nullable(),
+  "ring": zod.object({
+  "daysVacant": zod.number(),
+  "predictedReadyAt": zod.string().nullable(),
+  "confidence": zod.string().nullable(),
+  "remainingPredictedMs": zod.number(),
+  "arcs": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "startDeg": zod.number(),
+  "endDeg": zod.number(),
+  "durationMs": zod.number(),
+  "overP75": zod.boolean(),
+  "predicted": zod.boolean()
+}))
+}),
+  "band": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "enteredAt": zod.string(),
+  "exitedAt": zod.string().nullable(),
+  "durationMs": zod.number(),
+  "durationLabel": zod.string(),
+  "actorId": zod.string().nullable(),
+  "clientOwnedLabel": zod.string().nullable()
+})),
+  "bandDurationMs": zod.number(),
+  "activity": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['stage', 'approval', 'message']),
+  "at": zod.string(),
+  "summary": zod.string()
+})),
+  "actions": zod.array(zod.object({
+  "id": zod.enum(['approve_scope', 'approve_variance', 'request_work']),
+  "label": zod.string()
+})),
+  "evidencePlaceholder": zod.string(),
+  "scopePlaceholder": zod.string()
+})
+
+
+/**
+ * @summary Client approves scope — pending_approval to approved
+ */
+export const ApproveTurnScopeParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveTurnScopeHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveTurnScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Client approves pending scope variances
+ */
+export const ApproveTurnVarianceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveTurnVarianceHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveTurnVarianceResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Client requests work — notice to vacated
+ */
+export const RequestTurnWorkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RequestTurnWorkHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const RequestTurnWorkResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Client twin of the property Turn Ring board
+ */
+export const GetClientPropertyTurnBoardParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientPropertyTurnBoardQueryParams = zod.object({
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']).optional()
+})
+
+export const GetClientPropertyTurnBoardResponse = zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "timezone": zod.string(),
+  "targetTurnDays": zod.number(),
+  "groupBy": zod.enum(['stage', 'work_source', 'vendor']),
+  "dragEnabled": zod.boolean(),
+  "lanes": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "owner": zod.enum(['client', 'vendor', 'shared']).optional()
+})),
+  "cards": zod.array(zod.object({
+  "turnId": zod.string(),
+  "unitNumber": zod.string(),
+  "bedrooms": zod.number(),
+  "daysVacant": zod.number(),
+  "isStalled": zod.boolean(),
+  "workSource": zod.enum(['in_house', 'third_party']),
+  "vendorName": zod.string().nullable(),
+  "laneKey": zod.string(),
+  "status": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "ring": zod.object({
+  "daysVacant": zod.number(),
+  "predictedReadyAt": zod.string().nullable(),
+  "confidence": zod.string().nullable(),
+  "remainingPredictedMs": zod.number(),
+  "arcs": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "startDeg": zod.number(),
+  "endDeg": zod.number(),
+  "durationMs": zod.number(),
+  "overP75": zod.boolean(),
+  "predicted": zod.boolean()
+}))
+})
+}))
+})
+
+
+/**
+ * @summary SSE stream — `turn` events for this property
+ */
+export const StreamClientPropertyTurnBoardParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const StreamClientPropertyTurnBoardResponse = zod.unknown()
+
+
+/**
+ * @summary Client twin of turn detail
+ */
+export const GetClientTurnDetailParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const GetClientTurnDetailResponse = zod.object({
+  "turnId": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "unitNumber": zod.string(),
+  "bedrooms": zod.number(),
+  "status": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "daysVacant": zod.number(),
+  "isStalled": zod.boolean(),
+  "workSource": zod.enum(['in_house', 'third_party']),
+  "vendorName": zod.string().nullable(),
+  "ring": zod.object({
+  "daysVacant": zod.number(),
+  "predictedReadyAt": zod.string().nullable(),
+  "confidence": zod.string().nullable(),
+  "remainingPredictedMs": zod.number(),
+  "arcs": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "startDeg": zod.number(),
+  "endDeg": zod.number(),
+  "durationMs": zod.number(),
+  "overP75": zod.boolean(),
+  "predicted": zod.boolean()
+}))
+}),
+  "band": zod.array(zod.object({
+  "stage": zod.enum(['notice', 'vacated', 'walk', 'scoped', 'pending_approval', 'approved', 'scheduled', 'in_progress', 'qc', 'rework', 'ready']),
+  "owner": zod.enum(['client', 'vendor', 'shared']),
+  "visitIndex": zod.number(),
+  "enteredAt": zod.string(),
+  "exitedAt": zod.string().nullable(),
+  "durationMs": zod.number(),
+  "durationLabel": zod.string(),
+  "actorId": zod.string().nullable(),
+  "clientOwnedLabel": zod.string().nullable()
+})),
+  "bandDurationMs": zod.number(),
+  "activity": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['stage', 'approval', 'message']),
+  "at": zod.string(),
+  "summary": zod.string()
+})),
+  "actions": zod.array(zod.object({
+  "id": zod.enum(['approve_scope', 'approve_variance', 'request_work']),
+  "label": zod.string()
+})),
+  "evidencePlaceholder": zod.string(),
+  "scopePlaceholder": zod.string()
+})
+
+
+/**
+ * @summary Client approves scope
+ */
+export const ApproveClientTurnScopeParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ApproveClientTurnScopeHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveClientTurnScopeResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Client approves pending variances
+ */
+export const ApproveClientTurnVarianceParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const ApproveClientTurnVarianceHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const ApproveClientTurnVarianceResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+
+/**
+ * @summary Client requests work
+ */
+export const RequestClientTurnWorkParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const RequestClientTurnWorkHeader = zod.object({
+  "Idempotency-Key": zod.string().optional()
+})
+
+export const RequestClientTurnWorkResponse = zod.object({
+  "turnId": zod.string(),
+  "from": zod.string().nullable(),
+  "to": zod.string(),
+  "occurredAt": zod.string()
+})
+
+

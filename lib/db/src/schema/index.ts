@@ -28,3 +28,4 @@ export * from "./base44";
 export * from "./briefings";
 export * from "./comms";
 export * from "./reminders";
+export * from "./client_portfolio";

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   db,
   autopilotActionsTable,
@@ -86,6 +86,35 @@ import {
   base44SyncMapTable,
   base44SyncRunsTable,
   base44EvidenceTable,
+  clientTurnInvoiceLinesTable,
+  clientTurnInvoicesTable,
+  clientScopeLinesTable,
+  clientScopesTable,
+  clientVendorBidLinesTable,
+  clientVendorBidsTable,
+  clientBidInvitationsTable,
+  clientBidRequestsTable,
+  clientEvidenceItemsTable,
+  clientGpsEventsTable,
+  clientPredictionLogTable,
+  clientTurnOutboxTable,
+  clientTurnMetricsMvTable,
+  clientTurnStageEventsTable,
+  clientTurnsTable,
+  clientPriceListItemsTable,
+  clientPriceListsTable,
+  clientVendorScorecardsTable,
+  clientCapacityDeclarationsTable,
+  clientTurnForecastsTable,
+  clientUnitsTable,
+  clientPortfolioPropertiesTable,
+  clientPortfoliosTable,
+  clientOrgMembersTable,
+  clientAuditLogTable,
+  clientPortfolioNotificationsTable,
+  clientSavedViewsTable,
+  clientIdempotencyKeysTable,
+  clientOrgsTable,
 } from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
@@ -320,6 +349,39 @@ router.post("/autopilot/actions/:id/dismiss", async (req, res): Promise<void> =>
 router.post("/settings/reset", async (_req, res): Promise<void> => {
   await db.transaction(async (tx) => {
     // Delete children before parents (no DB-level FKs, but keep it safe/ordered).
+    await tx.execute(sql`SELECT set_config('halo.allow_append_delete', 'on', true)`);
+    // Client Board v1 (append-only tables require the session flag above).
+    await tx.delete(clientTurnInvoiceLinesTable);
+    await tx.delete(clientTurnInvoicesTable);
+    await tx.delete(clientScopeLinesTable);
+    await tx.delete(clientScopesTable);
+    await tx.delete(clientVendorBidLinesTable);
+    await tx.delete(clientVendorBidsTable);
+    await tx.delete(clientBidInvitationsTable);
+    await tx.delete(clientBidRequestsTable);
+    await tx.delete(clientEvidenceItemsTable);
+    await tx.delete(clientGpsEventsTable);
+    await tx.delete(clientPredictionLogTable);
+    await tx.delete(clientTurnOutboxTable);
+    await tx.delete(clientTurnMetricsMvTable);
+    await tx.delete(clientTurnStageEventsTable);
+    await tx.delete(clientTurnsTable);
+    await tx.delete(clientPriceListItemsTable);
+    await tx.delete(clientPriceListsTable);
+    await tx.delete(clientVendorScorecardsTable);
+    await tx.delete(clientCapacityDeclarationsTable);
+    await tx.delete(clientTurnForecastsTable);
+    await tx.delete(clientUnitsTable);
+    await tx.delete(clientPortfolioPropertiesTable);
+    await tx.delete(clientPortfoliosTable);
+    await tx.delete(clientOrgMembersTable);
+    await tx.delete(clientAuditLogTable);
+    await tx.delete(clientPortfolioNotificationsTable);
+    await tx.delete(clientSavedViewsTable);
+    await tx.delete(clientIdempotencyKeysTable);
+    await tx.delete(clientOrgsTable);
+    // Intentionally preserved: client_stage_ownership + client_board_flags
+    // (catalog/config; re-seeded at boot if empty).
     await tx.delete(crewInvoiceItemsTable);
     await tx.delete(crewInvoicesTable);
     await tx.delete(crewPaymentsTable);

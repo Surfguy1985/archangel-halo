@@ -58,6 +58,7 @@ import exchangeRouter from "./exchange";
 import intelligenceRouter from "./intelligence";
 import falkonTestHelperRouter from "./falkonTestHelper";
 import remindersRouter from "./reminders";
+import portfolioPulseRouter from "./portfolioPulse";
 
 const router: IRouter = Router();
 
@@ -164,5 +165,6 @@ router.use(voiceEodRouter);
 router.use(exchangeRouter);
 router.use(intelligenceRouter);
 router.use(remindersRouter);
+router.use(portfolioPulseRouter);
 
 export default router;

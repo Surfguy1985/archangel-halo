@@ -109,6 +109,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
           <NavKicker label="Daily" />
           <NavItem href="/" icon={Sparkles} label="HALO" active={location === "/"} tourId="nav-today" />
           <NavItem href="/pulse" icon={Briefcase} label="Pulse" active={location.startsWith("/pulse")} />
+          <NavItem href="/portfolio" icon={Building} label="Portfolio" active={location.startsWith("/portfolio")} />
           <NavKicker label="Records" />
           <NavItem
             href="/jobboard"

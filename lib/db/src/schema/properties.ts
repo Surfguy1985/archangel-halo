@@ -3,6 +3,8 @@ import {
   uuid,
   text,
   integer,
+  bigint,
+  boolean,
   doublePrecision,
   timestamp,
   date,
@@ -37,6 +39,15 @@ export const propertiesTable = pgTable("properties", {
   // Set to SHADOW/ASSISTED/LIVE to promote individual properties ahead of the
   // global connection mode during the phased rollout.
   falkonMode: text("falkon_mode"),
+  // Client Board v1 — additive columns. Do not invent a second properties table.
+  // Day-boundary math (days vacant) uses this IANA zone, never server/browser TZ.
+  timezone: text("timezone").notNull().default("America/Chicago"),
+  // Average daily rent in integer cents (portfolio headline: days × this).
+  avgDailyRentCents: bigint("avg_daily_rent_cents", { mode: "bigint" }),
+  targetTurnDays: integer("target_turn_days").notNull().default(7),
+  occupiedAddonApplies: boolean("occupied_addon_applies").notNull().default(false),
+  entrataPropertyId: text("entrata_property_id"),
+  clientOrgId: uuid("client_org_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

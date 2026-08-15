@@ -45,6 +45,9 @@
     },
     {
       "path": "../../lib/board-demo"
+    },
+    {
+      "path": "../../lib/board-ui"
     }
   ]
 }

@@ -8024,6 +8024,321 @@ export interface WalkCompleteResult {
   jobs: WalkCompleteResultJobsItem[];
 }
 
+/**
+ * Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.
+ * @pattern ^-?[0-9]+$
+ */
+export type CentsString = string;
+
+export type PulseRangePreset = typeof PulseRangePreset[keyof typeof PulseRangePreset];
+
+
+export const PulseRangePreset = {
+  this_month: 'this_month',
+  last_30: 'last_30',
+  qtd: 'qtd',
+  custom: 'custom',
+} as const;
+
+export type PulseTileSort = typeof PulseTileSort[keyof typeof PulseTileSort];
+
+
+export const PulseTileSort = {
+  vacancy_cost: 'vacancy_cost',
+  turn_days: 'turn_days',
+  units_in_turn: 'units_in_turn',
+  name: 'name',
+} as const;
+
+export type PulseTileStatus = typeof PulseTileStatus[keyof typeof PulseTileStatus];
+
+
+export const PulseTileStatus = {
+  on_target: 'on_target',
+  drifting: 'drifting',
+  at_risk: 'at_risk',
+} as const;
+
+export type PulseAttentionGroupKind = typeof PulseAttentionGroupKind[keyof typeof PulseAttentionGroupKind];
+
+
+export const PulseAttentionGroupKind = {
+  stalled: 'stalled',
+  awaiting_approval: 'awaiting_approval',
+  failed_qc: 'failed_qc',
+  blocked_invoices: 'blocked_invoices',
+} as const;
+
+export interface ClientPortfolioSummary {
+  id: string;
+  name: string;
+  orgId: string;
+  propertyCount: number;
+}
+
+export interface ClientPortfolioListDocument {
+  portfolios: ClientPortfolioSummary[];
+}
+
+export interface PortfolioPulseHeadline {
+  vacancyCostCents: CentsString;
+  priorVacancyCostCents: CentsString;
+  vacancyCostDeltaCents: CentsString;
+  /** rent lost to vacancy days this month */
+  label: string;
+  priorLabel: string;
+}
+
+export interface PortfolioPulseSupporting {
+  unitsInTurn: number;
+  /** @nullable */
+  medianTurnDays: number | null;
+  targetTurnDays: number;
+  predictedLateThisWeek: number;
+}
+
+export interface PortfolioPulseTile {
+  propertyId: string;
+  name: string;
+  unitCount: number;
+  /**
+     * Units in turn at each of the trailing 12 week starts
+     * @minItems 12
+     * @maxItems 12
+     */
+  sparkline: number[];
+  /** @nullable */
+  medianTurnDays: number | null;
+  vacancyCostCents: CentsString;
+  unitsInTurn: number;
+  status: PulseTileStatus;
+  statusLabel: string;
+  href: string;
+}
+
+export interface PortfolioPulseDocument {
+  portfolioId: string;
+  portfolioName: string;
+  range: PulseRangePreset;
+  from: string;
+  to: string;
+  sort: PulseTileSort;
+  headline: PortfolioPulseHeadline;
+  supporting: PortfolioPulseSupporting;
+  tiles: PortfolioPulseTile[];
+}
+
+export interface PortfolioAttentionItem {
+  turnId: string;
+  propertyId: string;
+  propertyName: string;
+  unitNumber: string;
+  days: number;
+  href: string;
+}
+
+export interface PortfolioAttentionGroup {
+  kind: PulseAttentionGroupKind;
+  title: string;
+  summary: string;
+  items: PortfolioAttentionItem[];
+}
+
+export interface PortfolioAttentionDocument {
+  portfolioId: string;
+  groups: PortfolioAttentionGroup[];
+}
+
+export interface PortfolioSavedViewInput {
+  range: PulseRangePreset;
+  /** @nullable */
+  from?: string | null;
+  /** @nullable */
+  to?: string | null;
+  sort: PulseTileSort;
+}
+
+export interface PortfolioSavedViewDocument {
+  id: string;
+  name: string;
+  range: PulseRangePreset;
+  /** @nullable */
+  from?: string | null;
+  /** @nullable */
+  to?: string | null;
+  sort: PulseTileSort;
+  isDefault: boolean;
+}
+
+export type TurnBoardGroupBy = typeof TurnBoardGroupBy[keyof typeof TurnBoardGroupBy];
+
+
+export const TurnBoardGroupBy = {
+  stage: 'stage',
+  work_source: 'work_source',
+  vendor: 'vendor',
+} as const;
+
+export type TurnStageName = typeof TurnStageName[keyof typeof TurnStageName];
+
+
+export const TurnStageName = {
+  notice: 'notice',
+  vacated: 'vacated',
+  walk: 'walk',
+  scoped: 'scoped',
+  pending_approval: 'pending_approval',
+  approved: 'approved',
+  scheduled: 'scheduled',
+  in_progress: 'in_progress',
+  qc: 'qc',
+  rework: 'rework',
+  ready: 'ready',
+} as const;
+
+export type TurnStageOwner = typeof TurnStageOwner[keyof typeof TurnStageOwner];
+
+
+export const TurnStageOwner = {
+  client: 'client',
+  vendor: 'vendor',
+  shared: 'shared',
+} as const;
+
+export type TurnWorkSource = typeof TurnWorkSource[keyof typeof TurnWorkSource];
+
+
+export const TurnWorkSource = {
+  in_house: 'in_house',
+  third_party: 'third_party',
+} as const;
+
+export interface TurnRingArcDocument {
+  stage: TurnStageName;
+  owner: TurnStageOwner;
+  visitIndex: number;
+  startDeg: number;
+  endDeg: number;
+  durationMs: number;
+  overP75: boolean;
+  predicted: boolean;
+}
+
+export interface TurnRingDocument {
+  daysVacant: number;
+  /** @nullable */
+  predictedReadyAt: string | null;
+  /** @nullable */
+  confidence: string | null;
+  remainingPredictedMs: number;
+  arcs: TurnRingArcDocument[];
+}
+
+export interface TurnBoardLaneDocument {
+  key: string;
+  label: string;
+  owner?: TurnStageOwner;
+}
+
+export interface TurnBoardCardDocument {
+  turnId: string;
+  unitNumber: string;
+  bedrooms: number;
+  daysVacant: number;
+  isStalled: boolean;
+  workSource: TurnWorkSource;
+  /** @nullable */
+  vendorName: string | null;
+  laneKey: string;
+  status: TurnStageName;
+  ring: TurnRingDocument;
+}
+
+export interface PropertyTurnBoardDocument {
+  propertyId: string;
+  propertyName: string;
+  timezone: string;
+  targetTurnDays: number;
+  groupBy: TurnBoardGroupBy;
+  dragEnabled: boolean;
+  lanes: TurnBoardLaneDocument[];
+  cards: TurnBoardCardDocument[];
+}
+
+export interface TurnStageBandRowDocument {
+  stage: TurnStageName;
+  owner: TurnStageOwner;
+  visitIndex: number;
+  enteredAt: string;
+  /** @nullable */
+  exitedAt: string | null;
+  durationMs: number;
+  durationLabel: string;
+  /** @nullable */
+  actorId: string | null;
+  /** @nullable */
+  clientOwnedLabel: string | null;
+}
+
+export type TurnActivityItemDocumentKind = typeof TurnActivityItemDocumentKind[keyof typeof TurnActivityItemDocumentKind];
+
+
+export const TurnActivityItemDocumentKind = {
+  stage: 'stage',
+  approval: 'approval',
+  message: 'message',
+} as const;
+
+export interface TurnActivityItemDocument {
+  id: string;
+  kind: TurnActivityItemDocumentKind;
+  at: string;
+  summary: string;
+}
+
+export type TurnActionDocumentId = typeof TurnActionDocumentId[keyof typeof TurnActionDocumentId];
+
+
+export const TurnActionDocumentId = {
+  approve_scope: 'approve_scope',
+  approve_variance: 'approve_variance',
+  request_work: 'request_work',
+} as const;
+
+export interface TurnActionDocument {
+  id: TurnActionDocumentId;
+  label: string;
+}
+
+export interface TurnDetailDocument {
+  turnId: string;
+  propertyId: string;
+  propertyName: string;
+  unitNumber: string;
+  bedrooms: number;
+  status: TurnStageName;
+  daysVacant: number;
+  isStalled: boolean;
+  workSource: TurnWorkSource;
+  /** @nullable */
+  vendorName: string | null;
+  ring: TurnRingDocument;
+  band: TurnStageBandRowDocument[];
+  bandDurationMs: number;
+  activity: TurnActivityItemDocument[];
+  actions: TurnActionDocument[];
+  evidencePlaceholder: string;
+  scopePlaceholder: string;
+}
+
+export interface TurnMutationResultDocument {
+  turnId: string;
+  /** @nullable */
+  from: string | null;
+  to: string;
+  occurredAt: string;
+}
+
 export type ListRemindersParams = {
 entityType?: string;
 entityId?: string;
@@ -8232,5 +8547,51 @@ status?: string;
 
 export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
+};
+
+export type GetPortfolioPulseParams = {
+/**
+ * Date-range preset. Default this_month in the org IANA timezone.
+ */
+range?: PulseRangePreset;
+/**
+ * Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.
+ */
+from?: string;
+/**
+ * Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.
+ */
+to?: string;
+/**
+ * Property tile sort. Default vacancy_cost descending.
+ */
+sort?: PulseTileSort;
+};
+
+export type GetClientPortfolioPulseParams = {
+/**
+ * Date-range preset. Default this_month in the org IANA timezone.
+ */
+range?: PulseRangePreset;
+/**
+ * Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.
+ */
+from?: string;
+/**
+ * Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.
+ */
+to?: string;
+/**
+ * Property tile sort. Default vacancy_cost descending.
+ */
+sort?: PulseTileSort;
+};
+
+export type GetPropertyTurnBoardParams = {
+groupBy?: TurnBoardGroupBy;
+};
+
+export type GetClientPropertyTurnBoardParams = {
+groupBy?: TurnBoardGroupBy;
 };
 

@@ -50,6 +50,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/board-demo": "workspace:*",
+    "@workspace/board-ui": "workspace:*",
     "@workspace/object-storage-web": "workspace:*",
     "@workspace/onboarding-packet": "workspace:*",
     "class-variance-authority": "catalog:",

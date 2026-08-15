@@ -77,6 +77,7 @@ export const WORK_TABS: HubTab[] = [
 ];
 
 export const CLIENT_TABS: HubTab[] = [
+  { label: "Portfolio", href: "/portfolio" },
   { label: "Properties", href: "/properties" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "Accounts", href: "/admin" },

@@ -38,6 +38,10 @@ tags:
     description: Double-entry ledger, journal, and financial reports
   - name: admin
     description: Subscription back office — client accounts, seats, logins, onboarding
+  - name: portfolios
+    description: Client Board v1 Portfolio Pulse — reads client_turn_metrics_mv, never raw stage events
+  - name: turns
+    description: Client Board v1 property Turn Ring — stage columns, unit detail, client verbs
 paths:
   /healthz:
     get:
@@ -10244,6 +10248,694 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /v1/portfolios:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: listClientPortfolios
+      tags: [portfolios]
+      summary: Portfolios in the office session — org is taken from each row, never a request param
+      responses:
+        "200":
+          description: Portfolio list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPortfolioListDocument"
+        "404":
+          description: Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/pulse:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPortfolioPulse
+      tags: [portfolios]
+      summary: Portfolio Pulse read model — headline, supporting figures, property tiles. Reads client_turn_metrics_mv, never raw stage events.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseRangePreset"
+          description: Date-range preset. Default this_month in the org IANA timezone.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+          description: Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+          description: Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseTileSort"
+          description: Property tile sort. Default vacancy_cost descending.
+      responses:
+        "200":
+          description: Pulse document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioPulseDocument"
+        "400":
+          description: Invalid range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown portfolio or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/attention:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPortfolioAttention
+      tags: [portfolios]
+      summary: Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Grouped attention items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioAttentionDocument"
+        "404":
+          description: Unknown portfolio or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/stream:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: streamPortfolioPulse
+      tags: [portfolios]
+      summary: SSE stream — `pulse` events. Reconnect then refetch pulse + attention to catch up.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream of pulse frames
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Unknown portfolio or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/portfolios/{id}/saved-view:
+    put:
+      security: [{ adminSession: [] }]
+      operationId: putPortfolioSavedView
+      tags: [portfolios]
+      summary: Persist Pulse date range and tile sort in client_saved_views
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioSavedViewInput"
+      responses:
+        "200":
+          description: Saved view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioSavedViewDocument"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown portfolio or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/pulse:
+    get:
+      operationId: getClientPortfolioPulse
+      tags: [portfolios]
+      summary: Client-token Portfolio Pulse — same document as the office pulse, scoped to the property's org
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseRangePreset"
+          description: Date-range preset. Default this_month in the org IANA timezone.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+          description: Inclusive civil start (YYYY-MM-DD) in the org timezone. Required when range=custom.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+          description: Inclusive civil end (YYYY-MM-DD) in the org timezone. Required when range=custom.
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PulseTileSort"
+          description: Property tile sort. Default vacancy_cost descending.
+      responses:
+        "200":
+          description: Pulse document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioPulseDocument"
+        "400":
+          description: Invalid range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/attention:
+    get:
+      operationId: getClientPortfolioAttention
+      tags: [portfolios]
+      summary: Client-token attention list
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Grouped attention items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioAttentionDocument"
+        "404":
+          description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/stream:
+    get:
+      operationId: streamClientPortfolioPulse
+      tags: [portfolios]
+      summary: SSE stream — `pulse` events for the property's portfolio
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream of pulse frames
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/portfolio/saved-view:
+    put:
+      operationId: putClientPortfolioSavedView
+      tags: [portfolios]
+      summary: Persist Pulse date range and tile sort for this client link
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioSavedViewInput"
+      responses:
+        "200":
+          description: Saved view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioSavedViewDocument"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link, no portfolio, or Pulse flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/properties/{id}/board:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getPropertyTurnBoard
+      tags: [turns]
+      summary: Property Turn Ring board — units in turn as stage columns. Drag is always disabled; the work moves the cards.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TurnBoardGroupBy"
+      responses:
+        "200":
+          description: Turn board document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyTurnBoardDocument"
+        "404":
+          description: Unknown property or propertyBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/properties/{id}/board/stream:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: streamPropertyTurnBoard
+      tags: [turns]
+      summary: SSE stream — `turn` events. Reconnect then refetch the board.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream of turn frames
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Unknown property or propertyBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getTurnDetail
+      tags: [turns]
+      summary: Unit turn detail — large Turn Ring, stage band, activity, client actions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Turn detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnDetailDocument"
+        "404":
+          description: Unknown turn or propertyBoard flag is dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/approve-scope:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: approveTurnScope
+      tags: [turns]
+      summary: Client approves scope — pending_approval to approved
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transition result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: Not waiting on scope approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown turn or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/approve-variance:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: approveTurnVariance
+      tags: [turns]
+      summary: Client approves pending scope variances
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Mutation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: No pending variance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown turn or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/turns/{id}/request-work:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: requestTurnWork
+      tags: [turns]
+      summary: Client requests work — notice to vacated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Mutation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: Work cannot be requested in this stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown turn or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/properties/{id}/board:
+    get:
+      operationId: getClientPropertyTurnBoard
+      tags: [turns]
+      summary: Client twin of the property Turn Ring board
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TurnBoardGroupBy"
+      responses:
+        "200":
+          description: Turn board document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyTurnBoardDocument"
+        "404":
+          description: Invalid link, unknown property, or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/properties/{id}/board/stream:
+    get:
+      operationId: streamClientPropertyTurnBoard
+      tags: [turns]
+      summary: SSE stream — `turn` events for this property
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}:
+    get:
+      operationId: getClientTurnDetail
+      tags: [turns]
+      summary: Client twin of turn detail
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Turn detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnDetailDocument"
+        "404":
+          description: Invalid link, unknown turn, or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/approve-scope:
+    post:
+      operationId: approveClientTurnScope
+      tags: [turns]
+      summary: Client approves scope
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transition result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: Not waiting on scope approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/approve-variance:
+    post:
+      operationId: approveClientTurnVariance
+      tags: [turns]
+      summary: Client approves pending variances
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Mutation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: No pending variance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/turns/{id}/request-work:
+    post:
+      operationId: requestClientTurnWork
+      tags: [turns]
+      summary: Client requests work
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Mutation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnMutationResultDocument"
+        "409":
+          description: Work cannot be requested in this stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or flag dark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     adminSession:
@@ -17066,3 +17758,407 @@ components:
               jobNo: { type: string }
               unitNo: { type: ["string", "null"] }
               photoCount: { type: number }
+
+    CentsString:
+      type: string
+      pattern: "^-?[0-9]+$"
+      description: Integer cents as a decimal string. Never a JSON number — JS number arithmetic is forbidden.
+
+    PulseRangePreset:
+      type: string
+      enum: [this_month, last_30, qtd, custom]
+
+    PulseTileSort:
+      type: string
+      enum: [vacancy_cost, turn_days, units_in_turn, name]
+
+    PulseTileStatus:
+      type: string
+      enum: [on_target, drifting, at_risk]
+
+    PulseAttentionGroupKind:
+      type: string
+      enum: [stalled, awaiting_approval, failed_qc, blocked_invoices]
+
+    ClientPortfolioSummary:
+      type: object
+      required: [id, name, orgId, propertyCount]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        orgId: { type: string }
+        propertyCount: { type: integer }
+
+    ClientPortfolioListDocument:
+      type: object
+      required: [portfolios]
+      properties:
+        portfolios:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientPortfolioSummary"
+
+    PortfolioPulseHeadline:
+      type: object
+      required: [vacancyCostCents, priorVacancyCostCents, vacancyCostDeltaCents, label, priorLabel]
+      properties:
+        vacancyCostCents:
+          $ref: "#/components/schemas/CentsString"
+        priorVacancyCostCents:
+          $ref: "#/components/schemas/CentsString"
+        vacancyCostDeltaCents:
+          $ref: "#/components/schemas/CentsString"
+        label: { type: string, description: "rent lost to vacancy days this month" }
+        priorLabel: { type: string }
+
+    PortfolioPulseSupporting:
+      type: object
+      required: [unitsInTurn, medianTurnDays, targetTurnDays, predictedLateThisWeek]
+      properties:
+        unitsInTurn: { type: integer }
+        medianTurnDays: { type: ["number", "null"] }
+        targetTurnDays: { type: integer }
+        predictedLateThisWeek: { type: integer }
+
+    PortfolioPulseTile:
+      type: object
+      required:
+        - propertyId
+        - name
+        - unitCount
+        - sparkline
+        - medianTurnDays
+        - vacancyCostCents
+        - unitsInTurn
+        - status
+        - statusLabel
+        - href
+      properties:
+        propertyId: { type: string }
+        name: { type: string }
+        unitCount: { type: integer }
+        sparkline:
+          type: array
+          items: { type: integer }
+          minItems: 12
+          maxItems: 12
+          description: Units in turn at each of the trailing 12 week starts
+        medianTurnDays: { type: ["number", "null"] }
+        vacancyCostCents:
+          $ref: "#/components/schemas/CentsString"
+        unitsInTurn: { type: integer }
+        status:
+          $ref: "#/components/schemas/PulseTileStatus"
+        statusLabel: { type: string }
+        href: { type: string }
+
+    PortfolioPulseDocument:
+      type: object
+      required:
+        - portfolioId
+        - portfolioName
+        - range
+        - from
+        - to
+        - sort
+        - headline
+        - supporting
+        - tiles
+      properties:
+        portfolioId: { type: string }
+        portfolioName: { type: string }
+        range:
+          $ref: "#/components/schemas/PulseRangePreset"
+        from: { type: string }
+        to: { type: string }
+        sort:
+          $ref: "#/components/schemas/PulseTileSort"
+        headline:
+          $ref: "#/components/schemas/PortfolioPulseHeadline"
+        supporting:
+          $ref: "#/components/schemas/PortfolioPulseSupporting"
+        tiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioPulseTile"
+
+    PortfolioAttentionItem:
+      type: object
+      required: [turnId, propertyId, propertyName, unitNumber, days, href]
+      properties:
+        turnId: { type: string }
+        propertyId: { type: string }
+        propertyName: { type: string }
+        unitNumber: { type: string }
+        days: { type: number }
+        href: { type: string }
+
+    PortfolioAttentionGroup:
+      type: object
+      required: [kind, title, summary, items]
+      properties:
+        kind:
+          $ref: "#/components/schemas/PulseAttentionGroupKind"
+        title: { type: string }
+        summary: { type: string }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+
+    PortfolioAttentionDocument:
+      type: object
+      required: [portfolioId, groups]
+      properties:
+        portfolioId: { type: string }
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionGroup"
+
+    PortfolioSavedViewInput:
+      type: object
+      required: [range, sort]
+      properties:
+        range:
+          $ref: "#/components/schemas/PulseRangePreset"
+        from: { type: ["string", "null"] }
+        to: { type: ["string", "null"] }
+        sort:
+          $ref: "#/components/schemas/PulseTileSort"
+
+    PortfolioSavedViewDocument:
+      type: object
+      required: [id, name, range, sort, isDefault]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        range:
+          $ref: "#/components/schemas/PulseRangePreset"
+        from: { type: ["string", "null"] }
+        to: { type: ["string", "null"] }
+        sort:
+          $ref: "#/components/schemas/PulseTileSort"
+        isDefault: { type: boolean }
+
+    TurnBoardGroupBy:
+      type: string
+      enum: [stage, work_source, vendor]
+
+    TurnStageName:
+      type: string
+      enum:
+        - notice
+        - vacated
+        - walk
+        - scoped
+        - pending_approval
+        - approved
+        - scheduled
+        - in_progress
+        - qc
+        - rework
+        - ready
+
+    TurnStageOwner:
+      type: string
+      enum: [client, vendor, shared]
+
+    TurnWorkSource:
+      type: string
+      enum: [in_house, third_party]
+
+    TurnRingArcDocument:
+      type: object
+      required: [stage, owner, visitIndex, startDeg, endDeg, durationMs, overP75, predicted]
+      properties:
+        stage:
+          $ref: "#/components/schemas/TurnStageName"
+        owner:
+          $ref: "#/components/schemas/TurnStageOwner"
+        visitIndex: { type: integer }
+        startDeg: { type: number }
+        endDeg: { type: number }
+        durationMs: { type: integer }
+        overP75: { type: boolean }
+        predicted: { type: boolean }
+
+    TurnRingDocument:
+      type: object
+      required: [daysVacant, predictedReadyAt, confidence, remainingPredictedMs, arcs]
+      properties:
+        daysVacant: { type: integer }
+        predictedReadyAt: { type: ["string", "null"] }
+        confidence: { type: ["string", "null"] }
+        remainingPredictedMs: { type: integer }
+        arcs:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnRingArcDocument"
+
+    TurnBoardLaneDocument:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        owner:
+          $ref: "#/components/schemas/TurnStageOwner"
+
+    TurnBoardCardDocument:
+      type: object
+      required:
+        - turnId
+        - unitNumber
+        - bedrooms
+        - daysVacant
+        - isStalled
+        - workSource
+        - vendorName
+        - laneKey
+        - status
+        - ring
+      properties:
+        turnId: { type: string }
+        unitNumber: { type: string }
+        bedrooms: { type: integer }
+        daysVacant: { type: integer }
+        isStalled: { type: boolean }
+        workSource:
+          $ref: "#/components/schemas/TurnWorkSource"
+        vendorName: { type: ["string", "null"] }
+        laneKey: { type: string }
+        status:
+          $ref: "#/components/schemas/TurnStageName"
+        ring:
+          $ref: "#/components/schemas/TurnRingDocument"
+
+    PropertyTurnBoardDocument:
+      type: object
+      required:
+        - propertyId
+        - propertyName
+        - timezone
+        - targetTurnDays
+        - groupBy
+        - dragEnabled
+        - lanes
+        - cards
+      properties:
+        propertyId: { type: string }
+        propertyName: { type: string }
+        timezone: { type: string }
+        targetTurnDays: { type: integer }
+        groupBy:
+          $ref: "#/components/schemas/TurnBoardGroupBy"
+        dragEnabled: { type: boolean }
+        lanes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnBoardLaneDocument"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnBoardCardDocument"
+
+    TurnStageBandRowDocument:
+      type: object
+      required:
+        - stage
+        - owner
+        - visitIndex
+        - enteredAt
+        - exitedAt
+        - durationMs
+        - durationLabel
+        - actorId
+        - clientOwnedLabel
+      properties:
+        stage:
+          $ref: "#/components/schemas/TurnStageName"
+        owner:
+          $ref: "#/components/schemas/TurnStageOwner"
+        visitIndex: { type: integer }
+        enteredAt: { type: string }
+        exitedAt: { type: ["string", "null"] }
+        durationMs: { type: integer }
+        durationLabel: { type: string }
+        actorId: { type: ["string", "null"] }
+        clientOwnedLabel: { type: ["string", "null"] }
+
+    TurnActivityItemDocument:
+      type: object
+      required: [id, kind, at, summary]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [stage, approval, message] }
+        at: { type: string }
+        summary: { type: string }
+
+    TurnActionDocument:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: string, enum: [approve_scope, approve_variance, request_work] }
+        label: { type: string }
+
+    TurnDetailDocument:
+      type: object
+      required:
+        - turnId
+        - propertyId
+        - propertyName
+        - unitNumber
+        - bedrooms
+        - status
+        - daysVacant
+        - isStalled
+        - workSource
+        - vendorName
+        - ring
+        - band
+        - bandDurationMs
+        - activity
+        - actions
+        - evidencePlaceholder
+        - scopePlaceholder
+      properties:
+        turnId: { type: string }
+        propertyId: { type: string }
+        propertyName: { type: string }
+        unitNumber: { type: string }
+        bedrooms: { type: integer }
+        status:
+          $ref: "#/components/schemas/TurnStageName"
+        daysVacant: { type: integer }
+        isStalled: { type: boolean }
+        workSource:
+          $ref: "#/components/schemas/TurnWorkSource"
+        vendorName: { type: ["string", "null"] }
+        ring:
+          $ref: "#/components/schemas/TurnRingDocument"
+        band:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnStageBandRowDocument"
+        bandDurationMs: { type: integer }
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnActivityItemDocument"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TurnActionDocument"
+        evidencePlaceholder: { type: string }
+        scopePlaceholder: { type: string }
+
+    TurnMutationResultDocument:
+      type: object
+      required: [turnId, from, to, occurredAt]
+      properties:
+        turnId: { type: string }
+        from: { type: ["string", "null"] }
+        to: { type: string }
+        occurredAt: { type: string }
+

@@ -8,7 +8,9 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:client-board": "tsx ./scripts/seedClientBoard.ts",
+    "render:client-board-ddl": "tsx ./scripts/renderClientBoardMigration.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",
@@ -38,6 +40,7 @@
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13.1.3",
     "supertest": "^7.2.2",
-    "thread-stream": "3.1.0"
+    "thread-stream": "3.1.0",
+    "tsx": "catalog:"
   }
 }

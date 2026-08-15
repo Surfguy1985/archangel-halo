@@ -9,6 +9,7 @@ import { ensureEnforcerSchema } from "./lib/ensureEnforcerSchema";
 import { ensureCommsSchema } from "./lib/ensureCommsSchema";
 import { startFalkonNetworkPoller } from "./lib/falkonNetworkPoller";
 import { seedExchangeProducts } from "./lib/seedExchangeProducts";
+import { ensureClientBoardSchema } from "./lib/ensureClientBoardSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -55,6 +56,9 @@ app.listen(port, (err) => {
   );
   ensureEnforcerSchema().catch((err) =>
     logger.error({ err }, "Failed to bootstrap Enforcer/PM-link schema"),
+  );
+  ensureClientBoardSchema().catch((err) =>
+    logger.error({ err }, "Failed to bootstrap client-board schema"),
   );
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is
   // created, and these are ALTERs against it. On a fresh database the reverse

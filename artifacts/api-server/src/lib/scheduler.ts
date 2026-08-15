@@ -19,7 +19,9 @@ import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
 import { nudgeStaleForemanMoves } from "./foremanMoveNudge";
 import { runScheduledEodBriefing } from "./eodBriefing";
 import { and, eq, lte, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { db, leadCampaignsTable, leadsTable, remindersTable } from "@workspace/db";
+import { db, leadCampaignsTable, leadsTable, remindersTable, dateTimePartsInZone } from "@workspace/db";
+import { isClientBoardSegmentEnabled } from "./clientBoardFlags";
+import { deliverClientTurnOutbox, recomputeOpenTurnPredictions } from "./turnEngine";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -37,6 +39,9 @@ let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;
 let lastBriefingDate: string | null = null;
 let lastWeeklyDate: string | null = null;
+const lastTurnPredictByZone = new Map<string, string>();
+const TURN_PREDICT_HOUR = 1;
+const TURN_PREDICT_MINUTE = 15;
 let lastUrgentSignature = "";
 let lastUrgentCheck = 0;
 let lastAutopilotCheck = 0;
@@ -292,6 +297,33 @@ async function tick(): Promise<void> {
     } catch (err) {
       logger.warn({ err }, "Scheduled weekly scorecard failed");
     }
+  }
+
+  try {
+    if (await isClientBoardSegmentEnabled("turnEngine")) {
+      await deliverClientTurnOutbox();
+      const zones = await db.execute(
+        sql`SELECT DISTINCT timezone AS tz FROM properties WHERE client_org_id IS NOT NULL AND timezone IS NOT NULL`,
+      );
+      const zoneRows = ((zones as unknown as { rows?: { tz: string }[] }).rows ?? []);
+      const now = new Date();
+      for (const row of zoneRows) {
+        const tz = row.tz;
+        const parts = dateTimePartsInZone(now, tz);
+        const zoneDate = `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+        if (
+          parts.hour === TURN_PREDICT_HOUR &&
+          parts.minute >= TURN_PREDICT_MINUTE &&
+          lastTurnPredictByZone.get(tz) !== zoneDate
+        ) {
+          const n = await recomputeOpenTurnPredictions({ now, timezone: tz });
+          lastTurnPredictByZone.set(tz, zoneDate);
+          logger.info({ n, timezone: tz }, "client-board: nightly ready-date recompute");
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "client-board: outbox / nightly recompute failed");
   }
 
   const stamp = Date.now();

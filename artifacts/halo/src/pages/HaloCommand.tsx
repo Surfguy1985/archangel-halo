@@ -14,7 +14,7 @@ import { useLocation } from "wouter";
 import {
   Paperclip, ArrowUp, Bell, MoreHorizontal, Loader2,
   CheckCircle2, AlertCircle, MapPin, Columns3, CircleDollarSign,
-  List, CalendarDays, Mic, LayoutGrid, BrainCircuit, MessageSquare, Headphones,
+  List, CalendarDays, Mic, LayoutGrid, BrainCircuit, MessageSquare, Headphones, Building2,
 } from "lucide-react";
 
 import {
@@ -383,6 +383,16 @@ function debouncedSaveThread(msgs: TMsg[]) {
   _saveTimer = setTimeout(() => saveThread(msgs), 500);
 }
 
+function detectPortfolioIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    /\bportfolio\s*pulse\b/.test(lower) ||
+    /\bopen\s+(the\s+)?portfolio\b/.test(lower) ||
+    /\bshow\s+(the\s+)?portfolio\b/.test(lower) ||
+    /\bclient\s+board\s+pulse\b/.test(lower)
+  );
+}
+
 function detectPulseIntent(text: string): boolean {
   const lower = text.toLowerCase().trim();
   return (
@@ -741,6 +751,7 @@ const SEED_CARDS = [
   { Icon: LayoutGrid,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Structure my day", title: "Daily Brief", desc: "Now / Today / This Week priorities." },
   { Icon: List,         color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "What needs my attention right now?", title: "Mission brief", desc: "What is on fire this hour." },
   { Icon: CalendarDays, color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Property Pulse", title: "Property Pulse", desc: "Live sites, GPS, and crew pings." },
+  { Icon: Building2,    color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "Open Portfolio Pulse", title: "Portfolio Pulse", desc: "Vacancy dollars, turn days, attention." },
   { Icon: Headphones,   color: "#B4FF44", bg: "rgba(180,255,68,0.10)", prompt: "", title: "Earpiece", desc: "AirPods. Say go, next, skip.", action: "earpiece" as const },
 ];
 
@@ -1021,6 +1032,16 @@ export default function HaloCommand() {
       { id: thinkId, kind: "thinking" as const },
     ]);
     scrollDown();
+
+    if (detectPortfolioIntent(raw)) {
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId
+          ? { id: thinkId, kind: "halo-answer" as const, text: "Opening Portfolio Pulse." }
+          : m
+      ));
+      navigate("/portfolio");
+      return;
+    }
 
     // ── Daily surfaces first: Pulse is the dashboard, panels stay overlays ─
     if (detectPulseIntent(raw)) {

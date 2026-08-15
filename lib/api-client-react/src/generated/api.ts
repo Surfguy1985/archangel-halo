@@ -117,6 +117,7 @@ import type {
   ClientInboxView,
   ClientPasswordResetInput,
   ClientPaymentMethodInput,
+  ClientPortfolioListDocument,
   ClientRequestOptions,
   ClientUserCreate,
   ClientUserRec,
@@ -189,8 +190,12 @@ import type {
   GetBriefingResponse,
   GetCalendarParams,
   GetCashFlowReportParams,
+  GetClientPortfolioPulseParams,
+  GetClientPropertyTurnBoardParams,
   GetCrewInvoiceQueueParams,
+  GetPortfolioPulseParams,
   GetProfitAndLossParams,
+  GetPropertyTurnBoardParams,
   GetTaxReportParams,
   GetWalkTargetParams,
   HealthStatus,
@@ -311,6 +316,10 @@ import type {
   PortalServicesCatalog,
   PortalUnseen,
   PortalWings,
+  PortfolioAttentionDocument,
+  PortfolioPulseDocument,
+  PortfolioSavedViewDocument,
+  PortfolioSavedViewInput,
   PresentationDemoState,
   PriceItem,
   PriceItemImportInput,
@@ -325,6 +334,7 @@ import type {
   PropertyDetail,
   PropertyInput,
   PropertySummary,
+  PropertyTurnBoardDocument,
   PropertyUpdate,
   PublicPaymentInput,
   PublicPaymentReceipt,
@@ -369,6 +379,8 @@ import type {
   TodayPayload,
   TrackPointInput,
   TrackerShare,
+  TurnDetailDocument,
+  TurnMutationResultDocument,
   UnitBoxInput,
   UnitBoxRec,
   UnitBoxUpdate,
@@ -29618,5 +29630,1645 @@ export const useConfirmConciergeAction = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getConfirmConciergeActionMutationOptions(options));
+    }
+
+export const getListClientPortfoliosUrl = () => {
+
+
+
+
+  return `/api/v1/portfolios`
+}
+
+/**
+ * @summary Portfolios in the office session — org is taken from each row, never a request param
+ */
+export const listClientPortfolios = async ( options?: RequestInit): Promise<ClientPortfolioListDocument> => {
+
+  return customFetch<ClientPortfolioListDocument>(getListClientPortfoliosUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientPortfoliosQueryKey = () => {
+    return [
+    `/api/v1/portfolios`
+    ] as const;
+    }
+
+
+export const getListClientPortfoliosQueryOptions = <TData = Awaited<ReturnType<typeof listClientPortfolios>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientPortfoliosQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientPortfolios>>> = ({ signal }) => listClientPortfolios({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolios>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientPortfoliosQueryResult = NonNullable<Awaited<ReturnType<typeof listClientPortfolios>>>
+export type ListClientPortfoliosQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Portfolios in the office session — org is taken from each row, never a request param
+ */
+
+export function useListClientPortfolios<TData = Awaited<ReturnType<typeof listClientPortfolios>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientPortfolios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientPortfoliosQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortfolioPulseUrl = (id: string,
+    params?: GetPortfolioPulseParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/portfolios/${id}/pulse?${stringifiedParams}` : `/api/v1/portfolios/${id}/pulse`
+}
+
+/**
+ * @summary Portfolio Pulse read model — headline, supporting figures, property tiles. Reads client_turn_metrics_mv, never raw stage events.
+ */
+export const getPortfolioPulse = async (id: string,
+    params?: GetPortfolioPulseParams, options?: RequestInit): Promise<PortfolioPulseDocument> => {
+
+  return customFetch<PortfolioPulseDocument>(getGetPortfolioPulseUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioPulseQueryKey = (id: string,
+    params?: GetPortfolioPulseParams,) => {
+    return [
+    `/api/v1/portfolios/${id}/pulse`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPortfolioPulseQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioPulse>>, TError = ErrorType<Error>>(id: string,
+    params?: GetPortfolioPulseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioPulseQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioPulse>>> = ({ signal }) => getPortfolioPulse(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioPulse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioPulseQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioPulse>>>
+export type GetPortfolioPulseQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Portfolio Pulse read model — headline, supporting figures, property tiles. Reads client_turn_metrics_mv, never raw stage events.
+ */
+
+export function useGetPortfolioPulse<TData = Awaited<ReturnType<typeof getPortfolioPulse>>, TError = ErrorType<Error>>(
+ id: string,
+    params?: GetPortfolioPulseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioPulseQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortfolioAttentionUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/portfolios/${id}/attention`
+}
+
+/**
+ * @summary Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+ */
+export const getPortfolioAttention = async (id: string, options?: RequestInit): Promise<PortfolioAttentionDocument> => {
+
+  return customFetch<PortfolioAttentionDocument>(getGetPortfolioAttentionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioAttentionQueryKey = (id: string,) => {
+    return [
+    `/api/v1/portfolios/${id}/attention`
+    ] as const;
+    }
+
+
+export const getGetPortfolioAttentionQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioAttention>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAttention>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioAttentionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioAttention>>> = ({ signal }) => getPortfolioAttention(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAttention>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioAttentionQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioAttention>>>
+export type GetPortfolioAttentionQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Attention list — stalled, waiting on you, failed QC, blocked invoices (empty until Segment 6)
+ */
+
+export function useGetPortfolioAttention<TData = Awaited<ReturnType<typeof getPortfolioAttention>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioAttention>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioAttentionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStreamPortfolioPulseUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/portfolios/${id}/stream`
+}
+
+/**
+ * @summary SSE stream — `pulse` events. Reconnect then refetch pulse + attention to catch up.
+ */
+export const streamPortfolioPulse = async (id: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamPortfolioPulseUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamPortfolioPulseQueryKey = (id: string,) => {
+    return [
+    `/api/v1/portfolios/${id}/stream`
+    ] as const;
+    }
+
+
+export const getStreamPortfolioPulseQueryOptions = <TData = Awaited<ReturnType<typeof streamPortfolioPulse>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamPortfolioPulseQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamPortfolioPulse>>> = ({ signal }) => streamPortfolioPulse(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamPortfolioPulse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamPortfolioPulseQueryResult = NonNullable<Awaited<ReturnType<typeof streamPortfolioPulse>>>
+export type StreamPortfolioPulseQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — `pulse` events. Reconnect then refetch pulse + attention to catch up.
+ */
+
+export function useStreamPortfolioPulse<TData = Awaited<ReturnType<typeof streamPortfolioPulse>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamPortfolioPulseQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPutPortfolioSavedViewUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/portfolios/${id}/saved-view`
+}
+
+/**
+ * @summary Persist Pulse date range and tile sort in client_saved_views
+ */
+export const putPortfolioSavedView = async (id: string,
+    portfolioSavedViewInput: PortfolioSavedViewInput, options?: RequestInit): Promise<PortfolioSavedViewDocument> => {
+
+  return customFetch<PortfolioSavedViewDocument>(getPutPortfolioSavedViewUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portfolioSavedViewInput)
+  }
+);}
+
+
+
+
+
+export const getPutPortfolioSavedViewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPortfolioSavedView>>, TError,{id: string;data: BodyType<PortfolioSavedViewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putPortfolioSavedView>>, TError,{id: string;data: BodyType<PortfolioSavedViewInput>}, TContext> => {
+
+const mutationKey = ['putPortfolioSavedView'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putPortfolioSavedView>>, {id: string;data: BodyType<PortfolioSavedViewInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putPortfolioSavedView(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutPortfolioSavedViewMutationResult = NonNullable<Awaited<ReturnType<typeof putPortfolioSavedView>>>
+    export type PutPortfolioSavedViewMutationBody = BodyType<PortfolioSavedViewInput>
+    export type PutPortfolioSavedViewMutationError = ErrorType<Error>
+
+    /**
+ * @summary Persist Pulse date range and tile sort in client_saved_views
+ */
+export const usePutPortfolioSavedView = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPortfolioSavedView>>, TError,{id: string;data: BodyType<PortfolioSavedViewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof putPortfolioSavedView>>,
+        TError,
+        {id: string;data: BodyType<PortfolioSavedViewInput>},
+        TContext
+      > => {
+      return useMutation(getPutPortfolioSavedViewMutationOptions(options));
+    }
+
+export const getGetClientPortfolioPulseUrl = (token: string,
+    params?: GetClientPortfolioPulseParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client/${token}/portfolio/pulse?${stringifiedParams}` : `/api/client/${token}/portfolio/pulse`
+}
+
+/**
+ * @summary Client-token Portfolio Pulse — same document as the office pulse, scoped to the property's org
+ */
+export const getClientPortfolioPulse = async (token: string,
+    params?: GetClientPortfolioPulseParams, options?: RequestInit): Promise<PortfolioPulseDocument> => {
+
+  return customFetch<PortfolioPulseDocument>(getGetClientPortfolioPulseUrl(token,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPortfolioPulseQueryKey = (token: string,
+    params?: GetClientPortfolioPulseParams,) => {
+    return [
+    `/api/client/${token}/portfolio/pulse`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetClientPortfolioPulseQueryOptions = <TData = Awaited<ReturnType<typeof getClientPortfolioPulse>>, TError = ErrorType<Error>>(token: string,
+    params?: GetClientPortfolioPulseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPortfolioPulseQueryKey(token,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPortfolioPulse>>> = ({ signal }) => getClientPortfolioPulse(token,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioPulse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPortfolioPulseQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPortfolioPulse>>>
+export type GetClientPortfolioPulseQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client-token Portfolio Pulse — same document as the office pulse, scoped to the property's org
+ */
+
+export function useGetClientPortfolioPulse<TData = Awaited<ReturnType<typeof getClientPortfolioPulse>>, TError = ErrorType<Error>>(
+ token: string,
+    params?: GetClientPortfolioPulseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPortfolioPulseQueryOptions(token,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetClientPortfolioAttentionUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/portfolio/attention`
+}
+
+/**
+ * @summary Client-token attention list
+ */
+export const getClientPortfolioAttention = async (token: string, options?: RequestInit): Promise<PortfolioAttentionDocument> => {
+
+  return customFetch<PortfolioAttentionDocument>(getGetClientPortfolioAttentionUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPortfolioAttentionQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/portfolio/attention`
+    ] as const;
+    }
+
+
+export const getGetClientPortfolioAttentionQueryOptions = <TData = Awaited<ReturnType<typeof getClientPortfolioAttention>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAttention>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPortfolioAttentionQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPortfolioAttention>>> = ({ signal }) => getClientPortfolioAttention(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAttention>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPortfolioAttentionQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPortfolioAttention>>>
+export type GetClientPortfolioAttentionQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client-token attention list
+ */
+
+export function useGetClientPortfolioAttention<TData = Awaited<ReturnType<typeof getClientPortfolioAttention>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPortfolioAttention>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPortfolioAttentionQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStreamClientPortfolioPulseUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/portfolio/stream`
+}
+
+/**
+ * @summary SSE stream — `pulse` events for the property's portfolio
+ */
+export const streamClientPortfolioPulse = async (token: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamClientPortfolioPulseUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamClientPortfolioPulseQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/portfolio/stream`
+    ] as const;
+    }
+
+
+export const getStreamClientPortfolioPulseQueryOptions = <TData = Awaited<ReturnType<typeof streamClientPortfolioPulse>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamClientPortfolioPulseQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamClientPortfolioPulse>>> = ({ signal }) => streamClientPortfolioPulse(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamClientPortfolioPulse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamClientPortfolioPulseQueryResult = NonNullable<Awaited<ReturnType<typeof streamClientPortfolioPulse>>>
+export type StreamClientPortfolioPulseQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — `pulse` events for the property's portfolio
+ */
+
+export function useStreamClientPortfolioPulse<TData = Awaited<ReturnType<typeof streamClientPortfolioPulse>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientPortfolioPulse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamClientPortfolioPulseQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPutClientPortfolioSavedViewUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/portfolio/saved-view`
+}
+
+/**
+ * @summary Persist Pulse date range and tile sort for this client link
+ */
+export const putClientPortfolioSavedView = async (token: string,
+    portfolioSavedViewInput: PortfolioSavedViewInput, options?: RequestInit): Promise<PortfolioSavedViewDocument> => {
+
+  return customFetch<PortfolioSavedViewDocument>(getPutClientPortfolioSavedViewUrl(token),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portfolioSavedViewInput)
+  }
+);}
+
+
+
+
+
+export const getPutClientPortfolioSavedViewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putClientPortfolioSavedView>>, TError,{token: string;data: BodyType<PortfolioSavedViewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putClientPortfolioSavedView>>, TError,{token: string;data: BodyType<PortfolioSavedViewInput>}, TContext> => {
+
+const mutationKey = ['putClientPortfolioSavedView'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putClientPortfolioSavedView>>, {token: string;data: BodyType<PortfolioSavedViewInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  putClientPortfolioSavedView(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutClientPortfolioSavedViewMutationResult = NonNullable<Awaited<ReturnType<typeof putClientPortfolioSavedView>>>
+    export type PutClientPortfolioSavedViewMutationBody = BodyType<PortfolioSavedViewInput>
+    export type PutClientPortfolioSavedViewMutationError = ErrorType<Error>
+
+    /**
+ * @summary Persist Pulse date range and tile sort for this client link
+ */
+export const usePutClientPortfolioSavedView = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putClientPortfolioSavedView>>, TError,{token: string;data: BodyType<PortfolioSavedViewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof putClientPortfolioSavedView>>,
+        TError,
+        {token: string;data: BodyType<PortfolioSavedViewInput>},
+        TContext
+      > => {
+      return useMutation(getPutClientPortfolioSavedViewMutationOptions(options));
+    }
+
+export const getGetPropertyTurnBoardUrl = (id: string,
+    params?: GetPropertyTurnBoardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/properties/${id}/board?${stringifiedParams}` : `/api/v1/properties/${id}/board`
+}
+
+/**
+ * @summary Property Turn Ring board — units in turn as stage columns. Drag is always disabled; the work moves the cards.
+ */
+export const getPropertyTurnBoard = async (id: string,
+    params?: GetPropertyTurnBoardParams, options?: RequestInit): Promise<PropertyTurnBoardDocument> => {
+
+  return customFetch<PropertyTurnBoardDocument>(getGetPropertyTurnBoardUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPropertyTurnBoardQueryKey = (id: string,
+    params?: GetPropertyTurnBoardParams,) => {
+    return [
+    `/api/v1/properties/${id}/board`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPropertyTurnBoardQueryOptions = <TData = Awaited<ReturnType<typeof getPropertyTurnBoard>>, TError = ErrorType<Error>>(id: string,
+    params?: GetPropertyTurnBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPropertyTurnBoardQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPropertyTurnBoard>>> = ({ signal }) => getPropertyTurnBoard(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPropertyTurnBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPropertyTurnBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getPropertyTurnBoard>>>
+export type GetPropertyTurnBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Property Turn Ring board — units in turn as stage columns. Drag is always disabled; the work moves the cards.
+ */
+
+export function useGetPropertyTurnBoard<TData = Awaited<ReturnType<typeof getPropertyTurnBoard>>, TError = ErrorType<Error>>(
+ id: string,
+    params?: GetPropertyTurnBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPropertyTurnBoardQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStreamPropertyTurnBoardUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/properties/${id}/board/stream`
+}
+
+/**
+ * @summary SSE stream — `turn` events. Reconnect then refetch the board.
+ */
+export const streamPropertyTurnBoard = async (id: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamPropertyTurnBoardUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamPropertyTurnBoardQueryKey = (id: string,) => {
+    return [
+    `/api/v1/properties/${id}/board/stream`
+    ] as const;
+    }
+
+
+export const getStreamPropertyTurnBoardQueryOptions = <TData = Awaited<ReturnType<typeof streamPropertyTurnBoard>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamPropertyTurnBoardQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamPropertyTurnBoard>>> = ({ signal }) => streamPropertyTurnBoard(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamPropertyTurnBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamPropertyTurnBoardQueryResult = NonNullable<Awaited<ReturnType<typeof streamPropertyTurnBoard>>>
+export type StreamPropertyTurnBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — `turn` events. Reconnect then refetch the board.
+ */
+
+export function useStreamPropertyTurnBoard<TData = Awaited<ReturnType<typeof streamPropertyTurnBoard>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamPropertyTurnBoardQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTurnDetailUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/turns/${id}`
+}
+
+/**
+ * @summary Unit turn detail — large Turn Ring, stage band, activity, client actions
+ */
+export const getTurnDetail = async (id: string, options?: RequestInit): Promise<TurnDetailDocument> => {
+
+  return customFetch<TurnDetailDocument>(getGetTurnDetailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTurnDetailQueryKey = (id: string,) => {
+    return [
+    `/api/v1/turns/${id}`
+    ] as const;
+    }
+
+
+export const getGetTurnDetailQueryOptions = <TData = Awaited<ReturnType<typeof getTurnDetail>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTurnDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTurnDetailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTurnDetail>>> = ({ signal }) => getTurnDetail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTurnDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTurnDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getTurnDetail>>>
+export type GetTurnDetailQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Unit turn detail — large Turn Ring, stage band, activity, client actions
+ */
+
+export function useGetTurnDetail<TData = Awaited<ReturnType<typeof getTurnDetail>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTurnDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTurnDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveTurnScopeUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/turns/${id}/approve-scope`
+}
+
+/**
+ * @summary Client approves scope — pending_approval to approved
+ */
+export const approveTurnScope = async (id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getApproveTurnScopeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveTurnScopeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTurnScope>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveTurnScope>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveTurnScope'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveTurnScope>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveTurnScope(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveTurnScopeMutationResult = NonNullable<Awaited<ReturnType<typeof approveTurnScope>>>
+
+    export type ApproveTurnScopeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client approves scope — pending_approval to approved
+ */
+export const useApproveTurnScope = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTurnScope>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveTurnScope>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveTurnScopeMutationOptions(options));
+    }
+
+export const getApproveTurnVarianceUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/turns/${id}/approve-variance`
+}
+
+/**
+ * @summary Client approves pending scope variances
+ */
+export const approveTurnVariance = async (id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getApproveTurnVarianceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveTurnVarianceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTurnVariance>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveTurnVariance>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveTurnVariance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveTurnVariance>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveTurnVariance(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveTurnVarianceMutationResult = NonNullable<Awaited<ReturnType<typeof approveTurnVariance>>>
+
+    export type ApproveTurnVarianceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client approves pending scope variances
+ */
+export const useApproveTurnVariance = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTurnVariance>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveTurnVariance>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveTurnVarianceMutationOptions(options));
+    }
+
+export const getRequestTurnWorkUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/turns/${id}/request-work`
+}
+
+/**
+ * @summary Client requests work — notice to vacated
+ */
+export const requestTurnWork = async (id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getRequestTurnWorkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRequestTurnWorkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestTurnWork>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestTurnWork>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['requestTurnWork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestTurnWork>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  requestTurnWork(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestTurnWorkMutationResult = NonNullable<Awaited<ReturnType<typeof requestTurnWork>>>
+
+    export type RequestTurnWorkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client requests work — notice to vacated
+ */
+export const useRequestTurnWork = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestTurnWork>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestTurnWork>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRequestTurnWorkMutationOptions(options));
+    }
+
+export const getGetClientPropertyTurnBoardUrl = (token: string,
+    id: string,
+    params?: GetClientPropertyTurnBoardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/client/${token}/properties/${id}/board?${stringifiedParams}` : `/api/client/${token}/properties/${id}/board`
+}
+
+/**
+ * @summary Client twin of the property Turn Ring board
+ */
+export const getClientPropertyTurnBoard = async (token: string,
+    id: string,
+    params?: GetClientPropertyTurnBoardParams, options?: RequestInit): Promise<PropertyTurnBoardDocument> => {
+
+  return customFetch<PropertyTurnBoardDocument>(getGetClientPropertyTurnBoardUrl(token,id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPropertyTurnBoardQueryKey = (token: string,
+    id: string,
+    params?: GetClientPropertyTurnBoardParams,) => {
+    return [
+    `/api/client/${token}/properties/${id}/board`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetClientPropertyTurnBoardQueryOptions = <TData = Awaited<ReturnType<typeof getClientPropertyTurnBoard>>, TError = ErrorType<Error>>(token: string,
+    id: string,
+    params?: GetClientPropertyTurnBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPropertyTurnBoardQueryKey(token,id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPropertyTurnBoard>>> = ({ signal }) => getClientPropertyTurnBoard(token,id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPropertyTurnBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPropertyTurnBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPropertyTurnBoard>>>
+export type GetClientPropertyTurnBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client twin of the property Turn Ring board
+ */
+
+export function useGetClientPropertyTurnBoard<TData = Awaited<ReturnType<typeof getClientPropertyTurnBoard>>, TError = ErrorType<Error>>(
+ token: string,
+    id: string,
+    params?: GetClientPropertyTurnBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPropertyTurnBoardQueryOptions(token,id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStreamClientPropertyTurnBoardUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/properties/${id}/board/stream`
+}
+
+/**
+ * @summary SSE stream — `turn` events for this property
+ */
+export const streamClientPropertyTurnBoard = async (token: string,
+    id: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamClientPropertyTurnBoardUrl(token,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamClientPropertyTurnBoardQueryKey = (token: string,
+    id: string,) => {
+    return [
+    `/api/client/${token}/properties/${id}/board/stream`
+    ] as const;
+    }
+
+
+export const getStreamClientPropertyTurnBoardQueryOptions = <TData = Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>, TError = ErrorType<Error>>(token: string,
+    id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamClientPropertyTurnBoardQueryKey(token,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>> = ({ signal }) => streamClientPropertyTurnBoard(token,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamClientPropertyTurnBoardQueryResult = NonNullable<Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>>
+export type StreamClientPropertyTurnBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — `turn` events for this property
+ */
+
+export function useStreamClientPropertyTurnBoard<TData = Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>, TError = ErrorType<Error>>(
+ token: string,
+    id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientPropertyTurnBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamClientPropertyTurnBoardQueryOptions(token,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetClientTurnDetailUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/turns/${id}`
+}
+
+/**
+ * @summary Client twin of turn detail
+ */
+export const getClientTurnDetail = async (token: string,
+    id: string, options?: RequestInit): Promise<TurnDetailDocument> => {
+
+  return customFetch<TurnDetailDocument>(getGetClientTurnDetailUrl(token,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientTurnDetailQueryKey = (token: string,
+    id: string,) => {
+    return [
+    `/api/client/${token}/turns/${id}`
+    ] as const;
+    }
+
+
+export const getGetClientTurnDetailQueryOptions = <TData = Awaited<ReturnType<typeof getClientTurnDetail>>, TError = ErrorType<Error>>(token: string,
+    id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientTurnDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientTurnDetailQueryKey(token,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientTurnDetail>>> = ({ signal }) => getClientTurnDetail(token,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientTurnDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientTurnDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getClientTurnDetail>>>
+export type GetClientTurnDetailQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client twin of turn detail
+ */
+
+export function useGetClientTurnDetail<TData = Awaited<ReturnType<typeof getClientTurnDetail>>, TError = ErrorType<Error>>(
+ token: string,
+    id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientTurnDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientTurnDetailQueryOptions(token,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveClientTurnScopeUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/turns/${id}/approve-scope`
+}
+
+/**
+ * @summary Client approves scope
+ */
+export const approveClientTurnScope = async (token: string,
+    id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getApproveClientTurnScopeUrl(token,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveClientTurnScopeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnScope>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnScope>>, TError,{token: string;id: string}, TContext> => {
+
+const mutationKey = ['approveClientTurnScope'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveClientTurnScope>>, {token: string;id: string}> = (props) => {
+          const {token,id} = props ?? {};
+
+          return  approveClientTurnScope(token,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveClientTurnScopeMutationResult = NonNullable<Awaited<ReturnType<typeof approveClientTurnScope>>>
+
+    export type ApproveClientTurnScopeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client approves scope
+ */
+export const useApproveClientTurnScope = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnScope>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveClientTurnScope>>,
+        TError,
+        {token: string;id: string},
+        TContext
+      > => {
+      return useMutation(getApproveClientTurnScopeMutationOptions(options));
+    }
+
+export const getApproveClientTurnVarianceUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/turns/${id}/approve-variance`
+}
+
+/**
+ * @summary Client approves pending variances
+ */
+export const approveClientTurnVariance = async (token: string,
+    id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getApproveClientTurnVarianceUrl(token,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveClientTurnVarianceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnVariance>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnVariance>>, TError,{token: string;id: string}, TContext> => {
+
+const mutationKey = ['approveClientTurnVariance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveClientTurnVariance>>, {token: string;id: string}> = (props) => {
+          const {token,id} = props ?? {};
+
+          return  approveClientTurnVariance(token,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveClientTurnVarianceMutationResult = NonNullable<Awaited<ReturnType<typeof approveClientTurnVariance>>>
+
+    export type ApproveClientTurnVarianceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client approves pending variances
+ */
+export const useApproveClientTurnVariance = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveClientTurnVariance>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveClientTurnVariance>>,
+        TError,
+        {token: string;id: string},
+        TContext
+      > => {
+      return useMutation(getApproveClientTurnVarianceMutationOptions(options));
+    }
+
+export const getRequestClientTurnWorkUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/turns/${id}/request-work`
+}
+
+/**
+ * @summary Client requests work
+ */
+export const requestClientTurnWork = async (token: string,
+    id: string, options?: RequestInit): Promise<TurnMutationResultDocument> => {
+
+  return customFetch<TurnMutationResultDocument>(getRequestClientTurnWorkUrl(token,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRequestClientTurnWorkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestClientTurnWork>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestClientTurnWork>>, TError,{token: string;id: string}, TContext> => {
+
+const mutationKey = ['requestClientTurnWork'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestClientTurnWork>>, {token: string;id: string}> = (props) => {
+          const {token,id} = props ?? {};
+
+          return  requestClientTurnWork(token,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestClientTurnWorkMutationResult = NonNullable<Awaited<ReturnType<typeof requestClientTurnWork>>>
+
+    export type RequestClientTurnWorkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client requests work
+ */
+export const useRequestClientTurnWork = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestClientTurnWork>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestClientTurnWork>>,
+        TError,
+        {token: string;id: string},
+        TContext
+      > => {
+      return useMutation(getRequestClientTurnWorkMutationOptions(options));
     }
 

@@ -255,6 +255,9 @@ importers:
       thread-stream:
         specifier: 3.1.0
         version: 3.1.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.0
 
   artifacts/client-dashboard:
     dependencies:
@@ -834,6 +837,9 @@ importers:
       '@workspace/board-demo':
         specifier: workspace:*
         version: link:../../lib/board-demo
+      '@workspace/board-ui':
+        specifier: workspace:*
+        version: link:../../lib/board-ui
       '@workspace/object-storage-web':
         specifier: workspace:*
         version: link:../../lib/object-storage-web

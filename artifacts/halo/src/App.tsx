@@ -27,6 +27,7 @@ import CrewCheckinPage from "./pages/CrewCheckinPage";
 // Primary interface
 import HaloCommand from "./pages/HaloCommand";
 import PropertyPulse from "./pages/PropertyPulse";
+import ClientPortfolioPulse from "./pages/ClientPortfolioPulse";
 import { OfficeGate } from "./components/OfficeGate";
 import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
@@ -134,6 +135,12 @@ function App() {
             <Route path="/pulse">
               <OfficeGate>
                 <PropertyPulse />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/portfolio">
+              <OfficeGate>
+                <ClientPortfolioPulse />
               </OfficeGate>
             </Route>
 
