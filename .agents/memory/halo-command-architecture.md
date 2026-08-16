@@ -34,6 +34,9 @@ Both apps have identical copies of all four command components (desktop LensCard
 - `useListVendors` / `getListVendorsQueryKey` do NOT exist in `@workspace/api-client-react` — removed from LensCard.
 - `useParseWalkVoice` does NOT exist in `@workspace/api-client-react` — removed from WalkModeOverlay (uses direct fetch to `/api/walk/voice/parse`).
 
+## Brain / knowledge
+Command chat (`commandBrain.ts`) pulls the live org snapshot (jobs, invoices, crews, check-ins, schedule, roster, queues) **plus** open client-board turns. `opsCortex.ts` ranks risk and predicts slip before Claude writes. Retrieval stays the security boundary (`commandSnapshotCore`). Do not dump a second vacancy formula into the prompt — use metrics-view days and Pulse window cents when those are already computed.
+
 ## Intent detection (client-side)
 `detectIntent()` in HaloCommand: keyword scan → lens type (query), or `isFalkonFormationIntent()` → Falkon, else → action (parse/confirm flow). No new server routes.
 

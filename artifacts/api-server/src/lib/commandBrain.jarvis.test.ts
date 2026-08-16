@@ -41,5 +41,7 @@ describe("HALO Jarvis prompt", () => {
     expect(prompt).toContain("COMPOUND COMMANDS");
     expect(prompt).toContain("supply.order");
     expect(prompt).toContain("Jarvis");
+    expect(prompt).toContain("Reasoning protocol");
+    expect(prompt).toContain("Cortex brief");
   });
 });

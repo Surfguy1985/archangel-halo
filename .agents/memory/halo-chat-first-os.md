@@ -36,14 +36,13 @@ Layout is now stripped to a minimal dark header with `← Back` link and HALO lo
 
 **Why:** The 3 main panels are in-HaloCommand state, not separate routes.
 
-## MakeReady Flow Brain Awareness
-`commandBrain.ts` system prompt now includes:
-- MakeReady Flow (Base44) as authoritative source for 14 entity types, syncs every 15 min
-- Falkon Business Twin as authoritative for peer network data
-- HALO native data explicitly named as a third category
-Brain instructed to note "via MakeReady Flow" in sources for those entity types.
+## Cortex (do not skip)
+`opsCortex.ts` pre-ranks live facts before Claude speaks. Command snapshot now includes client-board open turns (days from the metrics view — do not recompute), overdue/uncrewed/due-tomorrow job detail, and overdue invoices. `buildSystemPrompt()` leads with a Reasoning protocol + cortex brief. If the model is unreachable, `answerFromCortex` still answers. Pulse Ask uses the same cortex with `voice: "client"` (no HALO / Work App / Falkon jargon).
 
-**How to apply:** When adding new data sources to the brain, add a section to `buildSystemPrompt()` in `commandBrain.ts` listing what's authoritative there.
+## Pulse Ask reasoner (do not skip)
+`askReason.ts` is the ChatGPT-grade partner on Pulse. It scores intent, resolves sites/units (token overlap + memory for “that unit”), compares communities, and always attaches a why trail + citations (vacancy $ = Pulse window, days = turn clock, dollars stop at ready). Proof tiles stay locked to that focus. `POST .../portfolio/ask` may narrate JSON `{ answer, why, citations, followUps }` but an invent-guard drops any unit not on the board. Do not embed HaloCommand. Do not invent photos or a second vacancy formula.
+
+**How to apply:** When adding new data sources to the brain, add them to `buildSnapshot()` / `snapshotToFacts()`, then to `buildSystemPrompt()` evidence. Do not invent a second vacancy-days or cents formula — pass already-computed figures into the cortex.
 
 ## Panel Files
 Mobile panels: `artifacts/halo/src/components/panels/{LiveMapPanel,KanbanPanel,MoneyPanel}.tsx`

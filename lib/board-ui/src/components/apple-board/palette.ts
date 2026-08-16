@@ -1,13 +1,8 @@
-// Service-category palette for the Falkon card face. Kept dependency-free
-// (no lucide/react imports) so the palette guard
-// (scripts/src/check-card-contrast.ts) can import it directly at runtime.
-//
-// Two-tone scheme (client directive): billing/money tiles are LIME GREEN with
-// BLACK text; every other tile is BABY BLUE with WHITE text. Header text
-// readability per tile is enforced by the guard — run
-// `pnpm --filter @workspace/scripts run check:card-contrast` after editing.
-export const TILE_BLUE = '#79B8F3'; // baby blue — white header text
-export const TILE_LIME = '#B4FF44'; // lime green — black header text
+// Watch-icon palette. Dark board chrome; each card face is one saturated
+// Apple color. Lime (money / billing) takes black ink; system blue takes white.
+// Guard: `pnpm --filter @workspace/scripts run check:card-contrast`
+export const TILE_BLUE = '#0A84FF'; // Apple system blue — white ink
+export const TILE_LIME = '#B4FF44'; // HALO lime — black ink
 
 export const APPLE_CATEGORY_COLORS: Record<string, string> = {
   maintenance: TILE_BLUE,
@@ -21,7 +16,7 @@ export const APPLE_CATEGORY_COLORS: Record<string, string> = {
   access: TILE_BLUE,
 };
 
-/** Header text color per tile: black on lime, white on blue. */
+/** Header / glyph ink: black on lime, white on blue. */
 export const APPLE_CATEGORY_TEXT: Record<string, '#000000' | '#FFFFFF'> =
   Object.fromEntries(
     Object.entries(APPLE_CATEGORY_COLORS).map(([k, v]) => [

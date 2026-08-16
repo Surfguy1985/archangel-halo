@@ -1,0 +1,412 @@
+/* HALO Command module materials — Pulse HUD, kanban cards, rails, modules. */
+:root {
+  --cmd-bg: #07101e;
+  --cmd-bg-2: #0b1524;
+  --cmd-line: rgba(170, 200, 255, 0.2);
+  --cmd-line-soft: rgba(170, 200, 255, 0.1);
+  --cmd-ink: rgba(255, 255, 255, 0.92);
+  --cmd-mute: rgba(210, 224, 255, 0.55);
+  --cmd-kicker: rgba(180, 255, 68, 0.55);
+  --cmd-lime: #b4ff44;
+  --cmd-blue: #0a84ff;
+  --cmd-glass: linear-gradient(165deg, rgba(56, 92, 156, 0.52) 0%, rgba(14, 28, 58, 0.78) 100%);
+  --cmd-glass-fill: rgba(22, 42, 82, 0.55);
+  --cmd-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 18px 48px rgba(6, 12, 28, 0.42);
+  --cmd-radius: 18px;
+  --cmd-map: #e8f6ef;
+  --cmd-blur: blur(24px) saturate(1.45);
+}
+
+.cb-cmd-board {
+  background: var(--cmd-bg);
+  color: var(--cmd-ink);
+}
+
+.cb-cmd-card {
+  background: var(--cmd-glass);
+  border: 1px solid var(--cmd-line);
+  border-radius: var(--cmd-radius);
+  box-shadow: var(--cmd-shadow);
+  color: var(--cmd-ink);
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-cmd-card:hover {
+  border-color: rgba(180, 255, 68, 0.4);
+}
+
+/* Apple Watch icon plate — saturated field, one glyph, high-contrast ink. */
+.cb-watch-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 16px 18px;
+  min-height: 124px;
+  text-align: center;
+  position: relative;
+}
+.cb-watch-glyph {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.cb-watch-face[data-ink="black"] .cb-watch-glyph {
+  background: rgba(0, 0, 0, 0.12);
+}
+.cb-watch-face[data-ink="white"] .cb-watch-glyph {
+  background: rgba(255, 255, 255, 0.2);
+}
+.cb-watch-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cb-watch-seal {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  margin: 0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.cb-watch-face[data-ink="black"] .cb-watch-seal {
+  background: rgba(0, 0, 0, 0.12);
+}
+.cb-watch-face[data-ink="white"] .cb-watch-seal {
+  background: rgba(255, 255, 255, 0.18);
+}
+.cb-watch-body {
+  padding: 14px 16px 16px;
+  background: transparent;
+  color: #f4f4f0;
+}
+.cb-watch-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #f4f4f0;
+}
+.cb-watch-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: rgba(244, 244, 240, 0.62);
+}
+
+.cb-cmd-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--cmd-line-soft);
+}
+.cb-cmd-head-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cb-cmd-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cmd-lime);
+  box-shadow: 0 0 8px rgba(180, 255, 68, 0.7);
+  flex-shrink: 0;
+}
+.cb-cmd-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cmd-kicker);
+}
+.cb-cmd-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--cmd-ink);
+}
+.cb-cmd-sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--cmd-mute);
+  line-height: 1.4;
+}
+.cb-cmd-seal {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cmd-lime);
+  background: rgba(180, 255, 68, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.cb-cmd-glass {
+  background: var(--cmd-glass-fill) !important;
+  color: #f4f4f0 !important;
+  border-color: var(--cmd-line) !important;
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+
+.cb-cmd-module {
+  background: var(--cmd-glass-fill);
+  border: 1px solid var(--cmd-line);
+  border-radius: 12px;
+  overflow: hidden;
+  color: var(--cmd-ink);
+}
+
+.cb-cmd-scope {
+  color: var(--cmd-ink);
+}
+.cb-cmd-scope > * {
+  background: var(--cmd-glass-fill) !important;
+  border: 1px solid var(--cmd-line) !important;
+  border-radius: 13px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  overflow: hidden;
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-cmd-scope [class*="bg-white"],
+.cb-cmd-scope [class*="bg-[#FBFAF7]"],
+.cb-cmd-scope [class*="bg-emerald"],
+.cb-cmd-scope [class*="bg-amber"],
+.cb-cmd-scope [class*="bg-indigo"],
+.cb-cmd-scope [class*="bg-slate"],
+.cb-cmd-scope [class*="bg-sky"] {
+  background: rgba(18, 36, 72, 0.45) !important;
+  color: #f4f4f0 !important;
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-cmd-scope [class*="text-emerald"],
+.cb-cmd-scope [class*="text-amber"],
+.cb-cmd-scope [class*="text-indigo"],
+.cb-cmd-scope [class*="text-slate"],
+.cb-cmd-scope [class*="text-sky"],
+.cb-cmd-scope [class*="text-[#"],
+.cb-cmd-scope [class*="text-emerald-"],
+.cb-cmd-scope [class*="text-amber-"] {
+  color: var(--cmd-ink) !important;
+}
+.cb-cmd-scope [class*="uppercase"] {
+  color: var(--cmd-kicker) !important;
+  letter-spacing: 0.14em;
+}
+.cb-cmd-scope [class*="bg-emerald-100"],
+.cb-cmd-scope [class*="bg-amber-100"],
+.cb-cmd-scope [class*="bg-indigo-100"],
+.cb-cmd-scope [class*="bg-sky-100"] {
+  background: rgba(180, 255, 68, 0.16) !important;
+  color: var(--cmd-lime) !important;
+}
+
+/* Apple Maps — Carto Voyager, lifted toward sunlit mint / cream roads. */
+.cb-map-apple .leaflet-tile-pane,
+.leaflet-container.cb-map-apple .leaflet-tile-pane {
+  filter: saturate(1.2) brightness(1.34) contrast(0.9);
+}
+.cb-map-apple.leaflet-container,
+.cb-hud-stage.cb-map-apple,
+.cb-hud-stage.cb-map-apple .leaflet-container {
+  background: var(--cmd-map);
+}
+
+/* Client kanban — iPhone home / Watch widget language */
+.cb-ios-app {
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  background: var(--cmd-bg);
+  color: var(--cmd-ink);
+}
+.cb-ios-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--cmd-lime);
+  box-shadow: 0 6px 16px rgba(180, 255, 68, 0.28);
+  flex-shrink: 0;
+}
+.cb-ios-seg {
+  display: flex;
+  width: 100%;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--cmd-line-soft);
+}
+.cb-ios-seg-item {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: background 160ms ease, color 160ms ease;
+}
+.cb-ios-seg-item[data-on="true"] {
+  background: var(--cmd-lime);
+  color: #07101e;
+  box-shadow: 0 6px 16px rgba(180, 255, 68, 0.22);
+}
+.cb-ios-chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--cmd-line-soft);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+.cb-ios-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.cb-ios-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--cmd-line-soft);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+.cb-ios-orb:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.cb-ios-cta {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cmd-lime);
+  color: #07101e;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  box-shadow: 0 10px 24px rgba(180, 255, 68, 0.22);
+}
+.cb-ios-ghost {
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--cmd-line);
+  background: var(--cmd-glass-fill);
+  color: var(--cmd-ink);
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-ios-dock {
+  background: linear-gradient(180deg, rgba(7, 16, 30, 0) 0%, rgba(7, 16, 30, 0.88) 36%, #07101e 100%);
+}
+.cb-rail-col {
+  min-width: 0;
+  padding: 12px 10px 14px;
+  border-radius: 22px;
+  background: var(--cmd-glass);
+  border: 1px solid var(--cmd-line);
+  box-shadow: var(--cmd-shadow);
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-rail-col[data-rail-empty] {
+  background: rgba(22, 42, 82, 0.28);
+  box-shadow: none;
+}
+.cb-rail-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cmd-ink);
+}
+.cb-rail-count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cmd-mute);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cb-watch-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.cb-watch-icon-glyph {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.cb-rail-tile {
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--cmd-glass);
+  border: 1px solid var(--cmd-line);
+  box-shadow: var(--cmd-shadow);
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-apple-lane {
+  border-radius: 22px;
+  background: var(--cmd-glass);
+  border: 1px solid var(--cmd-line);
+  box-shadow: var(--cmd-shadow);
+  backdrop-filter: var(--cmd-blur);
+  -webkit-backdrop-filter: var(--cmd-blur);
+}
+.cb-cmd-card {
+  border-radius: 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cb-cmd-dot {
+    box-shadow: none !important;
+  }
+  .cb-cmd-card,
+  .cb-cmd-glass,
+  .cb-cmd-scope > *,
+  .cb-rail-col,
+  .cb-rail-tile,
+  .cb-apple-lane,
+  .cb-ios-ghost {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .cb-map-apple .leaflet-tile-pane,
+  .leaflet-container.cb-map-apple .leaflet-tile-pane {
+    filter: saturate(1.08) brightness(1.2) contrast(0.94);
+  }
+}

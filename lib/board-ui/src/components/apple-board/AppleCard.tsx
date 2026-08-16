@@ -7,8 +7,7 @@ import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCa
 import { ModuleBoundary } from '../kanban/ModuleBoundary';
 import { WaybillStrip } from '../card/WaybillStrip';
 
-// Falkon face for every card, color-coded by service: the template category
-// drives the header gradient, while the network strip stays uniform.
+// Command-module face: dark glass, lime kicker, service label as type.
 const SERVICE_LABELS: Record<string, string> = {
   maintenance: 'Maintenance',
   lease: 'Leasing',
@@ -20,8 +19,6 @@ const SERVICE_LABELS: Record<string, string> = {
   access: 'Access',
   blank: 'General',
 };
-
-import { shade, headerBase } from './contrast';
 
 interface AppleCardProps {
   card: any;
@@ -140,7 +137,8 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
   }
 
   const Icon = template.icon;
-  const color = APPLE_CATEGORY_COLORS[template.category] || APPLE_CATEGORY_COLORS.blank;
+  const face = APPLE_CATEGORY_COLORS[template.category] || APPLE_CATEGORY_COLORS.blank;
+  const ink = APPLE_CATEGORY_TEXT[template.category] ?? '#FFFFFF';
 
   const checkedCount = card.checklist?.filter((c: any) => c.done).length || 0;
   const totalCount = card.checklist?.length || 0;
@@ -160,17 +158,13 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
 
   const waybill = card.waybill as { stages: Array<{ stage: string; at: string; byLabel?: string | null }>; holder?: string; live?: boolean } | undefined;
 
-  // ── Falkon face for EVERY card: two-tone scheme — lime tiles carry BLACK
-  // header text on the raw lime; blue tiles carry WHITE text over a baby-blue
-  // gradient. The network strip stays uniform across both.
-  const headerText = APPLE_CATEGORY_TEXT[template.category] ?? '#FFFFFF';
-  const darkText = headerText === '#000000';
-  // White-text tiles run dark→light (135deg) so the header text (top-left)
-  // always sits on the deep end while the tile still reads baby blue.
-  const gradient = darkText
-    ? `linear-gradient(135deg, ${color}, ${shade(color, -0.12)})`
-    : `linear-gradient(135deg, ${shade(color, -0.42)}, ${color})`;
   const serviceLabel = template.labelPreset || SERVICE_LABELS[template.category] || template.category;
+  const cmdTint = {
+    bd: 'rgba(255,255,255,0.08)',
+    bg: 'rgba(255,255,255,0.04)',
+    border: 'rgba(255,255,255,0.09)',
+    hairline: 'rgba(255,255,255,0.08)',
+  };
 
   // ── Lane-move landing glow ────────────────────────────────────────────
   // When an SSE update re-parents this card into a new lane, framer-motion's
@@ -233,45 +227,21 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         if (justDragged.current) return; // swallow the tap that ends a touch drag
         onClick?.();
       }}
-      className={`flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white${invoiceReady ? ' animate-pulse ring-2 ring-emerald-500' : ''}`}
-      style={{ WebkitTouchCallout: 'none', borderColor: invoiceReady ? '#10b981' : `${color}40` } as React.CSSProperties}
+      className={`cb-cmd-card flex flex-col cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative${invoiceReady ? ' animate-pulse ring-2 ring-[#B4FF44]' : ''}`}
+      style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
       data-invoice-ready={invoiceReady ? 'true' : undefined}
     >
-      {/* Branded header — service color owns the gradient; black text on lime, white on blue */}
       <div
-        className="px-4 pt-3 pb-3"
-        style={{
-          backgroundImage: gradient,
-          color: headerText,
-          // White text can cross the gradient's lighter end — a soft shadow
-          // keeps it readable across the full header width.
-          textShadow: darkText ? undefined : '0 1px 2px rgba(0,0,0,.3)',
-        }}
+        className="cb-watch-face"
+        data-ink={ink === '#000000' ? 'black' : 'white'}
+        style={{ background: face, color: ink }}
       >
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="w-6 h-6 rounded-[7px] border-[1.5px] grid place-items-center shrink-0"
-            style={darkText ? { borderColor: '#0B1428', color: '#0B1428' } : { borderColor: '#B4FF44', color: '#B4FF44' }}
-          >
-            <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
-          </span>
-          <span
-            className="text-[9px] font-extrabold tracking-[.09em] uppercase px-2 py-[3px] rounded-md"
-            style={darkText ? { background: 'rgba(11,20,40,.12)' } : { background: 'rgba(255,255,255,.2)' }}
-          >
-            {serviceLabel}
-          </span>
-          <span
-            className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap"
-            style={darkText ? { background: 'rgba(11,20,40,.85)', color: '#B4FF44' } : { background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}
-          >
-            Sealed to you
-          </span>
-        </div>
-        <h3 className="text-[15px] font-bold leading-[1.25] tracking-[-0.02em] mt-2 line-clamp-2">{card.title}</h3>
-        {card.subtitle && <p className="text-[11px] leading-[1.4] opacity-85 mt-0.5 line-clamp-1">{card.subtitle}</p>}
+        <span className="cb-watch-seal">Sealed</span>
+        <span className="cb-watch-glyph" aria-hidden>
+          <Icon size={30} strokeWidth={2.2} />
+        </span>
+        <span className="cb-watch-kicker">{serviceLabel}</span>
       </div>
-
       {/* Network waybill — six live dots synced to the card's lane */}
       {waybill && (
         <div className="px-2 pt-2">
@@ -279,21 +249,23 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         </div>
       )}
 
-      <div className="flex flex-col flex-1 p-4 pt-3">
+      <div className="cb-watch-body flex flex-col flex-1">
+        <h3 className="cb-watch-title line-clamp-2">{card.title}</h3>
+        {card.subtitle ? <p className="cb-watch-sub line-clamp-1">{card.subtitle}</p> : null}
         {/* Modules (if any) */}
         {card.module && (
-          <div className="mb-3 space-y-2">
+          <div className="mt-3 mb-3 space-y-2">
             <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
-              <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
+              <ModuleMetrics module={card.module} tint={cmdTint} />
             </ModuleBoundary>
             <ModuleBoundary module={card.module} surface="evidence">
-              <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+              <ModuleEvidence module={card.module} tint={cmdTint} />
             </ModuleBoundary>
             {/* Rendered for read-only viewers too — tapping an action prompts
                 sign-in via onReadOnlyClick instead of hiding the buttons. */}
             {token && card.actions && card.actions.length > 0 && (
               <ModuleBoundary module={card.module} surface="decision">
-                <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+                <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={cmdTint} />
               </ModuleBoundary>
             )}
           </div>
@@ -305,7 +277,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
             {card.labels.filter((l: any) => l !== template?.labelPreset).map((lbl: any, idx: number) => (
               <span
                 key={idx}
-                className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#f5f5f7] text-[#6e6e73]"
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-white/[0.06] text-white/50"
               >
                 {lbl}
               </span>
@@ -317,13 +289,13 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         {totalCount > 0 && (
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[12px] font-medium text-[#6e6e73]">
+              <span className="text-[12px] font-medium text-white/42">
                 {checkedCount}/{totalCount}
               </span>
-              <div className="flex-1 h-1.5 bg-[#f5f5f7] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
-                  style={{ width: `${checklistProgress}%`, backgroundColor: color }}
+                  style={{ width: `${checklistProgress}%`, backgroundColor: '#B4FF44' }}
                 />
               </div>
             </div>
@@ -336,7 +308,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
           {(card.dueOn || card.scheduledOn) && (
             <div
               className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                isPastDue ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#f5f5f7] text-[#6e6e73]'
+                isPastDue ? 'bg-[#FF3B30]/15 text-[#FF3B30]' : 'bg-white/[0.06] text-white/50'
               }`}
             >
               <Calendar className="h-3 w-3" strokeWidth={2.5} />
@@ -369,7 +341,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
             }
             if ((card.commentCount ?? 0) > 0) {
               return (
-                <div className="flex items-center gap-1 text-[#6e6e73]">
+                <div className="flex items-center gap-1 text-white/42">
                   <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
                   <span className="text-[12px] font-medium">{card.commentCount}</span>
                 </div>

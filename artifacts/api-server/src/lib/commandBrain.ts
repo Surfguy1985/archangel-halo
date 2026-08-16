@@ -22,8 +22,11 @@ import {
   calendarEventsTable,
   workRequestsTable,
   schedulesTable,
+  clientTurnsTable,
+  clientTurnMetricsMvTable,
+  clientUnitsTable,
 } from "@workspace/db";
-import { eq, and, inArray, gte } from "drizzle-orm";
+import { eq, and, inArray, gte, isNull } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
@@ -34,6 +37,14 @@ import {
   snapshotPropertyScope,
   type SnapshotPropertyScope,
 } from "./commandSnapshotCore";
+import {
+  answerFromCortex,
+  buildOpsCortex,
+  renderCortexBlock,
+  type OpsFacts,
+  type OpsNeed,
+  type OpsCortex,
+} from "./opsCortex";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,13 +116,44 @@ export interface BusinessSnapshot {
       boardStatus: string;
       scheduledOn?: string | null;
     }>;
+    overdueDetail?: Array<{
+      jobNo?: string;
+      unitNo: string | null;
+      propertyName: string;
+      daysLate: number;
+    }>;
+    uncrewedDetail?: Array<{
+      jobNo?: string;
+      unitNo: string | null;
+      propertyName: string;
+      scheduledOn?: string | null;
+    }>;
+    dueTomorrow?: Array<{
+      jobNo?: string;
+      unitNo: string | null;
+      propertyName: string;
+      crewName?: string | null;
+    }>;
   };
   invoices: {
     totalReceivables: number;
     overdueCount: number;
     sentCount: number;
     pendingCrewPay: number;
+    overdueDetail?: Array<{
+      amount: number;
+      propertyName?: string;
+      daysLate: number;
+    }>;
   };
+  boardTurns?: Array<{
+    propertyName: string;
+    unitNumber: string;
+    days: number;
+    status: string;
+    stalled: boolean;
+    predictedReadyOn: string | null;
+  }>;
   crews: {
     total: number;
     checkedInToday: number;
@@ -164,6 +206,123 @@ export interface BrainResponse {
 export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+function civilDaysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
+}
+
+function addCivilDays(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+}
+
+async function loadBoardTurns(
+  propertyIds: string[],
+  propName: Map<string, string>,
+): Promise<NonNullable<BusinessSnapshot["boardTurns"]>> {
+  if (propertyIds.length === 0) return [];
+  try {
+    const rows = await db
+      .select({
+        propertyId: clientTurnsTable.propertyId,
+        status: clientTurnsTable.status,
+        predictedReadyAt: clientTurnsTable.predictedReadyAt,
+        unitNumber: clientUnitsTable.unitNumber,
+        daysVacant: clientTurnMetricsMvTable.daysVacant,
+        isStalled: clientTurnMetricsMvTable.isStalled,
+      })
+      .from(clientTurnsTable)
+      .innerJoin(clientUnitsTable, eq(clientUnitsTable.id, clientTurnsTable.unitId))
+      .leftJoin(clientTurnMetricsMvTable, eq(clientTurnMetricsMvTable.turnId, clientTurnsTable.id))
+      .where(and(inArray(clientTurnsTable.propertyId, propertyIds), isNull(clientTurnsTable.readyAt)))
+      .limit(80);
+    return rows.map((r) => ({
+      propertyName: propName.get(r.propertyId) ?? "",
+      unitNumber: r.unitNumber ?? "",
+      days: r.daysVacant ?? 0,
+      status: r.status,
+      stalled: Boolean(r.isStalled),
+      predictedReadyOn: r.predictedReadyAt ? r.predictedReadyAt.toISOString().slice(0, 10) : null,
+    }));
+  } catch (err) {
+    logger.warn({ err }, "commandBrain: board turns layer unavailable");
+    return [];
+  }
+}
+
+function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
+  const needs: OpsNeed[] = [];
+  for (const t of snapshot.boardTurns ?? []) {
+    if (t.status === "pending_approval") {
+      needs.push({ kind: "awaiting_approval", propertyName: t.propertyName, unitNumber: t.unitNumber, days: t.days });
+    } else if (t.status === "rework") {
+      needs.push({ kind: "failed_qc", propertyName: t.propertyName, unitNumber: t.unitNumber, days: t.days });
+    } else if (t.stalled) {
+      needs.push({ kind: "stalled", propertyName: t.propertyName, unitNumber: t.unitNumber, days: t.days });
+    }
+  }
+  for (const j of snapshot.jobs.overdueDetail ?? []) {
+    needs.push({
+      kind: "overdue_job",
+      propertyName: j.propertyName,
+      unitNumber: j.unitNo,
+      days: j.daysLate,
+      label: j.jobNo,
+    });
+  }
+  for (const j of snapshot.jobs.uncrewedDetail ?? []) {
+    needs.push({
+      kind: "uncrewed",
+      propertyName: j.propertyName,
+      unitNumber: j.unitNo,
+      label: j.jobNo,
+    });
+  }
+  for (const inv of snapshot.invoices.overdueDetail ?? []) {
+    needs.push({
+      kind: "overdue_invoice",
+      propertyName: inv.propertyName ?? "Invoice",
+      days: inv.daysLate,
+    });
+  }
+  return {
+    date: snapshot.date,
+    voice: "office",
+    unitsInTurn: snapshot.boardTurns?.length,
+    needs,
+    crewToday: (snapshot.onSiteToday ?? []).map((c) => ({
+      crewName: c.crewName,
+      propertyName: c.propertyName,
+      unitNumber: c.unitNo,
+    })),
+    turns: (snapshot.boardTurns ?? []).map((t) => ({
+      propertyName: t.propertyName,
+      unitNumber: t.unitNumber,
+      days: t.days,
+      status: t.status,
+      predictedReadyOn: t.predictedReadyOn,
+    })),
+    jobsOpen: snapshot.jobs.open,
+    jobsOverdue: snapshot.jobs.overdue,
+    jobsUncrewed: snapshot.jobs.uncrewed,
+    invoicesOverdue: snapshot.invoices.overdueCount,
+    scheduledTomorrow: (snapshot.jobs.dueTomorrow ?? []).map((j) => ({
+      propertyName: j.propertyName,
+      unitNumber: j.unitNo,
+      crewName: j.crewName ?? null,
+    })),
+  };
+}
+
+export function cortexFromSnapshot(snapshot: BusinessSnapshot): OpsCortex {
+  return buildOpsCortex(snapshotToFacts(snapshot));
 }
 
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
@@ -340,6 +499,38 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
     // ignore — non-fatal
   }
 
+  const tomorrowStr = addCivilDays(todayStr, 1);
+  const boardTurns = await loadBoardTurns(props.map((p) => p.id), propName);
+  const overdueDetail = overdueJobs.slice(0, 12).map((j) => ({
+    jobNo: j.jobNo,
+    unitNo: j.unitNo ?? null,
+    propertyName: propName.get(j.propertyId) ?? "",
+    daysLate: j.scheduledOn ? civilDaysBetween(j.scheduledOn, todayStr) : 0,
+  }));
+  const uncrewedDetail = uncrewedJobs.slice(0, 12).map((j) => ({
+    jobNo: j.jobNo,
+    unitNo: j.unitNo ?? null,
+    propertyName: propName.get(j.propertyId) ?? "",
+    scheduledOn: j.scheduledOn ?? null,
+  }));
+  const dueTomorrow = openJobs
+    .filter((j) => j.scheduledOn === tomorrowStr)
+    .slice(0, 12)
+    .map((j) => ({
+      jobNo: j.jobNo,
+      unitNo: j.unitNo ?? null,
+      propertyName: propName.get(j.propertyId) ?? "",
+      crewName: j.crewLeaderId ? (crewNameById.get(j.crewLeaderId) ?? null) : null,
+    }));
+  const overdueInvoiceDetail = overdueInvoices.slice(0, 8).map((i) => {
+    const due = i.dueAt ? i.dueAt.toISOString().slice(0, 10) : todayStr;
+    return {
+      amount: i.amount ?? 0,
+      propertyName: i.propertyId ? propName.get(i.propertyId) : undefined,
+      daysLate: civilDaysBetween(due, todayStr),
+    };
+  });
+
   return {
     date: todayStr,
     hour: today.getHours(),
@@ -404,13 +595,18 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
         boardStatus: j.boardStatus,
         scheduledOn: j.scheduledOn ?? null,
       })),
+      overdueDetail,
+      uncrewedDetail,
+      dueTomorrow,
     },
     invoices: {
       totalReceivables,
       overdueCount: overdueInvoices.length,
       sentCount: receivables.length,
       pendingCrewPay,
+      overdueDetail: overdueInvoiceDetail,
     },
+    boardTurns,
     crews: {
       total: scope.mode === "tenant" ? crews.length : uniqueCheckedIn,
       checkedInToday: uniqueCheckedIn,
@@ -509,10 +705,22 @@ export function buildSystemPrompt(
     .map((s) => `${s.date}${s.startTime ? ` ${s.startTime}` : ""} · Unit ${s.unitNo ?? "—"} · ${s.propertyName}${s.crewName ? ` · ${s.crewName}` : " · (uncrewed)"}${s.title ? ` · ${s.title}` : ""}`)
     .join("\n");
 
-  return `You are HALO — Jarvis for Archangel Operations. You are the mission-control AI for a property-maintenance and make-ready contractor. Claude runs this brain. Every number below is live HALO data. You never invent people, units, vendors, or phone numbers that are not in the snapshot.
+  const cortex = buildOpsCortex(snapshotToFacts(snapshot));
+
+  return `You are HALO — Jarvis for Archangel Operations. You are the mission-control AI for a property-maintenance and make-ready contractor. Claude runs this brain. Every number below is live HALO data. You never invent people, units, vendors, or phone numbers that are not in the snapshot or the cortex.
 
 Role: ${role} — ${roleDesc}
 ${shadowNote}${scopeNote}
+
+## Reasoning protocol
+Think like Claude, not a search box.
+1. Answer the operator's actual question first in ONE or TWO short sentences. No novels. No recap of the whole board. Only what they asked.
+2. The CORTEX BRIEF is pre-ranked from live data. Do not contradict it. You may narrate it, tighten it, or go deeper into the snapshot evidence.
+3. Predict from facts only: a unit waiting on the operator will still be waiting tomorrow; an overdue job stays overdue; an uncrewed stop tomorrow morning is a miss unless you assign someone.
+4. Prefer one decisive recommendation over a laundry list. Cite 2–4 snapshot facts in sources.
+5. If the snapshot lacks the entity, say so. Never invent a unit, crew, vendor, phone, or dollar figure.
+
+${renderCortexBlock(cortex)}
 
 ## Live Business Snapshot (${snapshot.date})
 Properties: ${snapshot.properties.length} | Open jobs: ${snapshot.jobs.open} | Crews: ${snapshot.crews.total} (${snapshot.crews.checkedInToday} checked in today)
@@ -552,6 +760,21 @@ ${completedLines || "No units are marked complete."}
 ## Work schedule (today through end of this week — merged crew schedules + calendar; answer "what's the work schedule?" from this)
 ${scheduleLines || "Nothing scheduled this week."}
 
+## Client-board turns (open — days vacant from the metrics view, not recomputed)
+${(snapshot.boardTurns ?? [])
+    .slice(0, 24)
+    .map((t) => `${t.propertyName} · ${t.unitNumber} · ${t.days}d · ${t.status}${t.stalled ? " · stalled" : ""}${t.predictedReadyOn ? ` · predicted ready ${t.predictedReadyOn}` : ""}`)
+    .join("\n") || "No open client-board turns in scope."}
+
+## Overdue jobs
+${(snapshot.jobs.overdueDetail ?? []).map((j) => `${j.jobNo ?? "Job"} · Unit ${j.unitNo ?? "—"} · ${j.propertyName} · ${j.daysLate}d late`).join("\n") || "None."}
+
+## Uncrewed jobs
+${(snapshot.jobs.uncrewedDetail ?? []).map((j) => `${j.jobNo ?? "Job"} · Unit ${j.unitNo ?? "—"} · ${j.propertyName}${j.scheduledOn ? ` · ${j.scheduledOn}` : ""}`).join("\n") || "None."}
+
+## Due tomorrow
+${(snapshot.jobs.dueTomorrow ?? []).map((j) => `${j.jobNo ?? "Job"} · Unit ${j.unitNo ?? "—"} · ${j.propertyName}${j.crewName ? ` · ${j.crewName}` : " · (uncrewed)"}`).join("\n") || "Nothing scheduled tomorrow."}
+
 ## Needs Attention
 ${attentionItems || "Nothing urgent right now."}
 
@@ -575,7 +798,11 @@ HALO is the operational brain. Its database is populated from two authoritative 
    client messages, payment records, daily briefings.
 
 ## Instructions
-- Answer from the live snapshot above. Be concise and specific with numbers.
+- Answer from the cortex + live snapshot above. Be concise and specific with numbers.
+- For "what's on fire / brief me / what's happening" → lead with the cortex brief, then the single next move.
+- For "who's on site" → use On site today only. Do not invent GPS pings.
+- For "what do you need from me" → client-owned waits (pending approval / variance) first, then overdue invoices.
+- For "what will be late / tomorrow" → use Predictions + Due tomorrow. Name the unit and the cause.
 - For data queries (what/who/why/show/which), give a direct operational answer with real numbers.
 - If asked about a specific entity not fully detailed in the snapshot, say what you know and suggest opening the full view.
 - For "who is behind" → look at overdue jobs and uncrewed jobs.
@@ -620,15 +847,16 @@ export function buildSuggestedPrompts(
   snapshot: BusinessSnapshot,
   role: string,
 ): string[] {
-  const prompts: string[] = [];
+  const cortex = buildOpsCortex(snapshotToFacts(snapshot));
+  const prompts: string[] = [...cortex.followUps];
 
   // Time-of-day
   if (snapshot.hour < 12) {
-    prompts.push("What needs my attention this morning?");
+    prompts.unshift("What needs my attention this morning?");
   } else if (snapshot.hour < 17) {
-    prompts.push("Where do we stand right now?");
+    prompts.unshift("Where do we stand right now?");
   } else {
-    prompts.push("How did today close out?");
+    prompts.unshift("How did today close out?");
   }
 
   // State-aware
@@ -775,10 +1003,14 @@ export async function runCommandBrain(
     };
   } catch (err) {
     logger.warn({ err }, "commandBrain: AI call failed");
+    const facts = snapshotToFacts(snapshot);
+    const cortex = buildOpsCortex(facts);
+    const local = answerFromCortex(userMessage, facts, cortex);
     return {
-      type: "error",
-      text: "I couldn't reach the assistant right now. Please try again in a moment.",
-      suggestedFollowUps: ["What needs my attention today?", "Show job overview"],
+      type: "answer",
+      text: local.answer,
+      sources: [{ label: "cortex", value: "live snapshot (model unreachable)" }],
+      suggestedFollowUps: local.followUps,
     };
   }
 }

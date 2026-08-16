@@ -3,7 +3,6 @@ import { Trash2 } from 'lucide-react';
 import {
   RAIL_ACCENT_BORDER,
   RAIL_DENSITY,
-  RAIL_HAIRLINE_BORDER,
   RAIL_MOTION,
   RAIL_TONES,
   type BoardDensity,
@@ -95,17 +94,13 @@ function StageIcon({ rail, color }: { rail: RailKey; color: string }) {
   }
 }
 
-/** Solid rail-colored panel with one polished animated icon on the RIGHT —
- *  keeps the left side clear so text overlays never fight the artwork. */
+/** Watch-icon plate — saturated field, one centered glyph. */
 export function StageArtPanel({ rail, testId, bg }: { rail: RailKey; testId?: string; bg?: string }) {
   const s = RAIL_STAGE_STYLE[rail];
   ensureStageArtStyles();
   return (
-    <div className="absolute inset-0" style={{ background: bg ?? s.bg }} data-testid={testId}>
-      <span
-        className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full"
-        style={{ background: s.badgeBg }}
-      >
+    <div className="cb-watch-icon" style={{ background: bg ?? s.bg }} data-testid={testId}>
+      <span className="cb-watch-icon-glyph" style={{ background: s.badgeBg }}>
         <span className={s.motion ? `inline-flex ${s.motion}` : 'inline-flex'}>
           <StageIcon rail={rail} color={s.icon} />
         </span>
@@ -157,12 +152,12 @@ export const RailTile = memo(function RailTile({
         data-testid={`rail-tile-${tile.cardKey}`}
         onClick={onOpen}
         className={[
-          'block w-full min-w-0 text-left rounded-2xl overflow-hidden',
+          'cb-rail-tile block w-full min-w-0 text-left',
           t.body,
-          tile.accent ? RAIL_ACCENT_BORDER : RAIL_HAIRLINE_BORDER,
+          tile.accent ? RAIL_ACCENT_BORDER : '',
           RAIL_MOTION,
-          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]',
-          invoiceReady ? 'animate-pulse ring-2 ring-emerald-500 border-emerald-500' : '',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF44]',
+          invoiceReady ? 'animate-pulse ring-2 ring-[#B4FF44]' : '',
         ].join(' ')}
         data-invoice-ready={invoiceReady ? 'true' : undefined}
       >
@@ -190,7 +185,7 @@ export const RailTile = memo(function RailTile({
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M7.5 6.5C7.5 8.43 6.5 10 5 10s-2.5-1.57-2.5-3.5S3.5 3 5 3s2.5 1.57 2.5 3.5zm9 0C16.5 8.43 15.5 10 14 10s-2.5-1.57-2.5-3.5S12.5 3 14 3s2.5 1.57 2.5 3.5zM5 11c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm9 0c-.29 0-.62.02-.97.05C14.19 11.89 15 13.1 15 14.5V17h6v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
-              HALO Walk
+              Walk
             </span>
           )}
           {!tile.walkBadge && tile.card?.changeOrder && (
@@ -205,9 +200,8 @@ export const RailTile = memo(function RailTile({
             <span
               className={[
                 'absolute bottom-2.5 left-2.5 max-w-[calc(100%-20px)] truncate',
-                'rounded-full bg-white/95 px-2.5 py-1',
-                'text-[11px] font-medium',
-                t.chip,
+                'rounded-full bg-black/28 px-2.5 py-1 backdrop-blur-md',
+                'text-[11px] font-semibold text-white',
               ].join(' ')}
             >
               {tile.chip}
@@ -243,7 +237,7 @@ export const RailTile = memo(function RailTile({
           }}
           /* Touch has no hover: keep the button visible on phones, reveal on
              hover/focus only where a pointer exists. Never an invisible hotspot. */
-          className="absolute right-2 top-2 rounded-full bg-white/90 dark:bg-stone-900/90 p-1.5 text-stone-400 transition-opacity opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100 hover:text-stone-700 dark:hover:text-stone-200"
+          className="absolute right-2 top-2 rounded-full bg-black/35 p-1.5 text-white/70 backdrop-blur-md transition-opacity opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100 hover:text-white"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

@@ -5,6 +5,7 @@ import { AppleCardForm } from './AppleCardForm';
 import { PM_TEMPLATES, VENDOR_TEMPLATES, AppleTemplate } from './templates';
 import { Plus, Loader2, Sparkles, Map as MapIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import '../commandSurface.css';
 
 export interface AppleBoardData {
   lanes: Array<{ key: string; label: string; [key: string]: any }>;
@@ -33,15 +34,15 @@ export interface AppleBoardProps {
 }
 
 const DEFAULT_LANE_COLORS: Record<string, string> = {
-  planning: '#8E8E93',
-  todo: '#007AFF',
-  doing: '#FF9500',
-  done: '#34C759',
-  inbox: '#AF52DE',
-  requested: '#FF3B30',
-  scheduled: '#5856D6',
-  in_progress: '#FF9500',
-  billing: '#8E8E93',
+  planning: 'rgba(255,255,255,0.35)',
+  todo: '#B4FF44',
+  doing: '#C9A227',
+  done: 'rgba(255,255,255,0.45)',
+  inbox: 'rgba(180,255,68,0.55)',
+  requested: '#C23B22',
+  scheduled: '#B4FF44',
+  in_progress: '#C9A227',
+  billing: 'rgba(255,255,255,0.35)',
 };
 
 export function AppleBoard({ 
@@ -296,26 +297,26 @@ export function AppleBoard({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#007AFF]" />
+      <div className="flex-1 flex items-center justify-center cb-cmd-board">
+        <Loader2 className="h-8 w-8 animate-spin text-[#B4FF44]" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#fafafa] overflow-hidden">
+    <div className="flex-1 flex flex-col cb-cmd-board overflow-hidden">
       {/* AI Card Builder — only on vendor tab */}
       {!isPm && onCreateAiCard && (
-        <div className="px-3 py-3 sm:px-5 sm:py-4 bg-white border-b border-black/[0.06]">
+        <div className="px-3 py-3 sm:px-5 sm:py-4 border-b border-white/[0.05]">
           <div
-            className={`relative flex items-center gap-3 px-4 py-3 rounded-[16px] bg-gradient-to-r from-[#007AFF]/5 to-[#5856D6]/5 border transition-all ${
-              isAiFocused ? 'border-[#007AFF]/40 shadow-[0_0_0_4px_rgba(0,122,255,0.08)]' : 'border-black/[0.06]'
+            className={`relative flex items-center gap-3 px-4 py-3 rounded-[16px] bg-white/[0.03] border transition-all ${
+              isAiFocused ? 'border-[#B4FF44]/40' : 'border-white/[0.09]'
             }`}
           >
-            <Sparkles className="h-5 w-5 text-[#007AFF] shrink-0" />
+            <Sparkles className="h-5 w-5 text-[#B4FF44] shrink-0" />
             <input
               type="text"
-              placeholder="Ask HALO to build a card..."
+              placeholder="Ask this board to build a card…"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onFocus={() => setIsAiFocused(true)}
@@ -327,13 +328,13 @@ export function AppleBoard({
                 }
               }}
               disabled={isAiSubmitting}
-              className="flex-1 bg-transparent text-[15px] text-[#1d1d1f] placeholder:text-[#8E8E93] focus:outline-none disabled:opacity-50"
+              className="flex-1 bg-transparent text-[15px] text-white/88 placeholder:text-white/35 focus:outline-none disabled:opacity-50"
             />
             {aiPrompt.length > 0 && (
               <button
                 onClick={handleAiSubmit}
                 disabled={isAiSubmitting}
-                className="h-8 px-4 rounded-[8px] bg-[#007AFF] text-white text-[12px] font-semibold hover:bg-[#0051D5] active:scale-95 transition-all disabled:opacity-50"
+                className="h-8 px-4 rounded-[8px] bg-[#B4FF44] text-[#07101E] text-[12px] font-semibold hover:brightness-105 active:scale-95 transition-all disabled:opacity-50"
               >
                 {isAiSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Build'}
               </button>
@@ -355,7 +356,7 @@ export function AppleBoard({
                 <button
                   key={sample}
                   onClick={() => setAiPrompt(sample)}
-                  className="px-3 py-1.5 rounded-[10px] bg-white border border-black/[0.08] text-[12px] text-[#6e6e73] hover:text-[#1d1d1f] hover:border-[#007AFF]/30 transition-all"
+                  className="px-3 py-1.5 rounded-[10px] bg-white/[0.04] border border-white/[0.09] text-[12px] text-white/55 hover:text-white/85 hover:border-[#B4FF44]/30 transition-all"
                 >
                   {sample}
                 </button>
@@ -371,7 +372,7 @@ export function AppleBoard({
         className="flex-1 flex overflow-x-auto px-3 py-3 gap-3 snap-x snap-proximity sm:px-5 sm:py-4 sm:gap-4 sm:snap-none"
         style={{
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(0, 0, 0, 0.2) transparent'
+          scrollbarColor: 'rgba(255, 255, 255, 0.18) transparent'
         }}
       >
         {lanes.map((lane: any) => {
@@ -385,8 +386,8 @@ export function AppleBoard({
               key={lane.key}
               data-apple-lane-key={lane.key}
               data-testid={`lane-${lane.key}`}
-              className={`flex shrink-0 flex-col w-[85vw] max-w-[340px] snap-start sm:w-[340px] sm:max-w-none sm:snap-align-none rounded-[20px] transition-all ${
-                dragOverLane === lane.key ? 'bg-black/[0.02] ring-2 ring-[#007AFF]/30' : ''
+              className={`cb-apple-lane flex shrink-0 flex-col w-[85vw] max-w-[340px] snap-start sm:w-[340px] sm:max-w-none sm:snap-align-none transition-all ${
+                dragOverLane === lane.key ? 'ring-2 ring-[#B4FF44]/40' : ''
               }`}
               onDragOver={(e) => handleDragOver(e, lane.key)}
               onDragLeave={(e) => handleDragLeave(e, lane.key)}
@@ -399,10 +400,10 @@ export function AppleBoard({
                     className="w-2.5 h-2.5 rounded-full"
                     style={{ backgroundColor: laneColor }}
                   />
-                  <h3 className="text-[15px] font-semibold text-[#1d1d1f] tracking-tight">
+                  <h3 className="text-[15px] font-semibold text-white/88 tracking-tight">
                     {lane.label}
                   </h3>
-                  <span className="text-[13px] font-medium text-[#8E8E93]">
+                  <span className="text-[13px] font-medium text-white/40">
                     {laneCards.length}
                   </span>
                 </div>
@@ -419,10 +420,10 @@ export function AppleBoard({
                       setDefaultLane(lane.key);
                       setTemplateGalleryOpen(true);
                     }}
-                    className="h-9 w-9 sm:h-7 sm:w-7 rounded-[8px] bg-black/[0.04] hover:bg-black/[0.08] transition-colors flex items-center justify-center"
+                    className="cb-ios-orb h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center"
                     title="Add card"
                   >
-                    <Plus className="h-4 w-4 text-[#1d1d1f]" />
+                    <Plus className="h-4 w-4 text-white/80" />
                   </button>
                 )}
               </div>
@@ -454,7 +455,7 @@ export function AppleBoard({
                   ))}
                 </AnimatePresence>
                 {laneCards.length === 0 && (
-                  <div className="flex items-center justify-center h-24 text-[13px] text-[#8E8E93] font-medium">
+                  <div className="flex items-center justify-center h-24 text-[13px] text-white/35 font-medium">
                     No cards
                   </div>
                 )}
@@ -464,7 +465,7 @@ export function AppleBoard({
                 <div className="px-4 pb-3">
                   <button
                     onClick={onOpenBirdseye}
-                    className="w-full h-10 px-4 rounded-[12px] bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border border-emerald-500/20 text-emerald-700 text-[13px] font-semibold hover:from-emerald-500/15 hover:to-emerald-600/15 transition-all flex items-center justify-center gap-2"
+                    className="w-full h-10 px-4 rounded-[12px] bg-white/[0.04] border border-white/[0.09] text-[#B4FF44] text-[13px] font-semibold hover:bg-white/[0.07] transition-all flex items-center justify-center gap-2"
                   >
                     <MapIcon className="h-4 w-4" />
                     View Live Map

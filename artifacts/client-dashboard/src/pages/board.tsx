@@ -1,7 +1,6 @@
 import { useLocation, useParams } from 'wouter';
 import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
 import { HistoryTab } from '@/components/HistoryTab';
-import { BannerRotator } from '@/components/BannerRotator';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
@@ -89,9 +88,21 @@ function Board() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const propertyId = searchParams.get('property');
+  const boardQs = propertyId ? `?property=${encodeURIComponent(propertyId)}` : '';
+
   const { data: board, isLoading, error } = useGetClientBoard(token, {
     query: {
-      queryKey: getGetClientBoardQueryKey(token),
+      queryKey: [...getGetClientBoardQueryKey(token), propertyId ?? ''],
+      queryFn: async ({ signal }) => {
+        const res = await fetch(`/api/client/${token}/board${boardQs}`, {
+          signal,
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error('Invalid or expired link');
+        return res.json();
+      },
       // Live updates arrive over SSE (EventSource effect below); this slow
       // poll is only a fallback if the stream drops. During Presentation Mode
       // we poll fast (2s) so the board visibly reacts to each scripted server
@@ -116,7 +127,21 @@ function Board() {
 
   const dispatchAction = useDispatchClientBoardAction();
   const createCard = useCreateClientBoardCard();
-  const pmBoardQuery = useGetClientPmBoard(token, { query: { queryKey: getGetClientPmBoardQueryKey(token), enabled: activeTab === 'pm' }});
+  const pmBoardQuery = useGetClientPmBoard(token, {
+    query: {
+      queryKey: [...getGetClientPmBoardQueryKey(token), propertyId ?? ''],
+      enabled: activeTab === 'pm',
+      queryFn: async ({ signal }) => {
+        const res = await fetch(`/api/client/${token}/board/pm${boardQs}`, {
+          signal,
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error('Invalid or expired link');
+        return res.json();
+      },
+    },
+  });
 
   const markTourSeen = useMarkClientBoardTourSeen();
   const clearCard = useClearClientBoardCard();
@@ -233,14 +258,14 @@ function Board() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#fafafa]">
+      <div className="cb-ios-app flex h-screen items-center justify-center">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
           animate={{ opacity: 1, scale: 1 }} 
-          className="flex flex-col items-center gap-4 text-[#6e6e73]"
+          className="flex flex-col items-center gap-4 text-white/45"
         >
-          <Loader2 className="h-8 w-8 animate-spin text-[#007AFF]" />
-          <p className="text-[13px] font-medium tracking-wide uppercase">Loading workspace...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-[#B4FF44]" />
+          <p className="text-[13px] font-semibold tracking-wide uppercase">Loading board</p>
         </motion.div>
       </div>
     );
@@ -248,10 +273,10 @@ function Board() {
 
   if (error || !board) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#fafafa]">
-        <div className="max-w-md text-center p-8 bg-white rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-black/[0.06]">
-          <h1 className="text-2xl font-semibold text-[#1d1d1f] tracking-tight">Invalid or Expired Link</h1>
-          <p className="mt-2 text-[15px] text-[#6e6e73]">We couldn't load the operations board. Please check your link or contact your property manager.</p>
+      <div className="cb-ios-app flex h-screen items-center justify-center px-6">
+        <div className="cb-cmd-card max-w-md text-center p-8">
+          <h1 className="text-[22px] font-semibold tracking-tight">Link needs a refresh</h1>
+          <p className="mt-2 text-[15px] text-white/55">We couldn’t open this board. Check the link or ask your property manager for a new one.</p>
         </div>
       </div>
     );
@@ -337,20 +362,20 @@ function Board() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="flex h-screen flex-col bg-[#fafafa] dark:bg-[hsl(220,40%,6%)] font-sans relative overflow-hidden"
+      className="cb-ios-app flex h-screen flex-col relative overflow-hidden"
     >
       {/* App Chrome - Header */}
-      <header className="flex h-[64px] shrink-0 items-center justify-between border-b border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[hsl(220,35%,10%)] px-3 sm:px-5 z-50 sticky top-0">
+      <header className="flex h-[64px] shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#07101E]/92 px-3 sm:px-5 z-50 sticky top-0 backdrop-blur-xl">
         <div className="flex items-center gap-2.5 sm:gap-4 max-sm:min-w-0">
           {logoUrl ? (
             <img src={logoUrl} alt={propertyName} className="h-7 object-contain drop-shadow-sm shrink-0" />
           ) : (
-            <div className="text-[20px] font-bold text-[#1d1d1f] tracking-tight">HALO</div>
+            <div className="cb-ios-mark" aria-hidden />
           )}
-          <div className="h-6 w-px bg-black/[0.06] hidden sm:block" />
+          <div className="h-6 w-px bg-white/[0.08] hidden sm:block" />
           <div className="flex flex-col justify-center max-sm:min-w-0">
             <div className="flex items-center gap-1.5 max-sm:min-w-0">
-              <h1 className="text-[14px] font-semibold text-[#1d1d1f] dark:text-[#f2f2f7] leading-tight max-sm:truncate">{propertyName}</h1>
+              <h1 className="text-[14px] font-semibold text-white/90 leading-tight max-sm:truncate">{propertyName}</h1>
               {(board.unreadMessages ?? 0) > 0 && (
                 <span
                   className="flex items-center gap-1 rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none shrink-0"
@@ -362,9 +387,16 @@ function Board() {
               )}
             </div>
             {board.propertyAddress && (
-              <p className="text-[11px] font-medium text-[#6e6e73] dark:text-[#8e8e93] leading-tight hidden sm:block">{board.propertyAddress}</p>
+              <p className="text-[11px] font-medium text-white/40 leading-tight hidden sm:block">{board.propertyAddress}</p>
             )}
           </div>
+          <button
+            type="button"
+            className="cb-ios-chip hidden sm:inline-flex items-center"
+            onClick={() => setLocation(`/${token}`)}
+          >
+            Pulse
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
@@ -376,29 +408,29 @@ function Board() {
           <button
             data-testid="button-search"
             onClick={() => setPaletteOpen(true)}
-            className="flex items-center h-8 gap-2 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] px-2.5 sm:px-3 text-[#6e6e73] dark:text-[#8e8e93] hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7] transition-colors"
+            className="cb-ios-chip flex items-center gap-2 text-white/45"
             title="Search the board (⌘K)"
           >
             <Search className="h-3.5 w-3.5" />
             <span className="text-[12px] font-medium hidden sm:inline">Search…</span>
-            <kbd className="hidden md:inline rounded-[5px] bg-white px-1.5 py-0.5 text-[9px] font-bold font-mono shadow-sm">⌘K</kbd>
+            <kbd className="hidden md:inline rounded-[5px] bg-white/[0.08] px-1.5 py-0.5 text-[9px] font-bold font-mono text-white/50">⌘K</kbd>
           </button>
 
           {viewer.permissions?.includes('unit_map') && (
             <>
               <button
                 data-testid="button-map-view"
-                className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] text-[12px] font-semibold hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors flex items-center gap-1.5"
+                className="cb-ios-chip flex items-center gap-1.5"
                 onClick={() => setLocation(`/${token}/map`)}
               >
-                <MapPin className="h-3.5 w-3.5 text-[#007AFF]" /> <span className="hidden sm:inline">Map</span>
+                <MapPin className="h-3.5 w-3.5 text-[#B4FF44]" /> <span className="hidden sm:inline">Map</span>
               </button>
               <button
                 data-testid="button-site-map"
-                className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] text-[12px] font-semibold hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors flex items-center gap-1.5"
+                className="cb-ios-chip flex items-center gap-1.5"
                 onClick={() => setLocation(`/${token}/units`)}
               >
-                <LayoutGrid className="h-3.5 w-3.5 text-[#5856D6]" /> <span className="hidden sm:inline">Units</span>
+                <LayoutGrid className="h-3.5 w-3.5 text-[#B4FF44]" /> <span className="hidden sm:inline">Units</span>
               </button>
             </>
           )}
@@ -406,19 +438,19 @@ function Board() {
           {viewer.permissions?.includes('team_admin') && (
             <button
               data-testid="button-team"
-              className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] text-[12px] font-semibold hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors flex items-center gap-1.5"
+              className="cb-ios-chip flex items-center gap-1.5"
               onClick={() => setLocation(`/${token}/team`)}
             >
-              <Users className="h-3.5 w-3.5 text-[#34C759]" /> <span className="hidden sm:inline">Team</span>
+              <Users className="h-3.5 w-3.5 text-[#B4FF44]" /> <span className="hidden sm:inline">Team</span>
             </button>
           )}
 
           {viewer.permissions?.includes('hub') && (
             <button
-              className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] text-[12px] font-semibold hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors flex items-center gap-1.5"
+              className="cb-ios-chip flex items-center gap-1.5"
               onClick={() => setLocation(`/${token}/hub`)}
             >
-              <BookOpen className="h-3.5 w-3.5 text-[#FF9500]" /> <span className="hidden sm:inline">Hub</span>
+              <BookOpen className="h-3.5 w-3.5 text-[#B4FF44]" /> <span className="hidden sm:inline">Hub</span>
             </button>
           )}
 
@@ -426,10 +458,10 @@ function Board() {
             <button
               data-testid="button-install-app"
               onClick={handleInstallClick}
-              className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] px-2.5 sm:px-3 text-[#1d1d1f] dark:text-[#f2f2f7] text-[12px] font-semibold hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors"
+              className="cb-ios-chip flex items-center gap-1.5"
               title="Install this board as an app"
             >
-              <MonitorDown className="h-3.5 w-3.5 text-[#34C759]" />
+              <MonitorDown className="h-3.5 w-3.5 text-[#B4FF44]" />
               <span className="hidden sm:inline">Install</span>
             </button>
           )}
@@ -437,7 +469,7 @@ function Board() {
           <button
             data-testid="button-board-tour"
             onClick={() => setTourOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#6e6e73] dark:text-[#8e8e93] hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7] transition-colors"
+            className="cb-ios-orb flex items-center justify-center"
             title="Take the guided tour"
           >
             <Headphones className="h-4 w-4" />
@@ -447,7 +479,7 @@ function Board() {
           <button
             data-testid="button-theme-toggle"
             onClick={cycleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#6e6e73] dark:text-[#8e8e93] hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7] transition-colors"
+            className="cb-ios-orb flex items-center justify-center"
             title={theme === 'system' ? 'Theme: system (click for light)' : theme === 'light' ? 'Theme: light (click for dark)' : 'Theme: dark (click for system)'}
           >
             {theme === 'dark' ? <Moon className="h-4 w-4" /> : theme === 'light' ? <Sun className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
@@ -456,11 +488,11 @@ function Board() {
           <div className="h-6 w-px bg-black/[0.06] dark:bg-white/[0.06] hidden sm:block" />
 
           {viewerAuthenticated ? (
-            <button onClick={handleLogout} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors" title="Sign out">
+            <button onClick={handleLogout} className="cb-ios-orb flex items-center justify-center" title="Sign out">
               <LogOut className="h-4 w-4" />
             </button>
           ) : (
-            <button onClick={() => setLoginOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] text-[#1d1d1f] dark:text-[#f2f2f7] hover:bg-[#e8e8ed] dark:hover:bg-[hsl(220,30%,16%)] transition-colors" title="Sign in">
+            <button onClick={() => setLoginOpen(true)} className="cb-ios-orb flex items-center justify-center" title="Sign in">
               <User className="h-4 w-4" />
             </button>
           )}
@@ -468,47 +500,32 @@ function Board() {
       </header>
 
       {/* Tab Switcher */}
-      <div className="flex h-[52px] shrink-0 items-center px-3 sm:px-5 bg-white dark:bg-[hsl(220,35%,10%)] border-b border-black/[0.06] dark:border-white/[0.06]">
-        <div className="flex p-0.5 bg-[#f5f5f7] dark:bg-[hsl(220,30%,12%)] rounded-[10px] w-full sm:w-auto">
+      <div className="flex h-[56px] shrink-0 items-center px-3 sm:px-5">
+        <div className="cb-ios-seg max-w-[520px]">
           <button
             onClick={() => setActiveTab('vendors')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-[13px] font-semibold rounded-[8px] transition-all whitespace-nowrap ${
-              activeTab === 'vendors'
-                ? 'bg-white dark:bg-[hsl(220,35%,14%)] text-[#1d1d1f] dark:text-[#f2f2f7] shadow-sm'
-                : 'text-[#6e6e73] dark:text-[#8e8e93] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7]'
-            }`}
+            data-on={activeTab === 'vendors' ? 'true' : 'false'}
+            className="cb-ios-seg-item"
           >
-            <span className="sm:hidden">Vendors</span>
-            <span className="hidden sm:inline">Archangel Vendors</span>
+            Work
           </button>
           <button
             onClick={() => setActiveTab('pm')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-[13px] font-semibold rounded-[8px] transition-all whitespace-nowrap ${
-              activeTab === 'pm'
-                ? 'bg-white dark:bg-[hsl(220,35%,14%)] text-[#1d1d1f] dark:text-[#f2f2f7] shadow-sm'
-                : 'text-[#6e6e73] dark:text-[#8e8e93] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7]'
-            }`}
+            data-on={activeTab === 'pm' ? 'true' : 'false'}
+            className="cb-ios-seg-item"
           >
-            <span className="sm:hidden">Management</span>
-            <span className="hidden sm:inline">Property Management</span>
+            Yours
           </button>
           <button
             data-testid="tab-history"
             onClick={() => setActiveTab('history')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-[13px] font-semibold rounded-[8px] transition-all whitespace-nowrap ${
-              activeTab === 'history'
-                ? 'bg-white dark:bg-[hsl(220,35%,14%)] text-[#1d1d1f] dark:text-[#f2f2f7] shadow-sm'
-                : 'text-[#6e6e73] dark:text-[#8e8e93] hover:text-[#1d1d1f] dark:hover:text-[#f2f2f7]'
-            }`}
+            data-on={activeTab === 'history' ? 'true' : 'false'}
+            className="cb-ios-seg-item"
           >
             History
           </button>
         </div>
       </div>
-
-      {activeTab !== 'history' && (
-        <BannerRotator onStartTraining={() => setTourOpen(true)} />
-      )}
 
       {activeTab === 'history' ? (
         <HistoryTab token={token} canRestore={viewerAuthenticated && !viewer.readOnly} />

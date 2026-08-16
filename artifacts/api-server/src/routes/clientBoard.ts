@@ -28,9 +28,11 @@ import {
   businessSettingsTable,
   walksTable,
   walkCapturesTable,
+  clientPortfolioPropertiesTable,
   type ClientUser,
   type Job,
 } from "@workspace/db";
+import { resolveClientBoardLink } from "../lib/clientBoardLink";
 import {
   ClientBoardLoginBody,
   ClientBoardLoginResponse,
@@ -159,13 +161,44 @@ function verifyPassword(password: string, stored: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-async function accountByToken(token: string) {
-  const [account] = await db
+async function accountByToken(token: string, preferPropertyId?: string | null) {
+  const [direct] = await db
     .select()
     .from(clientAccountsTable)
     .where(eq(clientAccountsTable.dashboardToken, token))
     .limit(1);
-  if (!account || account.status !== "active") return undefined;
+  if (direct?.status === "active") return direct;
+
+  const link = await resolveClientBoardLink(token);
+  if (!link) return undefined;
+
+  const wanted =
+    preferPropertyId &&
+    (!link.allowedPropertyIds || link.allowedPropertyIds.includes(preferPropertyId))
+      ? preferPropertyId
+      : link.propertyId;
+
+  if (wanted) {
+    const [account] = await db
+      .select()
+      .from(clientAccountsTable)
+      .where(and(eq(clientAccountsTable.propertyId, wanted), eq(clientAccountsTable.status, "active")))
+      .limit(1);
+    if (account) return account;
+  }
+
+  if (link.kind !== "regional") return undefined;
+  const linked = await db
+    .select({ propertyId: clientPortfolioPropertiesTable.propertyId })
+    .from(clientPortfolioPropertiesTable)
+    .where(eq(clientPortfolioPropertiesTable.portfolioId, link.portfolioId));
+  const ids = linked.map((r) => r.propertyId);
+  if (ids.length === 0) return undefined;
+  const [account] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(and(inArray(clientAccountsTable.propertyId, ids), eq(clientAccountsTable.status, "active")))
+    .limit(1);
   return account;
 }
 
@@ -1295,7 +1328,8 @@ Use ONLY ids present in the data. Title ≤ 60 chars, client-friendly. Body: 1-2
 });
 
 router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
+  const prefer = typeof req.query.property === "string" ? req.query.property : null;
+  const account = await accountByToken(String(req.params.token), prefer);
   if (!account) {
     res.status(404).json({ error: "Invalid link" });
     return;

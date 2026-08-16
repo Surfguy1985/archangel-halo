@@ -22,42 +22,42 @@ export const RAIL_TONES: Record<
   // `chip` renders on an always-white pill (dark text, no dark variant);
   // `rowStatus` renders directly on office rows (needs dark-mode variants).
   action: {
-    panel: 'bg-[#DC2626]',
-    body: 'bg-[#DC2626]',
+    panel: '',
+    body: '',
     title: 'text-white',
-    subtitle: 'text-white/80',
+    subtitle: 'text-white/62',
     chip: 'text-[#B91C1C]',
-    rowStatus: 'text-[#B91C1C] dark:text-[#F87171]',
+    rowStatus: 'text-[#F87171]',
   },
   active: {
-    panel: 'bg-[#79B8F3]',
-    body: 'bg-[#466B8D]',
+    panel: '',
+    body: '',
     title: 'text-white',
-    subtitle: 'text-white/75',
-    chip: 'text-stone-700',
-    rowStatus: 'text-stone-700 dark:text-stone-300',
+    subtitle: 'text-white/62',
+    chip: 'text-[#0A84FF]',
+    rowStatus: 'text-white/70',
   },
   done: {
-    panel: 'bg-[#79B8F3]',
-    body: 'bg-[#466B8D]',
+    panel: '',
+    body: '',
     title: 'text-white',
-    subtitle: 'text-white/75',
-    chip: 'text-emerald-800',
-    rowStatus: 'text-emerald-800 dark:text-emerald-200',
+    subtitle: 'text-white/62',
+    chip: 'text-[#14532D]',
+    rowStatus: 'text-[#B4FF44]',
   },
   warning: {
-    panel: 'bg-[#79B8F3]',
-    body: 'bg-[#466B8D]',
+    panel: '',
+    body: '',
     title: 'text-white',
-    subtitle: 'text-white/75',
-    chip: 'text-amber-900',
-    rowStatus: 'text-amber-900 dark:text-amber-200',
+    subtitle: 'text-white/62',
+    chip: 'text-[#40361F]',
+    rowStatus: 'text-[#C9A227]',
   },
 };
 
 /** Accent border — ONLY for tiles in the Alerts rail. */
-export const RAIL_ACCENT_BORDER = 'border-2 border-[#B91C1C] dark:border-[#F87171]';
-export const RAIL_HAIRLINE_BORDER = 'border-[0.5px] border-stone-200 dark:border-stone-700';
+export const RAIL_ACCENT_BORDER = 'border border-[#C23B22]/70';
+export const RAIL_HAIRLINE_BORDER = 'border border-white/[0.09]';
 
 /** Type scale + spacing per density. Compact feeds the office rows task. */
 export const RAIL_DENSITY: Record<
@@ -65,17 +65,17 @@ export const RAIL_DENSITY: Record<
   { title: string; subtitle: string; railLabel: string; artwork: string; body: string }
 > = {
   comfortable: {
-    title: 'text-[20px] font-medium leading-tight tabular-nums',
-    subtitle: 'text-[13px]',
-    railLabel: 'text-[13px] font-semibold',
-    artwork: 'h-[92px] lg:h-[110px]',
+    title: 'text-[15px] font-semibold leading-tight tracking-tight tabular-nums',
+    subtitle: 'text-[12px]',
+    railLabel: 'cb-rail-label',
+    artwork: 'h-[108px] lg:h-[118px]',
     body: 'px-3.5 pb-3.5 pt-2.5',
   },
   compact: {
-    title: 'text-[14px] font-medium leading-tight tabular-nums',
-    subtitle: 'text-[12px]',
-    railLabel: 'text-[12px] font-semibold',
-    artwork: 'h-[52px]',
+    title: 'text-[13px] font-semibold leading-tight tracking-tight tabular-nums',
+    subtitle: 'text-[11px]',
+    railLabel: 'cb-rail-label',
+    artwork: 'h-[64px]',
     body: 'px-2.5 pb-2 pt-1.5',
   },
 };

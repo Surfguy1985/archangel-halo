@@ -246,6 +246,9 @@ router.post("/v1/portfolios/:id/ask", async (req: Request, res: Response): Promi
       turns: attention.turns ?? [],
       photoCount: attention.photoUnits?.length ?? 0,
       attentionCount: attention.groups.reduce((n, g) => n + g.items.length, 0),
+      attentionGroups: attention.groups,
+      history: Array.isArray(req.body?.history) ? req.body.history : undefined,
+      focus: req.body?.focus && typeof req.body.focus === "object" ? req.body.focus : undefined,
     });
     res.json(out);
   } catch (err) {
@@ -418,6 +421,9 @@ router.post("/client/:token/portfolio/ask", async (req: Request, res: Response):
       turns: attention.turns ?? [],
       photoCount: attention.photoUnits?.length ?? 0,
       attentionCount: attention.groups.reduce((n, g) => n + g.items.length, 0),
+      attentionGroups: attention.groups,
+      history: Array.isArray(req.body?.history) ? req.body.history : undefined,
+      focus: req.body?.focus && typeof req.body.focus === "object" ? req.body.focus : undefined,
     });
     res.json(out);
   } catch (err) {

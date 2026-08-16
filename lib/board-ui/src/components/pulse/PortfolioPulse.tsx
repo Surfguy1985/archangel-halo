@@ -40,7 +40,7 @@ import type {
 import { useBoardEvents } from "../../hooks/useBoardEvents";
 import { formatUsdCents, signedUsdCents } from "./formatUsdCents";
 import { VirtualList } from "../virtual/VirtualList";
-import { TurnCloseoutStrip } from "../turn-ring/TurnCloseout";
+import { TurnCloseoutStrip, type TurnClockFields } from "../turn-ring/TurnCloseout";
 import { UnitPhotoPairs } from "./UnitPhotoPairs";
 import { PulseGuide } from "./PulseGuide";
 import { interpretPulseQuestion, type GuideAction, type GuideContext } from "./pulseGuideBrain";
@@ -134,6 +134,26 @@ const NEED_KIND_ORDER = [
 
 function shortCommunity(name: string): string {
   return name.replace(/^caf\s+demo\s*[—–-]\s*/i, "").trim();
+}
+
+function TurnHudRow(props: {
+  unitNumber: string;
+  propertyName: string;
+  days: number;
+  href: string;
+  onOpen: (href: string) => void;
+  clock: TurnClockFields;
+}) {
+  return (
+    <button type="button" className="cb-turn-row" onClick={() => props.onOpen(props.href)}>
+      <b>{props.unitNumber}</b>
+      <span>
+        {shortCommunity(props.propertyName)}
+        <i>{props.days === 1 ? "1 day vacant" : `${props.days} days vacant`}</i>
+      </span>
+      <TurnCloseoutStrip compact tone="dark" daysVacant={props.days} {...props.clock} />
+    </button>
+  );
 }
 
 function needLine(kind: string, days: number): { text: string; tone: "gold" | "coral" | "ink" } {
@@ -391,9 +411,12 @@ function HudBox({
           }
         }}
       >
-        <div>
-          <h2>{title}</h2>
-          {kicker ? <p>{kicker}</p> : null}
+        <div className="cb-hud-box-title">
+          <i className="cb-cmd-dot" aria-hidden />
+          <div>
+            <h2>{title}</h2>
+            {kicker ? <p>{kicker}</p> : null}
+          </div>
         </div>
         <div className="cb-hud-box-actions">
           <button
@@ -613,6 +636,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
     vacancyCostCents: pulse?.headline.vacancyCostCents,
     unitsInTurn: pulse?.supporting.unitsInTurn,
     medianTurnDays: pulse?.supporting.medianTurnDays,
+    selectedPropertyId: selectedId,
     sites: tiles.map((t) => ({
       propertyId: t.propertyId,
       name: t.name,
@@ -620,6 +644,15 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
       unitsInTurn: t.unitsInTurn,
       statusLabel: t.statusLabel,
       vacancyCostCents: t.vacancyCostCents,
+      latitude: t.latitude,
+      longitude: t.longitude,
+    })),
+    photos: (props.attention?.photoUnits ?? []).map((u) => ({
+      propertyId: u.propertyId,
+      propertyName: u.propertyName,
+      unitNumber: u.unitNumber,
+      beforeUrl: u.before[0]?.url,
+      afterUrl: u.after[0]?.url,
     })),
     turns: (props.attention?.turns ?? []).map((t) => ({
       propertyId: t.propertyId,
@@ -629,6 +662,13 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
     })),
     photoCount: props.attention?.photoUnits?.length ?? 0,
     attentionCount,
+    needs: needItems.map((item) => ({
+      kind: item.kind,
+      propertyId: item.propertyId,
+      propertyName: item.propertyName,
+      unitNumber: item.unitNumber,
+      days: item.days,
+    })),
     crew: crewToday.map((c) => ({
       propertyId: c.propertyId,
       propertyName: c.propertyName,
@@ -945,19 +985,18 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             ) : (
               <VirtualList
                 items={props.attention?.turns ?? []}
-                estimateSize={168}
+                estimateSize={108}
                 maxHeight={420}
                 getKey={(item) => item.turnId}
                 renderItem={(item) => (
-                  <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
-                    <span className="cb-check" />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong>
-                        {item.propertyName} · {item.unitNumber}
-                      </strong>
-                      <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
-                    </div>
-                  </button>
+                  <TurnHudRow
+                    unitNumber={item.unitNumber}
+                    propertyName={item.propertyName}
+                    days={item.days}
+                    href={item.href}
+                    onOpen={props.onAttentionClick}
+                    clock={item}
+                  />
                 )}
               />
             )}
@@ -1269,19 +1308,18 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             ) : (
               <VirtualList
                 items={activityItems}
-                estimateSize={140}
+                estimateSize={108}
                 maxHeight={360}
                 getKey={(item) => item.turnId}
                 renderItem={(item) => (
-                  <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
-                    <span className="cb-check" />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong>
-                        {item.propertyName} · {item.unitNumber}
-                      </strong>
-                      <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
-                    </div>
-                  </button>
+                  <TurnHudRow
+                    unitNumber={item.unitNumber}
+                    propertyName={item.propertyName}
+                    days={item.days}
+                    href={item.href}
+                    onOpen={props.onAttentionClick}
+                    clock={item}
+                  />
                 )}
               />
             )}
@@ -1343,10 +1381,11 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           </div>
         </div>
 
-        <div className="cb-hud-stage" ref={stageRef}>
+        <div className="cb-hud-stage cb-map-apple" ref={stageRef}>
           <MapContainer
             center={selectedCoord ?? mapPoints[0] ?? FALLBACK}
             zoom={13}
+            className="cb-map-apple"
             style={{ height: "100%", width: "100%" }}
             zoomControl
             attributionControl={false}

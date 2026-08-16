@@ -3,6 +3,7 @@ import { Loader2, Map as MapIcon } from 'lucide-react';
 import { RailTile } from './RailTile';
 import { RAIL_DENSITY, type BoardDensity } from './railTokens';
 import { mapCardsToRails, RAIL_ORDER, type RailTileModel } from './railMapping';
+import '../commandSurface.css';
 
 /**
  * Five fixed rails, Halo master spec:
@@ -33,9 +34,9 @@ function Rail({
   if (!tiles.length) {
     // Empty rails collapse to one line — position teaches the pipeline.
     return (
-      <section className="min-w-0 px-4 py-3 lg:px-0" data-testid={`rail-${railKey}`} data-rail-empty>
-        <h2 className={`${d.railLabel} text-stone-900 dark:text-stone-50`}>{label}</h2>
-        <p className="mt-1 text-[13px] text-stone-500 dark:text-stone-400">{empty}</p>
+      <section className="cb-rail-col min-w-0 px-4 py-3 lg:px-3" data-testid={`rail-${railKey}`} data-rail-empty>
+        <h2 className={d.railLabel}>{label}</h2>
+        <p className="mt-1 text-[13px] text-white/40">{empty}</p>
       </section>
     );
   }
@@ -43,10 +44,10 @@ function Rail({
   return (
     /* CONTAIN — min-w-0 on the section, or an overflow-x child inside a
        flex/grid parent scrolls the whole page instead of the rail. */
-    <section className="min-w-0 py-3 lg:py-0" data-testid={`rail-${railKey}`}>
-      <div className="flex items-baseline justify-between px-4 lg:px-0">
-        <h2 className={`${d.railLabel} text-stone-900 dark:text-stone-50`}>{label}</h2>
-        <span className="text-[13px] tabular-nums text-stone-400">{tiles.length}</span>
+    <section className="cb-rail-col min-w-0 py-3 lg:py-3" data-testid={`rail-${railKey}`}>
+      <div className="flex items-center justify-between px-4 lg:px-1">
+        <h2 className={d.railLabel}>{label}</h2>
+        <span className="cb-rail-count">{tiles.length}</span>
       </div>
 
       <div
@@ -61,7 +62,7 @@ function Rail({
           '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           'pr-[max(1rem,env(safe-area-inset-right))]',
           // Desktop: same components as a vertical column.
-          'lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:mx-0 lg:px-0 lg:pr-1 lg:max-h-[calc(100vh-260px)]',
+          'lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:mx-0 lg:px-1 lg:pr-1 lg:max-h-[calc(100vh-260px)]',
         ].join(' ')}
       >
         {tiles.map((tile) => (
@@ -100,7 +101,7 @@ export function RailsBoard({
   if (isLoading && !cards) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-stone-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#B4FF44]" />
       </div>
     );
   }
@@ -109,7 +110,7 @@ export function RailsBoard({
   return (
     /* CONTAIN — overflow-x-clip backstop: if one card ever escapes, the page
        still won't scroll sideways. */
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip cb-cmd-board">
       <div className="mx-auto w-full max-w-[1400px] lg:px-6">
         {(onOpenMap || onRequestWork) && (
           <div className="hidden lg:flex items-center justify-end gap-2 pt-4">
@@ -118,7 +119,7 @@ export function RailsBoard({
                 type="button"
                 data-testid="button-rails-map"
                 onClick={onOpenMap}
-                className="flex items-center gap-1.5 rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-3.5 py-1.5 text-[12px] font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-50"
+                className="cb-ios-chip flex items-center gap-1.5"
               >
                 <MapIcon className="h-3.5 w-3.5" /> Live map
               </button>
@@ -128,7 +129,7 @@ export function RailsBoard({
                 type="button"
                 data-testid="button-rails-request"
                 onClick={onRequestWork}
-                className="rounded-full bg-stone-900 dark:bg-stone-50 px-4 py-1.5 text-[12px] font-semibold text-white dark:text-stone-900 hover:opacity-90"
+                className="cb-ios-cta h-8 px-4 text-[12px]"
               >
                 + Request work
               </button>
@@ -154,13 +155,13 @@ export function RailsBoard({
 
         {/* Phone: primary action pinned within thumb reach. */}
         {onRequestWork && (
-          <div className="sticky bottom-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-white via-white/95 to-transparent dark:from-stone-950 dark:via-stone-950/95 lg:hidden">
+          <div className="cb-ios-dock sticky bottom-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
             <div className="flex gap-2">
               <button
                 type="button"
                 data-testid="button-rails-request-mobile"
                 onClick={onRequestWork}
-                className="min-w-0 flex-1 rounded-xl bg-stone-900 dark:bg-stone-50 py-3.5 text-[15px] font-medium text-white dark:text-stone-900 transition-transform active:scale-[0.99]"
+                className="cb-ios-cta min-w-0 flex-1 py-3.5 text-[15px] transition-transform active:scale-[0.99]"
               >
                 Request work
               </button>
@@ -170,7 +171,7 @@ export function RailsBoard({
                   aria-label="Live map"
                   data-testid="button-rails-map-mobile"
                   onClick={onOpenMap}
-                  className="shrink-0 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-4 text-stone-700 dark:text-stone-200"
+                  className="cb-ios-ghost shrink-0 px-4"
                 >
                   <MapIcon className="h-5 w-5" />
                 </button>

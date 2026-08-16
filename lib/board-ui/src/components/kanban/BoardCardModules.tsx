@@ -18,13 +18,13 @@ function safeDate(d?: string) {
 export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'crewmap') {
     return (
-      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-emerald-500/20 border border-emerald-500/30">
-        <div className="flex justify-between items-center bg-white/90 p-2 backdrop-blur-md">
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden cb-cmd-module">
+        <div className="flex justify-between items-center cb-cmd-glass p-2 backdrop-blur-md">
           <span className="text-[10px] font-[800] tracking-widest text-emerald-800 uppercase">Live Crews</span>
           <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md">{module.onSiteCount || 0} on site</span>
         </div>
         {module.crews?.slice(0, 3).map((c: any, i: number) => (
-          <div key={i} className="bg-white/90 p-2 flex items-start gap-2 backdrop-blur-md">
+          <div key={i} className="cb-cmd-glass p-2 flex items-start gap-2 backdrop-blur-md">
             <div className="relative shrink-0">
               {c.selfieUrl ? (
                 <img src={c.selfieUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
@@ -45,7 +45,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
           </div>
         ))}
         {module.crews?.length > 3 && (
-          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-emerald-800/50 backdrop-blur-md">
+          <div className="cb-cmd-glass p-1.5 text-center text-[9px] font-bold text-emerald-800/50 backdrop-blur-md">
             + {module.crews.length - 3} more
           </div>
         )}
@@ -54,8 +54,8 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'invoice_batch') {
     return (
-      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-amber-500/20 border border-amber-500/30">
-        <div className="flex justify-between items-center bg-white/90 p-2 backdrop-blur-md">
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden cb-cmd-module">
+        <div className="flex justify-between items-center cb-cmd-glass p-2 backdrop-blur-md">
           <div className="flex flex-col">
             <span className="text-[9px] font-[800] tracking-widest text-amber-800/70 uppercase">Batch Due</span>
             <span className="text-[14px] font-[700] text-amber-950 leading-tight">${module.unpaidAmount?.toLocaleString() || '0'}</span>
@@ -63,7 +63,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
           <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md">{module.count || 0} Invoices</span>
         </div>
         {module.invoices?.slice(0, 3).map((inv: any, i: number) => (
-          <div key={i} className="bg-white/90 p-2 flex justify-between items-center backdrop-blur-md">
+          <div key={i} className="cb-cmd-glass p-2 flex justify-between items-center backdrop-blur-md">
             <div className="flex flex-col min-w-0 pr-2">
               <span className="text-[11px] font-[700] text-amber-950 truncate">{inv.invoiceNo}</span>
               <span className="text-[9px] font-medium text-amber-800/60">{inv.status}</span>
@@ -72,7 +72,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
           </div>
         ))}
         {module.invoices?.length > 3 && (
-          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-amber-800/50 backdrop-blur-md">
+          <div className="cb-cmd-glass p-1.5 text-center text-[9px] font-bold text-amber-800/50 backdrop-blur-md">
             + {module.invoices.length - 3} more
           </div>
         )}
@@ -81,8 +81,8 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'bid') {
     return (
-      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-indigo-500/20 border border-indigo-500/30">
-        <div className="flex justify-between items-start bg-white/90 p-2 backdrop-blur-md">
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden cb-cmd-module">
+        <div className="flex justify-between items-start cb-cmd-glass p-2 backdrop-blur-md">
           <div className="flex flex-col">
             <span className="text-[9px] font-[800] tracking-widest text-indigo-800/70 uppercase">{module.status || 'PROPOSAL'}</span>
             <span className="text-[14px] font-[700] text-indigo-950 leading-tight">${module.amount?.toLocaleString() || '0'}</span>
@@ -90,7 +90,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
           </div>
         </div>
         {module.lineItems?.slice(0, 3).map((li: any, i: number) => (
-          <div key={i} className="bg-white/90 p-2 flex justify-between items-start backdrop-blur-md">
+          <div key={i} className="cb-cmd-glass p-2 flex justify-between items-start backdrop-blur-md">
             <div className="flex flex-col min-w-0 pr-2">
               <span className="text-[10px] font-[700] text-indigo-950 truncate">{li.service}</span>
               <span className="text-[9px] font-medium text-indigo-800/60">Qty: {li.qty}</span>
@@ -99,7 +99,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
           </div>
         ))}
         {module.lineItems?.length > 3 && (
-          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-indigo-800/50 backdrop-blur-md">
+          <div className="cb-cmd-glass p-1.5 text-center text-[9px] font-bold text-indigo-800/50 backdrop-blur-md">
             + {module.lineItems.length - 3} more
           </div>
         )}
@@ -108,8 +108,8 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'document') {
     return (
-      <div className="grid grid-cols-1 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden bg-slate-500/20 border border-slate-500/30">
-        <div className="flex flex-col bg-white/90 pt-[9px] px-[9px] pb-0 backdrop-blur-md">
+      <div className="grid grid-cols-1 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden cb-cmd-module">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0 backdrop-blur-md">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-slate-700/70 uppercase whitespace-nowrap overflow-hidden text-ellipsis">DOCUMENT</span>
           <span className="text-[15px] font-[700] tracking-[-0.035em] overflow-hidden text-ellipsis mt-[2px] text-slate-950 line-clamp-2 leading-tight">{module.label || 'Attached File'}</span>
         </div>
@@ -119,17 +119,17 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'invoice') {
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }}>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">INVOICE NO</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.invoiceNo || '—'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">reference</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">AMOUNT</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.ink }}>${module.amount?.toLocaleString() || '0'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">{module.status?.toUpperCase() || 'OPEN'}</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">DUE</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.warn }}>{safeDate(module.dueDate)}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">deadline</span>
@@ -140,17 +140,17 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'tracker') {
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }}>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">JOB NO</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.jobNo || '—'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">active</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">UNIT</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.unitNo || 'PROP'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">location</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">LIVE</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.good }}>GPS</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">tracking</span>
@@ -161,12 +161,12 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'flags') {
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }}>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0 col-span-2">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0 col-span-2">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">ATTENTION NEEDED</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#b23a2e]">{module.totalCount || 0} ITEMS</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">flagged during visit</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">STATUS</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: module.requestedAt ? TONES.good : TONES.warn }}>
             {module.requestedAt ? 'REQD' : 'OPEN'}
@@ -189,7 +189,7 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'link') {
     return (
-      <div className="grid grid-cols-1 rounded-[9px] mt-[6px] h-[70px] overflow-hidden bg-white" style={{ border: `1px solid ${tint.bd}` }}>
+      <div className="grid grid-cols-1 rounded-[9px] mt-[6px] h-[70px] overflow-hidden cb-cmd-module" style={{ border: `1px solid ${tint.bd}` }}>
         <div className="flex items-center px-4 h-full">
            <ExternalLink className="w-6 h-6 text-black/30 mr-3" />
            <div className="flex flex-col">
@@ -205,17 +205,17 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
     const isMet = module.result === 'met';
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }} data-testid={`module-summary-metrics-${module.summaryId}`}>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">UNIT</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.unitNo || 'PROP'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">location</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">DATE</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.ink }}>{safeDate(module.serviceDate)}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">serviced</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">RESULT</span>
           <div className="mt-[4px] flex items-center">
             <span className={`inline-flex items-center justify-center rounded-[6px] px-[6px] py-[3px] text-[10px] font-[800] uppercase tracking-wider ${isExceeded ? 'bg-emerald-100 text-emerald-700' : isMet ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -230,17 +230,17 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'photos') {
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }} data-testid={`module-photos-metrics-${module.jobId}`}>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">JOB NO</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.jobNo || '—'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">reference</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">UNIT</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.unitNo || 'PROP'}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">location</span>
         </div>
-        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+        <div className="flex flex-col cb-cmd-glass pt-[9px] px-[9px] pb-0">
           <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">MEDIA</span>
           <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.good }}>{module.totalCount || 0}</span>
           <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">photos added</span>
@@ -255,7 +255,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'invoice') {
     const hasPdf = !!module.pdfUrl;
     return (
-      <div className="rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex items-center justify-center relative" style={{ border: `1px solid ${tint.bd}`, background: 'linear-gradient(135deg, #EFEDE7, #F7F5F0)' }} data-testid={`module-invoice-evidence-${module.invoiceNo || ''}`}>
+      <div className="rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex items-center justify-center relative" style={{ border: `1px solid ${tint.bd}`, background: 'rgba(255,255,255,0.04)' }} data-testid={`module-invoice-evidence-${module.invoiceNo || ''}`}>
         {/* Miniature invoice "paper" sheet — slightly rotated with a soft shadow,
             same document-thumbnail spirit as the photos grid. */}
         <div className="relative w-[150px] h-[110px] bg-white rounded-[4px] shadow-[0_6px_16px_rgba(0,0,0,0.18)] rotate-[-4deg] overflow-hidden border border-black/5">
@@ -363,7 +363,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'flags') {
     const items = module.items || [];
     return (
-      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col" style={{ border: `1px solid ${tint.bd}` }}>
+      <div className="cb-cmd-glass rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col" style={{ border: `1px solid ${tint.bd}` }}>
         <div className="h-[24px] flex items-center px-[10px] border-b border-black/5 bg-[#FBFAF7] shrink-0">
           <span className="text-[9px] font-[800] text-[#101C33] uppercase tracking-wider">{items.length} Flagged Items</span>
         </div>
@@ -386,7 +386,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'referral') {
     return (
-      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }}>
+      <div className="cb-cmd-glass rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }}>
          <p className="text-[12px] font-[500] text-[#6E6C63] leading-snug">
            Know another property that needs reliable service? Send them our way and we'll take care of them.
          </p>
@@ -398,7 +398,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'link') {
     return (
-      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col items-center justify-center p-4 text-center" style={{ border: `1px solid ${tint.bd}` }}>
+      <div className="cb-cmd-glass rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col items-center justify-center p-4 text-center" style={{ border: `1px solid ${tint.bd}` }}>
          <ExternalLink className="h-8 w-8 text-black/10 mb-2" />
          <p className="text-[11px] font-[600] text-[#6E6C63] max-w-[200px]">
            This card contains an external resource. Click below to open.
@@ -408,7 +408,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   }
   if (module.type === 'summary') {
     return (
-      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-summary-evidence-${module.summaryId}`}>
+      <div className="cb-cmd-glass rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-summary-evidence-${module.summaryId}`}>
          <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="h-4 w-4 text-[#101C33]" />
             <span className="text-[11px] font-[800] uppercase tracking-wider text-[#101C33] truncate">{module.title || 'Service Recap'}</span>
@@ -433,7 +433,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'photos') {
     const urls = (module.photoUrls || []).slice(0, 4);
     return (
-      <div className="bg-[#FBFAF7] rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[8px]" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-photos-evidence-${module.jobId}`}>
+      <div className="cb-cmd-glass rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[8px]" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-photos-evidence-${module.jobId}`}>
          {urls.length > 0 ? (
             <div className={`grid gap-2 h-full ${urls.length === 1 ? 'grid-cols-1' : urls.length === 2 ? 'grid-cols-2' : urls.length === 3 ? 'grid-cols-3' : 'grid-cols-2 grid-rows-2'}`}>
               {urls.map((url: string, i: number) => (
@@ -543,7 +543,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
     return (
       <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0 relative">
         {formOpen && (
-          <div className="absolute bottom-[40px] left-0 w-full bg-white rounded-[12px] p-3 shadow-[0_12px_30px_rgba(16,28,51,0.2)] border border-black/10 z-50 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+          <div className="absolute bottom-[40px] left-0 w-full cb-cmd-glass rounded-[12px] p-3 shadow-[0_12px_30px_rgba(16,28,51,0.35)] border border-white/15 z-50 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
             <span className="text-[10px] font-[800] tracking-wider text-[#101C33] uppercase">Request Service</span>
             <input type="text" placeholder="Your name (optional)" value={name} onChange={e => setName(e.target.value)} className="h-8 text-[11px] px-2 rounded-[6px] border border-black/10 bg-black/[0.02] focus:outline-none focus:border-black/30" />
             <input type="text" placeholder="Notes or instructions" value={note} onChange={e => setNote(e.target.value)} className="h-8 text-[11px] px-2 rounded-[6px] border border-black/10 bg-black/[0.02] focus:outline-none focus:border-black/30" />

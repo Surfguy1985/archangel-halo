@@ -1,5 +1,6 @@
 import React from 'react';
 import { parseModule } from './moduleSchemas';
+import '../commandSurface.css';
 
 /**
  * ModuleBoundary — wrap the three existing module surfaces without rewriting
@@ -57,17 +58,21 @@ export function ModuleBoundary({ module, surface, links, children }: ModuleBound
     return surface === 'metrics' ? <InvalidModuleFace type={parsed.type} /> : null;
   }
 
-  return <CrashShield surface={surface}>{children}</CrashShield>;
+  return (
+    <CrashShield surface={surface}>
+      <div className="cb-cmd-scope">{children}</div>
+    </CrashShield>
+  );
 }
 
 function UnknownModuleFace({ href }: { href: string | null }) {
   return (
-    <div className="mt-[6px] rounded-[9px] border border-black/10 bg-[#fafafa] px-[10px] py-[8px]">
-      <div className="text-[8px] font-[800] uppercase tracking-[0.08em] text-[#96948B]">
+    <div className="mt-[6px] rounded-[9px] border border-white/[0.09] bg-white/[0.04] px-[10px] py-[8px]">
+      <div className="text-[8px] font-[800] uppercase tracking-[0.14em] text-[rgba(180,255,68,0.55)]">
         Update available
       </div>
-      <div className="mt-[2px] text-[12px] font-[700] text-[#101C33]">
-        This card needs a newer version of Halo.
+      <div className="mt-[2px] text-[12px] font-[700] text-white/88">
+        This card needs a newer version.
       </div>
       {href && (
         <a

@@ -187,13 +187,15 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
               <MapContainer
                 center={propertyLatLng || [0, 0]}
                 zoom={15}
+                className="cb-map-apple"
                 style={{ height: "100%", width: "100%", zIndex: 0 }}
                 scrollWheelZoom={true}
                 zoomControl={false}
               >
                 <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  attribution="&copy; OSM &copy; CARTO"
+                  className="cb-map-apple"
                 />
                 <FitToPoints propertyLatLng={propertyLatLng} crews={data?.crews || []} selectedTrailPoints={selectedTrailPoints} />
                 

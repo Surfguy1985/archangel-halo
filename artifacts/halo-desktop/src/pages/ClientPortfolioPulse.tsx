@@ -59,7 +59,7 @@ export default function ClientPortfolioPulse() {
 
   return (
     <PortfolioPulse
-      theme="light"
+      theme="dark"
       pulse={pulse.data}
       attention={attention.data}
       streamUrl={id ? getStreamPortfolioPulseUrl(id) : null}
@@ -71,7 +71,10 @@ export default function ClientPortfolioPulse() {
       }
       onTileClick={(propertyId) => navigate(`/properties/${propertyId}/turns`)}
       onAttentionClick={(href) => navigate(href)}
-      onKanban={(propertyId) => propertyId && navigate(`/properties/${propertyId}/board`)}
+      onKanban={(propertyId) => {
+        const id = propertyId ?? pulse.data?.tiles[0]?.propertyId;
+        if (id) navigate(`/properties/${id}/board`);
+      }}
       askUrl={id ? `/api/v1/portfolios/${id}/ask` : null}
       onRangeChange={(next, f, t) => {
         const committed = view.commitRange(next, f, t, pulse.data?.sort ?? "vacancy_cost");

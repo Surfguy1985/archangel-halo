@@ -77,7 +77,9 @@ export function ClientTokenPulse(props: ClientTokenPulseProps) {
       errorMessage={(pulse.error as { error?: string } | undefined)?.error}
       onTileClick={(propertyId) => props.onNavigate(`/${token}/property/${propertyId}`)}
       onAttentionClick={(href) => props.onNavigate(href.startsWith("/") ? href : `/${token}`)}
-      onKanban={() => props.onNavigate(`/${token}/board`)}
+      onKanban={(propertyId) =>
+        props.onNavigate(propertyId ? `/${token}/board?property=${propertyId}` : `/${token}/board`)
+      }
       askUrl={token ? `/api/client/${token}/portfolio/ask` : null}
       onRangeChange={(next, f, t) => {
         const committed = view.commitRange(next, f, t, pulse.data?.sort ?? "vacancy_cost");
