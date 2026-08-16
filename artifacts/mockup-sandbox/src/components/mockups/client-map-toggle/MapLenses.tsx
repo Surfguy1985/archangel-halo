@@ -7,10 +7,12 @@
  */
 import { useState } from "react";
 import "./_group.css";
-import { Bell, ChevronRight, MessageSquare, Phone, Search, SlidersHorizontal } from "lucide-react";
+import { Bell, CalendarClock, Check, ChevronRight, MessageSquare, Phone, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   C,
   CREWS,
+  DAYS,
+  HOURS,
   LENSES,
   MONEY,
   MapMoney,
@@ -18,19 +20,33 @@ import {
   MapPortfolio,
   MapRadar,
   MapReplay,
+  MapWeather,
+  OUTDOOR_JOBS,
   PROPERTIES,
   REPLAY_EVENTS,
+  RISK_TONE,
   STAGES,
   UNITS,
+  WEATHER_MOVES,
   money,
+  workTone,
   type LensId,
 } from "./_shared/lenses";
+
+/** Map appearance presets — the contrast/saturation controls live in the dial's layers sheet. */
+const THEMES: Record<string, { label: string; contrast: number; saturate: number; brightness: number }> = {
+  night: { label: "Night", contrast: 100, saturate: 100, brightness: 100 },
+  sunlit: { label: "Sunlit", contrast: 92, saturate: 132, brightness: 126 },
+  mono: { label: "Mono", contrast: 118, saturate: 0, brightness: 104 },
+  vivid: { label: "Vivid", contrast: 114, saturate: 168, brightness: 106 },
+};
 
 const HEADLINE: Record<LensId, { title: string; sub: string }> = {
   radar: { title: "Avalon Ridge", sub: "2 crews on site · 4 units live" },
   money: { title: "Avalon Ridge", sub: money(28340) + " in flight · 2 need you" },
   plate: { title: "Avalon Ridge", sub: "24 units · 9 in turn · 3 aging" },
   replay: { title: "Today at Avalon", sub: "Tue Aug 18 · 5 events · 6h 12m on site" },
+  weather: { title: "Outdoor crews", sub: "Rain 3:10p · 3 crews exposed · 2 moves suggested" },
   portfolio: { title: "Your portfolio", sub: "4 properties · 7 crews · 1 at risk" },
 };
 
@@ -188,6 +204,64 @@ function Dock({ lens }: { lens: LensId }) {
     );
   }
 
+  if (lens === "weather") {
+    const move = WEATHER_MOVES[0];
+    return (
+      <div style={shell}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <span style={{ ...capTitle, margin: 0, flex: 1 }}>Work window · outdoor trades only</span>
+          <span style={{ fontSize: 9.5, fontWeight: 700, color: C.mute }}>{OUTDOOR_JOBS.length} crews</span>
+        </div>
+
+        {/* Hour-by-hour workability, not just a forecast. */}
+        <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 58 }}>
+          {HOURS.map((h) => (
+            <div key={h.h} style={{ flex: 1, display: "grid", gap: 3, justifyItems: "center" }}>
+              <span style={{ fontSize: 9, fontWeight: 750, color: workTone(h.work) }}>{h.t}°</span>
+              <div style={{ width: "100%", height: 30, borderRadius: 6, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "flex-end", overflow: "hidden" }}>
+                <div style={{ width: "100%", height: Math.max(8, h.work * 30), background: workTone(h.work), opacity: 0.9 }} />
+              </div>
+              <span style={{ fontSize: 8.5, fontWeight: 700, color: C.mute }}>{h.h}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* The actual value: a schedule move, ready to accept. */}
+        <div className="cmt-card" style={{ marginTop: 10, padding: "10px 11px", borderColor: move.tone + "77" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+            <CalendarClock size={13} style={{ color: move.tone }} />
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: move.tone }}>Suggested move</span>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 750, lineHeight: 1.25 }}>{move.title}</div>
+          <div style={{ fontSize: 10.5, color: C.mute, marginTop: 2 }}>{move.why}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: C.lime, marginTop: 3 }}>{move.gain}</div>
+          <div style={{ display: "flex", gap: 6, marginTop: 9 }}>
+            <button
+              style={{ flex: 1, height: 32, border: 0, borderRadius: 11, background: C.lime, color: "#07101e", fontFamily: "inherit", fontSize: 12.5, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5 }}
+            >
+              <Check size={13} /> Reschedule + notify crew
+            </button>
+            <button className="cmt-chip" style={{ height: 32, padding: "0 12px" }}>Later</button>
+          </div>
+        </div>
+
+        {/* Five-day outlook, scored for outdoor work. */}
+        <div style={{ display: "flex", gap: 5, marginTop: 9 }}>
+          {DAYS.map((d) => (
+            <div key={d.d} className="cmt-card" style={{ flex: 1, padding: "6px 4px", textAlign: "center" }}>
+              <div style={{ fontSize: 9.5, fontWeight: 750, color: C.mute }}>{d.d}</div>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>{d.hi}°</div>
+              <div style={{ height: 3, borderRadius: 999, background: "rgba(255,255,255,0.08)", margin: "4px 2px 3px", overflow: "hidden" }}>
+                <div style={{ width: d.ok * 100 + "%", height: "100%", background: workTone(d.ok) }} />
+              </div>
+              <div style={{ fontSize: 8.5, fontWeight: 700, color: d.rain > 40 ? "#9fc6ff" : C.mute }}>{d.rain}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={shell}>
       <div style={capTitle}>Ranked by what needs you</div>
@@ -207,19 +281,129 @@ function Dock({ lens }: { lens: LensId }) {
   );
 }
 
-export function MapLenses({ initial = "radar" }: { initial?: LensId }) {
+function AppearanceSheet({
+  look,
+  setLook,
+  onClose,
+}: {
+  look: { theme: string; contrast: number; saturate: number; brightness: number };
+  setLook: (l: { theme: string; contrast: number; saturate: number; brightness: number }) => void;
+  onClose: () => void;
+}) {
+  const rows: { key: "contrast" | "saturate" | "brightness"; label: string; min: number; max: number }[] = [
+    { key: "contrast", label: "Contrast", min: 60, max: 160 },
+    { key: "saturate", label: "Saturation", min: 0, max: 200 },
+    { key: "brightness", label: "Brightness", min: 60, max: 150 },
+  ];
+  return (
+    <div
+      style={{
+        position: "relative",
+        zIndex: 5,
+        flexShrink: 0,
+        background: "rgba(7,16,30,0.96)",
+        backdropFilter: "blur(24px)",
+        borderTop: "1px solid var(--cmd-line)",
+        borderRadius: "20px 20px 0 0",
+        boxShadow: "0 -16px 44px rgba(6,12,28,0.6)",
+        padding: "10px 12px 14px",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+        <span style={{ width: 38, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.25)" }} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 800, letterSpacing: "-0.01em" }}>Map appearance</span>
+        <button
+          className="cmt-chip"
+          style={{ height: 26 }}
+          onClick={() => setLook({ theme: "night", ...THEMES.night })}
+        >
+          Reset
+        </button>
+        <button className="cmt-chip" style={{ width: 26, height: 26, padding: 0, justifyContent: "center" }} onClick={onClose} aria-label="Close">
+          <X size={12} />
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {Object.entries(THEMES).map(([id, t]) => {
+          const on = look.theme === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setLook({ theme: id, contrast: t.contrast, saturate: t.saturate, brightness: t.brightness })}
+              style={{
+                flex: 1,
+                height: 30,
+                borderRadius: 10,
+                border: "1px solid " + (on ? C.lime : "var(--cmd-line-soft)"),
+                background: on ? "rgba(180,255,68,0.16)" : "rgba(255,255,255,0.05)",
+                color: on ? C.lime : "rgba(255,255,255,0.7)",
+                fontFamily: "inherit",
+                fontSize: 11.5,
+                fontWeight: 750,
+                cursor: "pointer",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "grid", gap: 11 }}>
+        {rows.map((r) => (
+          <div key={r.key}>
+            <div style={{ display: "flex", marginBottom: 5 }}>
+              <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.82)" }}>{r.label}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: C.lime }}>{look[r.key]}%</span>
+            </div>
+            <input
+              className="cmt-range"
+              type="range"
+              min={r.min}
+              max={r.max}
+              value={look[r.key]}
+              onChange={(e) => setLook({ ...look, theme: "custom", [r.key]: Number(e.target.value) })}
+            />
+          </div>
+        ))}
+      </div>
+      <p style={{ margin: "10px 0 0", fontSize: 10, color: C.mute, lineHeight: 1.4 }}>
+        Applies to every lens and is remembered on this device — useful in bright sun on a job site.
+      </p>
+    </div>
+  );
+}
+
+export function MapLenses({ initial = "radar", openAppearance = false }: { initial?: LensId; openAppearance?: boolean }) {
   const [lens, setLens] = useState<LensId>(initial);
+  const [sheet, setSheet] = useState(openAppearance);
+  const [look, setLook] = useState({ theme: "night", ...THEMES.night });
   const meta = LENSES.find((l) => l.id === lens)!;
   const head = HEADLINE[lens];
 
   return (
     <div className="cmt">
       {/* Map layer — a different drawing of the property per lens. */}
-      {lens === "radar" && <MapRadar />}
-      {lens === "money" && <MapMoney />}
-      {lens === "plate" && <MapPlate />}
-      {lens === "replay" && <MapReplay />}
-      {lens === "portfolio" && <MapPortfolio />}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          filter:
+            lens === "plate"
+              ? undefined
+              : "contrast(" + look.contrast + "%) saturate(" + look.saturate + "%) brightness(" + look.brightness + "%)",
+        }}
+      >
+        {lens === "radar" && <MapRadar />}
+        {lens === "money" && <MapMoney />}
+        {lens === "plate" && <MapPlate />}
+        {lens === "replay" && <MapReplay />}
+        {lens === "weather" && <MapWeather />}
+        {lens === "portfolio" && <MapPortfolio />}
+      </div>
 
       {/* Floating glass header. */}
       <header
@@ -276,13 +460,24 @@ export function MapLenses({ initial = "radar" }: { initial?: LensId }) {
             </button>
           ))}
           <span style={{ height: 1, background: "rgba(170,200,255,0.18)", margin: "1px 6px" }} />
-          <button title="Layers" aria-label="Layers"><SlidersHorizontal size={15} strokeWidth={2.3} /></button>
+          <button
+            title="Map appearance"
+            aria-label="Map appearance"
+            data-on={sheet}
+            onClick={() => setSheet((s) => !s)}
+          >
+            <SlidersHorizontal size={15} strokeWidth={2.3} />
+          </button>
         </div>
       </div>
 
       <div style={{ flex: 1 }} />
 
-      <Dock lens={lens} />
+      {sheet ? (
+        <AppearanceSheet look={look} setLook={setLook} onClose={() => setSheet(false)} />
+      ) : (
+        <Dock lens={lens} />
+      )}
     </div>
   );
 }
