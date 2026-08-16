@@ -1,0 +1,84 @@
+/* HALO client board surface tokens — mirrors lib/board-ui commandSurface.css. */
+.cmt {
+  --cmd-bg: #07101e;
+  --cmd-bg-2: #0b1524;
+  --cmd-line: rgba(170, 200, 255, 0.2);
+  --cmd-line-soft: rgba(170, 200, 255, 0.1);
+  --cmd-ink: rgba(255, 255, 255, 0.92);
+  --cmd-mute: rgba(210, 224, 255, 0.55);
+  --cmd-lime: #b4ff44;
+  --cmd-blue: #0a84ff;
+  --cmd-glass: linear-gradient(165deg, rgba(56, 92, 156, 0.52) 0%, rgba(14, 28, 58, 0.78) 100%);
+  --cmd-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 18px 48px rgba(6, 12, 28, 0.42);
+  --cmd-radius: 18px;
+  --cmd-map: #e8f6ef;
+
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  background: var(--cmd-bg);
+  color: var(--cmd-ink);
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cmt-card {
+  background: var(--cmd-glass);
+  border: 1px solid var(--cmd-line);
+  border-radius: 14px;
+  box-shadow: var(--cmd-shadow);
+}
+.cmt-seg {
+  display: flex;
+  width: 100%;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--cmd-line-soft);
+}
+.cmt-seg-item {
+  flex: 1;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.cmt-seg-item[data-on="true"] {
+  background: var(--cmd-lime);
+  color: #07101e;
+  box-shadow: 0 6px 16px rgba(180, 255, 68, 0.22);
+}
+.cmt-chip {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--cmd-line-soft);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.cmt-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--cmd-lime);
+  box-shadow: 0 6px 16px rgba(180, 255, 68, 0.28);
+  flex-shrink: 0;
+}
