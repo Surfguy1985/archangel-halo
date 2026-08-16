@@ -11,6 +11,8 @@ type Turn = {
   why?: string[];
   citations?: AskCitation[];
   steps?: AskStep[];
+  /** Set when the server ask didn't land — the answer below is the board's own read. */
+  note?: string | null;
 };
 
 export function PulseGuide(props: {
@@ -64,6 +66,10 @@ export function PulseGuide(props: {
     let answer = local.answer;
     let why = local.why;
     let citations = local.citations;
+    // When the server ask fails we still show the board-local packet, but we
+    // say so — silently serving the canned answer reads as "the guide got
+    // dumb" and hides real outages (expired session, Pulse flag off, 500).
+    let serverNote: string | null = null;
     if (props.askUrl) {
       try {
         const history = [...thread, { role: "user" as const, text: q }].slice(-8);
@@ -88,7 +94,13 @@ export function PulseGuide(props: {
             followUps?: string[];
           };
           const next = body.answer?.trim() ? clipAsk(body.answer.trim(), 4) : "";
-          if (next && inventGuard(next, props.context)) answer = next;
+          if (next) {
+            if (inventGuard(next, props.context)) answer = next;
+            // The guard compares against the units this board has loaded, so a
+            // real server answer about a unit outside that slice trips it. Keep
+            // the local packet, but never pretend it came from HALO.
+            else serverNote = "Showing this board's read — HALO's answer referenced units this view hasn't loaded.";
+          }
           if (body.why?.length) why = body.why.slice(0, 4);
           if (body.citations?.length) {
             citations = body.citations
@@ -97,9 +109,16 @@ export function PulseGuide(props: {
               .map((c, i) => ({ id: c.id || `c${i}`, label: c.label, detail: c.detail }));
           }
           if (body.followUps?.length) setFollowUps(body.followUps.slice(0, 3));
+        } else {
+          serverNote =
+            res.status === 401 || res.status === 403
+              ? "Sign in again to get HALO's full answer — this is the board's own read."
+              : res.status === 404
+                ? "HALO's portfolio brain is switched off for this board — this is the board's own read."
+                : `HALO couldn't answer (${res.status}) — this is the board's own read.`;
         }
       } catch {
-        /* keep local packet */
+        serverNote = "Couldn't reach HALO — this is the board's own read, from data already loaded.";
       }
     }
     setThread((t) => [
@@ -111,6 +130,7 @@ export function PulseGuide(props: {
         why,
         citations,
         steps: local.steps,
+        note: serverNote,
       },
     ]);
     setBusy(false);
@@ -232,6 +252,11 @@ function GuideTurnView(props: {
             <li key={s.id}>{s.label}</li>
           ))}
         </ol>
+      ) : null}
+      {turn.note ? (
+        <p className="cb-ask-note" role="status">
+          {turn.note}
+        </p>
       ) : null}
       <p className="cb-guide-msg guide">{turn.text}</p>
       {open && turn.why && turn.why.length > 0 ? (

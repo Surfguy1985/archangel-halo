@@ -915,6 +915,26 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
 
     let convoId = conversationId;
     let brainResult: any = null;
+    // Every brain failure is remembered: falling through to the generic
+    // "try a command like…" prompt makes a real outage look like HALO simply
+    // got dumb, which is the hardest failure of all to report.
+    let brainError: unknown = null;
+
+    // No conversation yet (first load raced the sign-in, or that create failed):
+    // mint one now rather than silently skipping the brain for the whole session.
+    if (!convoId) {
+      try {
+        const fresh = await apiFetch("/api/command/conversations", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "executive" }),
+        });
+        if (fresh?.conversation?.id) {
+          convoId = fresh.conversation.id;
+          setConversationId(convoId);
+          try { sessionStorage.setItem("halo_desktop_convo_id", convoId!); } catch {}
+        }
+      } catch (e) { brainError = e; }
+    }
 
     if (convoId) {
       try {
@@ -923,8 +943,13 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
           body: JSON.stringify({ message: raw, role: "executive" }),
         });
       } catch (e: any) {
+        brainError = e;
         if (e?.message?.startsWith("404")) {
-          setMessages([]);
+          // Stale conversation id (server-side thread gone, or a new sign-in
+          // re-scoped it). Mint a fresh one and retry the same question.
+          // Never clear the thread here — it holds this question's thinking
+          // bubble, and every branch below updates that placeholder by id, so
+          // wiping it makes the recovered answer render nowhere.
           try { sessionStorage.removeItem("halo_desktop_convo_id"); } catch {}
           setConversationId(null);
           try {
@@ -940,8 +965,9 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: raw, role: "executive" }),
               });
+              brainError = null; // recovered — don't report the stale-id 404
             }
-          } catch { /* fall through */ }
+          } catch (e2) { brainError = e2; }
         }
       }
     }
@@ -1029,6 +1055,22 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
         m.id === thinkId
           ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps }
           : m
+      ));
+      scrollDown();
+      return;
+    }
+
+    // A failed ask is reported, never disguised as a canned suggestion.
+    if (brainError) {
+      const status = brainError instanceof ApiFetchError ? brainError.status : 0;
+      const text =
+        status === 401
+          ? "Your office session expired — sign in again and I'll pick this straight back up."
+          : status === 429
+            ? "That's a lot of questions at once. Give it a few seconds and ask again."
+            : `I couldn't reach the HALO brain just now${status ? ` (${status})` : ""}. Send it again and I'll retry.`;
+      setMessages(prev => prev.map(m =>
+        m.id === thinkId ? { id: thinkId, kind: "error" as const, text } : m
       ));
       scrollDown();
       return;

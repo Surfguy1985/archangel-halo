@@ -607,6 +607,18 @@
   font-size: 12px;
   line-height: 1.45;
 }
+/* Shown when the server ask didn't land and the answer below is this board's
+   own read — an honest label beats a canned answer that looks authoritative. */
+.cb-ask-note {
+  margin: 0 0 6px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 176, 80, 0.28);
+  background: rgba(255, 176, 80, 0.09);
+  color: rgba(255, 214, 160, 0.92);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
 .cb-ask-cites {
   display: flex;
   flex-wrap: wrap;
