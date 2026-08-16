@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inventGuard, reasonAsk } from "./askReason";
+import { askForkFromContext, askGhost, sparkPoints } from "./askFork";
 import { interpretPulseQuestion, type GuideContext } from "./pulseGuideBrain";
 
 const ctx: GuideContext = {
@@ -149,5 +150,22 @@ describe("pulse guide brain", () => {
     expect(inventGuard("Unit 214 is waiting on you.", ctx)).toBe(true);
     expect(inventGuard("Unit 999 is on fire.", ctx)).toBe(false);
     expect(inventGuard("Vacancy this window is $12,450.00.", ctx)).toBe(true);
+  });
+
+  it("builds a morning fork in vacant days with proof, never dollars", () => {
+    const fork = askForkFromContext(ctx, "214", { extraDays: 2, method: "holt", series: [8, 9, 11] });
+    expect(fork?.unit).toBe("214");
+    expect(fork?.daysNow).toBe(11);
+    expect(fork?.daysIfWait).toBe(13);
+    expect(fork?.ifYouAct).toMatch(/leaves the ranking/);
+    expect(fork?.ifYouWait).toMatch(/Holt/);
+    expect(fork?.ifYouWait).not.toMatch(/\$/);
+    expect(fork?.proof?.before).toContain("before.jpg");
+    expect(sparkPoints([8, 9, 11])).toMatch(/,/);
+  });
+
+  it("ghosts the next signature before anyone types", () => {
+    expect(askGhost("", ctx)).toMatch(/214/);
+    expect(askGhost("unit 214", ctx)).toMatch(/214/);
   });
 });

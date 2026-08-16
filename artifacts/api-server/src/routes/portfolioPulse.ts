@@ -250,6 +250,8 @@ router.post("/v1/portfolios/:id/ask", async (req: Request, res: Response): Promi
       attentionGroups: attention.groups,
       history: Array.isArray(req.body?.history) ? req.body.history : undefined,
       focus: req.body?.focus && typeof req.body.focus === "object" ? req.body.focus : undefined,
+      queueAct: req.body?.queueAct && typeof req.body.queueAct === "object" ? req.body.queueAct : undefined,
+      dismissAct: typeof req.body?.dismissAct === "string" ? req.body.dismissAct : undefined,
     });
     res.json(out);
   } catch (err) {
@@ -425,6 +427,8 @@ router.post("/client/:token/portfolio/ask", async (req: Request, res: Response):
       attentionGroups: attention.groups,
       history: Array.isArray(req.body?.history) ? req.body.history : undefined,
       focus: req.body?.focus && typeof req.body.focus === "object" ? req.body.focus : undefined,
+      queueAct: req.body?.queueAct && typeof req.body.queueAct === "object" ? req.body.queueAct : undefined,
+      dismissAct: typeof req.body?.dismissAct === "string" ? req.body.dismissAct : undefined,
     });
     res.json(out);
   } catch (err) {

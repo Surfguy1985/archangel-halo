@@ -6,6 +6,9 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { db, base44EvidenceTable } from "@workspace/db";
 import { completeJson, COMPLEX_MODEL } from "./ai";
 import { computePortfolioCrewToday } from "./portfolioCrewToday";
+import { consultPartner, learnFromAsk } from "./agentPartner";
+import { clockDaysForForecast } from "./agentClock";
+import { dismissAct, queueAct } from "./agentActs";
 import {
   answerFromCortex,
   buildOpsCortex,
@@ -38,6 +41,39 @@ export type PortfolioAskResult = {
   why: string[];
   citations: PortfolioAskCitation[];
   followUps: string[];
+  partner?: {
+    embedder: string;
+    memories: Array<{ question: string; answer: string; score: number; unit?: string | null }>;
+    forecast: {
+      method: string;
+      headline: string;
+      extraDays: number;
+      unit?: string | null;
+      series?: number[];
+    } | null;
+    fork?: {
+      site: string;
+      unit: string;
+      daysNow: number;
+      extraDays: number;
+      daysIfWait: number;
+      method: string;
+      source: string;
+      series: number[];
+      wait: string;
+      ifYouAct: string;
+      ifYouWait: string;
+    } | null;
+    acts: Array<{
+      id: string;
+      label: string;
+      hitl: true;
+      status?: "propose" | "queued";
+      unit?: string | null;
+      open?: "attention" | "turns" | "crew";
+    }>;
+    graph?: string[];
+  };
 };
 
 export async function answerPortfolioAsk(args: {
@@ -59,11 +95,13 @@ export async function answerPortfolioAsk(args: {
   }>;
   history?: PortfolioAskHistory;
   focus?: PortfolioAskFocus;
+  queueAct?: { id: string; label: string; unit?: string | null; open?: "attention" | "turns" | "crew" };
+  dismissAct?: string;
 }): Promise<PortfolioAskResult> {
   const history = (args.history ?? [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))
-    .slice(-8);
+    .slice(-16);
   const crew = await computePortfolioCrewToday({ properties: args.properties });
   const evidence = args.properties.length
     ? await db
@@ -121,6 +159,21 @@ export async function answerPortfolioAsk(args: {
   };
   const cortex = buildOpsCortex(facts);
   const fallback = answerFromCortex(args.question, facts, cortex);
+  if (args.queueAct?.id) queueAct(args.queueAct);
+  if (args.dismissAct) dismissAct(args.dismissAct);
+  const clock = await clockDaysForForecast(
+    args.properties.map((p) => p.id),
+    args.focus?.unitNumber ?? facts.needs[0]?.unitNumber ?? facts.turns[0]?.unitNumber ?? null,
+  );
+  const partner = await consultPartner({
+    question: args.question,
+    facts,
+    cortex,
+    focusUnit: args.focus?.unitNumber ?? null,
+    clockDays: clock.days,
+    clockSource: clock.source,
+    intent: args.focus?.intent ?? null,
+  });
 
   const snapshot = {
     view: args.title,
@@ -171,6 +224,18 @@ export async function answerPortfolioAsk(args: {
     history.length
       ? `\nPrior turns:\n${history.map((m) => `${m.role}: ${m.content}`).join("\n")}\n`
       : "";
+  const memoryNote = partner.memories.length
+    ? `\nSimilar mornings (retrieved, ${partner.embedder}):\n${partner.memories.map((m) => `- (${m.score.toFixed(2)}) ${m.question} → ${m.answer}`).join("\n")}\n`
+    : "";
+  const graphNote = partner.graph.length
+    ? `\nTemporal graph:\n${partner.graph.map((f) => `- ${f}`).join("\n")}\n`
+    : "";
+  const forecastNote = partner.forecast
+    ? `\nSlip forecast (${partner.forecast.method}): ${partner.forecast.headline}\nThis is vacant DAYS, not a second dollar figure.\n`
+    : "";
+  const forkNote = partner.fork
+    ? `\nMorning fork for ${partner.fork.site} · ${partner.fork.unit}: day ${partner.fork.daysNow} now. If they wait: day ${partner.fork.daysIfWait} (${partner.fork.ifYouWait}) If they act: ${partner.fork.ifYouAct}\n`
+    : "";
   const focusNote = args.focus
     ? `\nLocal reasoner already focused on intent=${args.focus.intent ?? "brief"} property=${args.focus.propertyId ?? "none"} unit=${args.focus.unitNumber ?? "none"}. Narrate that ranking. Do not change the unit.\n`
     : "";
@@ -195,6 +260,88 @@ export async function answerPortfolioAsk(args: {
       detail: "Pulse window. Vacant days run vacate → ready in the property timezone. Dollars stop at ready. There is no second formula.",
     },
   ];
+  if (partner.forecast) {
+    localWhy.push(partner.forecast.headline);
+    localCitations.push({
+      id: "holt",
+      label: `Slip · ${partner.forecast.method}`,
+      detail: `${partner.forecast.headline} Vacant days only — not a second vacancy dollar.`,
+    });
+  }
+  if (partner.fork) {
+    localWhy.push(
+      `${partner.fork.site} · ${partner.fork.unit}: day ${partner.fork.daysNow} now. Wait and it’s day ${partner.fork.daysIfWait}.`,
+    );
+    localCitations.push({
+      id: "fork",
+      label: "Morning fork",
+      detail: `${partner.fork.ifYouAct} ${partner.fork.ifYouWait} Vacant days only.`,
+    });
+  }
+  if (partner.memories[0]) {
+    localCitations.push({
+      id: "memory",
+      label: "Learned",
+      detail: `Similar morning: “${partner.memories[0].question}”`,
+    });
+  }
+  if (partner.graph[0]) {
+    localCitations.push({
+      id: "graph",
+      label: "Graph",
+      detail: partner.graph[0],
+    });
+  }
+
+  const pack = (
+    answer: string,
+    why: string[],
+    citations: PortfolioAskCitation[],
+    followUps: string[],
+    skipLearn = false,
+  ): PortfolioAskResult => {
+    if (!skipLearn) {
+      void learnFromAsk({
+        question: args.question,
+        answer,
+        unit: args.focus?.unitNumber ?? partner.forecast?.unit ?? null,
+        days: args.turns.find((t) => t.unitNumber === (args.focus?.unitNumber ?? partner.forecast?.unit))?.days ?? null,
+        nextMove: cortex.nextMove?.headline ?? null,
+      }).catch(() => {});
+    }
+    return {
+      answer,
+      why,
+      citations,
+      followUps: [...partner.followUps, ...followUps].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3),
+      partner: {
+        embedder: partner.embedder,
+        memories: partner.memories.map((m) => ({
+          question: m.question,
+          answer: m.answer,
+          score: m.score,
+          unit: m.unit,
+        })),
+        forecast: partner.forecast,
+        fork: partner.fork,
+        acts: partner.acts,
+        graph: partner.graph,
+      },
+    };
+  };
+
+  // Queue pings must not burn a narration call or invent a unit — the HITL
+  // row is already durable. Next real Ask still says "Still queued".
+  if (args.queueAct?.id) {
+    const unit = partner.fork?.unit ?? partner.forecast?.unit ?? args.focus?.unitNumber ?? "that unit";
+    return pack(
+      `Queued. I’ll wait for you on ${unit}.`,
+      localWhy,
+      localCitations,
+      fallback.followUps,
+      true,
+    );
+  }
 
   try {
     const narrated = await completeJson<{
@@ -214,8 +361,10 @@ Rules:
 - Citations must defend vacancy $ or vacant days — one formula, property timezone, dollars stop at ready.
 - The UI already shows photos and maps. Do not describe pictures.
 - If the snapshot lacks it, say so.
+- If a slip forecast is present, you may cite extra vacant DAYS. Never mint a vacancy dollar from it.
+- If a morning fork is present, name the two paths in DAYS (sign vs wait). Do not invent a dollar from the fork.
 - Return JSON: { "answer": string, "why": string[], "citations": [{ "id", "label", "detail" }], "followUps": string[] }`,
-      `${historyNote}${focusNote}Snapshot:\n${JSON.stringify(snapshot)}\n\nQuestion: ${args.question}`,
+      `${historyNote}${memoryNote}${graphNote}${forecastNote}${forkNote}${focusNote}Snapshot:\n${JSON.stringify(snapshot)}\n\nQuestion: ${args.question}`,
       900,
       COMPLEX_MODEL,
     );
@@ -226,10 +375,10 @@ Rules:
     ].map((s) => s.replace(/^(?:unit|#|·)\s*/i, "").toLowerCase());
     const invented = claimed.some((u) => !allowedUnits.has(u));
     if (answer && !invented) {
-      return {
+      return pack(
         answer,
-        why: (narrated.why ?? localWhy).map(String).filter(Boolean).slice(0, 4),
-        citations: (narrated.citations?.length ? narrated.citations : localCitations)
+        (narrated.why ?? localWhy).map(String).filter(Boolean).slice(0, 4),
+        (narrated.citations?.length ? narrated.citations : localCitations)
           .filter((c) => c.label && c.detail)
           .slice(0, 4)
           .map((c, i) => ({
@@ -237,17 +386,12 @@ Rules:
             label: String(c.label),
             detail: String(c.detail),
           })),
-        followUps: (narrated.followUps?.length ? narrated.followUps : cortex.followUps).map(String).slice(0, 3),
-      };
+        (narrated.followUps?.length ? narrated.followUps : cortex.followUps).map(String).slice(0, 3),
+      );
     }
   } catch {
     /* fall through */
   }
 
-  return {
-    answer: fallback.answer,
-    why: localWhy,
-    citations: localCitations,
-    followUps: fallback.followUps,
-  };
+  return pack(fallback.answer, localWhy, localCitations, fallback.followUps);
 }

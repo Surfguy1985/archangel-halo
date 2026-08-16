@@ -495,7 +495,7 @@ export function reasonAsk(raw: string, ctx: GuideContext, memory: AskMemory = {}
     return packet("slip", ctx, {
       answer: pred ? `${pred.headline} — ${pred.why}` : "Nothing slipping tomorrow.",
       why: pred
-        ? [pred.next, "Slip is predicted from today’s waits and vacant days — not a forecast model."]
+        ? [pred.next, "Slip is extra vacant days from today’s waits plus Holt on the turn clock — never a second vacancy dollar."]
         : ["No approval wait or long vacant clock is set to sit another day."],
       citations: [rankCite(), vacancyCite(ctx)],
       actions: [{ type: "open", panel: pred?.open ?? "turns" }],
