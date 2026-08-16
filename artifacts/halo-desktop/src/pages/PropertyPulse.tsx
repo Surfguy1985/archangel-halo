@@ -49,6 +49,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { GpsFinder } from "@/components/GpsFinder";
 import { SiteTwin } from "@/components/SiteTwin";
 import { CommandModule } from "@/components/CommandModule";
+import haloLogo from "../assets/halo-logo.png";
 
 // Module visibility is session-only: on EVERY page load the HALO command module
 // appears again (centered).  Hiding it sets this flag for the current tab only.
@@ -1120,10 +1121,12 @@ export default function PropertyPulse() {
     <div className="pulse-hud">
       <header className="pulse-hud-head">
         <button type="button" className="pulse-hud-brand" onClick={() => navigate(HREF.home)} aria-label="HALO chat">
-          <span className="pulse-hud-mark">H</span>
+          <img className="pulse-hud-logo" src={haloLogo} alt="HALO" />
+          <span className="pulse-hud-brand-rule" aria-hidden />
           <div>
-            <p>Archangel Operations</p>
-            <h1>Property Pulse</h1>
+            <h1>
+              Property Pulse<sup className="pulse-hud-tm">™</sup>
+            </h1>
           </div>
         </button>
         <div className="pulse-hud-head-right">
