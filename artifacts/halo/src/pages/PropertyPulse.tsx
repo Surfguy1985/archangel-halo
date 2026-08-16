@@ -132,8 +132,15 @@ function isLiveJob(j: Job): boolean {
  */
 const TURN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Overview tiles that expand into a shorthand list. */
+type DrillId = "sites" | "crews" | "turns" | "done" | "turntime" | "rework" | "po";
+type DrillRow = { id: string; label: string; meta: string; propertyId?: string | null };
+/** Cap the expanded list so the panel stays scannable, not a report. */
+const DRILL_MAX = 8;
+
 function turnHealth(jobs: Job[], liveJobs: Job[]) {
   const cutoff = Date.now() - TURN_WINDOW_MS;
+  const finished: { job: Job; ms: number; doneAt: number }[] = [];
   let spanTotal = 0;
   let spanCount = 0;
   for (const j of jobs) {
@@ -143,13 +150,64 @@ function turnHealth(jobs: Job[], liveJobs: Job[]) {
     if (!Number.isFinite(done) || !Number.isFinite(start) || done < start || done < cutoff) continue;
     spanTotal += done - start;
     spanCount += 1;
+    finished.push({ job: j, ms: done - start, doneAt: done });
   }
+  const poJobs = liveJobs.filter((j) => !j.poNumber?.trim());
+  const reworkJobs = jobs.filter((j) => j.boardStatus === "reopened" && j.status !== "cancelled");
+  finished.sort((a, b) => b.doneAt - a.doneAt);
   return {
     avgTurnDays: spanCount > 0 ? spanTotal / spanCount / 86_400_000 : null,
     turnSample: spanCount,
-    reworks: jobs.filter((j) => j.boardStatus === "reopened" && j.status !== "cancelled").length,
-    posNeeded: liveJobs.filter((j) => !j.poNumber?.trim()).length,
+    finished,
+    reworks: reworkJobs.length,
+    reworkJobs,
+    posNeeded: poJobs.length,
+    poJobs,
   };
+}
+
+/** Short service bullets for a job — the work sold on that unit. */
+function jobServiceBullets(j: Job): string[] {
+  const list = (j.services ?? []).filter((s) => s.trim());
+  if (list.length > 0) return list;
+  const fallback = j.category?.trim() || j.description?.trim();
+  return fallback ? [fallback] : ["Turn work"];
+}
+
+/** Shorthand for a drill row: two services max, then "+N". */
+function svcShort(j: Job): string {
+  const b = jobServiceBullets(j);
+  return b.slice(0, 2).join(" · ") + (b.length > 2 ? ` +${b.length - 2}` : "");
+}
+
+function unitLabel(j: Job): string {
+  return j.unitNo ? `Unit ${j.unitNo}` : j.jobNo;
+}
+
+/** "2d 4h" / "6h" — turn length at a glance. */
+function spanShort(ms: number): string {
+  const days = Math.floor(ms / 86_400_000);
+  const hours = Math.round((ms % 86_400_000) / 3_600_000);
+  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+}
+
+/** "Aug 3" from an ISO instant; em dash when never received. */
+function stampShort(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime())
+    ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "—";
+}
+
+/** "Aug 3" from a date-only YYYY-MM-DD, read as LOCAL parts (never UTC). */
+function ymdShort(ymd?: string | null): string {
+  const parts = ymd?.split("-").map(Number);
+  if (!parts || parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return "—";
+  return new Date(parts[0]!, parts[1]! - 1, parts[2]!).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function loadLayout(): Partial<Record<PanelId, BoxPos>> {
@@ -424,6 +482,9 @@ export default function PropertyPulse() {
   const [pinging, setPinging] = useState(false);
   const [gpsPinging, setGpsPinging] = useState(false);
   const [gpsOpen, setGpsOpen] = useState(false);
+  // Overview tiles drill down: one open at a time so the panel stays a
+  // 15-second read rather than a wall of lists.
+  const [drill, setDrill] = useState<DrillId | null>(null);
   const [twinOpen, setTwinOpen] = useState(false);
   // The twin's unit sheet can ask whoever is standing in that unit for proof.
   const requestUnitPhotos = async (u: { unitId: string; label: string; crewId: string | null }) => {
@@ -552,13 +613,116 @@ export default function PropertyPulse() {
   const crewsOnSite = (pins ?? []).filter((p) => p.todayStatus === "site").length;
   const doneToday = (jobs ?? []).filter((j) => j.status === "complete" && j.scheduledOn === todayStr).length;
   const liveCount = ranked.filter((p) => p.crewsOnSite > 0).length;
-  const { avgTurnDays, turnSample, reworks, posNeeded } = useMemo(
+  // The 30-day window slides with the clock, so the metric must recompute on
+  // the tick too — jobs alone can stay referentially identical for hours.
+  const turnBucket = Math.floor(now.getTime() / 3_600_000);
+  const { avgTurnDays, turnSample, finished, reworks, reworkJobs, posNeeded, poJobs } = useMemo(
     () => turnHealth(jobs ?? [], liveJobs),
-    [jobs, liveJobs],
+    [jobs, liveJobs, turnBucket],
   );
+
+  // Every Overview tile expands into the same shorthand list: one line for the
+  // unit, one dim line of context.  Nothing here is a paragraph.
+  const drillData: Record<DrillId, { rows: DrillRow[]; empty: string }> = useMemo(
+    () => ({
+      sites: {
+        rows: ranked
+          .filter((p) => p.crewsOnSite > 0)
+          .map((p) => ({
+            id: p.id,
+            label: p.name,
+            meta: `${p.crewsOnSite} crew · ${p.openJobs} open`,
+            propertyId: p.id,
+          })),
+        empty: "No crews on site right now.",
+      },
+      crews: {
+        rows: (pins ?? [])
+          .filter((c) => c.todayStatus === "site")
+          .map((c) => ({
+            id: c.id,
+            label: c.name,
+            meta: [c.todayProperty ?? "—", c.unitNo ? `Unit ${c.unitNo}` : c.todayJob]
+              .filter(Boolean)
+              .join(" · "),
+          })),
+        empty: "No crew checked in on site.",
+      },
+      turns: {
+        rows: liveJobs.map((j) => ({
+          id: j.id,
+          label: unitLabel(j),
+          meta: `${j.propertyName ?? "—"} · ${
+            !j.crewLeaderId
+              ? "no crew"
+              : j.scheduledOn && j.scheduledOn < todayStr
+                ? "behind"
+                : j.scheduledOn
+                  ? ymdShort(j.scheduledOn)
+                  : "unscheduled"
+          }`,
+          propertyId: j.propertyId,
+        })),
+        empty: "No open turns.",
+      },
+      done: {
+        rows: (jobs ?? [])
+          .filter((j) => j.status === "complete" && j.scheduledOn === todayStr)
+          .map((j) => ({
+            id: j.id,
+            label: unitLabel(j),
+            meta: `${j.propertyName ?? "—"} · ${svcShort(j)}`,
+            propertyId: j.propertyId,
+          })),
+        empty: "Nothing finished today yet.",
+      },
+      turntime: {
+        rows: finished.map(({ job, ms }) => ({
+          id: job.id,
+          label: unitLabel(job),
+          meta: `${spanShort(ms)} · PO ${stampShort(job.poReceivedAt)} · done ${stampShort(job.completedAt)}`,
+          propertyId: job.propertyId,
+        })),
+        empty: "No jobs completed in the last 30 days.",
+      },
+      rework: {
+        rows: reworkJobs.map((j) => ({
+          id: j.id,
+          label: unitLabel(j),
+          meta: `${j.propertyName ?? "—"} · ${svcShort(j)}`,
+          propertyId: j.propertyId,
+        })),
+        empty: "No re-works open.",
+      },
+      po: {
+        rows: poJobs.map((j) => ({
+          id: j.id,
+          label: unitLabel(j),
+          meta: `${j.propertyName ?? "—"} · ${svcShort(j)}`,
+          propertyId: j.propertyId,
+        })),
+        empty: "Every live job has a client PO.",
+      },
+    }),
+    [ranked, pins, liveJobs, jobs, todayStr, finished, reworkJobs, poJobs],
+  );
+
   const lines = selected
     ? statusLines(selected.openJobs, selected.crewsOnSite, selected.overdueJobs)
     : { primary: "Open Turns", secondary: "Quiet" };
+
+  const statTile = (id: DrillId, tone: string, value: ReactNode, label: string, hint: string) => (
+    <button
+      type="button"
+      className={`pulse-stat ${tone} tap${drill === id ? " on" : ""}`}
+      title={`${hint} — click for the list`}
+      aria-expanded={drill === id}
+      onClick={() => setDrill((d) => (d === id ? null : id))}
+    >
+      <b>{value}</b>
+      <span>{label} {drill === id ? "▴" : "▾"}</span>
+    </button>
+  );
 
   const mapPoints: [number, number][] = [];
   for (const p of ranked) {
@@ -838,25 +1002,56 @@ export default function PropertyPulse() {
 
           <HudBox id="overview" title="Overview" kicker="Live" open={open.overview} z={zOf("overview")} stageRef={stageRef} onClose={() => toggle("overview")} onFocus={() => focus("overview")}>
             <div className="pulse-stat-grid">
-              <div className="pulse-stat lime"><b>{liveCount}</b><span>Active sites</span></div>
-              <div className="pulse-stat green"><b>{crewsOnSite}</b><span>Crews out</span></div>
-              <div className="pulse-stat amber"><b>{liveJobs.length}</b><span>Open turns</span></div>
-              <div className="pulse-stat violet"><b>{doneToday}</b><span>Done today</span></div>
+              {statTile("sites", "lime", liveCount, "Active sites", "Properties with a crew on site")}
+              {statTile("crews", "green", crewsOnSite, "Crews out", "Crews checked in on a site right now")}
+              {statTile("turns", "amber", liveJobs.length, "Open turns", "Jobs not yet complete, paid or cancelled")}
+              {statTile("done", "violet", doneToday, "Done today", "Jobs completed on today's schedule")}
             </div>
             <div className="pulse-stat-grid three">
-              <div className="pulse-stat cyan" title={turnSample > 0 ? `${turnSample} jobs completed in the last 30 days` : "No jobs completed in the last 30 days"}>
-                <b>{avgTurnDays == null ? "—" : `${avgTurnDays.toFixed(1)}d`}</b>
-                <span>Avg turn time</span>
-              </div>
-              <div className="pulse-stat rose" title="Jobs reopened after being called done">
-                <b>{reworks}</b>
-                <span>Re-works</span>
-              </div>
-              <div className="pulse-stat amber" title="Live jobs still missing a client PO">
-                <b>{posNeeded}</b>
-                <span>POs needed</span>
-              </div>
+              {statTile(
+                "turntime",
+                "cyan",
+                avgTurnDays == null ? "—" : `${avgTurnDays.toFixed(1)}d`,
+                "Avg turn",
+                turnSample > 0
+                  ? `${turnSample} jobs completed in the last 30 days`
+                  : "No jobs completed in the last 30 days",
+              )}
+              {statTile("rework", "rose", reworks, "Re-works", "Jobs reopened after being called done")}
+              {statTile("po", "amber", posNeeded, "POs needed", "Live jobs still missing a client PO")}
             </div>
+            {drill && (
+              <div className="pulse-drill">
+                {drillData[drill].rows.length === 0 ? (
+                  <p className="pulse-drill-empty">{drillData[drill].empty}</p>
+                ) : (
+                  <>
+                    {drillData[drill].rows.slice(0, DRILL_MAX).map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="pulse-drill-row"
+                        onClick={() => r.propertyId && setSelectedId(r.propertyId)}
+                      >
+                        <strong>{r.label}</strong>
+                        <em>{r.meta}</em>
+                      </button>
+                    ))}
+                    {drillData[drill].rows.length > DRILL_MAX && (
+                      <p className="pulse-drill-more">
+                        +{drillData[drill].rows.length - DRILL_MAX} more
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {(uncrewed > 0 || overdueJobs > 0) && (
+              <div className="pulse-flags">
+                {overdueJobs > 0 && <span className="pulse-flag late">{overdueJobs} behind schedule</span>}
+                {uncrewed > 0 && <span className="pulse-flag open">{uncrewed} need a crew</span>}
+              </div>
+            )}
             {selected && (
               <div className="pulse-overview-site">
                 <strong>{selected.name}</strong>
