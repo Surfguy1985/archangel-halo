@@ -118,6 +118,40 @@ function isLiveJob(j: Job): boolean {
   return !["complete", "paid", "cancelled"].includes(j.status);
 }
 
+/**
+ * Vendor-side turn health, recomputed on every jobs poll so the Overview tiles
+ * are live rather than a nightly rollup.
+ *
+ * - Average turn time: mean days from job creation to completion across the
+ *   last 30 days of finished work.  Older jobs are excluded so the figure
+ *   tracks how the crews are running now, not last quarter.
+ * - Re-works: jobs the office pushed back onto the board after they were
+ *   called done (board status "reopened").
+ * - POs needed: live work that cannot reach Billing until the client sends a
+ *   PO number.
+ */
+const TURN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+function turnHealth(jobs: Job[], liveJobs: Job[]) {
+  const cutoff = Date.now() - TURN_WINDOW_MS;
+  let spanTotal = 0;
+  let spanCount = 0;
+  for (const j of jobs) {
+    if (!j.completedAt || !j.createdAt) continue;
+    const done = new Date(j.completedAt).getTime();
+    const start = new Date(j.createdAt).getTime();
+    if (!Number.isFinite(done) || !Number.isFinite(start) || done < start || done < cutoff) continue;
+    spanTotal += done - start;
+    spanCount += 1;
+  }
+  return {
+    avgTurnDays: spanCount > 0 ? spanTotal / spanCount / 86_400_000 : null,
+    turnSample: spanCount,
+    reworks: jobs.filter((j) => j.boardStatus === "reopened" && j.status !== "cancelled").length,
+    posNeeded: liveJobs.filter((j) => !j.poNumber?.trim()).length,
+  };
+}
+
 function loadLayout(): Partial<Record<PanelId, BoxPos>> {
   try {
     return JSON.parse(localStorage.getItem(HUD_KEY) || "{}") as Partial<Record<PanelId, BoxPos>>;
@@ -518,6 +552,10 @@ export default function PropertyPulse() {
   const crewsOnSite = (pins ?? []).filter((p) => p.todayStatus === "site").length;
   const doneToday = (jobs ?? []).filter((j) => j.status === "complete" && j.scheduledOn === todayStr).length;
   const liveCount = ranked.filter((p) => p.crewsOnSite > 0).length;
+  const { avgTurnDays, turnSample, reworks, posNeeded } = useMemo(
+    () => turnHealth(jobs ?? [], liveJobs),
+    [jobs, liveJobs],
+  );
   const lines = selected
     ? statusLines(selected.openJobs, selected.crewsOnSite, selected.overdueJobs)
     : { primary: "Open Turns", secondary: "Quiet" };
@@ -804,6 +842,20 @@ export default function PropertyPulse() {
               <div className="pulse-stat green"><b>{crewsOnSite}</b><span>Crews out</span></div>
               <div className="pulse-stat amber"><b>{liveJobs.length}</b><span>Open turns</span></div>
               <div className="pulse-stat violet"><b>{doneToday}</b><span>Done today</span></div>
+            </div>
+            <div className="pulse-stat-grid three">
+              <div className="pulse-stat cyan" title={turnSample > 0 ? `${turnSample} jobs completed in the last 30 days` : "No jobs completed in the last 30 days"}>
+                <b>{avgTurnDays == null ? "—" : `${avgTurnDays.toFixed(1)}d`}</b>
+                <span>Avg turn time</span>
+              </div>
+              <div className="pulse-stat rose" title="Jobs reopened after being called done">
+                <b>{reworks}</b>
+                <span>Re-works</span>
+              </div>
+              <div className="pulse-stat amber" title="Live jobs still missing a client PO">
+                <b>{posNeeded}</b>
+                <span>POs needed</span>
+              </div>
             </div>
             {selected && (
               <div className="pulse-overview-site">

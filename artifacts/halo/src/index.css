@@ -488,6 +488,10 @@ textarea:focus:not(:focus-visible) {
 .pulse-stat.green b { color: #7dffb1; }
 .pulse-stat.amber b { color: #ffd36a; }
 .pulse-stat.violet b { color: #c8b6ff; }
+.pulse-stat.cyan b { color: #7fe3ff; }
+.pulse-stat.rose b { color: #ff9c9c; }
+/* Turn-health row: three short figures (avg turn / re-works / POs needed). */
+.pulse-stat-grid.three { grid-template-columns: repeat(3, 1fr); }
 .pulse-overview-site strong { display: block; font-size: 13px; font-weight: 800; }
 .pulse-overview-site p { font-size: 12px; color: #8496AE; margin: 4px 0 10px; }
 .pulse-hud-actions {

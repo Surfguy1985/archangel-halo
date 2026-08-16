@@ -600,14 +600,22 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     }
   }
   const row = await db.transaction(async (tx) => {
+    const [before] = await tx.select().from(jobsTable).where(eq(jobsTable.id, id));
+    if (!before) return undefined;
+    // Any crew assignment clears the "lost its crew" flag.
+    const patch: Record<string, unknown> = { ...body };
+    if (typeof body.crewLeaderId === "string" && body.crewLeaderId) patch.crewVacatedAt = null;
+    // completedAt must ride the status change. /jobs/:id/complete stamps it,
+    // and reporting (average turn time, close-out reads) keys off it — so a job
+    // finished through this generic PATCH has to be stamped the same way, and
+    // un-stamped when it is moved back to unfinished work.
+    if (typeof body.status === "string") {
+      if (body.status === "complete") patch.completedAt = before.completedAt ?? new Date();
+      else if (!["paid", "cancelled"].includes(body.status)) patch.completedAt = null;
+    }
     const [updated] = await tx
       .update(jobsTable)
-      // Any crew assignment clears the "lost its crew" flag.
-      .set(
-        typeof body.crewLeaderId === "string" && body.crewLeaderId
-          ? { ...body, crewVacatedAt: null }
-          : body,
-      )
+      .set(patch)
       .where(eq(jobsTable.id, id))
       .returning();
     if (!updated) return undefined;
