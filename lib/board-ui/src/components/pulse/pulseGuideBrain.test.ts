@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { inventGuard, reasonAsk } from "./askReason";
 import { askForkFromContext, askGhost, sparkPoints } from "./askFork";
+import { askLanes, buildAskSheet, kidLine } from "./askSheet";
 import { interpretPulseQuestion, type GuideContext } from "./pulseGuideBrain";
 
 const ctx: GuideContext = {
@@ -167,5 +168,23 @@ describe("pulse guide brain", () => {
   it("ghosts the next signature before anyone types", () => {
     expect(askGhost("", ctx)).toMatch(/214/);
     expect(askGhost("unit 214", ctx)).toMatch(/214/);
+  });
+
+  it("lays out a 5th-grade worksheet with a mini board", () => {
+    expect(kidLine("Paloma · 214 is waiting on you, 4 days.")).toMatch(/needs your name/);
+    expect(kidLine("Vacancy this window is $12,450.00 across 4 units in turn").split(" ").length).toBeLessThanOrEqual(8);
+    const sheet = buildAskSheet({
+      ctx,
+      intent: "brief",
+      answer: "Paloma Creek · 214 — waiting on you, 4 days.",
+      why: ["214 ranks first because the wait is yours."],
+      unitNumber: "214",
+      propertyId: "paloma",
+    });
+    expect(sheet.headline).toMatch(/214/);
+    expect(sheet.sections.some((s) => s.title === "Needs you")).toBe(true);
+    expect(sheet.sections.every((s) => s.bullets.every((b) => b.split(" ").length <= 8))).toBe(true);
+    expect(sheet.lanes.some((l) => l.title === "Needs you" && l.chips.some((c) => c.label === "214"))).toBe(true);
+    expect(askLanes(ctx, "214").some((l) => l.id === "work")).toBe(true);
   });
 });

@@ -36,11 +36,18 @@ export type PortfolioAskFocus = {
 
 export type PortfolioAskCitation = { id: string; label: string; detail: string };
 
+export type PortfolioAskSection = {
+  title: string;
+  tone: "you" | "fire" | "clock" | "site" | "place" | "fact";
+  bullets: string[];
+};
+
 export type PortfolioAskResult = {
   answer: string;
   why: string[];
   citations: PortfolioAskCitation[];
   followUps: string[];
+  sections?: PortfolioAskSection[];
   partner?: {
     embedder: string;
     memories: Array<{ question: string; answer: string; score: number; unit?: string | null }>;
@@ -299,6 +306,7 @@ export async function answerPortfolioAsk(args: {
     citations: PortfolioAskCitation[],
     followUps: string[],
     skipLearn = false,
+    sections?: PortfolioAskSection[],
   ): PortfolioAskResult => {
     if (!skipLearn) {
       void learnFromAsk({
@@ -313,6 +321,7 @@ export async function answerPortfolioAsk(args: {
       answer,
       why,
       citations,
+      sections,
       followUps: [...partner.followUps, ...followUps].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3),
       partner: {
         embedder: partner.embedder,
@@ -349,31 +358,49 @@ export async function answerPortfolioAsk(args: {
       why?: string[];
       citations?: Array<{ id?: string; label?: string; detail?: string }>;
       followUps?: string[];
+      sections?: Array<{ title?: string; tone?: string; bullets?: string[] }>;
     }>(
-      `You are the board guide for a multifamily turn portfolio. Claude-grade reasoning partner, civil language.
+      `You are the board guide for a multifamily turn portfolio. Write like a clear 5th grader.
 ${renderCortexBlock(cortex)}
 
 Rules:
 - Answer ONLY from the cortex + JSON snapshot. Never invent a unit, crew, dollar, or photo.
 - No vendor slang (do not say HALO, Work App, Falkon, Base44).
-- The local reasoner already chose the focus. Narrate why that rank is true. Do not pick a different unit.
-- 2–4 sentences in "answer". "why" is 2–4 short bullets the PM can argue with (dates, who owns the wait, the clock).
+- The local reasoner already chose the focus. Do not pick a different unit.
+- "answer" is one short headline (6 words or fewer).
+- "why" is 2–4 bullets, 8 words or fewer each. Dates, who waits, the clock.
+- "sections" is 2–4 groups: { title (1–3 words), tone (you|fire|clock|site|place|fact), bullets (8 words or fewer) }.
+- Use kid words: needs your name, stuck, empty days, empty-home rent, people working.
 - Citations must defend vacancy $ or vacant days — one formula, property timezone, dollars stop at ready.
-- The UI already shows photos and maps. Do not describe pictures.
+- The UI already shows photos, maps, and a mini board. Do not describe pictures.
 - If the snapshot lacks it, say so.
 - If a slip forecast is present, you may cite extra vacant DAYS. Never mint a vacancy dollar from it.
 - If a morning fork is present, name the two paths in DAYS (sign vs wait). Do not invent a dollar from the fork.
-- Return JSON: { "answer": string, "why": string[], "citations": [{ "id", "label", "detail" }], "followUps": string[] }`,
+- Return JSON: { "answer": string, "why": string[], "sections": [{ "title", "tone", "bullets" }], "citations": [{ "id", "label", "detail" }], "followUps": string[] }`,
       `${historyNote}${memoryNote}${graphNote}${forecastNote}${forkNote}${focusNote}Snapshot:\n${JSON.stringify(snapshot)}\n\nQuestion: ${args.question}`,
       900,
       COMPLEX_MODEL,
     );
     const answer = String(narrated.answer ?? "").trim();
+    const sectionText = (narrated.sections ?? [])
+      .flatMap((s) => [s.title, ...(s.bullets ?? [])])
+      .filter(Boolean)
+      .join(" ");
     const claimed = [
       ...(answer.match(/\b(?:unit|#)\s*([a-z0-9-]{1,8})\b/gi) ?? []),
       ...(answer.match(/·\s*([a-z0-9-]{1,8})\b/gi) ?? []),
+      ...(sectionText.match(/\b(?:unit|#)\s*([a-z0-9-]{1,8})\b/gi) ?? []),
     ].map((s) => s.replace(/^(?:unit|#|·)\s*/i, "").toLowerCase());
     const invented = claimed.some((u) => !allowedUnits.has(u));
+    const tones = new Set(["you", "fire", "clock", "site", "place", "fact"]);
+    const sections = (narrated.sections ?? [])
+      .filter((s) => s.title && Array.isArray(s.bullets) && s.bullets.length)
+      .slice(0, 4)
+      .map((s) => ({
+        title: String(s.title).slice(0, 32),
+        tone: (tones.has(String(s.tone)) ? s.tone : "fact") as PortfolioAskSection["tone"],
+        bullets: s.bullets!.map(String).slice(0, 4),
+      }));
     if (answer && !invented) {
       return pack(
         answer,
@@ -387,6 +414,8 @@ Rules:
             detail: String(c.detail),
           })),
         (narrated.followUps?.length ? narrated.followUps : cortex.followUps).map(String).slice(0, 3),
+        false,
+        sections.length ? sections : undefined,
       );
     }
   } catch {

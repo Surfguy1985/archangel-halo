@@ -3,7 +3,9 @@ import { ChevronDown, Loader2, Send } from "lucide-react";
 import { clipAsk, type AskCard } from "./askMedia";
 import { askForkFromContext, askGhost, type AskFork } from "./askFork";
 import { AskForkCard } from "./AskForkCard";
-import { inventGuard, reasonAsk, type AskCitation, type AskMemory, type AskStep } from "./askReason";
+import { AskSheetView } from "./AskSheetView";
+import { buildAskSheet, type AskSheet } from "./askSheet";
+import { inventGuard, reasonAsk, type AskCitation, type AskIntent, type AskMemory, type AskStep } from "./askReason";
 import { pulseStarters, type GuideAction, type GuideContext } from "./pulseGuideBrain";
 
 type Turn = {
@@ -22,6 +24,7 @@ type Turn = {
   actStatus?: "propose" | "queued" | null;
   graph?: string | null;
   fork?: AskFork | null;
+  sheet?: AskSheet | null;
 };
 
 export function PulseGuide(props: {
@@ -88,6 +91,17 @@ export function PulseGuide(props: {
     let actStatus: "propose" | "queued" | null = null;
     let graph: string | null = null;
     let fork = askForkFromContext(props.context, local.focus.unitNumber);
+    let serverSections: Array<{ title?: string; tone?: string; bullets?: string[] }> | undefined;
+    const makeSheet = (text: string, reasons: string[] | undefined) =>
+      buildAskSheet({
+        ctx: props.context,
+        intent: local.intent as AskIntent,
+        answer: text,
+        why: reasons,
+        unitNumber: local.focus.unitNumber,
+        propertyId: local.focus.propertyId,
+        serverSections,
+      });
     if (props.askUrl) {
       try {
         const history = [...thread, { role: "user" as const, text: q }].slice(-16);
@@ -110,6 +124,7 @@ export function PulseGuide(props: {
             why?: string[];
             citations?: AskCitation[];
             followUps?: string[];
+            sections?: Array<{ title?: string; tone?: string; bullets?: string[] }>;
             partner?: {
               memories?: Array<{ question: string; answer: string }>;
               forecast?: { headline: string; extraDays?: number; method?: string; series?: number[]; unit?: string | null } | null;
@@ -140,6 +155,7 @@ export function PulseGuide(props: {
               .map((c, i) => ({ id: c.id || `c${i}`, label: c.label, detail: c.detail }));
           }
           if (body.followUps?.length) setFollowUps(body.followUps.slice(0, 3));
+          if (body.sections?.length) serverSections = body.sections;
           if (body.partner?.memories?.[0]) {
             learned = `Similar morning: “${body.partner.memories[0].question}”`;
           }
@@ -194,6 +210,7 @@ export function PulseGuide(props: {
         actStatus,
         graph,
         fork,
+        sheet: makeSheet(answer, why),
       },
     ]);
     setBusy(false);
@@ -424,14 +441,11 @@ function GuideTurnView(props: {
           ) : null}
         </div>
       ) : null}
-      <p className="cb-guide-msg guide">{turn.text}</p>
-      {turn.why && turn.why.length > 0 ? (
-        <ul className="cb-ask-why">
-          {turn.why.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
+      {turn.sheet ? (
+        <AskSheetView sheet={turn.sheet} onAction={props.onAction} />
+      ) : (
+        <p className="cb-guide-msg guide">{turn.text}</p>
+      )}
       {turn.citations && turn.citations.length > 0 ? (
         <div className="cb-ask-cites">
           {turn.citations.map((c) => (
