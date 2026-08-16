@@ -82,3 +82,48 @@
   box-shadow: 0 6px 16px rgba(180, 255, 68, 0.28);
   flex-shrink: 0;
 }
+
+/* ---- lens motion ---- */
+@keyframes cmt-ping {
+  0% { transform: scale(0.55); opacity: 0.7; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.cmt-ping { animation: cmt-ping 2.6s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+@keyframes cmt-dash { to { stroke-dashoffset: -40; } }
+.cmt-trail { animation: cmt-dash 2.2s linear infinite; }
+@keyframes cmt-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.cmt-breathe { animation: cmt-breathe 2.8s ease-in-out infinite; }
+.cmt-dial {
+  display: grid;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(7, 16, 30, 0.78);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--cmd-line);
+  box-shadow: 0 18px 44px rgba(6, 12, 28, 0.55);
+}
+.cmt-dial button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+  cursor: pointer;
+}
+.cmt-dial button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.cmt-dial button[data-on="true"] {
+  background: var(--cmd-lime);
+  color: #07101e;
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(180, 255, 68, 0.35);
+}
+.cmt-scroll { overflow-x: auto; scrollbar-width: none; }
+.cmt-scroll::-webkit-scrollbar { display: none; }

@@ -2,7 +2,13 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/client-map-toggle/IconSwitch.tsx": () => import("../components/mockups/client-map-toggle/IconSwitch.tsx"),
+  "./components/mockups/client-map-toggle/LensLive.tsx": () => import("../components/mockups/client-map-toggle/LensLive.tsx"),
+  "./components/mockups/client-map-toggle/LensMoney.tsx": () => import("../components/mockups/client-map-toggle/LensMoney.tsx"),
+  "./components/mockups/client-map-toggle/LensPlate.tsx": () => import("../components/mockups/client-map-toggle/LensPlate.tsx"),
+  "./components/mockups/client-map-toggle/LensPortfolio.tsx": () => import("../components/mockups/client-map-toggle/LensPortfolio.tsx"),
+  "./components/mockups/client-map-toggle/LensReplay.tsx": () => import("../components/mockups/client-map-toggle/LensReplay.tsx"),
   "./components/mockups/client-map-toggle/MapFirstSheet.tsx": () => import("../components/mockups/client-map-toggle/MapFirstSheet.tsx"),
+  "./components/mockups/client-map-toggle/MapLenses.tsx": () => import("../components/mockups/client-map-toggle/MapLenses.tsx"),
   "./components/mockups/client-map-toggle/PeekStrip.tsx": () => import("../components/mockups/client-map-toggle/PeekStrip.tsx"),
   "./components/mockups/client-map-toggle/TabLens.tsx": () => import("../components/mockups/client-map-toggle/TabLens.tsx")
 };
