@@ -4,7 +4,7 @@
 - [HALO Field Jarvis](halo-field-jarvis.md) — Earpiece (AirPods + Whisper, not in-browser HF), GPS presence briefing, Morning Watch from autopilot; Command headphones icon; iOS mic dies when locked.
 - [HALO Property Pulse](halo-property-pulse.md) — `/pulse` is the optional Property Pulse tablet dashboard (live properties/jobs/crew GPS + Base44 sync + Twilio status); HUD grid opens it; autopilot SMS pings crew/admin once per local day.
 - [HALO Jarvis Grok OS](halo-jarvis-grok.md) — `/` is Grok-style HALO Command; CRM at `/ops` (mobile) / `/properties` (desktop); compound `actionPlans[]`; executors in jarvisDispatch.ts; Claude snapshot must include roster names/units.
-- [HALO Command Architecture](halo-command-architecture.md) — "/" renders HaloCommand (conversational OS); Today at "/today"; command components + falkonNetwork needed in both apps; useListVendors/useParseWalkVoice don't exist in API client.
+- [HALO Command Architecture](halo-command-architecture.md) — chat page is shared by mobile "/" and the desktop floating module (see halo-desktop-map-home.md); command components + falkonNetwork needed in both apps; useListVendors/useParseWalkVoice don't exist in API client.
 - [Drizzle pg error codes](halo-drizzle-error-codes.md) — drizzle wraps pg errors; 23505 checks must read err.code OR err.cause.code (bare err.code silently misses → 500s).
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
 - [HALO Twilio credentials](halo-twilio-credentials.md) — resolve AC/SK SIDs by shape not field name; recover missing Account SID from the API key; never validate a From number with toE164.
@@ -128,3 +128,6 @@
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).
 - [HALO crew de-duplication](halo-crew-dedupe.md) — crew_aliases + /crews/merge tooling; Base44 sync matches normalized name/alias and must never null contact fields or rename rows.
 - [HALO reminders system](halo-reminders.md) — reminders table + REST CRUD at /reminders; GET /today/briefing reads remindersTable directly (static imports, not dynamic); crew_checkins has no propertyId — filter by job IDs for client briefing.
+- [HALO desktop map-first home](halo-desktop-map-home.md) — desktop "/" is the Pulse map; chat is a compact floating module; full-screen chat keeps its own route.
+- [HALO scoped light theme](halo-light-theme-scoping.md) — Clients hub is a light island via a token-override wrapper class; Radix portals escape it and must be themed at the content boundary.
+- [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.

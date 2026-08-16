@@ -21,6 +21,7 @@ import {
   catalogItemsTable,
   calendarEventsTable,
   workRequestsTable,
+  schedulesTable,
 } from "@workspace/db";
 import { eq, and, inArray, gte } from "drizzle-orm";
 import { logger } from "./logger";
@@ -62,6 +63,31 @@ export interface BusinessSnapshot {
     catalog: string[];
   };
   calendar?: Array<{ title: string; date: string }>;
+  // (a) "Who's on site today?" — crews checked in today, with where + when.
+  onSiteToday?: Array<{
+    crewName: string;
+    propertyName: string;
+    unitNo: string | null;
+    checkedInAt: string;
+  }>;
+  // (b) "What units are complete?" — jobs meeting the board's completion
+  // semantics (status complete/paid OR boardStatus completed/billing).
+  completedUnits?: Array<{
+    jobNo: string;
+    unitNo: string | null;
+    propertyName: string;
+    completedAt: string | null;
+  }>;
+  // (c) "What's the work schedule?" — today + this week's scheduled jobs, from
+  // the merged crew_schedules + calendar_events feed.
+  schedule?: Array<{
+    date: string;
+    unitNo: string | null;
+    propertyName: string;
+    crewName: string | null;
+    startTime: string | null;
+    title: string | null;
+  }>;
   pendingRequests?: number;
   jobs: {
     total: number;
@@ -152,7 +178,7 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
   const todayMidnight = new Date(`${todayStr}T00:00:00`);
   const scope = snapshotPropertyScope(identity);
 
-  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }, contactsRaw, vendorsRaw, inventoryRaw, catalogRaw, calendarRaw, requestsRaw] =
+  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }, contactsRaw, vendorsRaw, inventoryRaw, catalogRaw, calendarRaw, requestsRaw, schedulesRaw] =
     await Promise.all([
       db.select().from(propertiesTable),
       db.select().from(jobsTable),
@@ -160,7 +186,7 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
       db.select().from(crewsTable),
       // Count today's check-in events (kind='checkin') as a proxy for active crews
       db
-        .select({ crewId: crewCheckinsTable.crewId, jobId: crewCheckinsTable.jobId })
+        .select({ crewId: crewCheckinsTable.crewId, jobId: crewCheckinsTable.jobId, createdAt: crewCheckinsTable.createdAt })
         .from(crewCheckinsTable)
         .where(
           and(
@@ -176,8 +202,9 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
       db.select({ id: vendorsTable.id, name: vendorsTable.name, trade: vendorsTable.trade }).from(vendorsTable),
       db.select({ name: inventoryItemsTable.name, qty: inventoryItemsTable.qty, preferredVendor: inventoryItemsTable.preferredVendor }).from(inventoryItemsTable),
       db.select({ service: catalogItemsTable.service }).from(catalogItemsTable),
-      db.select({ title: calendarEventsTable.title, eventDate: calendarEventsTable.eventDate }).from(calendarEventsTable),
+      db.select({ title: calendarEventsTable.title, eventDate: calendarEventsTable.eventDate, jobId: calendarEventsTable.jobId, crewId: calendarEventsTable.crewId, startTime: calendarEventsTable.startTime }).from(calendarEventsTable),
       db.select({ id: workRequestsTable.id, status: workRequestsTable.status }).from(workRequestsTable),
+      db.select({ jobId: schedulesTable.jobId, scheduledOn: schedulesTable.scheduledOn, windowStart: schedulesTable.windowStart, crewLeaderId: schedulesTable.crewLeaderId }).from(schedulesTable),
     ]);
 
   const props = filterPropertiesByScope(propsRaw, scope);
@@ -222,6 +249,84 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
   const upcomingCal = calendarRaw
     .filter((e) => e.eventDate >= todayStr && e.eventDate <= horizonStr)
     .slice(0, 12);
+
+  // ── Lookups shared by the operational answers below ──────────────────────
+  const crewNameById = new Map(crewsRaw.map((c) => [c.id, c.name]));
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
+
+  // (a) Who's on site today — one row per (crew, job) check-in, earliest wins.
+  const onSiteSeen = new Set<string>();
+  const onSiteToday: NonNullable<BusinessSnapshot["onSiteToday"]> = [];
+  for (const c of [...todayCheckins].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
+    const key = `${c.crewId}|${c.jobId ?? ""}`;
+    if (onSiteSeen.has(key)) continue;
+    onSiteSeen.add(key);
+    const job = c.jobId ? jobById.get(c.jobId) : undefined;
+    onSiteToday.push({
+      crewName: crewNameById.get(c.crewId) ?? "Unknown crew",
+      propertyName: job ? (propName.get(job.propertyId) ?? "") : "",
+      unitNo: job?.unitNo ?? null,
+      checkedInAt: c.createdAt.toISOString(),
+    });
+  }
+
+  // (b) Completed units — reuse the board's completion semantics exactly:
+  // status complete/paid OR boardStatus completed/billing. Do not invent.
+  const completedUnits = jobs
+    .filter(
+      (j) =>
+        j.status === "complete" ||
+        j.status === "paid" ||
+        j.boardStatus === "completed" ||
+        j.boardStatus === "billing",
+    )
+    .slice(0, 40)
+    .map((j) => ({
+      jobNo: j.jobNo,
+      unitNo: j.unitNo ?? null,
+      propertyName: propName.get(j.propertyId) ?? "",
+      completedAt: j.completedAt ? j.completedAt.toISOString() : null,
+    }));
+
+  // (c) Work schedule — merge crew_schedules + crew-assigned calendar_events for
+  // today through the end of this week, deduped by jobId (schedule wins). This
+  // mirrors the per-crew merged day-stops feed, aggregated org-wide.
+  const dow = today.getDay(); // 0=Sun … 6=Sat
+  const weekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - dow));
+  const weekEndStr = `${weekEnd.getFullYear()}-${pad(weekEnd.getMonth() + 1)}-${pad(weekEnd.getDate())}`;
+  const scheduleByJobDate = new Map<string, NonNullable<BusinessSnapshot["schedule"]>[number]>();
+  for (const s of schedulesRaw) {
+    if (s.scheduledOn < todayStr || s.scheduledOn > weekEndStr) continue;
+    const job = jobById.get(s.jobId);
+    if (!job) continue; // scope: only jobs in the current snapshot scope
+    scheduleByJobDate.set(`${s.jobId}|${s.scheduledOn}`, {
+      date: s.scheduledOn,
+      unitNo: job.unitNo ?? null,
+      propertyName: propName.get(job.propertyId) ?? "",
+      crewName: s.crewLeaderId ? (crewNameById.get(s.crewLeaderId) ?? null) : (job.crewLeaderId ? (crewNameById.get(job.crewLeaderId) ?? null) : null),
+      startTime: s.windowStart ?? null,
+      title: null,
+    });
+  }
+  for (const e of calendarRaw) {
+    if (!e.jobId) continue;
+    if (e.eventDate < todayStr || e.eventDate > weekEndStr) continue;
+    const key = `${e.jobId}|${e.eventDate}`;
+    if (scheduleByJobDate.has(key)) continue; // schedule row already covers it
+    const job = jobById.get(e.jobId);
+    if (!job) continue;
+    scheduleByJobDate.set(key, {
+      date: e.eventDate,
+      unitNo: job.unitNo ?? null,
+      propertyName: propName.get(job.propertyId) ?? "",
+      crewName: e.crewId ? (crewNameById.get(e.crewId) ?? null) : (job.crewLeaderId ? (crewNameById.get(job.crewLeaderId) ?? null) : null),
+      startTime: e.startTime ?? null,
+      title: e.title ?? null,
+    });
+  }
+  const schedule = Array.from(scheduleByJobDate.values())
+    .sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)))
+    .slice(0, 40);
 
   // Falkon mode
   let falkonMode = "SHADOW";
@@ -279,6 +384,9 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
       catalog: catalogRaw.map((c) => c.service).filter(Boolean).slice(0, 40),
     },
     calendar: upcomingCal.map((e) => ({ title: e.title, date: e.eventDate })),
+    onSiteToday,
+    completedUnits,
+    schedule,
     pendingRequests: requestsRaw.filter((r) => r.status === "pending").length,
     jobs: {
       total: jobs.length,
@@ -384,6 +492,23 @@ export function buildSystemPrompt(
     .map((j) => `${j.jobNo ?? "Job"} · Unit ${j.unitNo ?? "—"} · ${j.propertyName ?? ""} · ${j.status}${j.scheduledOn ? ` · ${j.scheduledOn}` : ""}`)
     .join("\n");
 
+  const fmtTime = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    } catch {
+      return iso;
+    }
+  };
+  const onSiteLines = (snapshot.onSiteToday ?? [])
+    .map((c) => `${c.crewName}${c.propertyName ? ` — ${c.propertyName}` : ""}${c.unitNo ? ` · Unit ${c.unitNo}` : ""} · checked in ${fmtTime(c.checkedInAt)}`)
+    .join("\n");
+  const completedLines = (snapshot.completedUnits ?? [])
+    .map((u) => `${u.jobNo} · Unit ${u.unitNo ?? "—"} · ${u.propertyName}${u.completedAt ? ` · completed ${u.completedAt.slice(0, 10)}` : ""}`)
+    .join("\n");
+  const scheduleLines = (snapshot.schedule ?? [])
+    .map((s) => `${s.date}${s.startTime ? ` ${s.startTime}` : ""} · Unit ${s.unitNo ?? "—"} · ${s.propertyName}${s.crewName ? ` · ${s.crewName}` : " · (uncrewed)"}${s.title ? ` · ${s.title}` : ""}`)
+    .join("\n");
+
   return `You are HALO — Jarvis for Archangel Operations. You are the mission-control AI for a property-maintenance and make-ready contractor. Claude runs this brain. Every number below is live HALO data. You never invent people, units, vendors, or phone numbers that are not in the snapshot.
 
 Role: ${role} — ${roleDesc}
@@ -417,6 +542,15 @@ ${roster.catalog.join(", ") || "None loaded."}
 
 ## Calendar (next 14 days)
 ${calendar.map((e) => `${e.date} — ${e.title}`).join("\n") || "Nothing scheduled."}
+
+## On site today (crews checked in today — answer "who's on site today?" ONLY from this list)
+${onSiteLines || "No crews have checked in today."}
+
+## Completed units (jobs the board considers complete — answer "what units are complete?" ONLY from this list; do not infer completion from anything else)
+${completedLines || "No units are marked complete."}
+
+## Work schedule (today through end of this week — merged crew schedules + calendar; answer "what's the work schedule?" from this)
+${scheduleLines || "Nothing scheduled this week."}
 
 ## Needs Attention
 ${attentionItems || "Nothing urgent right now."}
@@ -453,6 +587,7 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "open map / show map / live map / where are crews" → return type "lens" with lensKind "map".
 - For "job board / kanban / show jobs / open board" → return type "lens" with lensKind "timeline".
 - For "money / show money / financials / invoices / revenue / receivables" → return type "lens" with lensKind "money".
+- For BEFORE/AFTER PHOTOS of a unit or job — "before and after for unit 204" / "show me photos for unit 3B at Oak Grove" / "walk photos for [unit]" / "evidence for unit 12" → return type "lens" with lensKind "photo_evidence". Do NOT try to embed image URLs in an answer; the photo lens renders the before/after gallery inline. If you know the job UUID from the snapshot, set entityId to it; otherwise leave entityId null and the lens resolves the unit from the request text.
 - For "generate a live link / create a PM link / send a link to [property] / text a link to the property manager / I can send to the PM today" → return type "voice_action", capability "pm_link.generate", risk "auto", params.propertyName = the property name mentioned (exactly as stated), params.expiresInHours = 24. Text should be warm and action-oriented: "Creating a secure 24-hour live link for [property] — I'll format it for texting."
 - For "generate a check-in link / crew check-in link / give [name] a check-in link / checkin link for [name]" → return type "voice_action", capability "crew_checkin_link.generate", risk "auto", params.crewName = the crew member's name as stated. Text: "Generating a GPS check-in link for [name] they can bookmark on their phone."
 - For "weather risk / scan weather / rain delay / which sites have weather risk" → return type "voice_action", capability "weather.risk_scan", risk "auto". Text: "Scanning HALO properties for weather risk — this does not change the Base44 schedule."
@@ -467,6 +602,7 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "order [material] / source supplies / buy drywall" → capability "supply.order", risk "review", params.material, params.unitNo, params.propertyName, params.neededBy. HALO will match catalog + inventory + nearby vendors and draft a PM order request.
 - For "schedule [name] / install tomorrow / dispatch" → capability "crew.schedule", risk "review", params.crewName, params.unitNo, params.scheduledOn, params.propertyName.
 - For "send to the property manager / notify the PM / send the order to the PM" → capability "pm.notify", risk "review", params.propertyName, params.unitNo, params.message.
+- For CLIENT PO INTAKE — the office relaying that the PROPERTY sent over a purchase order, e.g. "here's PO 12345 for unit 204 at Maple Ridge, send to vendor" / "property sent PO 88 for unit 3B at Oak Grove" / "attach PO 9001 to unit 12 at Maplewood and send it out" → capability "client_po.receive", risk "auto", params.poNumber = the PO number exactly as stated, params.unitNo = the unit label, params.propertyName = the property name, params.poSource = "office chat", params.body = the full request text. HALO resolves property → unit → the unit's current live job, attaches the PO inside a guarded transaction, and (for "send to vendor") texts + push-notifies the assigned crew. If it can't land on exactly one job it will ask you to clarify and change nothing. Text: "Attaching PO [number] to Unit [unit] at [property] and sending it to the crew."
 - COMPOUND COMMANDS: when the user issues multiple tasks in one sentence (AND / then / also — e.g. "make a note to order drywall for unit 624 and text Kyann to schedule install for tomorrow"), you MUST:
   1. type "voice_action"
   2. text = a short mission brief listing every step you will run

@@ -7,8 +7,8 @@
  */
 import type { PortfolioAttentionGroup } from './portfolioAttentionGroup';
 import type { PortfolioAttentionItem } from './portfolioAttentionItem';
-import type { PortfolioUnitPhotoPair } from './portfolioUnitPhotoPair';
 import type { PortfolioCrewToday } from './portfolioCrewToday';
+import type { PortfolioUnitPhotoPair } from './portfolioUnitPhotoPair';
 
 export interface PortfolioAttentionDocument {
   portfolioId: string;

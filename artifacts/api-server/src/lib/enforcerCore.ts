@@ -162,6 +162,7 @@ const ACTION_TO_CAPABILITY: Record<string, HaloCapability> = {
   "reminder.set": "schedules.write",
   "supply.order": "jobs.write",
   "supply.source": "chat.office",
+  "client_po.receive": "jobs.write",
   "pm.notify": "pm_links.create",
   "job.schedule": "schedules.write",
   "status.query": "chat.office",

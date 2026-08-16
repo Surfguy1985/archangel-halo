@@ -172,7 +172,7 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved, shadowM
           // Navigate to entity for manual action
           if (card.entityType === "job" && card.entityId) navigate(`/jobs/${card.entityId}`);
           else if (card.entityType === "invoice" && card.entityId) navigate(`/invoices/${card.entityId}`);
-          else navigate("/today");
+          else navigate("/chat");
         }
       }
       invalidate();
@@ -219,7 +219,7 @@ export function DecisionPacket({ card, autopilot, onAskHalo, onResolved, shadowM
     if (card.entityType === "job" && card.entityId) navigate(`/jobs/${card.entityId}`);
     else if (card.entityType === "invoice" && card.entityId) navigate(`/invoices/${card.entityId}`);
     else if (card.queue === "bids") navigate("/pipeline");
-    else navigate("/today");
+    else navigate("/chat");
   };
 
   return (

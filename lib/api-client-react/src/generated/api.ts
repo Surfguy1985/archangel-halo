@@ -21,6 +21,8 @@ import type {
 
 import type {
   AccountLedger,
+  AcknowledgePoInput,
+  AcknowledgePoReceived200,
   Activity,
   ActivityInput,
   AddClientPortfolioPropertyInput,
@@ -8219,6 +8221,78 @@ export const useSendCheckFollowup = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSendCheckFollowupMutationOptions(options));
+    }
+
+export const getAcknowledgePoReceivedUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/job-board/${jobId}/acknowledge-po`
+}
+
+/**
+ * @summary Acknowledge/dismiss the flashing purple "PO received by property" banner for a job (persists server-side)
+ */
+export const acknowledgePoReceived = async (jobId: string,
+    acknowledgePoInput: AcknowledgePoInput, options?: RequestInit): Promise<AcknowledgePoReceived200> => {
+
+  return customFetch<AcknowledgePoReceived200>(getAcknowledgePoReceivedUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(acknowledgePoInput)
+  }
+);}
+
+
+
+
+
+export const getAcknowledgePoReceivedMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePoReceived>>, TError,{jobId: string;data: BodyType<AcknowledgePoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgePoReceived>>, TError,{jobId: string;data: BodyType<AcknowledgePoInput>}, TContext> => {
+
+const mutationKey = ['acknowledgePoReceived'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgePoReceived>>, {jobId: string;data: BodyType<AcknowledgePoInput>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  acknowledgePoReceived(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgePoReceivedMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgePoReceived>>>
+    export type AcknowledgePoReceivedMutationBody = BodyType<AcknowledgePoInput>
+    export type AcknowledgePoReceivedMutationError = ErrorType<Error>
+
+    /**
+ * @summary Acknowledge/dismiss the flashing purple "PO received by property" banner for a job (persists server-side)
+ */
+export const useAcknowledgePoReceived = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePoReceived>>, TError,{jobId: string;data: BodyType<AcknowledgePoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgePoReceived>>,
+        TError,
+        {jobId: string;data: BodyType<AcknowledgePoInput>},
+        TContext
+      > => {
+      return useMutation(getAcknowledgePoReceivedMutationOptions(options));
     }
 
 export const getSetJobBoardStatusUrl = (id: string,) => {

@@ -139,7 +139,7 @@ export function AddPropertyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-none shadow-xl">
+      <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">Add property</DialogTitle>
           <DialogDescription>
@@ -329,7 +329,7 @@ export function EditPropertyDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="border-none shadow-xl">
+        <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
           <DialogHeader>
             <DialogTitle className="font-display">Edit property</DialogTitle>
             <DialogDescription>
@@ -422,7 +422,7 @@ export function EditPropertyDialog({
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="theme-light bg-background text-foreground border border-[var(--hairline)]">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">
               Delete {property.name}?
@@ -505,7 +505,7 @@ export function AddPriceItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-none shadow-xl">
+      <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">Add price item</DialogTitle>
           <DialogDescription>
@@ -639,7 +639,7 @@ export function AddContactDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-none shadow-xl">
+      <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">Add contact</DialogTitle>
           <DialogDescription>
@@ -814,7 +814,7 @@ export function AddJobDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-none shadow-xl">
+      <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">New job</DialogTitle>
           <DialogDescription>
@@ -1098,7 +1098,7 @@ export function EditPriceItemDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="border-none shadow-xl">
+        <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
           <DialogHeader>
             <DialogTitle className="font-display">Edit price item</DialogTitle>
             <DialogDescription>Update the agreed rate, or remove it.</DialogDescription>
@@ -1142,7 +1142,7 @@ export function EditPriceItemDialog({
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="theme-light bg-background text-foreground border border-[var(--hairline)]">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">Delete {item.service}?</AlertDialogTitle>
             <AlertDialogDescription>This removes the agreed rate from this property. This can't be undone.</AlertDialogDescription>
@@ -1247,7 +1247,7 @@ export function EditContactDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="border-none shadow-xl">
+        <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
           <DialogHeader>
             <DialogTitle className="font-display">Edit contact</DialogTitle>
             <DialogDescription>Update their details, or remove them.</DialogDescription>
@@ -1289,7 +1289,7 @@ export function EditContactDialog({
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="theme-light bg-background text-foreground border border-[var(--hairline)]">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">Remove {contact.name}?</AlertDialogTitle>
             <AlertDialogDescription>This removes the contact from this property. This can't be undone.</AlertDialogDescription>
@@ -1427,7 +1427,7 @@ export function EditJobDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="border-none shadow-xl">
+        <DialogContent className="theme-light border border-[var(--hairline)] shadow-xl bg-background text-foreground">
           <DialogHeader>
             <DialogTitle className="font-display">Edit job</DialogTitle>
             <DialogDescription>Update the work order details, or delete it.</DialogDescription>
@@ -1504,7 +1504,7 @@ export function EditJobDialog({
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="theme-light bg-background text-foreground border border-[var(--hairline)]">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">Delete this job?</AlertDialogTitle>
             <AlertDialogDescription>

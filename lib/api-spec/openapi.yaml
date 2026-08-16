@@ -2639,6 +2639,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /job-board/{jobId}/acknowledge-po:
+    post:
+      operationId: acknowledgePoReceived
+      tags: [jobs]
+      summary: Acknowledge/dismiss the flashing purple "PO received by property" banner for a job (persists server-side)
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: >-
+          The specific receipt the client saw, so a stale acknowledgement from
+          another tab can't dismiss a newer PO. At least one of poReceivedAt or
+          poNumber must be supplied and must match the job's current receipt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgePoInput"
+      responses:
+        "200":
+          description: Banner acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  acknowledgedAt: { type: ["string", "null"] }
+        "409":
+          description: The receipt the client saw no longer matches the job's current PO receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/board-status:
     post:
       operationId: setJobBoardStatus
@@ -14788,6 +14832,9 @@ components:
         jobNo: { type: string }
         woNo: { type: ["string", "null"] }
         poNumber: { type: ["string", "null"], description: "Client PO — required before the job can move to Billing" }
+        poReceivedAt: { type: ["string", "null"], description: "When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged" }
+        poReceivedSource: { type: ["string", "null"], description: "Provenance of the received PO, e.g. \"office chat\"" }
+        poAcknowledgedAt: { type: ["string", "null"], description: "When the office acknowledged/dismissed the PO-received banner" }
         propertyId: { type: string }
         propertyName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
@@ -15210,6 +15257,19 @@ components:
       required: [boardStatus]
       properties:
         boardStatus: { type: string, description: "manual_check | completed" }
+    AcknowledgePoInput:
+      type: object
+      description: >-
+        The specific PO receipt the client saw. At least one field must be
+        supplied and must match the job's current receipt, or the ack is
+        rejected as stale.
+      properties:
+        poReceivedAt:
+          type: ["string", "null"]
+          description: The poReceivedAt timestamp the client observed (ISO 8601).
+        poNumber:
+          type: ["string", "null"]
+          description: The PO number the client observed.
     QualityCheckResult:
       type: object
       required: [verdict, summary, beforeCount, afterCount]

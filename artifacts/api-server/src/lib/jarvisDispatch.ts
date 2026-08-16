@@ -3,7 +3,7 @@
  * Called from dispatchAutoAction after Falkon + identity gates.
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import {
   db,
   activitiesTable,
@@ -38,6 +38,19 @@ import {
 } from "./jarvisOpsCore";
 import { mintPmToken } from "./pmLiveCore";
 import { pmLiveLinksTable } from "@workspace/db/schema";
+import { pushToCrewId } from "./pushNotification";
+import {
+  resolveClientPo,
+  CLOSED_STATUSES,
+  type PoJobCandidate,
+  type PoPropertyCandidate,
+} from "./clientPoIntakeCore";
+import type { HaloIdentity } from "./enforcerCore";
+import {
+  snapshotPropertyScope,
+  filterPropertiesByScope,
+  filterBySnapshotScope,
+} from "./commandSnapshotCore";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -349,4 +362,180 @@ export async function executePmNotify(params: Record<string, unknown>, descripti
     contactName: pm?.name ?? null,
     jobNo: job?.jobNo ?? null,
   });
+}
+
+/**
+ * Client PO intake ("here's PO 12345 for unit 204 at Maple Ridge, send to
+ * vendor"). High-stakes: it must land on EXACTLY the right job or change
+ * NOTHING. We resolve property → unit → current live job with the pure
+ * resolver, then write inside a transaction with a guarded conditional UPDATE.
+ * "Send to vendor" = notify the assigned crew (SMS + Expo push).
+ */
+export async function executeClientPoReceive(
+  params: Record<string, unknown>,
+  description: string,
+  identity?: HaloIdentity,
+): Promise<string> {
+  const text = `${str(params.body)} ${str(params.poNumber)} ${str(params.unitNo)} ${str(params.propertyName)} ${description}`.trim();
+
+  // Scope the candidate set to the caller's identity the same way office reads
+  // do — a property-scoped operator can only touch their own properties/jobs.
+  const scope = snapshotPropertyScope(identity);
+
+  const [propRows, jobRows] = await Promise.all([
+    db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable),
+    db.select({
+      id: jobsTable.id,
+      jobNo: jobsTable.jobNo,
+      unitNo: jobsTable.unitNo,
+      propertyId: jobsTable.propertyId,
+      status: jobsTable.status,
+      crewLeaderId: jobsTable.crewLeaderId,
+    }).from(jobsTable),
+  ]);
+
+  const properties: PoPropertyCandidate[] = filterPropertiesByScope(
+    propRows.map((p) => ({ id: p.id, name: p.name })),
+    scope,
+  );
+  const jobs: PoJobCandidate[] = filterBySnapshotScope(
+    jobRows.map((j) => ({
+      id: j.id,
+      jobNo: j.jobNo,
+      unitNo: j.unitNo,
+      propertyId: j.propertyId,
+      status: j.status,
+      crewLeaderId: j.crewLeaderId,
+    })),
+    scope,
+  );
+
+  const resolved = resolveClientPo({
+    text,
+    poNumber: str(params.poNumber) || null,
+    unitLabel: str(params.unitNo) || null,
+    properties,
+    jobs,
+  });
+
+  if (!resolved.ok) {
+    const lines = [resolved.message];
+    if (resolved.candidates && resolved.candidates.length) {
+      lines.push("", ...resolved.candidates.map((c) => `• ${c}`));
+    }
+    lines.push("", "Nothing was changed.");
+    return lines.join("\n");
+  }
+
+  const { property, unitLabel, normalizedUnitKey, job } = resolved;
+  const poNumberFromText = str(params.poNumber) || (text.match(/\b(?:p\.?\s*o\.?|purchase\s+order)\s*#?\s*[:-]?\s*([A-Za-z0-9][A-Za-z0-9-]{1,23})\b/i)?.[1] ?? "");
+  const poNumber = poNumberFromText.toUpperCase();
+  const source = str(params.poSource) || "office chat";
+
+  // Idempotency: if this exact PO number is already on this exact job, treat a
+  // re-submission as a no-op. Do NOT clear the acknowledgement, re-stamp the
+  // receipt, re-notify, or re-send the vendor SMS/push — that would re-arm the
+  // purple alert (banner + chime) after the office already acknowledged it.
+  // Only a genuinely NEW PO number re-arms the alert.
+  const [existing] = await db
+    .select({ poNumber: jobsTable.poNumber, poReceivedAt: jobsTable.poReceivedAt })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, job.id));
+  if (existing && (existing.poNumber ?? "").toUpperCase() === poNumber) {
+    return `PO ${poNumber} is already on ${job.jobNo} — ${property.name} · Unit ${unitLabel}. Nothing changed.`;
+  }
+
+  // Guarded conditional UPDATE inside a transaction. The WHERE clause re-asserts
+  // every fact the resolution depended on so a concurrent close/reassign cannot
+  // be stamped by mistake:
+  //   • same job id
+  //   • still belongs to the resolved property
+  //   • still the resolved unit (exact stored label the resolver matched on)
+  //   • still LIVE (not complete/paid/cancelled)
+  // A genuinely new PO number is allowed to replace an older one — that is the
+  // intended re-arm of the alert (clearing poAcknowledgedAt). An IDENTICAL PO
+  // never reaches here: it short-circuited above as a no-op. If 0 rows match we
+  // abort and report back — never silently succeed.
+  void normalizedUnitKey; // resolver-normalized unit; guard re-asserts the exact stored label below
+  const stamped = await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(jobsTable)
+      .set({
+        poNumber,
+        poReceivedAt: new Date(),
+        poReceivedSource: source,
+        poAcknowledgedAt: null,
+      })
+      .where(
+        and(
+          eq(jobsTable.id, job.id),
+          eq(jobsTable.propertyId, property.id),
+          // Re-assert the exact unit label the resolver matched this job on.
+          job.unitNo == null
+            ? sql`${jobsTable.unitNo} IS NULL`
+            : eq(jobsTable.unitNo, job.unitNo),
+          notInArray(jobsTable.status, [...CLOSED_STATUSES]),
+        ),
+      )
+      .returning({ id: jobsTable.id, crewLeaderId: jobsTable.crewLeaderId });
+    const row = updated[0];
+    if (!row) return null;
+
+    await tx.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: job.id,
+      kind: "po_received",
+      body: `Property sent PO ${poNumber} for ${property.name} · Unit ${unitLabel} (${job.jobNo}) — via ${source}.`,
+    });
+    await tx.insert(notificationsTable).values({
+      kind: "po_received",
+      priority: "high",
+      entityType: "job",
+      entityId: job.id,
+      title: `PO received · ${property.name} Unit ${unitLabel}`,
+      body: `PO ${poNumber} on ${job.jobNo}. Complete final walkthrough and send invoices ASAP.`,
+    });
+    return row;
+  });
+
+  if (!stamped) {
+    return `Couldn't attach PO ${poNumber} — ${job.jobNo} at ${property.name} Unit ${unitLabel} isn't in a state to receive it (it may have just been closed or reassigned). Nothing was changed.`;
+  }
+
+  // "Send to vendor" = notify the assigned crew (SMS + Expo push). No crew? Say so.
+  const crewId = stamped.crewLeaderId;
+  const notifyLines: string[] = [];
+  if (!crewId) {
+    notifyLines.push("No crew is assigned to this job yet, so I couldn't send it to a vendor — assign a crew first.");
+  } else {
+    const [crew] = await db
+      .select({ id: crewsTable.id, name: crewsTable.name, phone: crewsTable.phone })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, crewId));
+    const smsBody = `PO ${poNumber} received for ${property.name} Unit ${unitLabel} (${job.jobNo}). Complete final walkthrough and get invoices in ASAP.`;
+    if (crew?.phone && (await smsEnabled())) {
+      const result = await sendSms(crew.phone, smsBody, { crewId: crew.id });
+      notifyLines.push(
+        result.ok
+          ? `Texted ${crew.name} to send it to the vendor.`
+          : `Couldn't text ${crew.name} (${result.error ?? "SMS failed"}).`,
+      );
+    } else if (crew) {
+      notifyLines.push(
+        crew.phone
+          ? `SMS isn't configured — reach ${crew.name} manually.`
+          : `${crew.name} has no phone on file — reach them manually.`,
+      );
+    }
+    await pushToCrewId(crewId, {
+      title: `PO ${poNumber} received`,
+      body: smsBody,
+      data: { type: "po_received", jobId: job.id },
+    });
+  }
+
+  return [
+    `PO ${poNumber} is attached to ${job.jobNo} — ${property.name} · Unit ${unitLabel}.`,
+    ...notifyLines,
+  ].join("\n");
 }

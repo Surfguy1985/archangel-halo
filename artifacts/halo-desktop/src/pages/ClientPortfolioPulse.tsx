@@ -59,6 +59,7 @@ export default function ClientPortfolioPulse() {
 
   return (
     <PortfolioPulse
+      theme="light"
       pulse={pulse.data}
       attention={attention.data}
       streamUrl={id ? getStreamPortfolioPulseUrl(id) : null}

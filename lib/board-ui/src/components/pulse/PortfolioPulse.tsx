@@ -1,32 +1,32 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./pulseHud.css";
 import {
   AlertTriangle,
-  CalendarDays,
   Camera,
-  CircleDollarSign,
   Columns3,
-  History,
-  Home,
+  Expand,
+  Shrink,
   LayoutGrid,
   MessageCircle,
   MoreVertical,
   Search,
-  Send,
-  Settings,
-  ShieldCheck,
   Timer,
-  User,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type {
@@ -43,12 +43,16 @@ import { VirtualList } from "../virtual/VirtualList";
 import { TurnCloseoutStrip } from "../turn-ring/TurnCloseout";
 import { UnitPhotoPairs } from "./UnitPhotoPairs";
 import { PulseGuide } from "./PulseGuide";
-import type { GuideAction, GuideContext } from "./pulseGuideBrain";
+import { interpretPulseQuestion, type GuideAction, type GuideContext } from "./pulseGuideBrain";
 
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
 const FALLBACK: [number, number] = [32.7767, -96.797];
-const OPEN_KEY = "halo_client_pulse_hud_open_v5";
+const OPEN_KEY = "halo_client_pulse_hud_open_v6";
+const MODE_KEY = "halo_client_pulse_hud_mode_v6";
+const POS_KEY = "halo_client_pulse_hud_pos_v6";
+type BoxPos = { x: number; y: number; w: number; h: number };
+type PanelMode = "dock" | "float";
 export type PortfolioPulseProps = {
   pulse: PortfolioPulseDocument | undefined;
   attention: PortfolioAttentionDocument | undefined;
@@ -79,6 +83,13 @@ export type PortfolioPulseProps = {
   };
   onKanban?: (propertyId: string | null) => void;
   askUrl?: string | null;
+  /**
+   * Visual theme for the Pulse HUD chrome. Defaults to "dark" (the original
+   * navy flight-control look). "light" renders a readable paper-white surface
+   * for the halo-desktop Clients hub; the headline vacancy figure stays coral
+   * in both themes.
+   */
+  theme?: "dark" | "light";
 };
 
 type PanelId =
@@ -95,27 +106,67 @@ type PanelId =
   | "activity"
   | "tools";
 
-const NAV: Array<{ id: PanelId; label: string; Icon: typeof Home }> = [
+const PRIMARY_NAV: Array<{ id: PanelId; label: string; Icon: LucideIcon }> = [
   { id: "chat", label: "Ask", Icon: MessageCircle },
-  { id: "vacancy", label: "Vacancy $", Icon: CircleDollarSign },
+  { id: "sites", label: "Sites", Icon: LayoutGrid },
+  { id: "attention", label: "Needs", Icon: AlertTriangle },
   { id: "turns", label: "Turns", Icon: Timer },
   { id: "photos", label: "Photos", Icon: Camera },
-  { id: "crew", label: "Crew", Icon: User },
-  { id: "overview", label: "Overview", Icon: Home },
-  { id: "sites", label: "Sites", Icon: LayoutGrid },
-  { id: "attention", label: "Needs you", Icon: AlertTriangle },
-  { id: "range", label: "Range", Icon: CalendarDays },
-  { id: "compliance", label: "Compliance", Icon: ShieldCheck },
-  { id: "activity", label: "Activity", Icon: History },
-  { id: "tools", label: "Tools", Icon: Settings },
 ];
 
+const MORE_NAV: Array<{ id: PanelId; label: string }> = [
+  { id: "vacancy", label: "Vacancy $" },
+  { id: "crew", label: "Crew today" },
+  { id: "overview", label: "Overview" },
+  { id: "range", label: "Range" },
+  { id: "compliance", label: "Compliance" },
+  { id: "activity", label: "Activity" },
+  { id: "tools", label: "Tools" },
+];
+
+const NEED_KIND_ORDER = [
+  "awaiting_approval",
+  "variance_pending",
+  "stalled",
+  "failed_qc",
+  "blocked_invoices",
+] as const;
+
+function shortCommunity(name: string): string {
+  return name.replace(/^caf\s+demo\s*[—–-]\s*/i, "").trim();
+}
+
+function needLine(kind: string, days: number): { text: string; tone: "gold" | "coral" | "ink" } {
+  const d = days === 1 ? "1 day" : `${days} days`;
+  if (kind === "awaiting_approval") return { text: `waiting on you, ${d}`, tone: "gold" };
+  if (kind === "variance_pending") return { text: `waiting on a price exception, ${d}`, tone: "gold" };
+  if (kind === "stalled") return { text: `stalled, ${d}`, tone: "coral" };
+  if (kind === "failed_qc") return { text: `needs another look, ${d}`, tone: "coral" };
+  if (kind === "blocked_invoices") return { text: `invoice blocked, ${d}`, tone: "coral" };
+  return { text: `needs you, ${d}`, tone: "ink" };
+}
+
+const DEFAULT_POS: Record<PanelId, BoxPos> = {
+  chat: { x: 24, y: 16, w: 380, h: 300 },
+  vacancy: { x: 420, y: 16, w: 320, h: 280 },
+  turns: { x: 24, y: 330, w: 420, h: 420 },
+  photos: { x: 460, y: 330, w: 400, h: 440 },
+  crew: { x: 760, y: 16, w: 320, h: 280 },
+  overview: { x: 760, y: 310, w: 280, h: 240 },
+  sites: { x: 24, y: 16, w: 260, h: 480 },
+  attention: { x: 420, y: 310, w: 360, h: 280 },
+  range: { x: 800, y: 16, w: 300, h: 260 },
+  compliance: { x: 800, y: 290, w: 320, h: 220 },
+  activity: { x: 420, y: 600, w: 340, h: 240 },
+  tools: { x: 300, y: 80, w: 320, h: 320 },
+};
+
 const DEFAULT_OPEN: Record<PanelId, boolean> = {
-  chat: true,
-  vacancy: true,
-  turns: true,
-  photos: true,
-  crew: true,
+  chat: false,
+  vacancy: false,
+  turns: false,
+  photos: false,
+  crew: false,
   overview: false,
   sites: true,
   attention: true,
@@ -154,6 +205,58 @@ function loadOpen(): Record<PanelId, boolean> {
   }
   return { ...DEFAULT_OPEN };
 }
+
+function emptyModes(): Record<PanelId, PanelMode> {
+  return Object.fromEntries((Object.keys(DEFAULT_OPEN) as PanelId[]).map((id) => [id, "dock"])) as Record<
+    PanelId,
+    PanelMode
+  >;
+}
+
+function loadModes(): Record<PanelId, PanelMode> {
+  const all = emptyModes();
+  try {
+    const raw = JSON.parse(localStorage.getItem(MODE_KEY) || "null") as Partial<Record<PanelId, unknown>> | null;
+    if (!raw || typeof raw !== "object") return all;
+    for (const id of Object.keys(all) as PanelId[]) {
+      if (raw[id] === "float" || raw[id] === "dock") all[id] = raw[id];
+    }
+  } catch {
+    /* */
+  }
+  return all;
+}
+
+function loadPos(): Partial<Record<PanelId, BoxPos>> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(POS_KEY) || "null") as Partial<Record<PanelId, BoxPos>> | null;
+    if (!raw || typeof raw !== "object") return {};
+    const out: Partial<Record<PanelId, BoxPos>> = {};
+    for (const id of Object.keys(DEFAULT_OPEN) as PanelId[]) {
+      const p = raw[id];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.w) && Number.isFinite(p.h)) {
+        out[id] = p;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+type HudLayoutValue = {
+  ready: boolean;
+  modes: Record<PanelId, PanelMode>;
+  pos: Partial<Record<PanelId, BoxPos>>;
+  zOf: (id: PanelId) => number;
+  floatLayer: RefObject<HTMLElement | null>;
+  detach: (id: PanelId, from?: BoxPos) => void;
+  dock: (id: PanelId) => void;
+  move: (id: PanelId, pos: BoxPos) => void;
+  focus: (id: PanelId) => void;
+};
+
+const HudLayout = createContext<HudLayoutValue | null>(null);
 
 function pinIcon(hot: boolean, pulse = false) {
   const fill = hot ? LIME : NAVY;
@@ -212,21 +315,151 @@ function HudBox({
   onFocus?: () => void;
   children: ReactNode;
 }) {
+  const layout = useContext(HudLayout);
+  const boxRef = useRef<HTMLElement>(null);
+  const posRef = useRef<BoxPos>(DEFAULT_POS[id]);
+  const drag = useRef<{ ox: number; oy: number } | null>(null);
+  const resize = useRef<{ ox: number; oy: number; w: number; h: number } | null>(null);
+  const floating = layout?.modes[id] === "float";
+  const pos = layout?.pos[id] ?? DEFAULT_POS[id];
+  posRef.current = pos;
+
   if (!open) return null;
-  return (
-    <article className={`cb-hud-box size-${size}`} data-panel={id}>
-      <header className="cb-hud-box-head">
+
+  const onDragMove = (e: ReactPointerEvent) => {
+    if (!drag.current || !layout || !floating) return;
+    const layer = layout.floatLayer.current;
+    if (!layer) return;
+    const cur = posRef.current;
+    const next = {
+      ...cur,
+      x: Math.max(8, Math.min(layer.clientWidth - cur.w - 8, e.clientX - drag.current.ox)),
+      y: Math.max(8, Math.min(layer.clientHeight - 48, e.clientY - drag.current.oy)),
+    };
+    posRef.current = next;
+    layout.move(id, next);
+  };
+
+  const onResizeMove = (e: ReactPointerEvent) => {
+    if (!resize.current || !layout || !floating) return;
+    const layer = layout.floatLayer.current;
+    if (!layer) return;
+    const cur = posRef.current;
+    const next = {
+      ...cur,
+      w: Math.max(240, Math.min(layer.clientWidth - cur.x - 8, resize.current.w + (e.clientX - resize.current.ox))),
+      h: Math.max(180, Math.min(layer.clientHeight - cur.y - 8, resize.current.h + (e.clientY - resize.current.oy))),
+    };
+    posRef.current = next;
+    layout.move(id, next);
+  };
+
+  const card = (
+    <article
+      ref={boxRef}
+      className={`cb-hud-box size-${size}${floating ? " float" : ""}`}
+      data-panel={id}
+      style={
+        floating
+          ? { left: pos.x, top: pos.y, width: pos.w, height: pos.h, zIndex: 1100 + (layout?.zOf(id) ?? 1) }
+          : undefined
+      }
+      onPointerDown={() => layout?.focus(id)}
+    >
+      <header
+        className="cb-hud-box-head"
+        onPointerDown={(e) => {
+          if (!floating || !layout) return;
+          if ((e.target as HTMLElement).closest("button")) return;
+          layout.focus(id);
+          const layer = layout.floatLayer.current?.getBoundingClientRect();
+          drag.current = {
+            ox: e.clientX - posRef.current.x,
+            oy: e.clientY - posRef.current.y,
+          };
+          void layer;
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={onDragMove}
+        onPointerUp={(e) => {
+          if (!drag.current) return;
+          drag.current = null;
+          try {
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+          } catch {
+            /* */
+          }
+        }}
+      >
         <div>
           <h2>{title}</h2>
           {kicker ? <p>{kicker}</p> : null}
         </div>
-        <button type="button" aria-label={`Hide ${title}`} onClick={onClose}>
-          <X size={14} />
-        </button>
+        <div className="cb-hud-box-actions">
+          <button
+            type="button"
+            className="cb-detach"
+            aria-label={floating ? `Dock ${title} in the stack` : `Detach ${title}`}
+            onClick={() => {
+              if (!layout) return;
+              if (floating) {
+                layout.dock(id);
+                return;
+              }
+              const el = boxRef.current;
+              const layer = layout.floatLayer.current;
+              if (el && layer) {
+                const a = el.getBoundingClientRect();
+                const b = layer.getBoundingClientRect();
+                layout.detach(id, {
+                  x: Math.max(8, a.left - b.left),
+                  y: Math.max(8, a.top - b.top),
+                  w: Math.max(240, a.width),
+                  h: Math.max(180, a.height),
+                });
+              } else {
+                layout.detach(id);
+              }
+            }}
+          >
+            {floating ? <Shrink size={14} /> : <Expand size={14} />}
+          </button>
+          <button type="button" aria-label={`Hide ${title}`} onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
       </header>
       <div className="cb-hud-box-body">{children}</div>
+      {floating ? (
+        <div
+          className="cb-hud-resize"
+          aria-hidden
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            layout?.focus(id);
+            resize.current = { ox: e.clientX, oy: e.clientY, w: posRef.current.w, h: posRef.current.h };
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={onResizeMove}
+          onPointerUp={(e) => {
+            if (!resize.current) return;
+            resize.current = null;
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+            } catch {
+              /* */
+            }
+          }}
+        />
+      ) : null}
     </article>
   );
+
+  if (floating) {
+    if (!layout?.ready || !layout.floatLayer.current) return null;
+    return createPortal(card, layout.floatLayer.current);
+  }
+  return card;
 }
 
 function tileCoord(tile: PortfolioPulseTile): [number, number] | null {
@@ -244,20 +477,33 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
   const propertyOnly = pulse?.viewKind === "property";
   const showRegionalLinks = !propertyOnly;
   const stageRef = useRef<HTMLDivElement>(null);
+  const floatLayer = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
+  const [ask, setAsk] = useState("");
+  const [pendingAsk, setPendingAsk] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [customFrom, setCustomFrom] = useState(pulse?.from ?? "");
   const [customTo, setCustomTo] = useState(pulse?.to ?? "");
   const [now, setNow] = useState(() => new Date());
   const [open, setOpen] = useState<Record<PanelId, boolean>>(loadOpen);
+  const [modes, setModes] = useState<Record<PanelId, PanelMode>>(loadModes);
+  const [pos, setPos] = useState<Partial<Record<PanelId, BoxPos>>>(loadPos);
   const [zOrder, setZOrder] = useState<PanelId[]>(() =>
     (Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => loadOpen()[id]),
   );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     localStorage.setItem(OPEN_KEY, JSON.stringify(open));
   }, [open]);
+  useEffect(() => {
+    localStorage.setItem(MODE_KEY, JSON.stringify(modes));
+  }, [modes]);
+  useEffect(() => {
+    localStorage.setItem(POS_KEY, JSON.stringify(pos));
+  }, [pos]);
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 30_000);
@@ -306,13 +552,61 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
 
   const resetLayout = () => {
     localStorage.setItem(OPEN_KEY, JSON.stringify(DEFAULT_OPEN));
+    localStorage.setItem(MODE_KEY, JSON.stringify(emptyModes()));
+    localStorage.removeItem(POS_KEY);
     setOpen({ ...DEFAULT_OPEN });
+    setModes(emptyModes());
+    setPos({});
     setZOrder((Object.keys(DEFAULT_OPEN) as PanelId[]).filter((id) => DEFAULT_OPEN[id]));
   };
 
+  const hudLayout: HudLayoutValue = {
+    ready: mounted,
+    modes,
+    pos,
+    zOf,
+    floatLayer,
+    detach: (id, from) => {
+      setModes((m) => ({ ...m, [id]: "float" }));
+      if (from) setPos((p) => ({ ...p, [id]: from }));
+      else if (!pos[id]) setPos((p) => ({ ...p, [id]: DEFAULT_POS[id] }));
+      setOpen((o) => ({ ...o, [id]: true }));
+      focus(id);
+    },
+    dock: (id) => {
+      setModes((m) => ({ ...m, [id]: "dock" }));
+    },
+    move: (id, next) => {
+      setPos((p) => ({ ...p, [id]: next }));
+    },
+    focus,
+  };
+
   const attentionCount = (props.attention?.groups ?? []).reduce((n, g) => n + g.items.length, 0);
+  const needItems = useMemo(() => {
+    const groups = props.attention?.groups ?? [];
+    const seen = new Set<string>();
+    const rows: Array<(typeof groups)[number]["items"][number] & { kind: string }> = [];
+    for (const kind of NEED_KIND_ORDER) {
+      const group = groups.find((g) => g.kind === kind);
+      for (const item of group?.items ?? []) {
+        seen.add(item.turnId);
+        rows.push({ ...item, kind });
+      }
+    }
+    for (const group of groups) {
+      for (const item of group.items) {
+        if (seen.has(item.turnId)) continue;
+        rows.push({ ...item, kind: group.kind });
+      }
+    }
+    return rows;
+  }, [props.attention?.groups]);
+  const nextNeed = needItems[0] ?? null;
   const title = pulse?.viewLabel ?? pulse?.portfolioName ?? "Portfolio";
   const crewToday = props.attention?.crewToday ?? [];
+  const crewOnSelected = selectedId ? crewToday.filter((c) => c.propertyId === selectedId) : [];
+  const liveSiteCount = new Set(crewToday.map((c) => c.propertyId)).size;
   const guideContext: GuideContext = {
     title,
     vacancyLabel: pulse?.headline.label,
@@ -359,6 +653,19 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
     }
   };
 
+  const submitHeaderAsk = (raw: string) => {
+    const q = raw.trim();
+    if (!q) return;
+    const local = interpretPulseQuestion(q, guideContext);
+    for (const action of local.actions) onGuideAction(action);
+    const showThread = q.includes("?") || local.actions.some((a) => a.type === "open" && a.panel === "chat");
+    if (showThread) {
+      setOpen((o) => ({ ...o, chat: true }));
+      setPendingAsk(q);
+    }
+    setAsk("");
+  };
+
   const delta = pulse?.headline.vacancyCostDeltaCents ?? "0";
   const deltaUp = !delta.startsWith("-") && delta !== "0";
   const activityItems = (props.attention?.groups ?? []).flatMap((g) =>
@@ -369,7 +676,8 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
   const kicker = propertyOnly ? "Property Pulse" : "Portfolio Pulse";
 
   return (
-    <div className="cb-hud">
+    <HudLayout.Provider value={hudLayout}>
+    <div className={`cb-hud${props.theme === "light" ? " cb-hud--light" : ""}`}>
       <link
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
@@ -388,6 +696,41 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           </div>
         </button>
         <div className="cb-hud-head-right">
+          <button
+            type="button"
+            className={`cb-hud-vacancy-whisper${open.vacancy ? " on" : ""}`}
+            onClick={() => toggle("vacancy")}
+            aria-pressed={open.vacancy}
+            aria-label="Vacancy cost this month"
+          >
+            <b>{formatUsdCents(pulse?.headline.vacancyCostCents ?? "0")}</b>
+            <span>this month</span>
+          </button>
+          <form
+            className="cb-hud-ask"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitHeaderAsk(ask);
+            }}
+          >
+            <Search size={14} />
+            <input
+              value={ask}
+              onChange={(e) => {
+                const next = e.target.value;
+                setAsk(next);
+                if (!next.includes("?")) {
+                  setQuery(next);
+                  if (next && !open.sites) {
+                    setOpen((o) => ({ ...o, sites: true }));
+                    focus("sites");
+                  }
+                }
+              }}
+              placeholder="Ask about a community or unit"
+              aria-label="Ask about a community or unit"
+            />
+          </form>
           <div className="cb-hud-clock">
             <strong>{timeStr}</strong>
             <span>{dateStr}</span>
@@ -396,27 +739,25 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             <i />
             {live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting" : "Idle"}
           </span>
-          <label className="cb-hud-search">
-            <Search size={14} />
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (e.target.value && !open.sites) {
-                  setOpen((o) => ({ ...o, sites: true }));
-                  focus("sites");
-                }
-              }}
-              placeholder="Search communities"
-              aria-label="Search communities"
-            />
-          </label>
           <div className="cb-menu-wrap">
             <button type="button" className="cb-hud-icon" aria-label="More" onClick={() => setMenuOpen((v) => !v)}>
               <MoreVertical size={16} />
             </button>
             {menuOpen ? (
               <div className="cb-menu" role="menu">
+                {MORE_NAV.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={open[item.id]}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      toggle(item.id);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
                 {props.homeHref ? (
                   <button
                     type="button"
@@ -484,20 +825,12 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            className="cb-hud-dispatch"
-            disabled={!selected}
-            onClick={() => selected && props.onTileClick(selected.propertyId)}
-          >
-            <Send size={14} /> Open turns
-          </button>
         </div>
       </header>
 
       <div className="cb-hud-body">
         <nav className="cb-hud-nav" aria-label="Pulse panels">
-          {NAV.map(({ id, label, Icon }) => (
+          {PRIMARY_NAV.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
@@ -508,18 +841,20 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
               onClick={() => toggle(id)}
             >
               <Icon size={18} strokeWidth={open[id] ? 2.4 : 1.8} />
+              <span>{label}</span>
             </button>
           ))}
           <div className="cb-hud-nav-spacer" />
           {props.onKanban ? (
             <button
               type="button"
-              title="Full board"
-              aria-label="Open the full kanban board"
-              className="cb-hud-kanban"
+              title="Board"
+              aria-label="Open the full board"
+              className="cb-hud-board"
               onClick={() => props.onKanban?.(selectedId)}
             >
-              <Columns3 size={18} strokeWidth={2.2} />
+              <Columns3 size={16} strokeWidth={2} />
+              <span>Board</span>
             </button>
           ) : null}
         </nav>
@@ -534,7 +869,13 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             size="md"
             onClose={() => toggle("chat")}
           >
-            <PulseGuide context={guideContext} askUrl={props.askUrl} onAction={onGuideAction} />
+            <PulseGuide
+              context={guideContext}
+              askUrl={props.askUrl}
+              onAction={onGuideAction}
+              pendingAsk={pendingAsk}
+              onPendingConsumed={() => setPendingAsk(null)}
+            />
           </HudBox>
 
           <HudBox
@@ -628,7 +969,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             kicker={
               (props.attention?.photoUnits?.length ?? 0) > 0
                 ? `${props.attention?.photoUnits?.length} units`
-                : "Work App"
+                : "By unit"
             }
             open={open.photos}
             size={(props.attention?.photoUnits?.length ?? 0) > 0 ? "lg" : "sm"}
@@ -645,7 +986,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           <HudBox
             id="crew"
             title="Crew today"
-            kicker={crewToday.length ? `${crewToday.length} jobs` : "Work App"}
+            kicker={crewToday.length ? `${crewToday.length} scheduled` : "Today"}
             open={open.crew}
             size={crewToday.length > 3 ? "lg" : "md"}
             onClose={() => toggle("crew")}
@@ -713,12 +1054,47 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
                   {selected.city ? ` · ${selected.city}` : ""}
                 </p>
                 <div className="cb-hud-actions">
-                  <button type="button" className="cb-overlay-cta" onClick={() => props.onTileClick(selected.propertyId)}>
-                    Open turns
+                  <button type="button" className="cb-overlay-ghost" onClick={() => props.onTileClick(selected.propertyId)}>
+                    Open this community
                   </button>
                 </div>
               </div>
             ) : null}
+          </HudBox>
+
+          <HudBox
+            id="attention"
+            title="Needs you"
+            kicker={attentionCount === 0 ? "Clear" : `${attentionCount}`}
+            open={open.attention}
+            size={needItems.length > 2 ? "lg" : "md"}
+            z={zOf("attention")}
+            stageRef={stageRef}
+            onClose={() => toggle("attention")}
+            onFocus={() => focus("attention")}
+          >
+            {needItems.length === 0 ? (
+              <p className="cb-empty">All clear — nothing is waiting on you.</p>
+            ) : (
+              needItems.map((item, index) => {
+                const line = needLine(item.kind, item.days);
+                return (
+                  <button
+                    key={item.turnId}
+                    type="button"
+                    className={`cb-need-row${index === 0 ? " hero" : ""}`}
+                    onClick={() => {
+                      setSelectedId(item.propertyId);
+                      props.onAttentionClick(item.href);
+                    }}
+                  >
+                    <b>{item.unitNumber}</b>
+                    <span>{shortCommunity(item.propertyName)}</span>
+                    <em className={`tone-${line.tone}`}>{line.text}</em>
+                  </button>
+                );
+              })
+            )}
           </HudBox>
 
           <HudBox
@@ -731,73 +1107,32 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             onClose={() => toggle("sites")}
             onFocus={() => focus("sites")}
           >
-            <p className="cb-hud-portfolio">{title}</p>
             {filtered.length === 0 ? <p className="cb-empty">No communities match.</p> : null}
             {filtered.map((tile) => {
               const on = tile.propertyId === selectedId;
+              const crewHere = crewToday.filter((c) => c.propertyId === tile.propertyId).length;
               return (
                 <button
                   key={tile.propertyId}
                   type="button"
-                  className={`cb-site-row${on ? " sel" : ""}${tile.status === "at_risk" ? " hot" : ""}`}
+                  className={`cb-site-row${on ? " sel" : ""}${tile.status === "at_risk" ? " risk" : ""}`}
                   onClick={() => {
                     if (tile.propertyId === selectedId) props.onTileClick(tile.propertyId);
                     else setSelectedId(tile.propertyId);
                   }}
                 >
-                  <span>{tile.name}</span>
+                  <span>{shortCommunity(tile.name)}</span>
                   <em>
                     {tile.unitsInTurn} in turn · {tile.statusLabel}
+                    {on && crewHere > 0 ? ` · Crew on site · ${crewHere}` : ""}
                   </em>
                   <small>
+                    {tile.city ? `${tile.city} · ` : ""}
                     {formatUsdCents(tile.vacancyCostCents)} vacancy
-                    {tile.medianTurnDays != null ? ` · ${tile.medianTurnDays}d median` : ""}
-                    {tile.city ? ` · ${tile.city}` : ""}
                   </small>
-                  <Sparkline values={tile.sparkline} />
-                  <HairlineBar median={tile.medianTurnDays} portfolioMedian={pulse?.supporting.medianTurnDays ?? null} />
                 </button>
               );
             })}
-          </HudBox>
-
-          <HudBox
-            id="attention"
-            title="Needs you"
-            kicker={attentionCount === 0 ? "Clear" : `${attentionCount} waiting`}
-            open={open.attention}
-            z={zOf("attention")}
-            stageRef={stageRef}
-            onClose={() => toggle("attention")}
-            onFocus={() => focus("attention")}
-          >
-            {(props.attention?.groups ?? []).length === 0 ? (
-              <p className="cb-empty">All clear — nothing stalled or waiting.</p>
-            ) : (
-              (props.attention?.groups ?? []).map((group) => (
-                <div key={group.kind} className="cb-group">
-                  <h3>{group.title}</h3>
-                  <p>{group.summary}</p>
-                  <VirtualList
-                    items={group.items}
-                    estimateSize={140}
-                    maxHeight={240}
-                    getKey={(item) => item.turnId}
-                    renderItem={(item) => (
-                      <button type="button" className="cb-act-row" onClick={() => props.onAttentionClick(item.href)}>
-                        <span className="cb-check" />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong>
-                            {item.propertyName} · {item.unitNumber}
-                          </strong>
-                          <TurnCloseoutStrip compact daysVacant={item.days} {...item} />
-                        </div>
-                      </button>
-                    )}
-                  />
-                </div>
-              ))
-            )}
           </HudBox>
 
           <HudBox
@@ -1052,9 +1387,41 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             })}
           </MapContainer>
           <div className="cb-hud-map-fade" aria-hidden />
+          <div className="cb-hud-map-chrome">
+            {tiles.length > 0 ? (
+              <p className="cb-map-chip">
+                {liveSiteCount} of {tiles.length} sites live
+                {crewOnSelected.length > 0
+                  ? ` · ${crewOnSelected.length} on ${shortCommunity(selected?.name ?? "site")}`
+                  : ""}
+              </p>
+            ) : null}
+            {nextNeed ? (
+              <button
+                type="button"
+                className="cb-map-cta"
+                onClick={() => {
+                  setSelectedId(nextNeed.propertyId);
+                  props.onAttentionClick(nextNeed.href);
+                }}
+              >
+                Open {shortCommunity(nextNeed.propertyName)} · {nextNeed.unitNumber}
+              </button>
+            ) : selected ? (
+              <button
+                type="button"
+                className="cb-map-cta"
+                onClick={() => props.onTileClick(selected.propertyId)}
+              >
+                Open {shortCommunity(selected.name)}
+              </button>
+            ) : null}
+          </div>
         </div>
+        <div className="cb-hud-float-layer" ref={floatLayer} data-ready={mounted ? "1" : "0"} />
       </div>
     </div>
+    </HudLayout.Provider>
   );
 }
 
@@ -1177,33 +1544,3 @@ function AddPropertyPanel(props: { add: NonNullable<PortfolioPulseProps["addProp
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const max = Math.max(1, ...values);
-  const w = 200;
-  const h = 28;
-  const pts = values
-    .map((v, i) => {
-      const x = (i / Math.max(1, values.length - 1)) * w;
-      const y = h - (v / max) * (h - 4) - 2;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg className="cb-spark" width="100%" height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      <polyline fill="none" stroke={NAVY} strokeWidth="1.5" points={pts} />
-    </svg>
-  );
-}
-
-function HairlineBar(props: { median: number | null; portfolioMedian: number | null }) {
-  const { median, portfolioMedian } = props;
-  const pct =
-    median != null && portfolioMedian && portfolioMedian > 0
-      ? Math.min(100, (median / (portfolioMedian * 2)) * 100)
-      : 0;
-  return (
-    <div className="cb-bar" aria-label="Median turn days versus portfolio">
-      <i style={{ width: `${pct}%` }} />
-    </div>
-  );
-}

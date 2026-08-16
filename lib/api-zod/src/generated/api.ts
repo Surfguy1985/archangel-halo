@@ -328,6 +328,9 @@ export const GetPropertyResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1464,6 +1467,9 @@ export const QuickCreateJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1551,6 +1557,9 @@ export const PullCrewToJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1623,6 +1632,9 @@ export const PullCrewToJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1703,6 +1715,9 @@ export const ListJobsResponseItem = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1799,6 +1814,9 @@ export const CreateJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1878,6 +1896,9 @@ export const GetJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2025,6 +2046,9 @@ export const UpdateJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2122,6 +2146,9 @@ export const CompleteJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2203,6 +2230,9 @@ export const ClearJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2284,6 +2314,9 @@ export const RestartJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2371,6 +2404,9 @@ export const ScheduleJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2458,6 +2494,9 @@ export const DispatchJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2707,6 +2746,9 @@ export const ReopenJobChangeOrderResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2993,6 +3035,9 @@ export const SendJobRecapResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3595,6 +3640,9 @@ export const ListJobBoardResponseItem = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3796,6 +3844,9 @@ export const PayJobCrewMemberResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3881,6 +3932,9 @@ export const ClearJobCrewPayResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3963,6 +4017,24 @@ export const SendCheckFollowupResponse = zod.object({
 
 
 /**
+ * @summary Acknowledge/dismiss the flashing purple "PO received by property" banner for a job (persists server-side)
+ */
+export const AcknowledgePoReceivedParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const AcknowledgePoReceivedBody = zod.object({
+  "poReceivedAt": zod.string().nullish().describe('The poReceivedAt timestamp the client observed (ISO 8601).'),
+  "poNumber": zod.string().nullish().describe('The PO number the client observed.')
+}).describe('The specific PO receipt the client saw. At least one field must be supplied and must match the job\'s current receipt, or the ack is rejected as stale.')
+
+export const AcknowledgePoReceivedResponse = zod.object({
+  "ok": zod.boolean(),
+  "acknowledgedAt": zod.string().nullish()
+})
+
+
+/**
  * @summary Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
  */
 export const SetJobBoardStatusParams = zod.object({
@@ -3978,6 +4050,9 @@ export const SetJobBoardStatusResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -4065,6 +4140,9 @@ export const UpdateBoardSettingsResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -4146,6 +4224,9 @@ export const ReopenJobResponse = zod.object({
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
   "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
+  "poReceivedAt": zod.string().nullish().describe('When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged'),
+  "poReceivedSource": zod.string().nullish().describe('Provenance of the received PO, e.g. \"office chat\"'),
+  "poAcknowledgedAt": zod.string().nullish().describe('When the office acknowledged\/dismissed the PO-received banner'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -14087,13 +14168,13 @@ export const GetPortfolioAttentionResponse = zod.object({
   "unitNumber": zod.string(),
   "days": zod.number(),
   "href": zod.string(),
-  "timezone": zod.string().optional(),
-  "vacantSince": zod.string().nullish(),
-  "requestReceivedAt": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "poReceivedAt": zod.string().nullish(),
+  "timezone": zod.string().optional().describe('Property IANA timezone. Clocks use this zone, never the browser.'),
+  "vacantSince": zod.string().nullish().describe('Move-out \/ actual vacate. Live vacant timer starts here.'),
+  "requestReceivedAt": zod.string().nullish().describe('When the notice\/turn request landed.'),
+  "completedAt": zod.string().nullish().describe('readyAt — unit marked complete.'),
+  "poReceivedAt": zod.string().nullish().describe('When the PO landed so the turn can close out.'),
   "poNumber": zod.string().nullish(),
-  "clockStopped": zod.boolean().optional(),
+  "clockStopped": zod.boolean().optional().describe('True only when the unit is complete AND a PO is on file.'),
   "clockStoppedAt": zod.string().nullish()
 }))
 })),
@@ -14104,15 +14185,15 @@ export const GetPortfolioAttentionResponse = zod.object({
   "unitNumber": zod.string(),
   "days": zod.number(),
   "href": zod.string(),
-  "timezone": zod.string().optional(),
-  "vacantSince": zod.string().nullish(),
-  "requestReceivedAt": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "poReceivedAt": zod.string().nullish(),
+  "timezone": zod.string().optional().describe('Property IANA timezone. Clocks use this zone, never the browser.'),
+  "vacantSince": zod.string().nullish().describe('Move-out \/ actual vacate. Live vacant timer starts here.'),
+  "requestReceivedAt": zod.string().nullish().describe('When the notice\/turn request landed.'),
+  "completedAt": zod.string().nullish().describe('readyAt — unit marked complete.'),
+  "poReceivedAt": zod.string().nullish().describe('When the PO landed so the turn can close out.'),
   "poNumber": zod.string().nullish(),
-  "clockStopped": zod.boolean().optional(),
+  "clockStopped": zod.boolean().optional().describe('True only when the unit is complete AND a PO is on file.'),
   "clockStoppedAt": zod.string().nullish()
-})).optional(),
+})).optional().describe('Every open turn in this view, with live close-out clocks.'),
   "photoUnits": zod.array(zod.object({
   "propertyId": zod.string().nullish(),
   "propertyName": zod.string(),
@@ -14129,7 +14210,7 @@ export const GetPortfolioAttentionResponse = zod.object({
   "occurredAt": zod.string().nullish(),
   "title": zod.string().nullish()
 }))
-})).optional(),
+})).optional().describe('Base44 Work App before\/after photos grouped by unit.'),
   "crewToday": zod.array(zod.object({
   "propertyId": zod.string(),
   "propertyName": zod.string(),
@@ -14138,7 +14219,7 @@ export const GetPortfolioAttentionResponse = zod.object({
   "crewName": zod.string(),
   "status": zod.string(),
   "scheduledOn": zod.string().nullish()
-})).optional()
+})).optional().describe('HALO jobs scheduled today on these communities.')
 })
 
 
@@ -14432,13 +14513,13 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "unitNumber": zod.string(),
   "days": zod.number(),
   "href": zod.string(),
-  "timezone": zod.string().optional(),
-  "vacantSince": zod.string().nullish(),
-  "requestReceivedAt": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "poReceivedAt": zod.string().nullish(),
+  "timezone": zod.string().optional().describe('Property IANA timezone. Clocks use this zone, never the browser.'),
+  "vacantSince": zod.string().nullish().describe('Move-out \/ actual vacate. Live vacant timer starts here.'),
+  "requestReceivedAt": zod.string().nullish().describe('When the notice\/turn request landed.'),
+  "completedAt": zod.string().nullish().describe('readyAt — unit marked complete.'),
+  "poReceivedAt": zod.string().nullish().describe('When the PO landed so the turn can close out.'),
   "poNumber": zod.string().nullish(),
-  "clockStopped": zod.boolean().optional(),
+  "clockStopped": zod.boolean().optional().describe('True only when the unit is complete AND a PO is on file.'),
   "clockStoppedAt": zod.string().nullish()
 }))
 })),
@@ -14449,15 +14530,15 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "unitNumber": zod.string(),
   "days": zod.number(),
   "href": zod.string(),
-  "timezone": zod.string().optional(),
-  "vacantSince": zod.string().nullish(),
-  "requestReceivedAt": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "poReceivedAt": zod.string().nullish(),
+  "timezone": zod.string().optional().describe('Property IANA timezone. Clocks use this zone, never the browser.'),
+  "vacantSince": zod.string().nullish().describe('Move-out \/ actual vacate. Live vacant timer starts here.'),
+  "requestReceivedAt": zod.string().nullish().describe('When the notice\/turn request landed.'),
+  "completedAt": zod.string().nullish().describe('readyAt — unit marked complete.'),
+  "poReceivedAt": zod.string().nullish().describe('When the PO landed so the turn can close out.'),
   "poNumber": zod.string().nullish(),
-  "clockStopped": zod.boolean().optional(),
+  "clockStopped": zod.boolean().optional().describe('True only when the unit is complete AND a PO is on file.'),
   "clockStoppedAt": zod.string().nullish()
-})).optional(),
+})).optional().describe('Every open turn in this view, with live close-out clocks.'),
   "photoUnits": zod.array(zod.object({
   "propertyId": zod.string().nullish(),
   "propertyName": zod.string(),
@@ -14474,7 +14555,7 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "occurredAt": zod.string().nullish(),
   "title": zod.string().nullish()
 }))
-})).optional(),
+})).optional().describe('Base44 Work App before\/after photos grouped by unit.'),
   "crewToday": zod.array(zod.object({
   "propertyId": zod.string(),
   "propertyName": zod.string(),
@@ -14483,7 +14564,7 @@ export const GetClientPortfolioAttentionResponse = zod.object({
   "crewName": zod.string(),
   "status": zod.string(),
   "scheduledOn": zod.string().nullish()
-})).optional()
+})).optional().describe('HALO jobs scheduled today on these communities.')
 })
 
 

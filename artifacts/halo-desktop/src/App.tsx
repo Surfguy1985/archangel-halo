@@ -96,11 +96,22 @@ function App() {
               }}
             </Route>
 
-            {/* ── HALO Command — full dark chat OS, no sidebar ──────────────
-                Must sit BEFORE the DesktopLayout catch-all so it renders
-                without the hub sidebar. The div provides full-viewport height
-                since HaloCommand uses h-full internally.               */}
+            {/* ── Home — map-first Property Pulse HUD with a floating HALO
+                command module.  Same full-bleed, no-sidebar treatment as
+                /pulse (both render the same PropertyPulse component).    */}
             <Route path="/">
+              <OfficeGate>
+                <SplashScreen />
+                <PropertyPulse />
+              </OfficeGate>
+            </Route>
+
+            {/* ── HALO Command — full-screen dark chat OS, no sidebar ───────
+                "/" is now the map-first Property Pulse HUD, so the full chat
+                lives here at "/chat". Sits BEFORE the DesktopLayout catch-all
+                so it renders without the hub sidebar; the div supplies the
+                full-viewport height HaloCommand's h-full layout expects.   */}
+            <Route path="/chat">
               <OfficeGate>
                 <SplashScreen />
                 <div style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -109,9 +120,9 @@ function App() {
               </OfficeGate>
             </Route>
 
-            {/* ── /today → HALO Command (same as mobile) ───────────────── */}
+            {/* ── /today → full HALO Command chat (legacy alias) ─────────── */}
             <Route path="/today">
-              {() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/"); return null; }}
+              {() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/chat"); return null; }}
             </Route>
 
             {/* Property Pulse — full-bleed tablet dashboard (optional ops view) */}

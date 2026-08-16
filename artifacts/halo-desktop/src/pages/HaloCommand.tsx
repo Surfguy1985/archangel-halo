@@ -643,7 +643,7 @@ function ComposerInput({ value, onChange, onSubmit, onVoice, onEarpiece, busy }:
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function HaloCommand() {
+export default function HaloCommand({ compact = false }: { compact?: boolean } = {}) {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
 
@@ -1295,6 +1295,92 @@ export default function HaloCommand() {
       default: return null;
     }
   };
+
+  // ── Compact module render — thread + composer only, no hero, no header ────
+  if (compact) {
+    return (
+      <>
+        <style>{KEYFRAMES}</style>
+        <div className="halo-void flex flex-col h-full min-h-0">
+          {/* Re-homed header actions (from the old full-screen HaloCommand header) */}
+          <div className="flex items-center gap-1 px-3 pt-2.5 pb-1.5 shrink-0">
+            <button type="button" onClick={() => openPanel("map", "Live Map")} className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[#B4FF44]" aria-label="Live map" title="Live map">
+              <MapPin className="w-[15px] h-[15px]" />
+            </button>
+            <button type="button" onClick={() => openPanel("kanban", "Job Board")} className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[#B4FF44]" aria-label="Job board" title="Job board">
+              <LayoutGrid className="w-[15px] h-[15px]" />
+            </button>
+            <button type="button" onClick={() => setClientBoardOpen(true)} className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[#B4FF44]" aria-label="Client board" title="Client board" data-testid="button-client-board">
+              <PanelsTopLeft className="w-[15px] h-[15px]" />
+            </button>
+            <div className="flex-1" />
+            {hasThread && (
+              <button
+                type="button"
+                onClick={() => { setMessages([]); try { localStorage.removeItem(DESKTOP_THREAD_KEY); } catch {} }}
+                className="text-[11px] font-medium text-white/25 hover:text-white/55 transition-colors px-2 py-1"
+                title="Clear conversation"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {!hasThread ? (
+            /* Empty-state instruction card (short, no wall of text) */
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 min-h-0">
+              <div
+                className="rounded-[14px] border border-white/8 bg-white/[0.03] px-4 py-4 mb-3"
+                style={{ animation: "dcIn 0.3s ease-out both" }}
+              >
+                <p className="text-[13px] font-semibold text-white/80 mb-1.5">Live operations map</p>
+                <p className="text-[12px] text-white/45 leading-relaxed mb-3">
+                  This page shows your properties and crews live on the map. Drag this
+                  window by its title bar to move it, or hit <span className="text-white/70">✕</span> to
+                  hide it — the chat icon in the nav brings it back.
+                </p>
+                <p className="text-[10px] font-bold tracking-[0.16em] uppercase text-white/25 mb-2">Try asking</p>
+                <div className="flex flex-col gap-2">
+                  {["Who's on site today?", "What units are complete?", "What's the work schedule?"].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => handleSubmit(q)}
+                      className="text-left text-[12.5px] text-white/60 px-3 py-2 rounded-[10px] bg-white/[0.04] border border-white/6 hover:text-white/85 hover:bg-white/[0.07] transition-all active:scale-[0.98]"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div ref={bottomRef} className="h-1" />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 min-h-0" aria-live="polite" aria-atomic="false">
+              {messages.map(msg => (
+                <div key={msg.id}>{renderMsg(msg)}</div>
+              ))}
+              <div ref={bottomRef} className="h-2" />
+            </div>
+          )}
+
+          <div className="px-3 py-3 border-t border-white/[0.05] shrink-0">
+            <ComposerInput value={input} onChange={setInput} onSubmit={() => handleSubmit()} onVoice={() => setVoiceOpen(true)} onEarpiece={() => setEarpieceOpen(true)} busy={parseVoice.isPending} />
+          </div>
+        </div>
+
+        {/* Panels — overlay above the map */}
+        <LiveMapPanel open={activePanel === "map"}    onClose={() => setActivePanel(null)} />
+        <KanbanPanel  open={activePanel === "kanban"} onClose={() => setActivePanel(null)} />
+        <MoneyPanel   open={activePanel === "money"}  onClose={() => setActivePanel(null)} />
+
+        {/* Overlays */}
+        <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} onHeard={(text) => { void handleSubmit(text); }} />
+        <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={(text) => { void handleSubmit(text); }} />
+        {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
+        <ClientBoardPicker open={clientBoardOpen} onOpenChange={setClientBoardOpen} />
+      </>
+    );
+  }
 
   return (
     <>

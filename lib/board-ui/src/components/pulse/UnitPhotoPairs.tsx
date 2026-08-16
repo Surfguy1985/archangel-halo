@@ -31,7 +31,7 @@ export function UnitPhotoPairs(props: {
   if (props.units.length === 0) {
     return (
       <p className="cb-empty">
-        No Work App before/after photos for this portfolio yet. They land after Base44 sync.
+        No before/after photos for this portfolio yet.
       </p>
     );
   }
@@ -40,7 +40,7 @@ export function UnitPhotoPairs(props: {
     return (
       <div>
         <p className="cb-empty">
-          No Work App photos for {props.selectedPropertyName ?? "this community"} yet.
+          No photos for {props.selectedPropertyName ?? "this community"} yet.
         </p>
         {props.units.length > 0 && !props.propertyOnly ? (
           <button type="button" className="cb-overlay-cta" onClick={() => setShowAll(true)}>
@@ -135,6 +135,6 @@ function PhotoStill(props: {
 }
 
 function stamp(iso: string | null | undefined): string {
-  if (!iso) return "Work App";
+  if (!iso) return "Photo";
   return iso.slice(0, 10);
 }

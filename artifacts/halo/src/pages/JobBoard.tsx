@@ -29,6 +29,7 @@ import {
 import { Link } from "wouter";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { FalkonBadge } from "@/components/FalkonBadge";
+import { PoReceivedBanner, hasUnacknowledgedPo, usePoReceivedChime } from "@/components/PoReceivedBanner";
 
 const boardStatusColors: Record<string, { bg: string; text: string; label: string }> = {
   active: { bg: "hsl(var(--primary) / 0.15)", text: "hsl(var(--primary))", label: "Open" },
@@ -393,6 +394,9 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onEditPosting, onDelete 
 
   return (
     <div className="bg-card border border-border rounded-[20px] shadow-[0_0_20px_rgba(0,0,0,0.5)] overflow-hidden mb-[16px] transition-all hover:border-primary/30 group">
+      {hasUnacknowledgedPo(job) && (
+        <PoReceivedBanner jobId={job.id} poReceivedAt={job.poReceivedAt} poNumber={job.poNumber} />
+      )}
       <div className="p-[16px] border-b border-border">
         <div className="flex items-start justify-between mb-[8px]">
           <div>
@@ -567,6 +571,11 @@ export default function JobBoard() {
   const reopen = useReopenJob();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Chime once when a NEW unacknowledged PO first appears on the board.
+  usePoReceivedChime(
+    (boardData ?? []).filter((c) => hasUnacknowledgedPo(c.job)).map((c) => c.job.id),
+  );
 
   const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
   const [editJob, setEditJob] = useState<JobBoardCard["job"] | null>(null);

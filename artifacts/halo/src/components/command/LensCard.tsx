@@ -999,25 +999,37 @@ function VendorProfileLens({ query, onDeepLink }: { query?: string; onDeepLink?:
 
 // ─── Photo Evidence Lens ──────────────────────────────────────────────────────
 
+interface UnitPhotosData {
+  job: { id: string; jobNo: string; unitNo: string | null; propertyName: string | null } | null;
+  photos: Array<{ url: string; phase: string | null; takenAt: string | null }>;
+}
+
 function PhotoEvidenceLens({ query, onDeepLink }: { query?: string; onDeepLink?: (p: string) => void }) {
   const [, navigate] = useLocation();
-  const { data, loading } = useLensData<TurnTimelineData>(query ? `/command/lens/turn-timeline/${query}` : null);
+  // `query` here is the raw request text (e.g. "before and after for unit 204").
+  // The endpoint resolves property → unit → job and returns before/after photos.
+  const { data, loading } = useLensData<UnitPhotosData>(
+    query ? `/command/lens/unit-photos?q=${encodeURIComponent(query)}` : null,
+  );
   if (loading) return <LensLoading />;
-  if (!data || data.photos.length === 0) return <LensEmpty icon={Camera} message="No photos for this job yet" />;
+  if (!data || !data.job || data.photos.length === 0) {
+    return <LensEmpty icon={Camera} message="No before/after photos found for that unit yet" />;
+  }
   const go = (p: string) => onDeepLink ? onDeepLink(p) : navigate(p);
   const before = data.photos.filter(p => p.phase === "before");
   const after = data.photos.filter(p => p.phase === "after");
   const rest = data.photos.filter(p => p.phase !== "before" && p.phase !== "after");
+  const heading = data.job.unitNo ? `Unit ${data.job.unitNo}` : data.job.jobNo;
   return (
     <div className="space-y-3">
       <div className="text-[12.5px] font-bold text-white/85">
-        {data.job.unitNo ? `Unit ${data.job.unitNo}` : data.job.jobNo} — {data.photos.length} photo{data.photos.length !== 1 ? "s" : ""}
+        {heading}{data.job.propertyName ? ` · ${data.job.propertyName}` : ""} — {data.photos.length} photo{data.photos.length !== 1 ? "s" : ""}
       </div>
       {before.length > 0 && (
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-white/28 mb-1.5">Before</div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {before.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="before" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
+            {before.slice(0, 6).map((p, i) => <img key={i} src={p.url} alt="before" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
           </div>
         </div>
       )}
@@ -1025,16 +1037,21 @@ function PhotoEvidenceLens({ query, onDeepLink }: { query?: string; onDeepLink?:
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#22C55E]/60 mb-1.5">After</div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {after.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="after" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-[#22C55E]/20" />)}
+            {after.slice(0, 6).map((p, i) => <img key={i} src={p.url} alt="after" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-[#22C55E]/20" />)}
           </div>
         </div>
       )}
       {rest.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {rest.slice(0, 4).map((p, i) => <img key={i} src={p.url} alt="photo" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
+        <div>
+          {(before.length > 0 || after.length > 0) && (
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/28 mb-1.5">More</div>
+          )}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {rest.slice(0, 6).map((p, i) => <img key={i} src={p.url} alt="photo" className="w-16 h-16 rounded-[10px] object-cover shrink-0 border border-white/10" />)}
+          </div>
         </div>
       )}
-      <PrimaryCTA label="Open Job" onClick={() => go(`/jobs/${query}`)} />
+      <PrimaryCTA label="Open Job" onClick={() => go(`/jobs/${data.job!.id}`)} />
     </div>
   );
 }

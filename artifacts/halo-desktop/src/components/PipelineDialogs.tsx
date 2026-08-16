@@ -126,7 +126,7 @@ export function AddLeadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-none shadow-xl">
+      <DialogContent className="theme-light max-w-lg border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">New Lead</DialogTitle>
           <DialogDescription>
@@ -141,7 +141,7 @@ export function AddLeadDialog({
               <SelectTrigger data-testid="select-lead-property">
                 <SelectValue placeholder="No property" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="theme-light bg-background text-foreground border-[var(--hairline)]">
                 <SelectItem value={NONE}>No property</SelectItem>
                 {properties?.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -392,7 +392,7 @@ export function LeadDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
+      <DialogContent className="theme-light max-w-2xl max-h-[85vh] overflow-y-auto border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display flex items-center gap-2">
             {lead.propertyName || "Lead"}
@@ -413,7 +413,7 @@ export function LeadDetailDialog({
                 <SelectTrigger data-testid="select-lead-status">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="theme-light bg-background text-foreground border-[var(--hairline)]">
                   {LEAD_STATUSES.map((s) => (
                     <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
                   ))}
@@ -789,7 +789,7 @@ export function BidBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
+      <DialogContent className="theme-light max-w-3xl max-h-[85vh] overflow-y-auto border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="font-display">
             {editBidId ? "Edit Bid" : "New Bid"}
@@ -808,7 +808,7 @@ export function BidBuilderDialog({
                 <SelectTrigger data-testid="select-bid-property">
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="theme-light bg-background text-foreground border-[var(--hairline)]">
                   <SelectItem value={NONE}>No property</SelectItem>
                   {properties?.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -1047,7 +1047,7 @@ export function BidDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
+      <DialogContent className="theme-light max-w-2xl max-h-[85vh] overflow-y-auto border border-[var(--hairline)] shadow-xl bg-background text-foreground">
         {!bid ? (
           <p className="text-sm text-muted-foreground p-4">Loading…</p>
         ) : (

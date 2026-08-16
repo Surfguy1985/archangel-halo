@@ -91,8 +91,8 @@ export function interpretPulseQuestion(raw: string, ctx: GuideContext): GuideRep
     return {
       answer:
         n === 0
-          ? "No Work App before/after photos for these communities yet. They land after Base44 sync."
-          : `${n} unit${n === 1 ? "" : "s"} have before/after photos from the Work App.${site ? ` Showing ${site.name}.` : ""}`,
+          ? "No before/after photos for these communities yet."
+          : `${n} unit${n === 1 ? "" : "s"} have before/after photos.${site ? ` Showing ${site.name}.` : ""}`,
       actions,
     };
   }
@@ -117,8 +117,8 @@ export function interpretPulseQuestion(raw: string, ctx: GuideContext): GuideRep
   if (/\b(vacanc|rent lost|dollar|money|cost)\b/.test(q)) {
     return {
       answer: ctx.vacancyCostCents
-        ? `Vacancy cost this window is on the Vacancy card — ${ctx.vacancyLabel ?? "rent lost to vacant days"}.`
-        : "Vacancy cost is on the lime dollar card.",
+        ? `Vacancy this window is ${ctx.vacancyLabel ?? "rent lost to vacant days"} — open the vacancy figure in the header.`
+        : "Vacancy for this window is the figure in the header.",
       actions: [{ type: "open", panel: "vacancy" }, ...(site ? [{ type: "select" as const, propertyId: site.propertyId }] : [])],
     };
   }
@@ -170,13 +170,6 @@ export function interpretPulseQuestion(raw: string, ctx: GuideContext): GuideRep
     return {
       answer: n === 0 ? "No open turns in this window." : `${n} open turn${n === 1 ? "" : "s"} with live vacant clocks.`,
       actions: [{ type: "open", panel: "turns" }],
-    };
-  }
-
-  if (site) {
-    return {
-      answer: `${site.name} — ${site.unitsInTurn} in turn, ${site.statusLabel}.`,
-      actions: [{ type: "select", propertyId: site.propertyId }, { type: "open", panel: "sites" }],
     };
   }
 

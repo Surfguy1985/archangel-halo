@@ -1826,6 +1826,21 @@ export interface Job {
      * @nullable
      */
   poNumber?: string | null;
+  /**
+     * When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged
+     * @nullable
+     */
+  poReceivedAt?: string | null;
+  /**
+     * Provenance of the received PO, e.g. "office chat"
+     * @nullable
+     */
+  poReceivedSource?: string | null;
+  /**
+     * When the office acknowledged/dismissed the PO-received banner
+     * @nullable
+     */
+  poAcknowledgedAt?: string | null;
   propertyId?: string;
   /** @nullable */
   propertyName?: string | null;
@@ -2975,6 +2990,22 @@ export interface BoardSettingsInput {
 export interface BoardStatusChangeInput {
   /** manual_check | completed */
   boardStatus: string;
+}
+
+/**
+ * The specific PO receipt the client saw. At least one field must be supplied and must match the job's current receipt, or the ack is rejected as stale.
+ */
+export interface AcknowledgePoInput {
+  /**
+     * The poReceivedAt timestamp the client observed (ISO 8601).
+     * @nullable
+     */
+  poReceivedAt?: string | null;
+  /**
+     * The PO number the client observed.
+     * @nullable
+     */
+  poNumber?: string | null;
 }
 
 export interface QualityCheckResult {
@@ -8208,29 +8239,6 @@ export interface PortfolioAttentionGroup {
   items: PortfolioAttentionItem[];
 }
 
-export interface PortfolioAttentionDocument {
-  portfolioId: string;
-  groups: PortfolioAttentionGroup[];
-  /** Every open turn in this view, with live close-out clocks. */
-  turns?: PortfolioAttentionItem[];
-  /** Base44 Work App before/after photos grouped by unit. */
-  photoUnits?: PortfolioUnitPhotoPair[];
-  /** HALO jobs scheduled today on these communities. */
-  crewToday?: PortfolioCrewToday[];
-}
-
-export interface PortfolioCrewToday {
-  propertyId: string;
-  propertyName: string;
-  /** @nullable */
-  unitNumber?: string | null;
-  jobNo?: string;
-  crewName: string;
-  status: string;
-  /** @nullable */
-  scheduledOn?: string | null;
-}
-
 export interface PortfolioUnitPhoto {
   id: string;
   url: string;
@@ -8247,6 +8255,29 @@ export interface PortfolioUnitPhotoPair {
   unitNumber: string;
   before: PortfolioUnitPhoto[];
   after: PortfolioUnitPhoto[];
+}
+
+export interface PortfolioCrewToday {
+  propertyId: string;
+  propertyName: string;
+  /** @nullable */
+  unitNumber?: string | null;
+  jobNo?: string;
+  crewName: string;
+  status: string;
+  /** @nullable */
+  scheduledOn?: string | null;
+}
+
+export interface PortfolioAttentionDocument {
+  portfolioId: string;
+  groups: PortfolioAttentionGroup[];
+  /** Every open turn in this view, with live close-out clocks. */
+  turns?: PortfolioAttentionItem[];
+  /** Base44 Work App before/after photos grouped by unit. */
+  photoUnits?: PortfolioUnitPhotoPair[];
+  /** HALO jobs scheduled today on these communities. */
+  crewToday?: PortfolioCrewToday[];
 }
 
 export interface PortfolioSavedViewInput {
@@ -9256,6 +9287,12 @@ export type AddWalkCaptureBatch201 = {
 
 export type SendCheckFollowup200 = {
   ok: boolean;
+};
+
+export type AcknowledgePoReceived200 = {
+  ok: boolean;
+  /** @nullable */
+  acknowledgedAt?: string | null;
 };
 
 export type GetCalendarParams = {

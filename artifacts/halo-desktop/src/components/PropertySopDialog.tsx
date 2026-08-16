@@ -111,7 +111,7 @@ export function PropertySopDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl bg-[var(--paper)] border-0 rounded-3xl p-8 max-h-[85vh] overflow-y-auto">
+      <DialogContent className="theme-light text-foreground max-w-xl bg-[var(--paper)] border border-[var(--hairline)] rounded-3xl p-8 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display font-bold text-[24px] text-[var(--ink)]">
             SOP invoice guidelines

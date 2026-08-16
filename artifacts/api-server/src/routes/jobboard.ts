@@ -389,6 +389,91 @@ router.post("/job-board/:jobId/check-followup", async (req, res): Promise<void> 
   }
 });
 
+// Acknowledge/dismiss the flashing purple "PO RECEIVED" banner for a job.
+// Persists server-side by stamping po_acknowledged_at so the banner clears
+// everywhere (desktop board + mobile card) and never re-chimes for this PO.
+router.post("/job-board/:jobId/acknowledge-po", async (req, res): Promise<void> => {
+  try {
+    const jobId = String(req.params.jobId);
+    if (!/^[0-9a-f-]{36}$/i.test(jobId)) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    // The client must tell us which receipt it saw so a stale ack from another
+    // tab can't dismiss a NEWER PO. We accept the poReceivedAt timestamp and/or
+    // the poNumber the client observed; at least one is required.
+    const body = (req.body ?? {}) as { poReceivedAt?: unknown; poNumber?: unknown };
+    const seenReceivedAt =
+      typeof body.poReceivedAt === "string" && body.poReceivedAt.trim()
+        ? body.poReceivedAt.trim()
+        : null;
+    const seenPoNumber =
+      typeof body.poNumber === "string" && body.poNumber.trim()
+        ? body.poNumber.trim().toUpperCase()
+        : null;
+    if (!seenReceivedAt && !seenPoNumber) {
+      res.status(400).json({ error: "Provide the poReceivedAt or poNumber you saw." });
+      return;
+    }
+
+    const [job] = await db
+      .select({
+        id: jobsTable.id,
+        poNumber: jobsTable.poNumber,
+        poReceivedAt: jobsTable.poReceivedAt,
+        poAcknowledgedAt: jobsTable.poAcknowledgedAt,
+      })
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId));
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    // The receipt must still be the one the client saw. Compare on whichever
+    // identifiers were supplied; any mismatch means the receipt changed (a newer
+    // PO arrived) and this ack is stale — reject rather than clear it.
+    const currentReceivedAt = job.poReceivedAt ? job.poReceivedAt.toISOString() : null;
+    const currentPoNumber = (job.poNumber ?? "").toUpperCase() || null;
+    if (!currentReceivedAt) {
+      res.status(409).json({ error: "This job has no PO receipt to acknowledge." });
+      return;
+    }
+    const receivedAtMatches =
+      seenReceivedAt == null ||
+      (currentReceivedAt != null && new Date(seenReceivedAt).getTime() === new Date(currentReceivedAt).getTime());
+    const poNumberMatches = seenPoNumber == null || seenPoNumber === currentPoNumber;
+    if (!receivedAtMatches || !poNumberMatches) {
+      res.status(409).json({ error: "A newer PO has been received for this job — refresh before acknowledging." });
+      return;
+    }
+
+    const acknowledgedAt = new Date();
+    // Guarded update: only stamp if the receipt is still exactly the one we
+    // matched, so a concurrent re-arm between the read and write can't be lost.
+    const updated = await db
+      .update(jobsTable)
+      .set({ poAcknowledgedAt: acknowledgedAt })
+      .where(and(eq(jobsTable.id, jobId), eq(jobsTable.poReceivedAt, job.poReceivedAt!)))
+      .returning({ id: jobsTable.id });
+    if (!updated[0]) {
+      res.status(409).json({ error: "A newer PO has been received for this job — refresh before acknowledging." });
+      return;
+    }
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: jobId,
+      kind: "po_acknowledged",
+      body: `Office acknowledged PO ${currentPoNumber ?? "(unknown)"} received banner.`,
+    });
+    res.json({ ok: true, acknowledgedAt: acknowledgedAt.toISOString() });
+  } catch (err) {
+    console.error("acknowledge-po failed", err);
+    if (!res.headersSent) res.status(500).json({ error: "Couldn't acknowledge the PO" });
+  }
+});
+
 router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
   const { id } = BroadcastJobParams.parse(req.params);
   const body = BroadcastJobBody.parse(req.body);

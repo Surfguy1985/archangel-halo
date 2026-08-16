@@ -80,24 +80,24 @@ function JobBox({ job, onClick }: { job: Job; onClick?: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="bg-[var(--ink)] text-white rounded-xl p-3 text-left hover:opacity-90 transition-all active:scale-[0.97] w-full"
+      className="bg-[var(--secondary)] text-white rounded-xl p-3 text-left hover:shadow-[var(--shadow-lift)] transition-all active:scale-[0.97] w-full border border-transparent"
       data-testid={`prop-sitemap-job-${job.id}`}
     >
       <div className="font-display font-bold text-base leading-tight truncate">
         {job.unitNo || "Common"}
       </div>
-      <div className="text-[10px] text-white/50 truncate mt-0.5">
+      <div className="text-[10px] text-[rgba(255,255,255,0.6)] truncate mt-0.5">
         {job.category || "General"}
       </div>
       <div className="mt-2 flex gap-[3px]">
         {stages.map((done, i) => (
           <span
             key={i}
-            className={`h-[4px] flex-1 rounded-full ${done ? "bg-[var(--gold-light)]" : "bg-white/15"}`}
+            className={`h-[4px] flex-1 rounded-full ${done ? "bg-[var(--gold-light)]" : "bg-[rgba(255,255,255,0.2)]"}`}
           />
         ))}
       </div>
-      <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/40">
+      <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-[rgba(255,255,255,0.55)]">
         {doneCount >= 5 ? "Closed" : STAGE_LABELS[doneCount]}
       </div>
     </button>
@@ -167,45 +167,45 @@ export default function Properties() {
 
   return (
     <>
-    <div className="p-8 max-w-[1200px] mx-auto animate-in fade-in duration-500">
-      <div className="bg-[var(--secondary)] rounded-[24px] p-6 md:p-8 shadow-2xl flex flex-col min-h-[70vh] border border-white/5">
+    <div className="theme-light p-8 max-w-[1200px] mx-auto animate-in fade-in duration-500">
+      <div className="cl-panel rounded-[24px] p-6 md:p-8 flex flex-col min-h-[70vh]">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="font-display font-bold text-2xl text-white tracking-tight">Properties</h1>
-            <p className="text-white/50 mt-1 text-sm">{properties?.length || 0} active locations</p>
+            <h1 className="font-display font-bold text-2xl text-[var(--ink)] tracking-tight">Properties</h1>
+            <p className="text-[var(--ink2)] mt-1 text-sm">{properties?.length || 0} active locations</p>
           </div>
           <div className="flex items-center gap-3">
             {/* View toggle */}
-            <div className="flex rounded-xl overflow-hidden border border-white/10">
+            <div className="flex rounded-xl overflow-hidden border border-[var(--hairline)]">
               <button
                 onClick={() => setView("map")}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === "map" ? "bg-[var(--gold-light)] text-black" : "text-white/50 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === "map" ? "bg-[var(--gold-light)] text-[var(--ink)]" : "bg-white text-[var(--ink2)] hover:bg-[var(--muted)]"}`}
                 title="Site map view"
               >
                 <LayoutGrid className="w-3.5 h-3.5" /> Map
               </button>
               <button
                 onClick={() => setView("list")}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === "list" ? "bg-[var(--gold-light)] text-black" : "text-white/50 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === "list" ? "bg-[var(--gold-light)] text-[var(--ink)]" : "bg-white text-[var(--ink2)] hover:bg-[var(--muted)]"}`}
                 title="List view"
               >
                 <LayoutList className="w-3.5 h-3.5" /> List
               </button>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--hairline2)]" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search properties…"
-                className="w-full md:w-64 pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--gold-light)] focus:ring-1 focus:ring-[var(--gold-light)] transition-all"
+                className="w-full md:w-64 pl-9 pr-4 py-2 bg-white border border-[var(--hairline)] rounded-xl text-sm text-[var(--ink)] placeholder:text-[var(--hairline2)] focus:outline-none focus:border-[var(--secondary)] focus:ring-2 focus:ring-[var(--secondary)]/20 transition-all"
               />
             </div>
             <button
               data-tour="new-property"
               onClick={() => setAddOpen(true)}
-              className="shrink-0 bg-[var(--gold-light)] text-black px-4 py-2 rounded-xl font-bold text-sm hover:bg-[#A1E44D] transition-colors flex items-center gap-2"
+              className="shrink-0 bg-[var(--gold-light)] text-[var(--ink)] px-4 py-2 rounded-xl font-bold text-sm hover:bg-[#A3E63D] transition-colors flex items-center gap-2 shadow-sm"
             >
               <Plus className="w-4 h-4" /> New Property
             </button>
@@ -227,10 +227,10 @@ export default function Properties() {
             <div className="space-y-6">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="space-y-3">
-                  <Skeleton className="h-8 w-48 rounded-xl bg-white/5" />
+                  <Skeleton className="h-8 w-48 rounded-xl bg-[var(--muted)]" />
                   <div className="grid grid-cols-4 gap-3">
                     {[1, 2, 3].map((j) => (
-                      <Skeleton key={j} className="h-20 rounded-xl bg-white/5" />
+                      <Skeleton key={j} className="h-20 rounded-xl bg-[var(--muted)]" />
                     ))}
                   </div>
                 </div>
@@ -240,8 +240,8 @@ export default function Properties() {
             /* ── SITE MAP VIEW ── */
             <div className="flex flex-col gap-8">
               {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center text-white/30">
-                  <Building className="w-8 h-8 mb-3 opacity-20" />
+                <div className="flex flex-col items-center justify-center py-20 text-center text-[var(--ink2)]">
+                  <Building className="w-8 h-8 mb-3 opacity-30" />
                   <div className="font-medium text-sm">No properties found.</div>
                 </div>
               ) : (
@@ -253,7 +253,7 @@ export default function Properties() {
                       {/* Property header */}
                       <div className="flex items-center gap-3">
                         {/* Thumbnail */}
-                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0 relative flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-[var(--muted)] border border-[var(--hairline)] shrink-0 relative flex items-center justify-center">
                           {p.imagePath ? (
                             <img
                               src={`/api/storage${p.imagePath}`}
@@ -263,8 +263,8 @@ export default function Properties() {
                             />
                           ) : (
                             <div className="flex flex-col items-center justify-center">
-                              <Building2 className="w-3.5 h-3.5 text-white/20" />
-                              <Sparkles className="w-2 h-2 text-[var(--gold-light)] animate-pulse" />
+                              <Building2 className="w-3.5 h-3.5 text-[var(--hairline2)]" />
+                              <Sparkles className="w-2 h-2 text-[#3D6B00] animate-pulse" />
                             </div>
                           )}
                         </div>
@@ -272,31 +272,31 @@ export default function Properties() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <Link
                               href={`/properties/${p.id}`}
-                              className="font-display font-bold text-lg text-white hover:text-[var(--gold-light)] transition-colors truncate"
+                              className="font-display font-bold text-lg text-[var(--ink)] hover:text-[var(--secondary)] transition-colors truncate"
                             >
                               {p.name}
                             </Link>
                             {p.city && (
-                              <span className="flex items-center gap-1 text-xs text-white/40">
+                              <span className="flex items-center gap-1 text-xs text-[var(--ink2)]">
                                 <MapPin className="w-3 h-3" /> {p.city}
                               </span>
                             )}
                             {owed ? (
-                              <span className="inline-block px-2.5 py-0.5 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-[0_0_12px_rgba(239,68,68,0.2)]">
+                              <span className="inline-block px-2.5 py-0.5 bg-[#FEE2E2] text-[#B91C1C] border border-[#FCA5A5] text-[10px] font-bold uppercase tracking-wider rounded-full tabular-nums">
                                 ${p.owed.toLocaleString()} owed
                               </span>
                             ) : (
-                              <span className="inline-block px-2.5 py-0.5 bg-[#B4FF44]/10 text-[#B4FF44] border border-[#B4FF44]/20 text-[10px] font-bold uppercase tracking-wider rounded-full">
+                              <span className="inline-block px-2.5 py-0.5 bg-[#EAFFC7] text-[#3D6B00] border border-[#B4FF44] text-[10px] font-bold uppercase tracking-wider rounded-full">
                                 Settled
                               </span>
                             )}
                             {p.openJobs > 0 && (
-                              <span className="text-[10px] text-white/40 font-semibold">
+                              <span className="text-[10px] text-[var(--ink2)] font-semibold">
                                 {p.openJobs} active job{p.openJobs !== 1 ? "s" : ""}
                               </span>
                             )}
                             {p.geocodeFailed && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider rounded-full" title="Address couldn't be geocoded — fix the address or drop a manual pin">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D] text-[10px] font-bold uppercase tracking-wider rounded-full" title="Address couldn't be geocoded — fix the address or drop a manual pin">
                                 <AlertTriangle className="w-2.5 h-2.5" /> No map pin
                               </span>
                             )}
@@ -310,7 +310,7 @@ export default function Properties() {
                             title="SOP invoice guidelines"
                             data-testid={`property-sop-settings-${p.id}`}
                             onClick={() => setSopProperty({ id: p.id, name: p.name })}
-                            className="w-7 h-7 rounded-full grid place-items-center text-white/30 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors"
+                            className="w-7 h-7 rounded-full grid place-items-center text-[var(--hairline2)] hover:text-[var(--secondary)] hover:bg-[var(--muted)] transition-colors"
                           >
                             <Settings className="w-3.5 h-3.5" />
                           </button>
@@ -320,7 +320,7 @@ export default function Properties() {
                             title="Delete property"
                             data-testid={`property-delete-${p.id}`}
                             onClick={() => { setDeleteError(null); setDeleteTarget({ id: p.id, name: p.name }); }}
-                            className="w-7 h-7 rounded-full grid place-items-center text-white/30 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            className="w-7 h-7 rounded-full grid place-items-center text-[var(--hairline2)] hover:text-[#B91C1C] hover:bg-[#FEE2E2] transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -339,13 +339,13 @@ export default function Properties() {
                           ))}
                         </div>
                       ) : (
-                        <div className="pl-12 text-xs text-white/25 italic py-1">
-                          No active jobs — <Link href={`/properties/${p.id}`} className="underline hover:text-white/50">open property to add one</Link>
+                        <div className="pl-12 text-xs text-[var(--hairline2)] italic py-1">
+                          No active jobs — <Link href={`/properties/${p.id}`} className="underline hover:text-[var(--ink2)]">open property to add one</Link>
                         </div>
                       )}
 
                       {/* Divider */}
-                      <div className="border-b border-white/5 mt-2" />
+                      <div className="border-b border-[var(--hairline)] mt-2" />
                     </div>
                   );
                 })
@@ -354,7 +354,7 @@ export default function Properties() {
           ) : (
             /* ── LIST VIEW ── */
             <div className="flex flex-col">
-              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
+              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 pb-3 border-b border-[var(--hairline)] text-[var(--ink2)] text-xs font-bold uppercase tracking-wider px-4">
                 <div></div>
                 <div>Name</div>
                 <div>Location</div>
@@ -363,16 +363,16 @@ export default function Properties() {
                 <div></div>
               </div>
               <div data-tour="properties-list" className="flex flex-col mt-2">
-                {filtered.map((p) => {
+                {filtered.map((p, i) => {
                   const hasOwed = p.owed > 0;
                   const hasJobs = p.openJobs > 0;
                   return (
                     <Link
                       key={p.id}
                       href={`/properties/${p.id}`}
-                      className="group grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
+                      className={`group grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 items-center py-3 border-b border-[var(--hairline)] transition-colors px-4 rounded-xl ${i % 2 === 1 ? "bg-[#F8FAFC]" : ""} hover:bg-[#EEF2F7]`}
                     >
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0 relative flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-[var(--muted)] border border-[var(--hairline)] shrink-0 relative flex items-center justify-center">
                         {p.imagePath ? (
                           <img
                             src={`/api/storage${p.imagePath}`}
@@ -382,24 +382,24 @@ export default function Properties() {
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center">
-                            <Building2 className="w-4 h-4 text-white/20 mb-1" />
-                            <Sparkles className="w-2 h-2 text-[var(--gold-light)] animate-pulse" />
+                            <Building2 className="w-4 h-4 text-[var(--hairline2)] mb-1" />
+                            <Sparkles className="w-2 h-2 text-[#3D6B00] animate-pulse" />
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-white truncate text-sm group-hover:text-[var(--gold-light)] transition-colors">{p.name}</div>
-                        {p.units ? <div className="text-white/40 text-xs mt-0.5">{p.units} units</div> : null}
+                        <div className="font-bold text-[var(--ink)] truncate text-sm group-hover:text-[var(--secondary)] transition-colors">{p.name}</div>
+                        {p.units ? <div className="text-[var(--ink2)] text-xs mt-0.5">{p.units} units</div> : null}
                       </div>
                       <div className="min-w-0 flex flex-col justify-center">
-                        <div className="text-white/60 text-sm truncate flex items-center gap-1.5">
-                          {p.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[var(--gold-light)]/60" /> {p.city}</span>}
-                          {p.city && p.pmcName && <span className="text-white/20">•</span>}
+                        <div className="text-[var(--ink2)] text-sm truncate flex items-center gap-1.5">
+                          {p.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#3D6B00]" /> {p.city}</span>}
+                          {p.city && p.pmcName && <span className="text-[var(--hairline2)]">•</span>}
                           {p.pmcName && <span className="truncate">{p.pmcName}</span>}
-                          {!p.city && !p.pmcName && <span className="text-white/30 italic text-xs">No location</span>}
+                          {!p.city && !p.pmcName && <span className="text-[var(--hairline2)] italic text-xs">No location</span>}
                         </div>
                         {p.geocodeFailed && (
-                          <div className="flex items-center gap-1 mt-0.5 text-amber-400 text-[10px] font-semibold">
+                          <div className="flex items-center gap-1 mt-0.5 text-[#92400E] text-[10px] font-semibold">
                             <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
                             Address not found on map — fix address or drop a pin
                           </div>
@@ -407,20 +407,20 @@ export default function Properties() {
                       </div>
                       <div>
                         {hasJobs ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EAB308]/10 text-[#EAB308] border border-[#EAB308]/20 text-[10px] font-bold uppercase tracking-wider rounded-full">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D] text-[10px] font-bold uppercase tracking-wider rounded-full">
                             {p.openJobs} active
                           </span>
                         ) : (
-                          <span className="text-white/30 text-xs">—</span>
+                          <span className="text-[var(--hairline2)] text-xs">—</span>
                         )}
                       </div>
                       <div className="text-right">
                         {hasOwed ? (
-                          <span className="inline-block px-3 py-1 bg-[#EF4444] text-white text-[11px] font-bold uppercase tracking-wider rounded-full shadow-[0_0_12px_rgba(239,68,68,0.2)]">
+                          <span className="inline-block px-3 py-1 bg-[#FEE2E2] text-[#B91C1C] border border-[#FCA5A5] text-[11px] font-bold uppercase tracking-wider rounded-full tabular-nums">
                             ${p.owed.toLocaleString()}
                           </span>
                         ) : (
-                          <span className="inline-block px-3 py-1 bg-[#B4FF44]/10 text-[#B4FF44] border border-[#B4FF44]/20 text-[10px] font-bold uppercase tracking-wider rounded-full">
+                          <span className="inline-block px-3 py-1 bg-[#EAFFC7] text-[#3D6B00] border border-[#B4FF44] text-[10px] font-bold uppercase tracking-wider rounded-full">
                             Settled
                           </span>
                         )}
@@ -436,7 +436,7 @@ export default function Properties() {
                             e.stopPropagation();
                             setSopProperty({ id: p.id, name: p.name });
                           }}
-                          className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors"
+                          className="w-8 h-8 rounded-full grid place-items-center text-[var(--hairline2)] hover:text-[var(--secondary)] hover:bg-[var(--muted)] transition-colors"
                         >
                           <Settings className="w-4 h-4" />
                         </button>
@@ -451,7 +451,7 @@ export default function Properties() {
                             setDeleteError(null);
                             setDeleteTarget({ id: p.id, name: p.name });
                           }}
-                          className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          className="w-8 h-8 rounded-full grid place-items-center text-[var(--hairline2)] hover:text-[#B91C1C] hover:bg-[#FEE2E2] transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -460,8 +460,8 @@ export default function Properties() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-20 text-center text-white/30">
-                    <Building className="w-8 h-8 mb-3 opacity-20" />
+                  <div className="flex flex-col items-center justify-center py-20 text-center text-[var(--ink2)]">
+                    <Building className="w-8 h-8 mb-3 opacity-30" />
                     <div className="font-medium text-sm">No properties found.</div>
                   </div>
                 )}

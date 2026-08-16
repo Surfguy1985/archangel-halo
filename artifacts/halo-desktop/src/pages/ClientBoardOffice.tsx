@@ -735,7 +735,7 @@ function CommentsDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden bg-background h-[600px] max-sm:h-[min(600px,85dvh)] flex flex-col sm:rounded-3xl">
+      <DialogContent className="theme-light max-w-md p-0 overflow-hidden bg-background text-foreground h-[600px] max-sm:h-[min(600px,85dvh)] flex flex-col sm:rounded-3xl">
         <div className="p-5 border-b border-border bg-card shrink-0">
           <DialogTitle className="text-lg font-display font-bold truncate pr-6">{title}</DialogTitle>
           <div className="text-xs font-medium text-muted-foreground mt-1">Internal & Client Thread</div>
@@ -877,7 +877,7 @@ function RespondDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm p-6 sm:rounded-3xl">
+      <DialogContent className="theme-light bg-background text-foreground max-w-sm p-6 sm:rounded-3xl">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-xl font-display font-bold">
             {status === "accepted" ? "Accept Request" : "Decline Request"}
@@ -978,7 +978,7 @@ function EditCardDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg p-6 sm:rounded-3xl">
+      <DialogContent className="theme-light bg-background text-foreground max-w-lg p-6 sm:rounded-3xl">
         <DialogHeader className="mb-3">
           <DialogTitle className="text-xl font-display font-bold">Edit card</DialogTitle>
         </DialogHeader>
@@ -1534,7 +1534,7 @@ export default function ClientBoardOffice() {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#F1F5F9] min-h-0">
+    <div className="theme-light h-full flex flex-col bg-[var(--background)] min-h-0">
       <div className="flex-none p-4 sm:p-6 pb-0 border-b border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-2 sm:gap-4 max-sm:min-w-0">

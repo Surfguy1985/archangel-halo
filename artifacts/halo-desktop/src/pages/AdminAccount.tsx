@@ -13,6 +13,8 @@ import {
   Building,
   Check,
   Plus,
+  ExternalLink,
+  LayoutGrid,
 } from "lucide-react";
 import {
   useGetClientAccount,
@@ -37,15 +39,15 @@ const TIERS = [
   { value: "enterprise", label: "Enterprise" },
 ];
 
-const inputCls = "w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--gold-light)] focus:ring-1 focus:ring-[var(--gold-light)] transition-all";
-const btnPrimary = "px-5 py-2.5 bg-[var(--gold-light)] text-black text-sm font-bold rounded-xl hover:bg-[#A1E44D] transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2";
-const btnGhost = "px-4 py-2.5 text-sm font-bold rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2";
+const inputCls = "w-full px-4 py-2.5 rounded-xl bg-white border border-[var(--hairline)] text-sm text-[var(--ink)] placeholder:text-[var(--hairline2)] focus:outline-none focus:border-[var(--secondary)] focus:ring-2 focus:ring-[var(--secondary)]/20 transition-all";
+const btnPrimary = "px-5 py-2.5 bg-[var(--gold-light)] text-[var(--ink)] text-sm font-bold rounded-xl hover:bg-[#A3E63D] transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-sm";
+const btnGhost = "px-4 py-2.5 text-sm font-bold rounded-xl border border-[var(--hairline)] bg-white text-[var(--ink)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2";
 
 function DarkSection({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="py-8 border-t border-white/10 first:border-0">
+    <div className="py-8 border-t border-[var(--hairline)] first:border-0">
       <div className="flex items-center justify-between gap-3 mb-6">
-        <h2 className="text-lg font-display font-bold text-white tracking-tight">{title}</h2>
+        <h2 className="text-lg font-display font-bold text-[var(--ink)] tracking-tight">{title}</h2>
         {action && <div>{action}</div>}
       </div>
       {children}
@@ -98,9 +100,9 @@ export default function AdminAccount() {
 
   if (isLoading || !data) {
     return (
-      <div className="p-8 max-w-5xl mx-auto space-y-4">
-        <Skeleton className="h-8 w-48 rounded-xl bg-[var(--secondary)]/20" />
-        <Skeleton className="h-64 rounded-[24px] bg-[var(--secondary)]/20" />
+      <div className="theme-light p-8 max-w-5xl mx-auto space-y-4">
+        <Skeleton className="h-8 w-48 rounded-xl bg-[var(--muted)]" />
+        <Skeleton className="h-64 rounded-[24px] bg-[var(--muted)]" />
       </div>
     );
   }
@@ -183,24 +185,24 @@ export default function AdminAccount() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <Link href="/admin" className="inline-flex items-center gap-2 text-muted-foreground text-sm font-bold hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Back to Admin
+    <div className="theme-light p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <Link href="/admin" className="inline-flex items-center gap-2 text-[var(--ink2)] text-sm font-bold hover:text-[var(--ink)] transition-colors">
+        <ChevronLeft className="w-4 h-4" /> Back to Accounts
       </Link>
 
-      <div className="bg-[var(--secondary)] rounded-[24px] p-6 lg:p-10 shadow-2xl border border-white/5">
+      <div className="cl-panel rounded-[24px] p-6 lg:p-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8 pb-8 border-b border-white/10">
-          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden relative">
+        <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8 pb-8 border-b border-[var(--hairline)]">
+          <div className="w-20 h-20 rounded-2xl bg-[var(--muted)] border border-[var(--hairline)] flex items-center justify-center shrink-0 overflow-hidden relative">
             {account.logoPath ? (
               <img src={`/api/storage${account.logoPath}`} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
-              <Building className="w-8 h-8 text-white/20" />
+              <Building className="w-8 h-8 text-[var(--hairline2)]" />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-display font-bold text-white truncate tracking-tight">{property.name}</h1>
-            <p className="text-white/50 text-sm mt-1 truncate">
+            <h1 className="text-3xl font-display font-bold text-[var(--ink)] truncate tracking-tight">{property.name}</h1>
+            <p className="text-[var(--ink2)] text-sm mt-1 truncate">
               {[property.pmcName, property.address, property.city].filter(Boolean).join(" · ") || "—"}
               {property.units ? ` · ${property.units} units` : ""}
             </p>
@@ -220,14 +222,14 @@ export default function AdminAccount() {
                   e.target.value = "";
                 }}
               />
-             <a href={account.dashboardUrl ?? "#"} target="_blank" rel="noreferrer" className={btnGhost} data-testid="link-client-board">
-               Client board
+             <a href={account.dashboardUrl ?? "#"} target="_blank" rel="noreferrer" className={btnGhost} data-testid="link-client-board" title="Open the client-facing dashboard in a new tab">
+               <ExternalLink className="w-4 h-4" /> Client board
              </a>
-             <Link href={`/admin/${property.id}/board`} className={btnGhost} data-testid="link-office-board">
-               Office view
+             <Link href={`/admin/${property.id}/board`} className="px-4 py-2.5 text-sm font-bold rounded-xl bg-[var(--secondary)] text-white hover:bg-[var(--ink)] transition-colors inline-flex items-center justify-center gap-2 shadow-sm" data-testid="link-office-board" title="Open this client's board in the office view">
+               <LayoutGrid className="w-4 h-4" /> Office view
              </Link>
              <Link href={`/properties/${property.id}`} className={btnGhost}>
-               Property
+               <Building className="w-4 h-4" /> Property
              </Link>
           </div>
         </div>
@@ -237,7 +239,7 @@ export default function AdminAccount() {
         <DarkSection 
           title="Subscription & Billing" 
           action={
-            <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 ${account.status === "active" ? "bg-[#B4FF44]/10 text-[#B4FF44] border border-[#B4FF44]/20" : "bg-white/10 text-white/60 border border-white/10"}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 ${account.status === "active" ? "bg-[#EAFFC7] text-[#3D6B00] border border-[#B4FF44]" : "bg-[var(--muted)] text-[var(--ink2)] border border-[var(--hairline)]"}`}>
               {account.status}
             </span>
           }
@@ -253,7 +255,7 @@ export default function AdminAccount() {
                       <button
                         key={t.value}
                         onClick={() => setSub({ ...subState, tier: t.value })}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors ${subState.tier === t.value ? "bg-[var(--gold-light)] text-black border-transparent" : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"}`}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors ${subState.tier === t.value ? "bg-[var(--gold-light)] text-[var(--ink)] border-transparent shadow-sm" : "bg-white border-[var(--hairline)] text-[var(--ink2)] hover:bg-[var(--muted)] hover:text-[var(--ink)]"}`}
                         data-testid={`button-tier-${t.value}`}
                       >
                         {t.label}
@@ -273,7 +275,7 @@ export default function AdminAccount() {
                   <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Status</label>
                   <div className="flex gap-2">
                     {["active", "paused", "cancelled"].map((s) => (
-                      <button key={s} onClick={() => setSub({ ...subState, status: s })} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border capitalize transition-colors ${subState.status === s ? "bg-white text-black border-transparent" : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"}`}>
+                      <button key={s} onClick={() => setSub({ ...subState, status: s })} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border capitalize transition-colors ${subState.status === s ? "bg-[var(--secondary)] text-white border-transparent shadow-sm" : "bg-white border-[var(--hairline)] text-[var(--ink2)] hover:bg-[var(--muted)] hover:text-[var(--ink)]"}`}>
                         {s}
                       </button>
                     ))}
@@ -310,8 +312,8 @@ export default function AdminAccount() {
                   <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Payment Method <span className="lowercase normal-case text-white/30 font-medium">(Display Only)</span></label>
                   <div className="flex gap-2">
                     <select value={subState.paymentMethodType} onChange={(e) => setSub({...subState, paymentMethodType: e.target.value})} className={`${inputCls} w-1/3 appearance-none`}>
-                      <option value="card" className="bg-[var(--ink)] text-white">Card</option>
-                      <option value="ach" className="bg-[var(--ink)] text-white">ACH</option>
+                      <option value="card">Card</option>
+                      <option value="ach">ACH</option>
                     </select>
                     <input value={subState.paymentLast4} onChange={(e) => setSub({...subState, paymentLast4: e.target.value})} className={`${inputCls} flex-1 font-mono`} placeholder="Last 4 digits" maxLength={4} />
                   </div>
@@ -347,9 +349,9 @@ export default function AdminAccount() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-white/80 border-b border-white/5 pb-2">Client Dashboard Link</h3>
-              <div className="bg-white/5 rounded-xl p-5 border border-white/10 space-y-4">
+              <div className="cl-subpanel rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-black/40 text-white rounded-lg px-3 py-2.5 truncate border border-white/5 font-mono">{account.dashboardUrl}</code>
+                  <code className="flex-1 text-xs bg-[var(--secondary)] text-white rounded-lg px-3 py-2.5 truncate border border-[var(--hairline)] font-mono">{account.dashboardUrl}</code>
                   <button onClick={() => copy(account.dashboardUrl ?? "", "Link")} className={btnGhost} aria-label="Copy link" data-testid="button-copy-dashboard-link">
                     <Copy className="w-4 h-4" />
                   </button>
@@ -369,7 +371,7 @@ export default function AdminAccount() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">Sent history</p>
                     {sends.slice(0, 5).map((s) => (
                       <div key={s.id} className="flex items-center gap-2 text-xs font-medium text-white/60">
-                        <span className={`w-2 h-2 rounded-full ${s.status === "sent" ? "bg-[var(--gold-light)]" : "bg-rose-500"}`} />
+                        <span className={`w-2 h-2 rounded-full ${s.status === "sent" ? "bg-[#65A30D]" : "bg-[#EF4444]"}`} />
                         <span className="truncate flex-1">{s.sentTo}</span>
                         <span className="shrink-0 text-white/30">{new Date(s.createdAt).toLocaleDateString()}</span>
                       </div>
@@ -388,16 +390,16 @@ export default function AdminAccount() {
                 </span>
               </div>
               
-              <div className="flex flex-col gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="flex flex-col gap-3 cl-subpanel rounded-xl p-4">
                 <div className="flex gap-2">
                   <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className={inputCls} placeholder="Name" data-testid="input-new-user-name" />
                   <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className={inputCls} placeholder="Email" data-testid="input-new-user-email" />
                 </div>
                 <div className="flex gap-2">
                   <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className={`${inputCls} flex-1 appearance-none`}>
-                    <option value="admin" className="bg-[var(--ink)] text-white">Admin</option>
-                    <option value="member" className="bg-[var(--ink)] text-white">Member</option>
-                    <option value="guest" className="bg-[var(--ink)] text-white">Guest</option>
+                    <option value="admin">Admin</option>
+                    <option value="member">Member</option>
+                    <option value="guest">Guest</option>
                   </select>
                   <button onClick={() => createUser.mutate({ propertyId, data: { name: newUser.name, email: newUser.email, role: newUser.role, sendEmail: newUser.sendEmail } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); setNewUser({ name: "", email: "", role: "member", sendEmail: true }); refresh(); }, onError })} disabled={createUser.isPending || !newUser.name.trim() || !newUser.email.trim()} className={`${btnPrimary} px-5`} data-testid="button-create-user">
                     <Plus className="w-4 h-4" /> Add
@@ -410,15 +412,15 @@ export default function AdminAccount() {
               </div>
 
               {issued && (
-                <div className="bg-[var(--gold-light)]/10 border border-[var(--gold-light)]/20 text-[var(--gold-light)] rounded-xl p-4 flex items-center gap-4 shadow-[0_0_24px_rgba(180,255,68,0.1)]">
-                  <KeyRound className="w-6 h-6 shrink-0" />
+                <div className="bg-[#EAFFC7] border border-[#B4FF44] text-[var(--ink)] rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                  <KeyRound className="w-6 h-6 shrink-0 text-[#3D6B00]" />
                   <div className="flex-1 min-w-0 text-xs">
-                    <b>{issued.email}</b><br/>Temp password: <code className="bg-black/30 rounded px-1.5 py-0.5 mt-1 inline-block text-white font-mono">{issued.tempPassword}</code>
+                    <b>{issued.email}</b><br/>Temp password: <code className="bg-[var(--secondary)] rounded px-1.5 py-0.5 mt-1 inline-block text-white font-mono">{issued.tempPassword}</code>
                   </div>
-                  <button onClick={() => copy(issued.tempPassword, "Password")} className="p-2 bg-[var(--gold-light)]/20 rounded-lg hover:bg-[var(--gold-light)]/30 transition-colors" aria-label="Copy">
+                  <button onClick={() => copy(issued.tempPassword, "Password")} className="p-2 bg-white/70 rounded-lg hover:bg-white transition-colors text-[var(--ink)]" aria-label="Copy">
                     <Copy className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setIssued(null)} className="px-3 py-2 text-[var(--gold-light)]/60 hover:text-[var(--gold-light)] text-xs font-bold transition-colors">Done</button>
+                  <button onClick={() => setIssued(null)} className="px-3 py-2 text-[#3D6B00] hover:text-[var(--ink)] text-xs font-bold transition-colors">Done</button>
                 </div>
               )}
 
@@ -432,19 +434,19 @@ export default function AdminAccount() {
                         <p className={`font-bold text-sm text-white truncate transition-opacity ${!u.active && "opacity-40 line-through"}`}>{u.name}</p>
                         <p className="text-white/40 text-xs truncate mt-0.5">{u.email}</p>
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-white/5 text-white/40 border border-white/10 shrink-0">{u.role}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-[var(--muted)] text-[var(--ink2)] border border-[var(--hairline)] shrink-0">{u.role}</span>
                       
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => resetPassword.mutate({ id: u.id, data: { sendEmail: true } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); refresh(); }, onError })} disabled={resetPassword.isPending} className="text-white/30 hover:text-white transition-colors p-1.5" title="Reset password" data-testid={`button-reset-password-${u.id}`}>
+                        <button onClick={() => resetPassword.mutate({ id: u.id, data: { sendEmail: true } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); refresh(); }, onError })} disabled={resetPassword.isPending} className="text-[var(--hairline2)] hover:text-[var(--ink)] transition-colors p-1.5" title="Reset password" data-testid={`button-reset-password-${u.id}`}>
                           <KeyRound className="w-4 h-4" />
                         </button>
-                        <button onClick={() => updateUser.mutate({ id: u.id, data: { active: !u.active } }, { onSuccess: refresh, onError })} disabled={updateUser.isPending} className="text-white/30 hover:text-[var(--gold-light)] transition-colors p-1.5" title={u.active ? "Deactivate" : "Activate"} data-testid={`button-toggle-active-${u.id}`}>
+                        <button onClick={() => updateUser.mutate({ id: u.id, data: { active: !u.active } }, { onSuccess: refresh, onError })} disabled={updateUser.isPending} className="text-[var(--hairline2)] hover:text-[#3D6B00] transition-colors p-1.5" title={u.active ? "Deactivate" : "Activate"} data-testid={`button-toggle-active-${u.id}`}>
                           <RefreshCw className="w-4 h-4" />
                         </button>
                         {confirmDeleteId === u.id ? (
-                          <button onClick={() => deleteUser.mutate({ id: u.id }, { onSuccess: () => { setConfirmDeleteId(null); refresh(); }, onError })} className="text-xs bg-[#EF4444] hover:bg-red-600 transition-colors text-white px-3 py-1.5 rounded-lg font-bold ml-1">Confirm</button>
+                          <button onClick={() => deleteUser.mutate({ id: u.id }, { onSuccess: () => { setConfirmDeleteId(null); refresh(); }, onError })} className="text-xs bg-[#EF4444] hover:bg-[#DC2626] transition-colors text-white px-3 py-1.5 rounded-lg font-bold ml-1">Confirm</button>
                         ) : (
-                          <button onClick={() => setConfirmDeleteId(u.id)} className="text-white/30 hover:text-[#EF4444] transition-colors p-1.5" aria-label="Delete login">
+                          <button onClick={() => setConfirmDeleteId(u.id)} className="text-[var(--hairline2)] hover:text-[#B91C1C] transition-colors p-1.5" aria-label="Delete login">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
@@ -481,9 +483,9 @@ export default function AdminAccount() {
               ) : (
                 <ul className="space-y-2 text-sm font-medium">
                   {services.map((s) => (
-                    <li key={String(s.id)} className="flex items-center justify-between gap-3 text-white/80 bg-white/5 px-3 py-2 rounded-lg border border-white/5">
+                    <li key={String(s.id)} className="flex items-center justify-between gap-3 text-[var(--ink)] bg-[#F8FAFC] px-3 py-2 rounded-lg border border-[var(--hairline)]">
                       <span className="truncate">{String(s.service)}</span>
-                      <span className="text-white/50 font-mono text-xs shrink-0">${Number(s.rate).toLocaleString()}{s.unit ? `/${String(s.unit)}` : ""}</span>
+                      <span className="text-[var(--ink2)] font-mono text-xs shrink-0 tabular-nums">${Number(s.rate).toLocaleString()}{s.unit ? `/${String(s.unit)}` : ""}</span>
                     </li>
                   ))}
                 </ul>
@@ -496,15 +498,15 @@ export default function AdminAccount() {
               ) : (
                 <ul className="space-y-2 text-sm font-medium">
                   {contacts.map((c) => (
-                    <li key={String(c.id)} className="truncate text-white/80 bg-white/5 px-3 py-2 rounded-lg border border-white/5">
+                    <li key={String(c.id)} className="truncate text-[var(--ink)] bg-[#F8FAFC] px-3 py-2 rounded-lg border border-[var(--hairline)]">
                       {String(c.name)}
-                      {c.role ? <span className="text-white/40 font-normal"> · {String(c.role)}</span> : null}
-                      {c.email ? <span className="text-white/40 font-normal"> · {String(c.email)}</span> : null}
+                      {c.role ? <span className="text-[var(--ink2)] font-normal"> · {String(c.role)}</span> : null}
+                      {c.email ? <span className="text-[var(--ink2)] font-normal"> · {String(c.email)}</span> : null}
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="text-xs text-white/30 mt-4 font-medium">Edit info & contacts from the <Link href={`/properties/${property.id}`} className="text-[var(--gold-light)] hover:underline">property page</Link>.</p>
+              <p className="text-xs text-[var(--ink2)] mt-4 font-medium">Edit info & contacts from the <Link href={`/properties/${property.id}`} className="text-[#3D6B00] font-bold hover:underline">property page</Link>.</p>
             </div>
           </div>
         </DarkSection>

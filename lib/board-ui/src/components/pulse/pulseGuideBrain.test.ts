@@ -32,7 +32,7 @@ const ctx: GuideContext = {
 };
 
 describe("pulse guide brain", () => {
-  it("opens photos and names the Work App count", () => {
+  it("opens photos and names the unit count", () => {
     const r = interpretPulseQuestion("show before and after photos", ctx);
     expect(r.actions).toContainEqual({ type: "open", panel: "photos" });
     expect(r.answer).toMatch(/3 units/);

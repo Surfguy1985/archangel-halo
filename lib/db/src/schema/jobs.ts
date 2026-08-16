@@ -88,6 +88,12 @@ export const jobsTable = pgTable("jobs", {
   woNo: text("wo_no"),
   // Client purchase order — the Done→Billing gate: no PO, no billing.
   poNumber: text("po_number"),
+  // Client PO intake (office chat "here's the PO for unit X, send to vendor"):
+  // when the property sends over the PO, poReceivedAt stamps arrival and drives
+  // the flashing purple "PO RECEIVED" banner until the office acknowledges it.
+  poReceivedAt: timestamp("po_received_at", { withTimezone: true }),
+  poReceivedSource: text("po_received_source"),
+  poAcknowledgedAt: timestamp("po_acknowledged_at", { withTimezone: true }),
   propertyId: uuid("property_id").notNull(),
   unitNo: text("unit_no"),
   category: text("category"),

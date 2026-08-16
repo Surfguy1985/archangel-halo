@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CAF Pulse — three directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0f1b2d;
+      --navy-2: #162236;
+      --lime: #b4ff44;
+      --paper: #f7f8f4;
+      --cream: #efede8;
+      --map: #dce4dc;
+      --ink: #0f1b2d;
+      --muted: #5c6b7a;
+      --gold: #c9a227;
+      --coral: #c23b22;
+      --line: rgba(15, 27, 45, 0.1);
+      --display: "Outfit", sans-serif;
+      --sans: "Plus Jakarta Sans", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #e8e6df; color: var(--ink); font-family: var(--sans); }
+    body { padding: 24px 28px 64px; }
+    .wrap { max-width: 1280px; margin: 0 auto; }
+    header.page { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .eyebrow { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    h1 { margin: 0; font-family: var(--display); font-size: 32px; font-weight: 700; letter-spacing: -0.03em; }
+    .lead { margin: 8px 0 0; max-width: 640px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .tabs { display: flex; gap: 8px; }
+    .tabs button {
+      min-height: 44px; padding: 0 16px; border: 1px solid var(--line); background: #fff;
+      font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer;
+    }
+    .tabs button[aria-selected="true"] { background: var(--navy); color: #f4f4f0; border-color: var(--navy); }
+    .stage { background: #c8c4b8; padding: 16px; }
+    .hud { height: 620px; display: grid; grid-template-rows: 58px 1fr; background: var(--navy); overflow: hidden; }
+    .head { display: flex; align-items: center; gap: 12px; padding: 0 16px 0 12px; color: #f4f4f0; }
+    .mark { width: 34px; height: 34px; border-radius: 10px; background: var(--lime); color: var(--navy); font-family: var(--display); font-weight: 800; display: grid; place-items: center; }
+    .brand p { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8496ae; }
+    .brand h2 { margin: 0; font-family: var(--display); font-size: 16px; font-weight: 700; }
+    .ask { flex: 1; height: 36px; background: #fff; color: var(--muted); display: flex; align-items: center; padding: 0 12px; font-size: 13px; }
+    .stat-whisper { font-size: 12px; color: #c9d4c4; white-space: nowrap; }
+    .cta { height: 36px; padding: 0 14px; background: var(--lime); color: var(--navy); border: 0; font-family: inherit; font-weight: 700; font-size: 13px; cursor: default; }
+    .linkish { color: #c9d4c4; font-size: 13px; font-weight: 600; }
+    .body { min-height: 0; display: grid; }
+    .rail { background: var(--navy-2); display: flex; flex-direction: column; gap: 6px; padding: 10px 8px; }
+    .rail i { width: 36px; height: 36px; display: grid; place-items: center; color: #8496ae; font-size: 11px; font-style: normal; }
+    .rail i.on { background: var(--lime); color: var(--navy); }
+    .rail .board { margin-top: auto; background: var(--lime); color: var(--navy); font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; min-height: 44px; display: grid; place-items: center; }
+    .rail.labeled { width: 72px; }
+    .rail.labeled i { width: 100%; height: auto; min-height: 44px; flex-direction: column; font-size: 10px; font-weight: 600; gap: 2px; }
+    .cards { background: var(--paper); padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: hidden; }
+    .card { background: #fff; border: 1px solid var(--line); padding: 10px 12px; min-height: 88px; }
+    .card h3 { margin: 0 0 6px; font-family: var(--display); font-size: 13px; }
+    .card p, .card li { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+    .card ul { margin: 0; padding: 0; list-style: none; }
+    .map { background:
+      linear-gradient(90deg, rgba(247,248,244,0.55), transparent 28%),
+      repeating-linear-gradient(0deg, #d5ddd5 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, #d5ddd5 0 1px, transparent 1px 64px),
+      var(--map);
+      position: relative;
+    }
+    .map.clean { background:
+      repeating-linear-gradient(0deg, #d5ddd5 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, #d5ddd5 0 1px, transparent 1px 64px),
+      var(--map);
+    }
+    .pin { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--navy); box-shadow: 0 0 0 3px rgba(180,255,68,0.45); }
+    .pin.hot { background: var(--coral); }
+    .pin.live { background: var(--lime); }
+    .map-cta { position: absolute; right: 16px; bottom: 16px; }
+    .chip { position: absolute; left: 16px; bottom: 16px; background: #fff; border: 1px solid var(--line); padding: 8px 10px; font-size: 12px; }
+    .queue { background: var(--paper); padding: 16px 18px; border-right: 1px solid var(--line); }
+    .queue h3 { margin: 0 0 12px; font-family: var(--display); font-size: 18px; }
+    .unit { background: #fff; border: 1px solid var(--line); padding: 12px; margin-bottom: 8px; }
+    .unit.hero { border-color: var(--navy); }
+    .unit .num { font-family: var(--display); font-size: 28px; font-weight: 800; line-height: 1; }
+    .unit .num.sm { font-size: 16px; }
+    .gold { color: var(--gold); font-weight: 600; }
+    .coral { color: var(--coral); font-weight: 600; }
+    .sites { margin-top: 20px; }
+    .sites h4 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .sites p { margin: 0 0 6px; font-size: 13px; }
+    .panel { display: none; }
+    .panel.on { display: block; }
+    .note { margin-top: 20px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+    .note h3 { margin: 0 0 8px; font-family: var(--display); font-size: 20px; }
+    .note p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: #2a3544; }
+    .scores { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .score { background: #fff; border: 1px solid var(--line); padding: 12px; }
+    .score b { display: block; font-family: var(--display); font-size: 22px; }
+    .score span { font-size: 11px; color: var(--muted); }
+    .shots { margin-top: 28px; }
+    .shots h3 { font-family: var(--display); font-size: 20px; margin: 0 0 12px; }
+    .shots img { width: 100%; height: auto; display: block; border: 1px solid var(--line); background: #ddd; }
+    .shot-grid { display: grid; gap: 16px; }
+    .cap { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+    @media (max-width: 900px) {
+      .note, .scores { grid-template-columns: 1fr; }
+      .hud { height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page">
+      <div>
+        <p class="eyebrow">Community Asset Fund · Pulse home</p>
+        <h1>Three directions. Pick one.</h1>
+        <p class="lead">B is now the product. Open office <a href="/portfolio">/portfolio</a> or the regional link <a href="/board/caf-regional">/board/caf-regional</a>. This page stays as the A/B/C record.</p>
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-dir="a">A · As built</button>
+        <button type="button" role="tab" aria-selected="false" data-dir="b">B · Balanced</button>
+        <button type="button" role="tab" aria-selected="false" data-dir="c">C · Structured</button>
+      </div>
+    </header>
+
+    <div class="stage">
+      <div id="panel-a" class="panel on">
+        <div class="hud">
+          <div class="head">
+            <div class="mark">C</div>
+            <div class="brand"><p>CAF</p><h2>North Region</h2></div>
+            <div class="ask">Search</div>
+            <button class="cta" type="button">Open turns</button>
+          </div>
+          <div class="body" style="grid-template-columns: 52px 1fr 2fr;">
+            <div class="rail">
+              <i class="on">●</i><i>○</i><i>○</i><i>○</i><i>○</i><i>○</i><i>○</i><i>○</i>
+              <div class="board">Board</div>
+            </div>
+            <div class="cards">
+              <div class="card"><h3>Ask this board</h3><p>What’s on fire? Who is on site? Open Paloma 214…</p></div>
+              <div class="card"><h3>Vacancy</h3><p>$12,450 this month · +$1,180 vs last window</p></div>
+              <div class="card"><h3>Turns</h3><p>4 in turn · 1 late · median 11 days</p></div>
+              <div class="card"><h3>Photos</h3><p>Before / after by unit — Work App pairs</p></div>
+              <div class="card"><h3>Crew today</h3><p>2 scheduled on Paloma · 0 on Redbud</p></div>
+              <div class="card"><h3>Sites</h3><p>Paloma Creek · Desert Sage · Redbud</p></div>
+              <div class="card"><h3>Needs you</h3><p>214 approval · Desert Sage stalled · Redbud PO</p></div>
+            </div>
+            <div class="map">
+              <span class="pin" style="top:38%;left:42%"></span>
+              <span class="pin hot" style="top:52%;left:58%"></span>
+              <span class="pin live" style="top:44%;left:70%"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-b" class="panel">
+        <div class="hud">
+          <div class="head">
+            <div class="mark">C</div>
+            <div class="brand"><p>CAF</p><h2>North Region</h2></div>
+            <div class="stat-whisper">$12,450 this month</div>
+            <div class="ask">Ask about a community or unit</div>
+          </div>
+          <div class="body" style="grid-template-columns: 72px 1fr 2fr;">
+            <div class="rail labeled">
+              <i>Ask</i>
+              <i>Sites</i>
+              <i class="on">Needs</i>
+              <i>Turns</i>
+              <i>Photos</i>
+              <div class="board">Board</div>
+            </div>
+            <div class="queue">
+              <h3>Needs you · 3</h3>
+              <div class="unit hero">
+                <div class="num sm">214</div>
+                <p>Paloma Creek · <span class="gold">waiting on you, 4 days</span></p>
+              </div>
+              <div class="unit"><p>Desert Sage · stalled</p></div>
+              <div class="unit"><p>Redbud · waiting on PO</p></div>
+              <div class="sites">
+                <h4>Sites</h4>
+                <p><strong>Paloma Creek</strong> · selected</p>
+                <p>Crew on site · 2</p>
+              </div>
+            </div>
+            <div class="map clean">
+              <span class="pin live" style="top:40%;left:48%"></span>
+              <span class="pin" style="top:56%;left:62%"></span>
+              <span class="pin hot" style="top:46%;left:72%"></span>
+              <button class="cta map-cta" type="button">Open Paloma · 214</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-c" class="panel">
+        <div class="hud" style="background: var(--paper);">
+          <div class="head" style="background: var(--paper); color: var(--ink); border-bottom: 1px solid var(--line);">
+            <div class="mark">C</div>
+            <div class="brand"><p style="color:var(--muted)">CAF · Sat 15 Aug</p><h2 style="color:var(--ink)">North Region</h2></div>
+            <div class="ask" style="border:1px solid var(--line)">Unit, community, or what’s on fire</div>
+            <span class="linkish" style="color:var(--muted)">Board</span>
+          </div>
+          <div class="body" style="grid-template-columns: 28% 1fr;">
+            <div class="queue">
+              <h3>Needs you · 3</h3>
+              <div class="unit hero">
+                <div class="num">214</div>
+                <p>Paloma Creek</p>
+                <p class="gold">waiting on you, 4 days</p>
+              </div>
+              <div class="unit"><div class="num sm">108</div><p>Desert Sage · stalled</p></div>
+              <div class="unit"><div class="num sm">9</div><p>Redbud · waiting on PO</p></div>
+              <div class="sites">
+                <h4>Communities</h4>
+                <p><strong>Paloma Creek</strong></p>
+                <p>Desert Sage · drifting</p>
+                <p>Redbud</p>
+              </div>
+            </div>
+            <div class="map clean">
+              <span class="pin live" style="top:42%;left:46%"></span>
+              <span class="pin" style="top:58%;left:64%"></span>
+              <div class="chip">2 of 8 sites live</div>
+              <button class="cta map-cta" type="button">Open Unit 214</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="note">
+      <div id="copy-a" class="panel on">
+        <h3>A — as built</h3>
+        <p>This is the wall. Seven cards, unlabeled icons, map fade, two lime doors. Expensive materials. Not expensive editing. I would not text a regional manager this default. Keep it as conference-TV / wall mode.</p>
+        <p>Apple stops at the rail. AppFolio asks where the work queue is — it is the seventh card. CAF’s morning questions get buried.</p>
+      </div>
+      <div id="copy-b" class="panel">
+        <h3>B — balanced (recommended default)</h3>
+        <p>Needs you + Sites on the left. Ask in the header. Vacancy as a quiet stat. One lime door: Open Paloma · 214. Photos, clocks, detach, and Board stay — they are not in the first breath.</p>
+        <p>This is the screen I would put in front of CAF. Same engines. Different first five seconds.</p>
+      </div>
+      <div id="copy-c" class="panel">
+        <h3>C — structured north star</h3>
+        <p>Work queue. Unit number as hero. One civil sentence. Map is the stage. Ask is search. Board is a word. Lime once. No masonry, no detach on day one.</p>
+        <p>Steal this copy even if you ship B’s chrome: “waiting on you, 4 days.” “Open Unit 214.”</p>
+      </div>
+      <div>
+        <div class="scores" id="scores">
+          <div class="score"><b>5.0</b><span>Apple</span></div>
+          <div class="score"><b>6.0</b><span>AppFolio</span></div>
+          <div class="score"><b>5.5</b><span>Esusu</span></div>
+          <div class="score"><b>6.5</b><span>Looks expensive</span></div>
+          <div class="score"><b>4.5</b><span>Zero training</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shots">
+      <h3>Rendered mockups</h3>
+      <div class="shot-grid">
+        <div>
+          <img src="/pulse-directions/caf-pulse-a-current.png" alt="Direction A as-built Pulse cockpit" />
+          <p class="cap">A · As built — masonry, seven cards, fade, detach.</p>
+        </div>
+        <div>
+          <img src="/pulse-directions/caf-pulse-b-balanced.png" alt="Direction B balanced Pulse" />
+          <p class="cap">B · Balanced — Needs you + Sites, header ask, one lime door.</p>
+        </div>
+        <div>
+          <img src="/pulse-directions/caf-pulse-c-structured.png" alt="Direction C structured Pulse" />
+          <p class="cap">C · Structured — work queue, map as stage, no rail.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const scores = {
+      a: ["5.0","6.0","5.5","6.5","4.5"],
+      b: ["7.5","8.0","7.5","8.0","8.0"],
+      c: ["8.5","8.5","8.0","8.5","9.0"],
+    };
+    const tabs = document.querySelectorAll("[data-dir]");
+    function show(dir) {
+      document.querySelectorAll(".panel").forEach((el) => el.classList.remove("on"));
+      document.getElementById("panel-" + dir).classList.add("on");
+      document.getElementById("copy-" + dir).classList.add("on");
+      tabs.forEach((t) => t.setAttribute("aria-selected", t.dataset.dir === dir ? "true" : "false"));
+      [...document.querySelectorAll("#scores b")].forEach((b, i) => { b.textContent = scores[dir][i]; });
+    }
+    tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.dir)));
+  </script>
+</body>
+</html>

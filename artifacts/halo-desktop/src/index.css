@@ -131,6 +131,112 @@
   --glow-lime: 0 0 0 1px rgba(157, 180, 15, 0.25), 0 4px 20px -2px rgba(180, 255, 68, 0.35);
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Clients hub — scoped LIGHT theme.
+   Each Clients-hub page is wrapped in `.theme-light`. This block re-declares the
+   light token values so the hub renders in light mode EVEN when the rest of the
+   app is in dark mode (`.dark` toggled on <html>). It also remaps the "dark
+   panel" utility idioms these pages were built with (text-white, bg-white/N,
+   border-white/N) onto readable light values, so the restyle is semantic and
+   professional without rewriting every className. Uses the design system's own
+   tokens — no invented palette.
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-light,
+.dark .theme-light {
+  --background: #F1F5F9;
+  --foreground: #041029;
+  --card: #FFFFFF;
+  --card-foreground: #041029;
+  --popover: #FFFFFF;
+  --popover-foreground: #041029;
+  --primary: #B4FF44;
+  --primary-foreground: #041029;
+  --secondary: #0A1930;
+  --secondary-foreground: #FFFFFF;
+  --muted: #E2E8F0;
+  --muted-foreground: #475569;
+  --accent: #B4FF44;
+  --accent-foreground: #041029;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #CBD5E1;
+  --input: #CBD5E1;
+  --ring: #0A1930;
+
+  --ink: #041029;
+  --ink2: #334155;
+  --paper: #F1F5F9;
+  --hairline: #CBD5E1;
+  --hairline2: #94A3B8;
+
+  --gold: #0A1930;
+  --gold-dark: #020617;
+  --gold-light: #B4FF44;
+  --gold-tint: rgba(180, 255, 68, 0.15);
+
+  --red: #EF4444;
+  --orange: #F97316;
+  --yellow: #EAB308;
+  --green: #22C55E;
+  --blue: #3B82F6;
+  --purple: #8B5CF6;
+
+  --shadow-card: 0 1px 2px rgba(2, 6, 23, 0.04), 0 2px 8px rgba(2, 6, 23, 0.05);
+  --shadow-lift: 0 2px 4px rgba(2, 6, 23, 0.05), 0 12px 28px -8px rgba(2, 6, 23, 0.12);
+  --glow-lime: 0 0 0 1px rgba(157, 180, 15, 0.25), 0 4px 20px -2px rgba(180, 255, 68, 0.35);
+
+  color: var(--foreground);
+}
+
+/* The Clients-hub page shell. Soft slate canvas + readable ink. */
+.theme-light {
+  background: transparent;
+}
+
+/* ── Light-panel surface: replaces the old dark navy island. ──
+   Pages set `.cl-panel` on the big rounded island. White card, real slate
+   border, soft elevation — layered, not white-on-white. */
+.theme-light .cl-panel {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+}
+/* Inner sub-surface (request cards, side panels): faint slate tint on white. */
+.theme-light .cl-subpanel {
+  background: #F8FAFC;
+  border: 1px solid var(--hairline);
+}
+
+/* ── Remap dark-panel utility idioms to light within the hub. ──
+   These override the Tailwind arbitrary/opacity utilities the pages already use
+   so text stays near-black navy and fills/borders read as slate on white.
+   Scoped to .theme-light only, so the dark app is untouched. */
+.theme-light .text-white { color: var(--ink) !important; }
+.theme-light .text-white\/90 { color: var(--ink) !important; }
+.theme-light .text-white\/80 { color: #1E293B !important; }
+.theme-light .text-white\/70 { color: #334155 !important; }
+.theme-light .text-white\/60 { color: #475569 !important; }
+.theme-light .text-white\/50 { color: #64748B !important; }
+.theme-light .text-white\/40 { color: #64748B !important; }
+.theme-light .text-white\/30 { color: #94A3B8 !important; }
+.theme-light .text-white\/25 { color: #94A3B8 !important; }
+.theme-light .text-white\/20 { color: #94A3B8 !important; }
+
+.theme-light .bg-white\/5 { background-color: #F1F5F9 !important; }
+.theme-light .bg-white\/10 { background-color: #E2E8F0 !important; }
+.theme-light .bg-white\/15 { background-color: #E2E8F0 !important; }
+.theme-light .bg-white\/20 { background-color: #CBD5E1 !important; }
+.theme-light .hover\:bg-white\/5:hover { background-color: #F1F5F9 !important; }
+.theme-light .hover\:bg-white\/10:hover { background-color: #E2E8F0 !important; }
+.theme-light .hover\:bg-white\/20:hover { background-color: #CBD5E1 !important; }
+
+.theme-light .border-white\/5 { border-color: #E2E8F0 !important; }
+.theme-light .border-white\/10 { border-color: var(--hairline) !important; }
+.theme-light .border-white\/20 { border-color: var(--hairline2) !important; }
+
+/* Buttons/pills that stay lime keep dark ink text; ensure hover navy reads. */
+.theme-light .hover\:text-white:hover { color: var(--ink) !important; }
+
 body {
   font-family: var(--font-sans);
   background-color: var(--background);

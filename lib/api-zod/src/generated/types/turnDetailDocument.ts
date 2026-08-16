@@ -31,4 +31,18 @@ export interface TurnDetailDocument {
   actions: TurnActionDocument[];
   evidencePlaceholder: string;
   scopePlaceholder: string;
+  timezone?: string;
+  /** @nullable */
+  vacantSince?: string | null;
+  /** @nullable */
+  requestReceivedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }

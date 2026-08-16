@@ -18,6 +18,21 @@ export interface Job {
      * @nullable
      */
   poNumber?: string | null;
+  /**
+     * When the property sent over the PO via office chat intake; drives the flashing purple PO-received banner until acknowledged
+     * @nullable
+     */
+  poReceivedAt?: string | null;
+  /**
+     * Provenance of the received PO, e.g. "office chat"
+     * @nullable
+     */
+  poReceivedSource?: string | null;
+  /**
+     * When the office acknowledged/dismissed the PO-received banner
+     * @nullable
+     */
+  poAcknowledgedAt?: string | null;
   propertyId?: string;
   /** @nullable */
   propertyName?: string | null;

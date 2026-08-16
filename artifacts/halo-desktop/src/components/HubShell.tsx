@@ -51,8 +51,8 @@ export function HubShell({
                 data-testid={t.testId ?? `hub-tab-${t.href.replace(/\W+/g, "-")}`}
                 className={`px-4 h-8 rounded-full text-xs font-display font-bold transition-all ${
                   isActive(t.href)
-                    ? "bg-[var(--gold-light)] text-black shadow-sm"
-                    : "text-white/80 hover:text-white hover:bg-white/10"
+                    ? "bg-[var(--gold-light)] text-[var(--ink)] shadow-sm"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
                 }`}
               >
                 {t.label}

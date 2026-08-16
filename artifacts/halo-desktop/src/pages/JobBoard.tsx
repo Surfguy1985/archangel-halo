@@ -75,6 +75,7 @@ import {
 } from "lucide-react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { ScanCheckDialog } from "@/components/ScanCheckDialog";
+import { PoReceivedBanner, hasUnacknowledgedPo, usePoReceivedChime } from "@/components/PoReceivedBanner";
 import { useLocation } from "wouter";
 import { Badge} from "@/components/ui/badge";
 import { Input} from "@/components/ui/input";
@@ -186,6 +187,8 @@ export default function JobBoard() {
     }
     return out;
   })();
+  // Chime once when a NEW unacknowledged PO first appears on the board.
+  usePoReceivedChime(cards.filter((c) => hasUnacknowledgedPo(c.job)).map((c) => c.job.id));
   // Property filter — "all" shows every card; any other value scopes to one property.
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
 
@@ -556,6 +559,11 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
 
   return (
     <div>
+    {hasUnacknowledgedPo(job) && (
+      <div className="mb-1.5">
+        <PoReceivedBanner jobId={job.id} poReceivedAt={job.poReceivedAt} poNumber={job.poNumber} />
+      </div>
+    )}
     <button
       type="button"
       onClick={onOpen}

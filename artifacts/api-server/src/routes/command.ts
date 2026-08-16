@@ -56,7 +56,7 @@ import { JOB_CHECKLIST_ITEMS_FLAT } from "../lib/jobChecklists";
 import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
-import { authorizeAction, primaryRole } from "../lib/enforcerCore";
+import { authorizeAction, primaryRole, type HaloIdentity } from "../lib/enforcerCore";
 import { mintCrewToken } from "../lib/crewCheckinCore";
 import { mintPmToken } from "../lib/pmLiveCore";
 import { filterBySnapshotScope, snapshotPropertyScope } from "../lib/commandSnapshotCore";
@@ -67,6 +67,7 @@ import {
   executeCrewSms,
   executeCrewSchedule,
   executePmNotify,
+  executeClientPoReceive,
 } from "../lib/jarvisDispatch";
 
 const router: IRouter = Router();
@@ -795,6 +796,79 @@ router.get("/command/lens/turn-timeline/:jobId", async (req, res): Promise<void>
 });
 
 /**
+ * GET /command/lens/unit-photos?q=<request text>
+ * Before/after evidence for a unit resolved from natural-language request text
+ * ("before and after for unit 204 at Maple Ridge"). Resolves property (name /
+ * alias) → unit (normalized like the unit map) → the unit's most relevant job
+ * (prefer a live job, else the most recent), then returns its before/after
+ * photos. Powers the PhotoEvidenceLens card inline in chat.
+ */
+router.get("/command/lens/unit-photos", async (req, res): Promise<void> => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    if (!q) { res.json({ job: null, photos: [] }); return; }
+
+    const { normalizeUnitKey } = await import("../lib/portfolioUnitPhotos");
+    const { extractUnitLabel, matchProperties } = await import("../lib/clientPoIntakeCore");
+
+    const [propsRaw, jobsRaw] = await Promise.all([
+      db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable),
+      db.select({ id: jobsTable.id, jobNo: jobsTable.jobNo, unitNo: jobsTable.unitNo, propertyId: jobsTable.propertyId, status: jobsTable.status, createdAt: jobsTable.createdAt }).from(jobsTable),
+    ]);
+
+    const unitLabel = extractUnitLabel(q);
+    const propMatches = matchProperties(q, propsRaw.map((p) => ({ id: p.id, name: p.name })));
+
+    // Filter candidate jobs by (optional) property then (optional) unit.
+    let candidates = jobsRaw;
+    if (propMatches.length > 0) {
+      const ids = new Set(propMatches.map((p) => p.id));
+      candidates = candidates.filter((j) => ids.has(j.propertyId));
+    }
+    if (unitLabel) {
+      const want = normalizeUnitKey(unitLabel);
+      candidates = candidates.filter((j) => j.unitNo != null && normalizeUnitKey(j.unitNo) === want);
+    }
+
+    if (candidates.length === 0) {
+      res.json({ job: null, photos: [], resolvedUnit: unitLabel, resolvedProperty: propMatches[0]?.name ?? null });
+      return;
+    }
+
+    // Prefer a live job for the unit, else the most recently created one.
+    const CLOSED = new Set(["complete", "paid", "cancelled", "canceled"]);
+    const live = candidates.filter((j) => !CLOSED.has((j.status ?? "").toLowerCase()));
+    const pool = live.length ? live : candidates;
+    const chosen = [...pool].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0]!;
+
+    const [property] = await db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, chosen.propertyId)).limit(1);
+
+    const photos = await db.select({ storagePath: crewPhotosTable.storagePath, phase: crewPhotosTable.phase, createdAt: crewPhotosTable.createdAt })
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.jobId, chosen.id))
+      .orderBy(desc(crewPhotosTable.createdAt))
+      .limit(40);
+
+    res.json({
+      job: {
+        id: chosen.id,
+        jobNo: chosen.jobNo,
+        unitNo: chosen.unitNo,
+        propertyName: property?.name ?? null,
+      },
+      photos: photos.map((p) => ({
+        url: `/api/storage${p.storagePath}`,
+        phase: p.phase,
+        takenAt: p.createdAt?.toISOString() ?? null,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "command: lens/unit-photos failed");
+    res.status(500).json({ error: "Failed to load unit photos" });
+  }
+});
+
+/**
  * GET /command/lens/budget/:jobId
  * Detailed budget breakdown for the BudgetBreakdownLens card.
  */
@@ -1135,7 +1209,7 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
     const baseUrl = process.env.REPLIT_DEV_DOMAIN
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : `${proto}://${host}`;
-    const result = await dispatchAutoAction(capability as string | undefined, params as Record<string, unknown>, description as string, baseUrl);
+    const result = await dispatchAutoAction(capability as string | undefined, params as Record<string, unknown>, description as string, baseUrl, identity);
     res.json({ ok: true, executed: true, result });
   } catch (err) {
     logger.error({ err }, "command: action execute failed");
@@ -1152,6 +1226,7 @@ async function dispatchAutoAction(
   _params: Record<string, unknown>,
   description: string,
   baseUrl = "",
+  identity?: HaloIdentity,
 ): Promise<string> {
   switch (capability) {
     case "note.log":
@@ -1175,6 +1250,9 @@ async function dispatchAutoAction(
 
     case "pm.notify":
       return executePmNotify(_params, description, baseUrl);
+
+    case "client_po.receive":
+      return executeClientPoReceive(_params, description, identity);
 
     case "briefing.refresh":
     case "briefing.send":

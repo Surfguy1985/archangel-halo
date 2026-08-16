@@ -48,6 +48,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { GpsFinder } from "@/components/GpsFinder";
 import { SiteTwin } from "@/components/SiteTwin";
+import { CommandModule } from "@/components/CommandModule";
+
+// Module visibility is session-only: on EVERY page load the HALO command module
+// appears again (centered).  Hiding it sets this flag for the current tab only.
+const MODULE_HIDDEN_KEY = "halo_command_module_hidden";
 
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
@@ -569,6 +574,18 @@ export default function PropertyPulse() {
   };
 
   const [now, setNow] = useState(() => new Date());
+  // The HALO command module: shown on every load, hidden only for this session.
+  const [moduleOpen, setModuleOpen] = useState<boolean>(() => {
+    try { return sessionStorage.getItem(MODULE_HIDDEN_KEY) !== "1"; } catch { return true; }
+  });
+  const hideModule = useCallback(() => {
+    try { sessionStorage.setItem(MODULE_HIDDEN_KEY, "1"); } catch { /* */ }
+    setModuleOpen(false);
+  }, []);
+  const showModule = useCallback(() => {
+    try { sessionStorage.removeItem(MODULE_HIDDEN_KEY); } catch { /* */ }
+    setModuleOpen(true);
+  }, []);
   const [open, setOpen] = useState<Record<PanelId, boolean>>(loadOpen);
   const [mode, setMode] = useState<Record<PanelId, PanelMode>>(loadModes);
   const [zOrder, setZOrder] = useState<PanelId[]>(() =>
@@ -1166,8 +1183,15 @@ export default function PropertyPulse() {
           <button type="button" title="Reset layout" aria-label="Reset panel layout" onClick={resetLayout}>
             <RotateCcw size={17} />
           </button>
-          <button type="button" title="HALO chat" aria-label="HALO chat" onClick={() => navigate(HREF.home)}>
-            <MessageCircle size={18} />
+          <button
+            type="button"
+            title="HALO command"
+            aria-label="HALO command"
+            aria-pressed={moduleOpen}
+            className={moduleOpen ? "on" : ""}
+            onClick={() => (moduleOpen ? hideModule() : showModule())}
+          >
+            <MessageCircle size={18} strokeWidth={moduleOpen ? 2.4 : 1.8} />
           </button>
         </nav>
 
@@ -1259,6 +1283,40 @@ export default function PropertyPulse() {
           }}
           onRequestPhotos={(u) => void requestUnitPhotos(u)}
         />
+      )}
+
+      {/* HALO command — small floating chat window over the map. */}
+      <CommandModule open={moduleOpen} onClose={hideModule} />
+
+      {/* Bring-it-back pill (bottom-right) when the module is hidden. */}
+      {!moduleOpen && (
+        <button
+          type="button"
+          onClick={showModule}
+          aria-label="Open HALO command"
+          title="Open HALO command"
+          style={{
+            position: "fixed",
+            right: 18,
+            bottom: 18,
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px 10px 13px",
+            borderRadius: 999,
+            border: "1px solid rgba(180,255,68,0.28)",
+            background: "#0B1626",
+            color: "rgba(255,255,255,0.85)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+          }}
+        >
+          <MessageCircle size={16} color="#B4FF44" />
+          Ask HALO
+        </button>
       )}
     </div>
   );

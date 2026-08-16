@@ -21,4 +21,18 @@ export interface TurnBoardCardDocument {
   laneKey: string;
   status: TurnStageName;
   ring: TurnRingDocument;
+  timezone?: string;
+  /** @nullable */
+  vacantSince?: string | null;
+  /** @nullable */
+  requestReceivedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  poReceivedAt?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  clockStopped?: boolean;
+  /** @nullable */
+  clockStoppedAt?: string | null;
 }

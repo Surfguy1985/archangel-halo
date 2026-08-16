@@ -17,6 +17,8 @@ export function PulseGuide(props: {
   context: GuideContext;
   askUrl?: string | null;
   onAction: (action: GuideAction) => void;
+  pendingAsk?: string | null;
+  onPendingConsumed?: () => void;
 }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,11 +58,20 @@ export function PulseGuide(props: {
     setBusy(false);
   };
 
+  useEffect(() => {
+    if (!props.pendingAsk) return;
+    const q = props.pendingAsk;
+    props.onPendingConsumed?.();
+    void run(q);
+    // One-shot handoff from the header field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.pendingAsk]);
+
   return (
     <div className="cb-guide">
       <p className="cb-guide-help">
-        Ask about a community, a unit, vacancy, photos, or who’s on site. I’ll open the right card
-        from today’s HALO and Work App numbers.
+        Ask about a community, a unit, vacancy, photos, or who’s on site. I’ll open the matching
+        view from today’s numbers.
       </p>
       {thread.length === 0 ? (
         <div className="cb-guide-starters">
