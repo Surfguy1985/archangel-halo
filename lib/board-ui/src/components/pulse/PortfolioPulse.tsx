@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -14,6 +15,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./pulseHud.css";
+import haloLogo from "../../assets/halo-logo.png";
 import {
   AlertTriangle,
   Camera,
@@ -289,29 +291,80 @@ function pinIcon(hot: boolean, pulse = false) {
   });
 }
 
+/**
+ * The map stage is `display:none` below 820px (see pulseHud.css) — Leaflet
+ * cannot lay a map out inside a hidden, zero-size container, and any camera
+ * move (`flyTo`, `fitBounds`, `invalidateSize`) then throws
+ * "cannot read properties of undefined (reading '_leaflet_pos')".  That throw
+ * escapes into React and blanks the WHOLE pulse view, which reads to the user
+ * as "the Board button does nothing".  So: don't mount the map when the stage
+ * is hidden, and guard every camera move even when it is.
+ */
+const MAP_STAGE_QUERY = "(min-width: 821px)";
+
+function useMapStageVisible(): boolean {
+  const [visible, setVisible] = useState(() =>
+    typeof window === "undefined" ? true : window.matchMedia(MAP_STAGE_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(MAP_STAGE_QUERY);
+    const onChange = () => setVisible(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return visible;
+}
+
 function FitPins({ points, selected }: { points: [number, number][]; selected: [number, number] | null }) {
   const map = useMap();
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 80);
-    return () => clearTimeout(t);
+  // True only when the map really has layout — hidden or zero-size containers
+  // make Leaflet's pixel math throw.
+  const laidOut = useCallback(() => {
+    try {
+      const el = map.getContainer();
+      if (!el || !el.isConnected || el.offsetParent === null) return false;
+      const size = map.getSize();
+      return size.x > 0 && size.y > 0;
+    } catch {
+      return false;
+    }
   }, [map]);
   useEffect(() => {
-    const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (selected) {
-      if (reduce) map.setView(selected, Math.max(map.getZoom(), 15));
-      else map.flyTo(selected, Math.max(map.getZoom(), 15), { duration: 0.55 });
-      return;
+    const t = setTimeout(() => {
+      if (!laidOut()) return;
+      try {
+        map.invalidateSize();
+      } catch {
+        /* container went away mid-timeout */
+      }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [map, laidOut]);
+  useEffect(() => {
+    if (!laidOut()) return;
+    try {
+      const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (selected) {
+        if (reduce) map.setView(selected, Math.max(map.getZoom(), 15));
+        else map.flyTo(selected, Math.max(map.getZoom(), 15), { duration: 0.55 });
+        return;
+      }
+      if (points.length === 0) {
+        map.setView(FALLBACK, 11);
+        return;
+      }
+      if (points.length === 1) {
+        map.setView(points[0], 14);
+        return;
+      }
+      map.fitBounds(points, { padding: [48, 48], maxZoom: 15 });
+    } catch {
+      /* Leaflet wasn't ready — the next points/selection change re-runs this,
+         and a broken camera must never take the page down with it. */
     }
-    if (points.length === 0) {
-      map.setView(FALLBACK, 11);
-      return;
-    }
-    if (points.length === 1) {
-      map.setView(points[0], 14);
-      return;
-    }
-    map.fitBounds(points, { padding: [48, 48], maxZoom: 15 });
-  }, [map, points.map((p) => p.join(",")).join("|"), selected?.join(",")]);
+  }, [map, laidOut, points.map((p) => p.join(",")).join("|"), selected?.join(",")]);
   return null;
 }
 
@@ -500,6 +553,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
   const propertyOnly = pulse?.viewKind === "property";
   const showRegionalLinks = !propertyOnly;
   const stageRef = useRef<HTMLDivElement>(null);
+  const mapStageVisible = useMapStageVisible();
   const floatLayer = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [ask, setAsk] = useState("");
@@ -729,7 +783,8 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           onClick={() => props.homeHref?.onClick()}
           aria-label={props.homeHref?.label ?? "Client Board"}
         >
-          <span className="cb-hud-mark">C</span>
+          <img className="cb-hud-logo" src={haloLogo} alt="HALO" />
+          <span className="cb-hud-brand-rule" aria-hidden />
           <div>
             <p>{kicker}</p>
             <h1>{title}</h1>
@@ -1382,6 +1437,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
         </div>
 
         <div className="cb-hud-stage cb-map-apple" ref={stageRef}>
+          {mapStageVisible ? (
           <MapContainer
             center={selectedCoord ?? mapPoints[0] ?? FALLBACK}
             zoom={13}
@@ -1425,6 +1481,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
               );
             })}
           </MapContainer>
+          ) : null}
           <div className="cb-hud-map-fade" aria-hidden />
           <div className="cb-hud-map-chrome">
             {tiles.length > 0 ? (

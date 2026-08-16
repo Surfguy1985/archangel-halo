@@ -57,6 +57,22 @@
   text-align: left;
   min-height: 44px;
 }
+/* HALO wings + wordmark. The artwork is navy ink, so it is knocked out to
+   white on the dark deck and left as-is on the light (Clients hub) theme. */
+.cb-hud-logo {
+  height: 22px;
+  width: auto;
+  flex: none;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+.cb-hud-brand-rule {
+  width: 1px;
+  height: 22px;
+  flex: none;
+  background: rgba(255, 255, 255, 0.14);
+}
 .cb-hud-mark {
   width: 34px;
   height: 34px;
@@ -1970,6 +1986,13 @@
 .cb-hud--light .cb-hud-brand h1,
 .cb-hud--light .cb-hud-clock strong {
   color: var(--cb-ink);
+}
+.cb-hud--light .cb-hud-logo {
+  filter: none;
+  opacity: 1;
+}
+.cb-hud--light .cb-hud-brand-rule {
+  background: var(--cb-line);
 }
 .cb-hud--light .cb-hud-brand p,
 .cb-hud--light .cb-hud-clock span,

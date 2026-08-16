@@ -131,4 +131,5 @@
 - [HALO reminders system](halo-reminders.md) — reminders table ships as boot-time ensure DDL; missing it 500s /reminders AND /today/briefing, which reads to users as "HALO ask is broken".
 - [HALO desktop map-first home](halo-desktop-map-home.md) — desktop "/" is the Pulse map; chat is a compact floating module; full-screen chat keeps its own route.
 - [HALO scoped light theme](halo-light-theme-scoping.md) — Clients hub is a light island via a token-override wrapper class; Radix portals escape it and must be themed at the content boundary.
+- [Pulse map on hidden stages](halo-pulse-hidden-map.md) — a Leaflet map mounted inside a `display:none` stage throws `_leaflet_pos` and blanks the whole pulse view; controls look dead, not the map.
 - [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.
