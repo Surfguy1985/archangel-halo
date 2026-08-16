@@ -11,6 +11,7 @@ import { startFalkonNetworkPoller } from "./lib/falkonNetworkPoller";
 import { seedExchangeProducts } from "./lib/seedExchangeProducts";
 import { ensureClientBoardSchema } from "./lib/ensureClientBoardSchema";
 import { ensureClientPoSchema } from "./lib/ensureClientPoSchema";
+import { ensureRemindersSchema } from "./lib/ensureRemindersSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -63,6 +64,9 @@ app.listen(port, (err) => {
   );
   ensureClientPoSchema().catch((err) =>
     logger.error({ err }, "Failed to bootstrap client-PO-intake schema"),
+  );
+  ensureRemindersSchema().catch((err) =>
+    logger.error({ err }, "Failed to bootstrap reminders schema"),
   );
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is
   // created, and these are ALTERs against it. On a fresh database the reverse

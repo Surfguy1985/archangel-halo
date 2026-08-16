@@ -211,7 +211,8 @@ router.post("/v1/portfolios/:id/ask", async (req: Request, res: Response): Promi
     res.status(400).json({ error: "Ask a question" });
     return;
   }
-  const orgId = await orgIdForPortfolio(req.params.id);
+  const portfolioId = String(req.params.id);
+  const orgId = await orgIdForPortfolio(portfolioId);
   if (!orgId) {
     res.status(404).json({ error: "Portfolio not found" });
     return;
@@ -220,14 +221,14 @@ router.post("/v1/portfolios/:id/ask", async (req: Request, res: Response): Promi
     const { allowedPropertyIds } = await officeScope(req, orgId);
     const [pulse, attention] = await Promise.all([
       computePortfolioPulse({
-        portfolioId: req.params.id,
+        portfolioId,
         orgId,
         query: { range: "this_month" },
         hrefForProperty: officePropertyHref,
         allowedPropertyIds,
       }),
       computePortfolioAttention({
-        portfolioId: req.params.id,
+        portfolioId,
         orgId,
         hrefForProperty: officePropertyHref,
         allowedPropertyIds,

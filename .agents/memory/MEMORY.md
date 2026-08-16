@@ -127,7 +127,7 @@
 - [HALO E2E mode-toggle suite](halo-e2e-mode-toggle-suite.md) — how to run the boundary suite live; guard 202s fire before route 403s; unscoped sub-router middleware gates the whole API; stale ASSISTED row blocks everything.
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).
 - [HALO crew de-duplication](halo-crew-dedupe.md) — crew_aliases + /crews/merge tooling; Base44 sync matches normalized name/alias and must never null contact fields or rename rows.
-- [HALO reminders system](halo-reminders.md) — reminders table + REST CRUD at /reminders; GET /today/briefing reads remindersTable directly (static imports, not dynamic); crew_checkins has no propertyId — filter by job IDs for client briefing.
+- [HALO reminders system](halo-reminders.md) — reminders table ships as boot-time ensure DDL; missing it 500s /reminders AND /today/briefing, which reads to users as "HALO ask is broken".
 - [HALO desktop map-first home](halo-desktop-map-home.md) — desktop "/" is the Pulse map; chat is a compact floating module; full-screen chat keeps its own route.
 - [HALO scoped light theme](halo-light-theme-scoping.md) — Clients hub is a light island via a token-override wrapper class; Radix portals escape it and must be themed at the content boundary.
 - [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.

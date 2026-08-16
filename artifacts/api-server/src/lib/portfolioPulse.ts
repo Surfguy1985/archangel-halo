@@ -564,7 +564,16 @@ export async function computePortfolioPulse(args: {
   viewKind?: "regional" | "property";
   viewLabel?: string;
   canAddProperties?: boolean;
-}): Promise<ReturnType<typeof shapePulse> & { compliance?: Awaited<ReturnType<typeof complianceStats>> }> {
+}): Promise<
+  ReturnType<typeof shapePulse> & {
+    // Added after shapePulse() below — keep them on the declared return type or
+    // callers (e.g. the portfolio ask handler's title) silently lose them.
+    viewKind: "regional" | "property";
+    viewLabel: string;
+    canAddProperties: boolean;
+    compliance?: Awaited<ReturnType<typeof complianceStats>>;
+  }
+> {
   const portfolio = await loadPortfolio(args.portfolioId);
   if (portfolio.orgId !== args.orgId) throw new PortfolioNotFoundError();
   const now = args.now ?? new Date();
@@ -612,7 +621,14 @@ export async function computePortfolioPulse(args: {
     priorCents: 0n,
     tiles: [],
   });
-  if (propertyIds.length === 0) return empty;
+  if (propertyIds.length === 0) {
+    return {
+      ...empty,
+      viewKind: args.viewKind ?? (args.allowedPropertyIds?.length === 1 ? "property" : "regional"),
+      viewLabel: args.viewLabel ?? portfolio.name,
+      canAddProperties: args.canAddProperties ?? !args.allowedPropertyIds,
+    };
+  }
 
   const weekStart = startOfWeekMondayInZone(now, portfolio.timezone);
   const weekEnd = addCivilDaysInZone(weekStart, 7, portfolio.timezone);
