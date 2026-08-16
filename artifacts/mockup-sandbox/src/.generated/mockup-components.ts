@@ -14,8 +14,10 @@ export const modules: ModuleMap = {
   "./components/mockups/client-map-toggle/PeekBoard.tsx": () => import("../components/mockups/client-map-toggle/PeekBoard.tsx"),
   "./components/mockups/client-map-toggle/PeekLayers.tsx": () => import("../components/mockups/client-map-toggle/PeekLayers.tsx"),
   "./components/mockups/client-map-toggle/PeekMapFull.tsx": () => import("../components/mockups/client-map-toggle/PeekMapFull.tsx"),
+  "./components/mockups/client-map-toggle/PeekQuiet.tsx": () => import("../components/mockups/client-map-toggle/PeekQuiet.tsx"),
   "./components/mockups/client-map-toggle/PeekSheetUp.tsx": () => import("../components/mockups/client-map-toggle/PeekSheetUp.tsx"),
   "./components/mockups/client-map-toggle/PeekStrip.tsx": () => import("../components/mockups/client-map-toggle/PeekStrip.tsx"),
+  "./components/mockups/client-map-toggle/PeekTurns.tsx": () => import("../components/mockups/client-map-toggle/PeekTurns.tsx"),
   "./components/mockups/client-map-toggle/PeekWeather.tsx": () => import("../components/mockups/client-map-toggle/PeekWeather.tsx"),
   "./components/mockups/client-map-toggle/TabLens.tsx": () => import("../components/mockups/client-map-toggle/TabLens.tsx")
 };

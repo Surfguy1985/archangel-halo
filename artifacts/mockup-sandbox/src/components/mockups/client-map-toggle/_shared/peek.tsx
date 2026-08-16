@@ -68,12 +68,12 @@ function CrewPin({ crew, label, big }: { crew: (typeof CREWS)[number]; label?: b
         <span
           style={{
             display: "inline-block",
-            marginTop: 5,
-            padding: "2px 7px",
-            borderRadius: 7,
+            marginTop: 6,
+            padding: "3px 9px",
+            borderRadius: 8,
             background: "rgba(7,16,30,0.85)",
             backdropFilter: "blur(10px)",
-            fontSize: 9.5,
+            fontSize: 11,
             fontWeight: 700,
             whiteSpace: "nowrap",
             color: "rgba(255,255,255,0.92)",
@@ -91,15 +91,21 @@ export function PeekMap({
   labels = false,
   big = false,
   weather = false,
+  pins = true,
+  dim = false,
   filter,
 }: {
   labels?: boolean;
   big?: boolean;
   weather?: boolean;
+  /** Off when another drawing (the unit plate) owns the stage. */
+  pins?: boolean;
+  /** Quiet days: the map recedes instead of shouting an empty street grid. */
+  dim?: boolean;
   filter?: string;
 }) {
   return (
-    <div style={{ position: "absolute", inset: 0, filter }}>
+    <div style={{ position: "absolute", inset: 0, filter, opacity: dim ? 0.55 : 1 }}>
       <Streets />
       {weather && (
         <>

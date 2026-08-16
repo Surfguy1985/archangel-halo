@@ -1,6 +1,6 @@
 /**
- * B1 — Map-first board. The property map is two thirds of the screen and the
- * work rides in a sheet over it. No map tab, no toggle: the map IS the page.
+ * B1 — Map-first board, crews on site. The map earns two thirds of the screen
+ * because there is something moving on it: pins, names, live timers.
  */
 import "./_group.css";
 import { Header } from "./_shared/bits";
@@ -12,7 +12,7 @@ export function PeekBoard() {
     <div className="cmt">
       <Header />
 
-      <MapStage frac={0.62}>
+      <MapStage presence="live">
         <div style={{ position: "absolute", left: 12, bottom: 32, display: "flex", gap: 7 }}>
           <StatusPill>2 crews on site</StatusPill>
           <StatusPill tone="rgba(210,224,255,0.55)">4 units live</StatusPill>

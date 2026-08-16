@@ -14,7 +14,7 @@ const VIEWS = [
   { id: "money", label: "Money", sub: "$ in flight", tone: C.amber },
 ];
 
-const STYLES = ["Night", "Daylight", "Mono"];
+const STYLES = ["Night", "Daylight", "Mono"] as const;
 
 function Thumb({ id, tone, on }: { id: string; tone: string; on: boolean }) {
   return (
@@ -78,15 +78,19 @@ function Thumb({ id, tone, on }: { id: string; tone: string; on: boolean }) {
   );
 }
 
+const LOOK: Record<string, string> = {
+  Night: "contrast(112%) saturate(88%)",
+  Daylight: "contrast(104%) saturate(120%) brightness(126%)",
+  Mono: "contrast(118%) saturate(0%)",
+};
+
 export function PeekLayers() {
   const [view, setView] = useState("live");
   const [style, setStyle] = useState("Night");
-  const [contrast, setContrast] = useState(112);
-  const [saturate, setSaturate] = useState(88);
 
   return (
     <div className="cmt">
-      <PeekMap labels big filter={"contrast(" + contrast + "%) saturate(" + saturate + "%)"} />
+      <PeekMap labels big filter={LOOK[style]} />
       <div style={{ position: "absolute", inset: 0, background: "rgba(4,9,20,0.45)" }} />
 
       <div style={{ position: "relative", zIndex: 3, display: "flex", alignItems: "flex-start", padding: "14px 12px 0" }}>
@@ -153,18 +157,9 @@ export function PeekLayers() {
           ))}
         </div>
 
-        {[
-          { label: "Contrast", value: contrast, set: setContrast, min: 70, max: 150 },
-          { label: "Saturation", value: saturate, set: setSaturate, min: 0, max: 160 },
-        ].map((r) => (
-          <div key={r.label} style={{ marginBottom: 8 }}>
-            <div style={{ display: "flex", marginBottom: 4 }}>
-              <span style={{ flex: 1, fontSize: 11.5, fontWeight: 650, color: "rgba(255,255,255,0.78)" }}>{r.label}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 750, color: C.mute }}>{r.value}%</span>
-            </div>
-            <input className="cmt-range" type="range" min={r.min} max={r.max} value={r.value} onChange={(e) => r.set(Number(e.target.value))} />
-          </div>
-        ))}
+        <p style={{ margin: "2px 2px 0", fontSize: 11, color: C.mute, lineHeight: 1.45 }}>
+          Daylight lifts contrast for bright sun on a job site. Remembered on this device.
+        </p>
       </div>
 
       <div style={{ flex: 1 }} />
