@@ -160,7 +160,11 @@ import { findCrewByPortalBearer } from "../lib/portalToken";
 
 const router: IRouter = Router();
 
-router.use((req, res, next) => {
+// Scope the retirement gate to this router's own /portal/* surface. This
+// router is mounted unscoped, so an unscoped gate here would answer 410 for
+// every request that reaches it — including /track/:token below and every
+// router mounted after this one (client board, settings, command, falkon...).
+router.use("/portal", (_req, res, next) => {
   if (crewPortalExposed(process.env)) {
     next();
     return;

@@ -134,3 +134,4 @@
 - [Pulse map on hidden stages](halo-pulse-hidden-map.md) — a Leaflet map mounted inside a `display:none` stage throws `_leaflet_pos` and blanks the whole pulse view; controls look dead, not the map.
 - [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.
 - [HALO client board portfolio scope](halo-client-board-portfolio-scope.md) — property tokens 404 "Invalid link" on every portfolio surface unless the property has an org + portfolio row; resolver provisions one lazily.
+- [Env-gated router gates](halo-env-gated-router-gates.md) — a bare router.use() retirement gate 410s every router mounted after it, in PROD ONLY; always scope the gate to its path prefix.
