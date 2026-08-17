@@ -133,3 +133,4 @@
 - [HALO scoped light theme](halo-light-theme-scoping.md) — Clients hub is a light island via a token-override wrapper class; Radix portals escape it and must be themed at the content boundary.
 - [Pulse map on hidden stages](halo-pulse-hidden-map.md) — a Leaflet map mounted inside a `display:none` stage throws `_leaflet_pos` and blanks the whole pulse view; controls look dead, not the map.
 - [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.
+- [HALO client board portfolio scope](halo-client-board-portfolio-scope.md) — property tokens 404 "Invalid link" on every portfolio surface unless the property has an org + portfolio row; resolver provisions one lazily.

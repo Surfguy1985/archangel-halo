@@ -4,11 +4,13 @@
  * Regional: client_portfolios.dashboard_token — every property in that portfolio.
  * Property: client_accounts.dashboard_token — that property only.
  */
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
+  clientOrgsTable,
   clientPortfoliosTable,
+  clientPortfolioPropertiesTable,
   propertiesTable,
 } from "@workspace/db";
 import { loadTurnRef } from "./clientBoardRepo";
@@ -22,6 +24,103 @@ export type ClientBoardLink = {
   allowedPropertyIds: string[] | null;
   viewLabel: string;
 };
+
+/**
+ * A property-level board link has to work on its own.
+ *
+ * Everything portfolio-scoped (Pulse, attention, pipeline, cost-to-serve) resolves
+ * through a portfolio, but a property that was never part of a regional rollout has
+ * no org and no portfolio row — which used to make its whole board 404 "Invalid link".
+ * So the first time such a board is opened we provision its own org + single-property
+ * portfolio. Idempotent, serialized by an advisory lock, and it never touches a
+ * property that already belongs to one.
+ */
+export async function ensurePortfolioForProperty(
+  propertyId: string,
+): Promise<{ portfolioId: string; orgId: string } | null> {
+  const existing = await resolvePortfolioForProperty(propertyId);
+  if (existing) return existing;
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`client-board-portfolio:${propertyId}`}))`);
+
+    const [property] = await tx
+      .select({
+        id: propertiesTable.id,
+        name: propertiesTable.name,
+        timezone: propertiesTable.timezone,
+        clientOrgId: propertiesTable.clientOrgId,
+      })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1);
+    if (!property) return null;
+
+    // Another request may have provisioned while we waited on the lock.
+    const [claimed] = await tx
+      .select({
+        portfolioId: clientPortfolioPropertiesTable.portfolioId,
+        orgId: clientPortfoliosTable.orgId,
+      })
+      .from(clientPortfolioPropertiesTable)
+      .innerJoin(
+        clientPortfoliosTable,
+        eq(clientPortfoliosTable.id, clientPortfolioPropertiesTable.portfolioId),
+      )
+      .where(eq(clientPortfolioPropertiesTable.propertyId, propertyId))
+      .limit(1);
+    if (claimed) return { portfolioId: claimed.portfolioId, orgId: claimed.orgId };
+
+    let orgId = property.clientOrgId;
+    if (!orgId) {
+      const slug = `property-${propertyId.slice(0, 8)}`;
+      const [existingOrg] = await tx
+        .select({ id: clientOrgsTable.id })
+        .from(clientOrgsTable)
+        .where(eq(clientOrgsTable.slug, slug))
+        .limit(1);
+      if (existingOrg) {
+        orgId = existingOrg.id;
+      } else {
+        const [created] = await tx
+          .insert(clientOrgsTable)
+          .values({
+            name: property.name,
+            type: "pm_company",
+            timezone: property.timezone ?? "America/Chicago",
+            slug,
+          })
+          .returning({ id: clientOrgsTable.id });
+        orgId = created!.id;
+      }
+      await tx
+        .update(propertiesTable)
+        .set({ clientOrgId: orgId })
+        .where(eq(propertiesTable.id, propertyId));
+    }
+
+    const [existingPortfolio] = await tx
+      .select({ id: clientPortfoliosTable.id })
+      .from(clientPortfoliosTable)
+      .where(eq(clientPortfoliosTable.orgId, orgId))
+      .limit(1);
+    const portfolioId =
+      existingPortfolio?.id ??
+      (
+        await tx
+          .insert(clientPortfoliosTable)
+          .values({ orgId, name: property.name })
+          .returning({ id: clientPortfoliosTable.id })
+      )[0]!.id;
+
+    await tx
+      .insert(clientPortfolioPropertiesTable)
+      .values({ portfolioId, propertyId })
+      .onConflictDoNothing();
+
+    return { portfolioId, orgId };
+  });
+}
 
 export async function resolveClientBoardLink(token: string): Promise<ClientBoardLink | null> {
   const trimmed = token.trim();
@@ -56,7 +155,7 @@ export async function resolveClientBoardLink(token: string): Promise<ClientBoard
     .where(eq(clientAccountsTable.dashboardToken, trimmed))
     .limit(1);
   if (!account || account.status !== "active") return null;
-  const resolved = await resolvePortfolioForProperty(account.propertyId);
+  const resolved = await ensurePortfolioForProperty(account.propertyId);
   if (!resolved) return null;
   const [property] = await db
     .select({ name: propertiesTable.name })
