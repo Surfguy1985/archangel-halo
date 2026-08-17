@@ -1482,7 +1482,7 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             })}
           </MapContainer>
           ) : null}
-          <div className="cb-hud-map-fade" aria-hidden />
+          <div className="cb-hud-map-frame" aria-hidden />
           <div className="cb-hud-map-chrome">
             {tiles.length > 0 ? (
               <p className="cb-map-chip">
