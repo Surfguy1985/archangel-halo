@@ -5008,6 +5008,7 @@ export interface CrewInstructionsAck {
   /** @nullable */
   expiresAt?: string | null;
 }
+
 export interface CrewDetail {
   id: string;
   name: string;
@@ -5076,6 +5077,13 @@ export interface CrewJobCompliance {
   /** Human-readable list of what is missing, e.g. 'check-out', 'after photos' */
   missing: string[];
 }
+
+export interface JobComplianceView {
+  jobId: string;
+  needsReview: boolean;
+  crews: CrewJobCompliance[];
+}
+
 export interface CrewPortalLink {
   token: string;
   /** Relative portal path, e.g. /portal/<token> */
@@ -9833,8 +9841,3 @@ export const ExportClientTurnInvoiceFormat = {
   json: 'json',
 } as const;
 
-export interface JobComplianceView {
-  jobId: string;
-  needsReview: boolean;
-  crews: CrewJobCompliance[];
-}
