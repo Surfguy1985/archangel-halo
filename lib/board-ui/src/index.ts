@@ -22,6 +22,8 @@ export type { ClientTokenPulseProps } from './components/pulse/ClientTokenPulse'
 export { ClientBoardViewPicker, CAF_REGIONAL_TOKEN, CAF_PALOMA_TOKEN } from './components/pulse/ClientBoardViewPicker';
 export { HaloLevelBar } from './components/pulse/HaloLevelBar';
 export { PulseWatchRings, HaloProofPair } from './components/pulse/PulseWatchRings';
+export { HaloProofReel } from './components/pulse/HaloProofReel';
+export type { ProofReelUnit, ProofReelShot } from './components/pulse/HaloProofReel';
 export { HaloVacancyChip } from './components/pulse/HaloVacancyChip';
 export { HaloReportsCard, HaloVendorsCard, HaloWaitingCard } from './components/pulse/haloDeskCards';
 export { HaloPosCard } from './components/pulse/HaloPosCard';

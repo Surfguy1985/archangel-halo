@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -19,6 +19,7 @@ import {
   crewPhotosTable,
   paymentRequestsTable,
   paymentRequestJobsTable,
+  base44EvidenceTable,
 } from "@workspace/db";
 import { threadKeysFor, notifyClientBoard } from "./clientBoard";
 import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
@@ -39,6 +40,8 @@ import {
   UpdateBoardSettingsBody,
   UpdateBoardSettingsResponse,
   GetPhotoLibraryResponse,
+  GetPhotoReelQueryParams,
+  GetPhotoReelResponse,
   AssignPhotosToJobParams,
   AssignPhotosToJobBody,
   AssignPhotosToJobResponse,
@@ -1305,6 +1308,298 @@ router.get("/photo-library", async (_req, res): Promise<void> => {
     });
   }
   res.json(GetPhotoLibraryResponse.parse(entries));
+});
+
+// ---------------------------------------------------------------------------
+// Photo reel — the same field photos the library serves, but folded into one
+// slide per unit so the Pulse Overview can flip through "newest work first".
+//
+// Three sources feed it and they are merged, never ranked against each other:
+//   1. job before/after photo activities  (office-attached shots)
+//   2. the crew photo vault               (field app / paycard uploads)
+//   3. Base44 evidence rows carrying media (only if that feed ever ships photos —
+//      today it does not, so this arm is simply inert instead of special-cased)
+// A photo can only join a slide when it can name a unit: the field sources get
+// theirs through the job, Base44 carries its own unit label.
+// ---------------------------------------------------------------------------
+const REEL_UNIT_DEFAULT = 12;
+const REEL_UNIT_MAX = 40;
+// Newest-first row budget per source. Deep history can never out-rank fresh
+// work in a "newest first" reel, so scanning past this adds cost, not slides.
+const REEL_SCAN_ROWS = 400;
+
+type ReelShot = {
+  url: string;
+  phase: "before" | "after";
+  at: Date | null;
+  crewName: string | null;
+  source: "field" | "base44";
+  jobId: string | null;
+};
+
+router.get("/photo-reel", async (req, res): Promise<void> => {
+  const { propertyId, limit } = GetPhotoReelQueryParams.parse(req.query);
+  const cap = Math.min(Math.max(limit ?? REEL_UNIT_DEFAULT, 1), REEL_UNIT_MAX);
+
+  // Phase 1 — the photo rows, newest first and bounded.  A property filter is
+  // pushed into SQL through that property's job ids so one community's reel
+  // never drags the whole photo history through memory.
+  const scopedJobIds = propertyId
+    ? (
+        await db
+          .select({ id: jobsTable.id })
+          .from(jobsTable)
+          .where(eq(jobsTable.propertyId, propertyId))
+      ).map((j) => j.id)
+    : null;
+  // No jobs on the property means no field photo can be placed there, and
+  // Base44 evidence only reaches a slide once its property name resolves —
+  // an empty reel is the honest answer.
+  if (scopedJobIds && scopedJobIds.length === 0) {
+    res.json(GetPhotoReelResponse.parse([]));
+    return;
+  }
+
+  const [acts, vault, evidence] = await Promise.all([
+    db
+      .select({
+        entityId: activitiesTable.entityId,
+        kind: activitiesTable.kind,
+        storagePath: activitiesTable.storagePath,
+        createdAt: activitiesTable.createdAt,
+      })
+      .from(activitiesTable)
+      .where(
+        and(
+          eq(activitiesTable.entityType, "job"),
+          inArray(activitiesTable.kind, ["photo_before", "photo_after"]),
+          scopedJobIds ? inArray(activitiesTable.entityId, scopedJobIds) : undefined,
+        ),
+      )
+      .orderBy(desc(activitiesTable.createdAt))
+      .limit(REEL_SCAN_ROWS),
+    db
+      .select({
+        jobId: crewPhotosTable.jobId,
+        crewId: crewPhotosTable.crewId,
+        phase: crewPhotosTable.phase,
+        storagePath: crewPhotosTable.storagePath,
+        capturedAt: crewPhotosTable.capturedAt,
+        createdAt: crewPhotosTable.createdAt,
+      })
+      .from(crewPhotosTable)
+      .where(scopedJobIds ? inArray(crewPhotosTable.jobId, scopedJobIds) : undefined)
+      .orderBy(desc(crewPhotosTable.createdAt))
+      .limit(REEL_SCAN_ROWS),
+    db
+      .select({
+        mediaUrl: base44EvidenceTable.mediaUrl,
+        kind: base44EvidenceTable.kind,
+        unitLabel: base44EvidenceTable.unitLabel,
+        propertyName: base44EvidenceTable.propertyName,
+        occurredAt: base44EvidenceTable.occurredAt,
+        updatedAt: base44EvidenceTable.updatedAt,
+      })
+      .from(base44EvidenceTable)
+      .where(
+        and(
+          eq(base44EvidenceTable.stale, false),
+          inArray(base44EvidenceTable.kind, ["before", "after"]),
+          isNotNull(base44EvidenceTable.mediaUrl),
+          isNotNull(base44EvidenceTable.unitLabel),
+        ),
+      )
+      .orderBy(desc(base44EvidenceTable.occurredAt))
+      .limit(REEL_SCAN_ROWS),
+  ]);
+
+  // Phase 2 — only the jobs, properties and crews those photos actually name.
+  const jobIdSet = new Set<string>();
+  for (const a of acts) if (a.entityId) jobIdSet.add(a.entityId);
+  for (const p of vault) if (p.jobId) jobIdSet.add(p.jobId);
+  const jobs = jobIdSet.size
+    ? await db
+        .select({
+          id: jobsTable.id,
+          propertyId: jobsTable.propertyId,
+          unitNo: jobsTable.unitNo,
+          crewLeaderId: jobsTable.crewLeaderId,
+        })
+        .from(jobsTable)
+        .where(inArray(jobsTable.id, [...jobIdSet]))
+    : [];
+
+  const propertyIdSet = new Set<string>();
+  for (const j of jobs) if (j.propertyId) propertyIdSet.add(j.propertyId);
+  const crewIdSet = new Set<string>();
+  for (const j of jobs) if (j.crewLeaderId) crewIdSet.add(j.crewLeaderId);
+  for (const p of vault) if (p.crewId) crewIdSet.add(p.crewId);
+
+  const [props, evidenceProps, crews] = await Promise.all([
+    propertyIdSet.size
+      ? db
+          .select({ id: propertiesTable.id, name: propertiesTable.name })
+          .from(propertiesTable)
+          .where(inArray(propertiesTable.id, [...propertyIdSet]))
+      : Promise.resolve([] as { id: string; name: string }[]),
+    // Base44 rows carry a property *name*, not an id, so name resolution needs
+    // the full (small) property list — but only when such rows actually exist.
+    evidence.length
+      ? db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable)
+      : Promise.resolve([] as { id: string; name: string }[]),
+    crewIdSet.size
+      ? db
+          .select({ id: crewsTable.id, name: crewsTable.name })
+          .from(crewsTable)
+          .where(inArray(crewsTable.id, [...crewIdSet]))
+      : Promise.resolve([] as { id: string; name: string }[]),
+  ]);
+
+  const jobsById = new Map(jobs.map((j) => [j.id, j]));
+  const propsById = new Map(props.map((p) => [p.id, p]));
+  const crewsById = new Map(crews.map((c) => [c.id, c]));
+  // Two communities can share a normalized name.  Guessing between them would
+  // file evidence under the wrong property, so an ambiguous name resolves to
+  // "unplaced" instead — which a property-filtered reel then drops.
+  const propsByName = new Map<string, { id: string; name: string } | null>();
+  for (const p of evidenceProps) {
+    const key = p.name.trim().toLowerCase();
+    propsByName.set(key, propsByName.has(key) ? null : p);
+  }
+
+  type Slide = {
+    key: string;
+    unitNo: string;
+    propertyId: string | null;
+    propertyName: string | null;
+    shots: ReelShot[];
+    /** Per-slide, not global: one photo may legitimately serve two units. */
+    urls: Set<string>;
+  };
+  const slides = new Map<string, Slide>();
+
+  const add = (
+    unitNo: string | null,
+    slideProperty: { id: string | null; name: string | null },
+    shot: ReelShot,
+  ) => {
+    const unit = (unitNo ?? "").trim();
+    if (!unit || !shot.url) return;
+    // A property filter means the desk is looking at one community: photos we
+    // cannot place on that property must not leak into its reel.
+    if (propertyId && slideProperty.id !== propertyId) return;
+    const key = `${slideProperty.id ?? slideProperty.name ?? "unplaced"}|${unit.toLowerCase()}`;
+    const slide = slides.get(key) ?? {
+      key,
+      unitNo: unit,
+      propertyId: slideProperty.id,
+      propertyName: slideProperty.name,
+      shots: [],
+      urls: new Set<string>(),
+    };
+    if (slide.urls.has(shot.url)) return;
+    slide.urls.add(shot.url);
+    slide.shots.push(shot);
+    slides.set(key, slide);
+  };
+
+  const fromJob = (jobId: string | null) => {
+    const job = jobId ? jobsById.get(jobId) : undefined;
+    const prop = job?.propertyId ? propsById.get(job.propertyId) : undefined;
+    return {
+      job,
+      property: { id: prop?.id ?? null, name: prop?.name ?? null },
+      crewName: job?.crewLeaderId ? (crewsById.get(job.crewLeaderId)?.name ?? null) : null,
+    };
+  };
+
+  for (const a of acts) {
+    if (!a.storagePath || !a.entityId) continue;
+    const phase = a.kind === "photo_before" ? "before" : a.kind === "photo_after" ? "after" : null;
+    if (!phase) continue;
+    const ctx = fromJob(a.entityId);
+    if (!ctx.job) continue;
+    add(ctx.job.unitNo, ctx.property, {
+      url: `/api/storage${a.storagePath}`,
+      phase,
+      at: a.createdAt ?? null,
+      crewName: ctx.crewName,
+      source: "field",
+      jobId: ctx.job.id,
+    });
+  }
+
+  for (const p of vault) {
+    const phase = p.phase === "before" ? "before" : p.phase === "after" ? "after" : null;
+    if (!phase || !p.jobId) continue;
+    const ctx = fromJob(p.jobId);
+    if (!ctx.job) continue;
+    add(ctx.job.unitNo, ctx.property, {
+      url: `/api/storage${p.storagePath}`,
+      phase,
+      at: p.capturedAt ?? p.createdAt ?? null,
+      crewName: crewsById.get(p.crewId)?.name ?? ctx.crewName,
+      source: "field",
+      jobId: ctx.job.id,
+    });
+  }
+
+  for (const e of evidence) {
+    if (!e.mediaUrl || !e.unitLabel) continue;
+    const phase = e.kind === "before" ? "before" : "after";
+    // `null` here means the name matched two properties — unplaceable, so it
+    // keeps the raw label and never claims a property id.
+    const prop = e.propertyName ? propsByName.get(e.propertyName.trim().toLowerCase()) : undefined;
+    add(
+      e.unitLabel,
+      { id: prop?.id ?? null, name: prop?.name ?? e.propertyName ?? null },
+      {
+        url: e.mediaUrl,
+        phase,
+        at: e.occurredAt ?? e.updatedAt ?? null,
+        crewName: null,
+        source: "base44",
+        jobId: null,
+      },
+    );
+  }
+
+  const ms = (d: Date | null) => (d ? d.getTime() : 0);
+  const newest = (list: ReelShot[]) =>
+    list.reduce<ReelShot | null>((best, s) => (best && ms(best.at) >= ms(s.at) ? best : s), null);
+  const shape = (s: ReelShot | null) =>
+    s
+      ? {
+          url: s.url,
+          phase: s.phase,
+          takenAt: s.at ? s.at.toISOString() : null,
+          crewName: s.crewName,
+          source: s.source,
+        }
+      : null;
+
+  const reel = [...slides.values()]
+    .map((slide) => {
+      const lead = newest(slide.shots);
+      return {
+        key: slide.key,
+        unitNo: slide.unitNo,
+        propertyId: slide.propertyId,
+        propertyName: slide.propertyName,
+        jobId: lead?.jobId ?? slide.shots.find((s) => s.jobId)?.jobId ?? null,
+        crewName: lead?.crewName ?? slide.shots.find((s) => s.crewName)?.crewName ?? null,
+        before: shape(newest(slide.shots.filter((s) => s.phase === "before"))),
+        after: shape(newest(slide.shots.filter((s) => s.phase === "after"))),
+        latestAt: lead?.at ? lead.at.toISOString() : null,
+        photoCount: slide.shots.length,
+        _sort: ms(lead?.at ?? null),
+      };
+    })
+    .sort((a, b) => b._sort - a._sort)
+    .slice(0, cap)
+    .map(({ _sort, ...unit }) => unit);
+
+  res.json(GetPhotoReelResponse.parse(reel));
 });
 
 // Attach library photos to a job card — copies them onto the job as

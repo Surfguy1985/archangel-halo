@@ -2667,6 +2667,47 @@ export interface PhotoLibraryEntry {
   takenOn?: string | null;
 }
 
+export interface PhotoReelShot {
+  /** Ready-to-render image URL */
+  url: string;
+  /** before | after */
+  phase: string;
+  /**
+     * ISO timestamp the shot landed
+     * @nullable
+     */
+  takenAt?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** field | base44 */
+  source?: string;
+}
+
+export interface PhotoReelUnit {
+  /** Stable slide key — property + unit */
+  key: string;
+  unitNo: string;
+  /** @nullable */
+  propertyId?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /**
+     * Job behind the newest shot, for drill-down
+     * @nullable
+     */
+  jobId?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  before?: PhotoReelShot | null;
+  after?: PhotoReelShot | null;
+  /**
+     * ISO timestamp of the newest shot on this unit
+     * @nullable
+     */
+  latestAt?: string | null;
+  photoCount: number;
+}
+
 export type AssignPhotosInputItemsItemKind = typeof AssignPhotosInputItemsItemKind[keyof typeof AssignPhotosInputItemsItemKind];
 
 
@@ -9265,6 +9306,17 @@ status?: string;
 export type ListJobsParams = {
 status?: string;
 propertyId?: string;
+};
+
+export type GetPhotoReelParams = {
+/**
+ * Limit the reel to one property
+ */
+propertyId?: string;
+/**
+ * Maximum units returned (default 12, max 40)
+ */
+limit?: number;
 };
 
 export type AssignPhotosToJob200 = {

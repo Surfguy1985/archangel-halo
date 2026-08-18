@@ -2982,6 +2982,41 @@ export const GetPhotoLibraryResponse = zod.array(GetPhotoLibraryResponseItem)
 
 
 /**
+ * @summary Before/after field photos grouped by unit, newest unit first — powers the Pulse Overview reel
+ */
+export const GetPhotoReelQueryParams = zod.object({
+  "propertyId": zod.coerce.string().optional().describe('Limit the reel to one property'),
+  "limit": zod.coerce.number().optional().describe('Maximum units returned (default 12, max 40)')
+})
+
+export const GetPhotoReelResponseItem = zod.object({
+  "key": zod.string().describe('Stable slide key — property + unit'),
+  "unitNo": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "jobId": zod.string().nullish().describe('Job behind the newest shot, for drill-down'),
+  "crewName": zod.string().nullish(),
+  "before": zod.union([zod.object({
+  "url": zod.string().describe('Ready-to-render image URL'),
+  "phase": zod.string().describe('before | after'),
+  "takenAt": zod.string().nullish().describe('ISO timestamp the shot landed'),
+  "crewName": zod.string().nullish(),
+  "source": zod.string().optional().describe('field | base44')
+}),zod.null()]).optional(),
+  "after": zod.union([zod.object({
+  "url": zod.string().describe('Ready-to-render image URL'),
+  "phase": zod.string().describe('before | after'),
+  "takenAt": zod.string().nullish().describe('ISO timestamp the shot landed'),
+  "crewName": zod.string().nullish(),
+  "source": zod.string().optional().describe('field | base44')
+}),zod.null()]).optional(),
+  "latestAt": zod.string().nullish().describe('ISO timestamp of the newest shot on this unit'),
+  "photoCount": zod.number()
+})
+export const GetPhotoReelResponse = zod.array(GetPhotoReelResponseItem)
+
+
+/**
  * @summary Attach photos from the library to a job card (copies them onto the job as before/after photos)
  */
 export const AssignPhotosToJobParams = zod.object({

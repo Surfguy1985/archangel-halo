@@ -1733,6 +1733,34 @@ paths:
                 items:
                   $ref: "#/components/schemas/PhotoLibraryEntry"
 
+  /photo-reel:
+    get:
+      operationId: getPhotoReel
+      tags: [jobs]
+      summary: Before/after field photos grouped by unit, newest unit first — powers the Pulse Overview reel
+      parameters:
+        - name: propertyId
+          in: query
+          required: false
+          description: Limit the reel to one property
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum units returned (default 12, max 40)
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unit slides, newest photo first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PhotoReelUnit"
+
   /jobs/{id}/photos/assign:
     post:
       operationId: assignPhotosToJob
@@ -14992,6 +15020,35 @@ components:
         crewName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         takenOn: { type: ["string", "null"], description: "YYYY-MM-DD when known" }
+    PhotoReelShot:
+      type: object
+      required: [url, phase]
+      properties:
+        url: { type: string, description: "Ready-to-render image URL" }
+        phase: { type: string, description: "before | after" }
+        takenAt: { type: ["string", "null"], description: "ISO timestamp the shot landed" }
+        crewName: { type: ["string", "null"] }
+        source: { type: string, description: "field | base44" }
+    PhotoReelUnit:
+      type: object
+      required: [key, unitNo, photoCount]
+      properties:
+        key: { type: string, description: "Stable slide key — property + unit" }
+        unitNo: { type: string }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"], description: "Job behind the newest shot, for drill-down" }
+        crewName: { type: ["string", "null"] }
+        before:
+          oneOf:
+            - $ref: "#/components/schemas/PhotoReelShot"
+            - type: "null"
+        after:
+          oneOf:
+            - $ref: "#/components/schemas/PhotoReelShot"
+            - type: "null"
+        latestAt: { type: ["string", "null"], description: "ISO timestamp of the newest shot on this unit" }
+        photoCount: { type: integer }
     AssignPhotosInput:
       type: object
       required: [items]

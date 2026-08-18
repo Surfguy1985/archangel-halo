@@ -225,6 +225,7 @@ import type {
   GetClientPropertyTurnBoardParams,
   GetCrewInvoiceQueueParams,
   GetEvidenceFileParams,
+  GetPhotoReelParams,
   GetPortfolioAttentionParams,
   GetPortfolioAuditParams,
   GetPortfolioCostToServeParams,
@@ -330,6 +331,7 @@ import type {
   PayoutDistribution,
   PayoutQueueCrew,
   PhotoLibraryEntry,
+  PhotoReelUnit,
   PhotoShare,
   PhotoShareInput,
   PhotoShareNotesInput,
@@ -5931,6 +5933,90 @@ export function useGetPhotoLibrary<TData = Awaited<ReturnType<typeof getPhotoLib
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPhotoLibraryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPhotoReelUrl = (params?: GetPhotoReelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/photo-reel?${stringifiedParams}` : `/api/photo-reel`
+}
+
+/**
+ * @summary Before/after field photos grouped by unit, newest unit first — powers the Pulse Overview reel
+ */
+export const getPhotoReel = async (params?: GetPhotoReelParams, options?: RequestInit): Promise<PhotoReelUnit[]> => {
+
+  return customFetch<PhotoReelUnit[]>(getGetPhotoReelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPhotoReelQueryKey = (params?: GetPhotoReelParams,) => {
+    return [
+    `/api/photo-reel`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPhotoReelQueryOptions = <TData = Awaited<ReturnType<typeof getPhotoReel>>, TError = ErrorType<unknown>>(params?: GetPhotoReelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPhotoReelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhotoReel>>> = ({ signal }) => getPhotoReel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPhotoReel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPhotoReelQueryResult = NonNullable<Awaited<ReturnType<typeof getPhotoReel>>>
+export type GetPhotoReelQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Before/after field photos grouped by unit, newest unit first — powers the Pulse Overview reel
+ */
+
+export function useGetPhotoReel<TData = Awaited<ReturnType<typeof getPhotoReel>>, TError = ErrorType<unknown>>(
+ params?: GetPhotoReelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoReel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPhotoReelQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

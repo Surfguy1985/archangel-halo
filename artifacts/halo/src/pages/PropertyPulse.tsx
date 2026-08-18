@@ -28,6 +28,7 @@ import {
   useActivatePresentationDemo,
   useGetBusinessSettings,
   useGetCrewMapPins,
+  useGetPhotoReel,
   useGetPortfolioPulse,
   useGetToday,
   useListCatalogItems,
@@ -36,6 +37,7 @@ import {
   useListNotifications,
   useListProperties,
   getGetCrewMapPinsQueryKey,
+  getGetPhotoReelQueryKey,
   getGetPortfolioPulseQueryKey,
   getGetTodayQueryKey,
   getListCatalogItemsQueryKey,
@@ -56,7 +58,7 @@ import haloLogo from "../assets/halo-logo.png";
 import {
   HaloVacancyChip,
   HaloLevelBar,
-  HaloProofPair,
+  HaloProofReel,
   HaloReportsCard,
   HaloVendorsCard,
   HaloWaitingCard,
@@ -549,6 +551,13 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
   const activateDemo = useActivatePresentationDemo();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Live before/after reel for Overview — one slide per unit, newest work
+  // first.  It follows the selected community so the pictures always match
+  // whatever the desk is looking at.
+  const reelParams = useMemo(() => (selectedId ? { propertyId: selectedId } : {}), [selectedId]);
+  const { data: photoReel, isLoading: reelLoading } = useGetPhotoReel(reelParams, {
+    query: { enabled: level === "pulse", queryKey: getGetPhotoReelQueryKey(reelParams), ...poll },
+  });
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [sms, setSms] = useState<SmsStatus>({ configured: false, fromLast4: null });
@@ -974,15 +983,6 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const portfolio = biz?.companyName?.replace(/\s+LLC$/i, "") || "Property Pulse";
-  const proof = (() => {
-    for (const p of pins ?? []) {
-      const shots = p.photos ?? [];
-      const before = shots.find((x) => /before/i.test(x.phase ?? ""))?.url ?? shots[1]?.url;
-      const after = shots.find((x) => /after/i.test(x.phase ?? ""))?.url ?? shots[0]?.url;
-      if (before || after) return { before, after, title: p.todayProperty || p.name };
-    }
-    return null;
-  })();
   const nav = NAV.filter((n) => haloDeskPanels(level).includes(n.id as "overview" | "sites" | "reports" | "vendors" | "waiting" | "crew")).map((n) =>
     n.id === "sites" && level === "pulse" ? { ...n, label: "POs", Icon: ClipboardList } : n,
   );
@@ -1159,12 +1159,15 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
             {level === "pulse" ? (
               <>
                 <PulseWatchRings days={avgTurnDays} target={7} openTurns={liveJobs.length} doneToday={doneToday} sample={turnSample} />
-                <HaloProofPair
-                  title={proof?.title ?? "Before / after"}
-                  caption={proof ? "Field pictures already on this job" : "Pictures show up when the field posts them"}
-                  before={proof?.before}
-                  after={proof?.after}
-                  onOpen={() => setDrill((d) => (d === "turns" ? null : "turns"))}
+                <HaloProofReel
+                  units={photoReel ?? []}
+                  loading={reelLoading}
+                  title={selected?.name ?? "Field pictures"}
+                  onOpenUnit={(u) => {
+                    if (u.propertyId) setSelectedId(u.propertyId);
+                    if (u.jobId) navigate(`/jobs/${u.jobId}`);
+                    else setDrill((d) => (d === "turns" ? null : "turns"));
+                  }}
                 />
                 <div className="pulse-stat-grid">
                   {statTile("turns", "amber", liveJobs.length, "Active units", "Open turns on site today")}
