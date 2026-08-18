@@ -1,7 +1,8 @@
-import { useListCrews, getListCrewsQueryKey} from "@workspace/api-client-react";
+import { useListCrews, useUpdateCrew, getListCrewsQueryKey} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
-import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight} from "lucide-react";
+import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight, HardHat} from "lucide-react";
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
 import { CrewCommandCenter } from "@/components/CrewCommandCenter";
@@ -17,6 +18,23 @@ export default function Crews() {
   const [planCrew, setPlanCrew] = useState<{ id: string; name: string } | null>(null);
   const [accessCrew, setAccessCrew] = useState<NonNullable<typeof crews>[number] | null>(null);
   const { data: crews, isLoading } = useListCrews({ query: { queryKey: getListCrewsQueryKey(), refetchInterval: 30000 } });
+  const updateCrew = useUpdateCrew();
+  const queryClient = useQueryClient();
+
+  // Foreman = team authority (isLeader) + Wings role tier, flipped together so
+  // dispatch grouping and profit-share weighting never disagree.
+  const toggleForeman = (
+    e: React.MouseEvent,
+    crew: { id: string; isLeader?: boolean | null },
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const on = crew.isLeader === true;
+    updateCrew.mutate(
+      { id: crew.id, data: { isLeader: !on, role: !on ? "foreman" : "crew" } },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey() }) },
+    );
+  };
 
   const filtered = crews?.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -170,6 +188,26 @@ export default function Crews() {
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => toggleForeman(e, crew)}
+            role="switch"
+            aria-checked={crew.isLeader === true}
+            aria-label={`Foreman: ${crew.name}`}
+            data-testid={`foreman-toggle-${crew.id}`}
+            disabled={updateCrew.isPending}
+            title={
+              crew.isLeader === true
+                ? "Foreman — can add crew by QR from his paycard"
+                : "Make foreman"
+            }
+            className={`p-1.5 rounded-md transition-all disabled:opacity-40 ${
+              crew.isLeader === true
+                ? "text-[var(--gold-dark)] bg-[var(--gold-tint)] opacity-100"
+                : "text-muted-foreground opacity-0 group-hover:opacity-100"
+            } hover:bg-black/5 hover:text-foreground`}
+          >
+            <HardHat className="w-4 h-4" />
+          </button>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlanCrew({ id: crew.id, name: crew.name }); }}
             aria-label={`Plan ${crew.name}'s day`} title="Day route"

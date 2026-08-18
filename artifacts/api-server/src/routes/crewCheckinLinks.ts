@@ -56,6 +56,8 @@ import {
   type PunchEvent,
 } from "../lib/crewCheckinCore";
 
+import { isForemanCrew, loadTeamView } from "./crewJoin";
+
 const router = Router();
 
 function ipHash(req: {
@@ -575,7 +577,13 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
     await touchAccess(row.id);
 
     const [crew] = await db
-      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
+      .select({
+        id: crewsTable.id,
+        name: crewsTable.name,
+        active: crewsTable.active,
+        role: crewsTable.role,
+        isLeader: crewsTable.isLeader,
+      })
       .from(crewsTable)
       .where(eq(crewsTable.id, row.crewId))
       .limit(1);
@@ -614,8 +622,18 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
       localIsoDate(now),
     );
 
+    // A foreman also runs his own crew from this card: roster + QR invites.
+    const foreman = isForemanCrew(crew);
+    const team = foreman
+      ? await loadTeamView(crew.id, publicAppOrigin(req)).catch((err) => {
+          logger.warn({ err }, "crew-checkin: team view failed");
+          return null;
+        })
+      : null;
+
     res.json({
-      crew: { id: crew.id, name: crew.name },
+      crew: { id: crew.id, name: crew.name, isForeman: foreman },
+      team,
       todayAssignment: assignment
         ? {
             propertyName: assignment.propertyName,

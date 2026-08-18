@@ -4,6 +4,7 @@ import { emitFalkonEvent } from "../lib/falkonEmit";
 import { stampJobClientPo } from "../lib/clientPoStamp";
 import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
+import { isForemanCrew, revokeForemanInvites } from "./crewJoin";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   db,
@@ -2327,6 +2328,23 @@ router.patch("/crews/:id", async (req, res): Promise<void> => {
   if (!row) {
     res.status(404).json({ error: "Crew member not found" });
     return;
+  }
+  // Losing foreman authority (or going inactive) kills every QR crew code he
+  // handed out. Otherwise re-promoting him later would silently re-arm codes
+  // already in the wild — the office toggle promises the opposite. A failure
+  // here is reported, never swallowed: the office must know the old codes may
+  // still be live.
+  if (!isForemanCrew(row) || row.active === false) {
+    try {
+      await revokeForemanInvites(row.id);
+    } catch (err) {
+      logger.error({ err, crewId: row.id }, "crews: failed to revoke foreman QR codes");
+      res.status(500).json({
+        error:
+          "Crew saved, but their old QR crew codes could not be turned off. Try saving again.",
+      });
+      return;
+    }
   }
   // Wings exclusion is permanent: drop their program membership so sweeps,
   // eligibility, and accrual can't keep operating on a stale member row.

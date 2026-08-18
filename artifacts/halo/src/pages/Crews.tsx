@@ -1,5 +1,6 @@
-import { useListCrews, useGenerateCrewPortalLink, getListCrewsQueryKey } from "@workspace/api-client-react";
-import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase } from "lucide-react";
+import { useListCrews, useGenerateCrewPortalLink, useUpdateCrew, getListCrewsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase, HardHat } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { AddCrewSheet } from "@/components/AddCrewSheet";
@@ -25,7 +26,34 @@ export default function Crews() {
   
   const { data: crews, isLoading } = useListCrews({ query: { queryKey: getListCrewsQueryKey(), refetchInterval: 30000 } });
   const genLink = useGenerateCrewPortalLink();
+  const updateCrew = useUpdateCrew();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Foreman = team authority (isLeader) + the Wings role tier. They move
+  // together so dispatch grouping and profit-share weighting agree.
+  const toggleForeman = (
+    e: React.MouseEvent,
+    crew: { id: string; name: string; isLeader?: boolean | null },
+  ) => {
+    e.stopPropagation();
+    const on = crew.isLeader === true;
+    updateCrew.mutate(
+      { id: crew.id, data: { isLeader: !on, role: !on ? "foreman" : "crew" } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey() });
+          toast({
+            title: !on ? `${crew.name} is a foreman` : `${crew.name} is back on crew`,
+            description: !on
+              ? "He can now add crew members with QR codes from his paycard."
+              : "QR crew codes are turned off for him.",
+          });
+        },
+        onError: () => toast({ title: "Could not save that", variant: "destructive" }),
+      },
+    );
+  };
 
   const handleLiveLink = (e: React.MouseEvent, crewId: string, crewName: string) => {
     e.stopPropagation(); // Prevent navigating to crew detail
@@ -170,6 +198,50 @@ export default function Crews() {
                     </div>
                   </div>
                 )}
+
+                {/* Foreman toggle — unlocks QR crew onboarding on his paycard */}
+                {(() => {
+                  const isForeman = crew.isLeader === true;
+                  return (
+                    <div
+                      className={`flex items-center justify-between gap-[10px] mb-[14px] px-[12px] py-[10px] rounded-[14px] border transition-colors relative z-10 ${
+                        isForeman
+                          ? "bg-[var(--gold-tint)] border-[var(--gold-light)]"
+                          : "bg-[rgba(19,34,58,0.03)] border-[var(--hairline)]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-[9px] min-w-0">
+                        <HardHat
+                          className={`w-[16px] h-[16px] shrink-0 ${isForeman ? "text-[var(--gold-dark)]" : "text-muted-foreground/60"}`}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-display font-bold text-[var(--ink)] leading-tight">Foreman</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {isForeman ? "Can add crew with QR codes" : "Runs no crew of his own"}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isForeman}
+                        aria-label={`Foreman: ${crew.name}`}
+                        data-testid={`foreman-toggle-${crew.id}`}
+                        disabled={updateCrew.isPending}
+                        onClick={(e) => toggleForeman(e, crew)}
+                        className={`relative w-[48px] h-[28px] rounded-full shrink-0 transition-colors disabled:opacity-50 ${
+                          isForeman ? "bg-[var(--gold-light)]" : "bg-[rgba(19,34,58,0.16)]"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-[3px] w-[22px] h-[22px] rounded-full bg-white shadow-sm transition-all ${
+                            isForeman ? "left-[23px]" : "left-[3px]"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-[14px] border-t border-[var(--hairline)] relative z-10">

@@ -24,6 +24,7 @@ import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
 import { HaloCrewPaycardPage as CrewCheckinPage } from "@workspace/board-ui";
+import CrewJoinPage from "./pages/CrewJoinPage";
 import JobBoard from "@/pages/JobBoard";
 import WorkEmbed from "@/pages/WorkEmbed";
 import Catalog from "@/pages/Catalog";
@@ -80,6 +81,9 @@ function App() {
             <Route path="/portal/:token" component={CrewPortal} />
             <Route path="/checkin/:token">
               {(params) => <CrewCheckinPage token={params.token} />}
+            </Route>
+            <Route path="/join/:token">
+              {(params) => <CrewJoinPage token={params.token} />}
             </Route>
 
             <Route path="/views">

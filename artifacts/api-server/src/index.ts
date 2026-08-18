@@ -12,6 +12,7 @@ import { seedExchangeProducts } from "./lib/seedExchangeProducts";
 import { ensureClientBoardSchema } from "./lib/ensureClientBoardSchema";
 import { ensureClientPoSchema } from "./lib/ensureClientPoSchema";
 import { ensureRemindersSchema } from "./lib/ensureRemindersSchema";
+import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -67,6 +68,9 @@ app.listen(port, (err) => {
   );
   ensureRemindersSchema().catch((err) =>
     logger.error({ err }, "Failed to bootstrap reminders schema"),
+  );
+  ensureCrewJoinSchema().catch((err) =>
+    logger.error({ err }, "crew join schema bootstrap failed"),
   );
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is
   // created, and these are ALTERs against it. On a fresh database the reverse

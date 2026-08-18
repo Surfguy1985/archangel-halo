@@ -27,6 +27,7 @@ export { HaloReportsCard, HaloVendorsCard, HaloWaitingCard } from './components/
 export { HaloPosCard } from './components/pulse/HaloPosCard';
 export { HaloCrewPaycards } from './components/pulse/HaloCrewPaycard';
 export { HaloCrewPaycardPage } from './components/pulse/HaloCrewPaycardPage';
+export { HaloCrewJoinPage } from './components/pulse/HaloCrewJoinPage';
 export { HALO_STORY, HALO_STORY_ORDER, haloStoryTitle, haloStoryHref } from './components/pulse/haloLevels';
 export type { HaloStoryLevel, HaloStoryDesk } from './components/pulse/haloLevels';
 export {

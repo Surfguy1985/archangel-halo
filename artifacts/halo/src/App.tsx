@@ -25,6 +25,7 @@ import JobTracker from "./pages/JobTracker";
 import PublicPayment from "./pages/PublicPayment";
 import PMliveView from "./pages/PMliveView";
 import CrewCheckinPage from "./pages/CrewCheckinPage";
+import CrewJoinPage from "./pages/CrewJoinPage";
 
 // Primary interface
 import HaloCommand from "./pages/HaloCommand";
@@ -112,6 +113,9 @@ function App() {
             </Route>
             <Route path="/checkin/:token">
               {(params) => <CrewCheckinPage token={params.token} />}
+            </Route>
+            <Route path="/join/:token">
+              {(params) => <CrewJoinPage token={params.token} />}
             </Route>
 
             {/* ── Legacy redirects — bookmarked / emailed links ──────────── */}

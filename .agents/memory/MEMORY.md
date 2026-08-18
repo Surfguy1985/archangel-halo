@@ -135,3 +135,5 @@
 - [HALO client PO intake](halo-client-po-intake.md) — chat-attached POs must refuse to guess property/unit/live job; identical re-submits are no-ops or the purple alert re-fires.
 - [HALO client board portfolio scope](halo-client-board-portfolio-scope.md) — property tokens 404 "Invalid link" on every portfolio surface unless the property has an org + portfolio row; resolver provisions one lazily.
 - [Env-gated router gates](halo-env-gated-router-gates.md) — a bare router.use() retirement gate 410s every router mounted after it, in PROD ONLY; always scope the gate to its path prefix.
+- [HALO foreman QR onboarding](halo-foreman-qr-onboarding.md) — foreman = isLeader AND role written together; join bearers never persisted; demotion revokes open codes.
+- [HALO crew paycard](halo-crew-paycard.md) — GeolocationPositionError isn't an Error; photo COUNTS (not truncated items) drive step state; checkout photo gate is server-owned.

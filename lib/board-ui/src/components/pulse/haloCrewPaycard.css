@@ -110,159 +110,322 @@
   border-color: rgba(170, 200, 255, 0.16);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Paycard page — the crew-facing "get paid" flow.
+   One card, one primary action, a rail that shows what is already banked.
+   ───────────────────────────────────────────────────────────────────────── */
 .halo-paypage {
+  --pay-lime: #b4ff44;
+  --pay-ink: #f4f4f0;
+  --pay-dim: rgba(210, 224, 255, 0.58);
+  --pay-faint: rgba(210, 224, 255, 0.34);
+  --pay-line: rgba(170, 200, 255, 0.14);
+  --pay-red: #ff6a4d;
+  --pay-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 28px 20px 40px;
+  justify-content: flex-start;
+  padding: max(24px, env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
   background:
-    radial-gradient(1200px 500px at 50% -10%, rgba(180, 255, 68, 0.12), transparent 55%),
-    #060c18;
-  color: #f4f4f0;
+    radial-gradient(900px 420px at 50% -8%, rgba(180, 255, 68, 0.14), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(60, 110, 190, 0.12), transparent 60%),
+    #070d1a;
+  color: var(--pay-ink);
   font-family: Outfit, "Plus Jakarta Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 .halo-paypage-card {
-  width: min(100%, 400px);
+  width: min(100%, 420px);
+  margin: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 26px;
+  border: 1px solid var(--pay-line);
+  background:
+    linear-gradient(180deg, rgba(20, 34, 56, 0.72), rgba(9, 17, 32, 0.86));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 30px 70px -30px rgba(0, 0, 0, 0.85);
+}
+.halo-paypage-centered {
+  align-items: center;
+  text-align: center;
+}
+.halo-paypage-muted {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--pay-dim);
+}
+
+/* Header ------------------------------------------------------------------ */
+.halo-paypage-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
 }
 .halo-paypage-kicker {
   margin: 0;
-  text-align: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(180, 255, 68, 0.55);
+  color: rgba(180, 255, 68, 0.62);
 }
 .halo-paypage-card h1 {
   margin: 0;
-  text-align: center;
-  font-size: clamp(28px, 7vw, 36px);
+  font-size: clamp(26px, 6.6vw, 33px);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
 }
-.halo-paypage-card h1 span {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: rgba(210, 224, 255, 0.55);
-  margin-top: 8px;
-}
-.halo-paypage-warn {
+.halo-paypage-sub {
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(194, 59, 34, 0.12);
-  border: 1px solid rgba(194, 59, 34, 0.28);
-  color: #f0c2b8;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 13.5px;
   font-weight: 600;
+  color: var(--pay-dim);
 }
+.halo-paypage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--pay-line);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  color: var(--pay-faint);
+}
+.halo-paypage-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+.halo-paypage-status[data-on="true"] {
+  color: var(--pay-lime);
+  border-color: rgba(180, 255, 68, 0.34);
+  background: rgba(180, 255, 68, 0.08);
+}
+.halo-paypage-status[data-on="true"] i {
+  opacity: 1;
+  animation: halo-pay-pulse 2.4s var(--pay-ease) infinite;
+}
+.halo-paypage-status b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+@keyframes halo-pay-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 255, 68, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(180, 255, 68, 0); }
+}
+
+
+.halo-paypage-status[data-stale="true"] {
+  color: #ffc6b6;
+  border-color: rgba(255, 106, 77, 0.32);
+  background: rgba(255, 106, 77, 0.1);
+}
+
+/* Step rail --------------------------------------------------------------- */
+.halo-paypage-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.halo-paypage-steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+/* connector between dots */
+.halo-paypage-steps li::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(170, 200, 255, 0.16);
+  transition: background 240ms var(--pay-ease);
+}
+.halo-paypage-steps li:first-child::before {
+  display: none;
+}
+.halo-paypage-steps li[data-done="true"]::before,
+.halo-paypage-steps li[data-now="true"]::before {
+  background: rgba(180, 255, 68, 0.5);
+}
+.halo-paypage-dot {
+  position: relative;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(170, 200, 255, 0.24);
+  background: #0b1524;
+  color: #07101e;
+  transition:
+    border-color 240ms var(--pay-ease),
+    background 240ms var(--pay-ease),
+    transform 240ms var(--pay-ease);
+}
+.halo-paypage-dot svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3.4;
+}
+.halo-paypage-steps li[data-done="true"] .halo-paypage-dot {
+  background: var(--pay-lime);
+  border-color: var(--pay-lime);
+}
+.halo-paypage-steps li[data-now="true"] .halo-paypage-dot {
+  border-color: var(--pay-lime);
+  background: rgba(180, 255, 68, 0.16);
+  transform: scale(1.12);
+  box-shadow: 0 0 0 4px rgba(180, 255, 68, 0.12);
+}
+.halo-paypage-steplabel {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--pay-faint);
+  transition: color 240ms var(--pay-ease);
+}
+.halo-paypage-steps li[data-done="true"] .halo-paypage-steplabel {
+  color: rgba(210, 224, 255, 0.72);
+}
+.halo-paypage-steps li[data-now="true"] .halo-paypage-steplabel {
+  color: var(--pay-lime);
+}
+
+/* Assignment -------------------------------------------------------------- */
 .halo-paypage-box {
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--pay-line);
 }
 .halo-paypage-box p {
   margin: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(210, 224, 255, 0.4);
+  color: var(--pay-faint);
 }
 .halo-paypage-box strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin-top: 6px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.halo-paypage-box strong svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--pay-lime);
 }
 .halo-paypage-box small {
   display: block;
-  margin-top: 4px;
+  margin-top: 5px;
   font-size: 13px;
-  color: rgba(210, 224, 255, 0.5);
+  line-height: 1.45;
+  color: var(--pay-dim);
 }
+.halo-paypage-onunit {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--pay-dim);
+}
+.halo-paypage-onunit b {
+  color: var(--pay-ink);
+  font-weight: 800;
+}
+
+/* Unit field -------------------------------------------------------------- */
 .halo-paypage-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 .halo-paypage-field span {
   font-size: 12px;
   font-weight: 700;
-  color: rgba(210, 224, 255, 0.62);
+  color: var(--pay-dim);
 }
 .halo-paypage-field input {
-  min-height: 52px;
-  border-radius: 14px;
-  border: 1px solid rgba(180, 255, 68, 0.28);
-  background: rgba(8, 18, 40, 0.7);
-  color: #f4f4f0;
-  padding: 0 14px;
+  min-height: 56px;
+  border-radius: 16px;
+  border: 1px solid rgba(180, 255, 68, 0.26);
+  background: rgba(6, 14, 30, 0.72);
+  color: var(--pay-ink);
+  padding: 0 16px;
   font-family: inherit;
   font-size: 18px;
   font-weight: 700;
+  transition: border-color 200ms var(--pay-ease), box-shadow 200ms var(--pay-ease);
 }
-.halo-paypage-cta {
-  min-height: 64px;
-  border: 0;
-  border-radius: 18px;
-  background: #b4ff44;
-  color: #07101e;
-  font-family: inherit;
-  font-size: 18px;
-  font-weight: 800;
-  box-shadow: 0 10px 36px rgba(180, 255, 68, 0.28);
+.halo-paypage-field input::placeholder {
+  color: rgba(210, 224, 255, 0.26);
 }
-.halo-paypage-cta:disabled {
-  opacity: 0.65;
+.halo-paypage-field input:focus-visible {
+  outline: none;
+  border-color: var(--pay-lime);
+  box-shadow: 0 0 0 4px rgba(180, 255, 68, 0.16);
 }
-.halo-paypage-cta[data-out="true"] {
-  background: #c23b22;
-  color: #fff;
-  box-shadow: 0 10px 36px rgba(194, 59, 34, 0.28);
+.halo-paypage-field input:disabled {
+  opacity: 0.6;
 }
-.halo-paypage-ghost {
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  color: rgba(210, 224, 255, 0.55);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+
+/* Photo tiles ------------------------------------------------------------- */
 .halo-paypage-shots {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 .halo-paypage-shot {
   position: relative;
-  min-height: 120px;
-  border-radius: 16px;
-  border: 1px dashed rgba(180, 255, 68, 0.28);
+  aspect-ratio: 3 / 4;
+  border-radius: 18px;
+  border: 1px dashed rgba(180, 255, 68, 0.3);
   background: rgba(255, 255, 255, 0.03);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: rgba(244, 244, 240, 0.78);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  transition: border-color 220ms var(--pay-ease), box-shadow 220ms var(--pay-ease);
+}
+.halo-paypage-shot[data-filled="true"] {
+  border-style: solid;
+  border-color: rgba(180, 255, 68, 0.5);
+  box-shadow: 0 0 22px -6px rgba(180, 255, 68, 0.35);
 }
 .halo-paypage-shot img {
   position: absolute;
@@ -271,35 +434,224 @@
   height: 100%;
   object-fit: cover;
 }
-.halo-paypage-shot span {
-  position: relative;
-  z-index: 1;
-  padding: 4px 8px;
+.halo-paypage-shot-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: linear-gradient(180deg, rgba(7, 16, 30, 0) 40%, rgba(7, 16, 30, 0.82) 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.halo-paypage-shot[data-filled="false"] .halo-paypage-shot-hit {
+  align-items: center;
+  background: transparent;
+}
+.halo-paypage-shot-hit:disabled {
+  cursor: default;
+}
+.halo-paypage-shot-hit:focus-visible {
+  outline: 2px solid var(--pay-lime);
+  outline-offset: -3px;
+  border-radius: 18px;
+}
+.halo-paypage-shot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-height: 36px;
   border-radius: 999px;
-  background: rgba(7, 16, 30, 0.72);
+  background: rgba(7, 16, 30, 0.78);
+  border: 1px solid var(--pay-line);
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--pay-ink);
+  backdrop-filter: blur(6px);
+}
+.halo-paypage-shot-badge svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: var(--pay-lime);
+}
+.halo-paypage-shot[data-busy="true"] {
+  border-color: rgba(180, 255, 68, 0.5);
 }
 .halo-paypage-shot input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Messages ---------------------------------------------------------------- */
+.halo-paypage-live {
+  margin: 0;
+}
+.halo-paypage-live:empty {
   display: none;
 }
-.halo-paypage-steps {
+.halo-paypage-warn {
   display: flex;
-  justify-content: space-between;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 106, 77, 0.11);
+  border: 1px solid rgba(255, 106, 77, 0.3);
+  color: #ffc6b6;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 650;
+  text-align: left;
+}
+.halo-paypage-warn svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--pay-red);
+}
+.halo-paypage-good {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(180, 255, 68, 0.1);
+  border: 1px solid rgba(180, 255, 68, 0.28);
+  color: #d9ff9a;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 650;
 }
-.halo-paypage-steps li {
-  flex: 1;
-  text-align: center;
-  font-size: 9px;
+.halo-paypage-glyph {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 1px solid var(--pay-line);
+  background: rgba(255, 255, 255, 0.04);
+}
+.halo-paypage-glyph svg {
+  width: 30px;
+  height: 30px;
+}
+.halo-paypage-glyph[data-tone="good"] {
+  border-color: rgba(180, 255, 68, 0.4);
+  background: rgba(180, 255, 68, 0.1);
+  color: var(--pay-lime);
+  box-shadow: 0 0 34px -8px rgba(180, 255, 68, 0.6);
+}
+.halo-paypage-glyph[data-tone="bad"] {
+  border-color: rgba(255, 106, 77, 0.34);
+  background: rgba(255, 106, 77, 0.1);
+  color: var(--pay-red);
+}
+.halo-paypage-bigspin {
+  width: 30px;
+  height: 30px;
+  color: var(--pay-lime);
+}
+
+/* Primary action ---------------------------------------------------------- */
+.halo-paypage-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.halo-paypage-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 60px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--pay-lime);
+  color: #07101e;
+  font-family: inherit;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(210, 224, 255, 0.35);
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 14px 34px -14px rgba(180, 255, 68, 0.8);
+  transition:
+    transform 200ms var(--pay-ease),
+    box-shadow 200ms var(--pay-ease),
+    background 200ms var(--pay-ease),
+    opacity 200ms var(--pay-ease);
 }
-.halo-paypage-steps li[data-on="true"] {
-  color: #b4ff44;
+.halo-paypage-cta svg {
+  width: 19px;
+  height: 19px;
+}
+.halo-paypage-cta:active:not(:disabled) {
+  transform: translateY(1px) scale(0.995);
+  box-shadow: 0 8px 20px -12px rgba(180, 255, 68, 0.8);
+}
+.halo-paypage-cta:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.halo-paypage-cta:disabled {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(210, 224, 255, 0.5);
+  box-shadow: none;
+}
+.halo-paypage-cta[data-out="true"] {
+  background: var(--pay-red);
+  color: #12060a;
+  box-shadow: 0 14px 34px -14px rgba(255, 106, 77, 0.85);
+}
+.halo-paypage-foot {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+  color: var(--pay-faint);
+}
+.halo-paypage-ghost {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--pay-dim);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.halo-spin {
+  width: 18px;
+  height: 18px;
+  animation: halo-pay-spin 900ms linear infinite;
+}
+@keyframes halo-pay-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (hover: hover) {
+  .halo-paypage-cta:hover:not(:disabled) {
+    box-shadow: 0 18px 42px -14px rgba(180, 255, 68, 0.95);
+    transform: translateY(-1px);
+  }
+  .halo-paypage-cta[data-out="true"]:hover:not(:disabled) {
+    box-shadow: 0 18px 42px -14px rgba(255, 106, 77, 0.95);
+  }
+  .halo-paypage-shot-hit:hover:not(:disabled) .halo-paypage-shot-badge {
+    border-color: rgba(180, 255, 68, 0.45);
+  }
 }
 
 @media print {
@@ -318,7 +670,329 @@
 
 @media (prefers-reduced-motion: reduce) {
   .halo-paypage-cta,
+  .halo-paypage-dot,
+  .halo-paypage-shot,
+  .halo-paypage-steps li::before,
+  .halo-paypage-steplabel,
   .halo-paycard-actions button {
     transition: none;
   }
+  .halo-paypage-status[data-on="true"] i,
+  .halo-spin {
+    animation: none;
+  }
+}
+
+
+/* ── Foreman: my crew + QR invites ─────────────────────────────────────────
+   Only rendered when the paycard holder is a foreman. Sits under the pay
+   flow so the money steps stay the first thing on screen. */
+
+.halo-payteam {
+  width: min(100%, 420px);
+  margin: 14px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px;
+  border: 1px solid var(--pay-line);
+  background: linear-gradient(180deg, rgba(18, 30, 50, 0.6), rgba(9, 16, 30, 0.78));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.halo-payteam-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.halo-payteam-head p {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pay-faint);
+}
+.halo-payteam-head strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--pay-ink);
+}
+.halo-payteam-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 255, 68, 0.32);
+  background: rgba(180, 255, 68, 0.1);
+  color: var(--pay-lime);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.halo-payteam-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.halo-payteam-list,
+.halo-payteam-codes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.halo-payteam-list li,
+.halo-payteam-codes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--pay-line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.halo-payteam-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(180, 255, 68, 0.16);
+  color: var(--pay-lime);
+  font-size: 13px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.halo-payteam-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pay-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.halo-payteam-list small,
+.halo-payteam-codes small {
+  font-size: 12px;
+  color: var(--pay-faint);
+  white-space: nowrap;
+}
+.halo-payteam-codedot {
+  width: 10px;
+  height: 10px;
+  margin-left: 9px;
+  border-radius: 999px;
+  background: var(--pay-lime);
+  box-shadow: 0 0 0 4px rgba(180, 255, 68, 0.14);
+  animation: halo-pay-pulse 2.4s var(--pay-ease) infinite;
+  flex: 0 0 auto;
+}
+.halo-payteam-codeacts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.halo-payteam-codeacts button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid var(--pay-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--pay-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 200ms var(--pay-ease), opacity 200ms var(--pay-ease);
+}
+.halo-payteam-codeacts button:disabled {
+  opacity: 0.5;
+}
+.halo-payteam-codeacts button[data-danger="true"] {
+  color: var(--pay-red);
+  padding: 0 9px;
+}
+.halo-payteam-codeacts svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Code rows: the code label must never truncate — it's how a foreman tells
+   two printed cards apart. The hint text yields instead. */
+.halo-payteam-codes .halo-payteam-name {
+  flex: 0 0 auto;
+}
+.halo-payteam-codes small {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.halo-payteam-recent {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--pay-dim);
+}
+.halo-payteam-warn {
+  margin: 0;
+}
+
+.halo-payteam-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 54px;
+  padding: 0 18px;
+  border: 1px solid rgba(180, 255, 68, 0.4);
+  border-radius: 17px;
+  background: rgba(180, 255, 68, 0.12);
+  color: var(--pay-lime);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 200ms var(--pay-ease), transform 200ms var(--pay-ease), opacity 200ms var(--pay-ease);
+}
+.halo-payteam-cta:active {
+  transform: scale(0.985);
+}
+.halo-payteam-cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.halo-payteam-cta svg {
+  width: 18px;
+  height: 18px;
+}
+.halo-payteam-foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--pay-faint);
+  text-align: center;
+}
+
+/* ── QR sheet ─────────────────────────────────────────────────────────── */
+
+.halo-payqr {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 9, 18, 0.78);
+  backdrop-filter: blur(10px);
+  animation: halo-pay-fade 180ms var(--pay-ease);
+}
+@keyframes halo-pay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.halo-payqr-sheet {
+  position: relative;
+  width: min(100%, 380px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 22px calc(22px + env(safe-area-inset-bottom));
+  border-radius: 26px;
+  border: 1px solid var(--pay-line);
+  background: linear-gradient(180deg, rgba(22, 36, 58, 0.98), rgba(9, 17, 32, 0.98));
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+}
+.halo-payqr-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--pay-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--pay-dim);
+  cursor: pointer;
+}
+.halo-payqr-close svg {
+  width: 16px;
+  height: 16px;
+}
+.halo-payqr-kicker {
+  margin: 0;
+  padding-right: 34px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--pay-ink);
+  text-align: center;
+}
+.halo-payqr-code {
+  display: grid;
+  place-items: center;
+  width: 240px;
+  height: 240px;
+  padding: 12px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+}
+.halo-payqr-code svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.halo-payqr-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--pay-dim);
+  text-align: center;
+}
+.halo-payqr-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.halo-payqr-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--pay-line);
+  background: transparent;
+  color: var(--pay-dim);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.halo-payqr-copy svg {
+  width: 15px;
+  height: 15px;
 }
