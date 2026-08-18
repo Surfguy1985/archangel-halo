@@ -5944,7 +5944,13 @@ export const ListVendorsResponseItem = zod.object({
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "coiExpiresOn": zod.string().nullish(),
-  "compliant": zod.boolean().nullish()
+  "compliant": zod.boolean().nullish(),
+  "vendorType": zod.union([zod.literal('in_house'),zod.literal('subcontractor'),zod.literal(null)]).nullish(),
+  "contractStatus": zod.union([zod.literal('contracted'),zod.literal('inactive'),zod.literal(null)]).nullish(),
+  "avgPoDays": zod.number().nullish(),
+  "avgPoSamples": zod.number().nullish(),
+  "avgTurnDays": zod.number().nullish(),
+  "avgTurnSamples": zod.number().nullish()
 })
 export const ListVendorsResponse = zod.array(ListVendorsResponseItem)
 
@@ -5957,7 +5963,9 @@ export const CreateVendorBody = zod.object({
   "trade": zod.string().optional(),
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
-  "coiExpiresOn": zod.string().optional()
+  "coiExpiresOn": zod.string().optional(),
+  "vendorType": zod.enum(['in_house', 'subcontractor']).optional(),
+  "contractStatus": zod.enum(['contracted', 'inactive']).optional()
 })
 
 export const CreateVendorResponse = zod.object({
@@ -5967,7 +5975,13 @@ export const CreateVendorResponse = zod.object({
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "coiExpiresOn": zod.string().nullish(),
-  "compliant": zod.boolean().nullish()
+  "compliant": zod.boolean().nullish(),
+  "vendorType": zod.union([zod.literal('in_house'),zod.literal('subcontractor'),zod.literal(null)]).nullish(),
+  "contractStatus": zod.union([zod.literal('contracted'),zod.literal('inactive'),zod.literal(null)]).nullish(),
+  "avgPoDays": zod.number().nullish(),
+  "avgPoSamples": zod.number().nullish(),
+  "avgTurnDays": zod.number().nullish(),
+  "avgTurnSamples": zod.number().nullish()
 })
 
 
@@ -5986,7 +6000,9 @@ export const UpdateVendorBody = zod.object({
   "trade": zod.string().nullish(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
-  "coiExpiresOn": zod.string().nullish()
+  "coiExpiresOn": zod.string().nullish(),
+  "vendorType": zod.enum(['in_house', 'subcontractor']).optional(),
+  "contractStatus": zod.enum(['contracted', 'inactive']).optional()
 })
 
 export const UpdateVendorResponse = zod.object({
@@ -5996,7 +6012,13 @@ export const UpdateVendorResponse = zod.object({
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "coiExpiresOn": zod.string().nullish(),
-  "compliant": zod.boolean().nullish()
+  "compliant": zod.boolean().nullish(),
+  "vendorType": zod.union([zod.literal('in_house'),zod.literal('subcontractor'),zod.literal(null)]).nullish(),
+  "contractStatus": zod.union([zod.literal('contracted'),zod.literal('inactive'),zod.literal(null)]).nullish(),
+  "avgPoDays": zod.number().nullish(),
+  "avgPoSamples": zod.number().nullish(),
+  "avgTurnDays": zod.number().nullish(),
+  "avgTurnSamples": zod.number().nullish()
 })
 
 

@@ -15,6 +15,7 @@ import { ensureRemindersSchema } from "./lib/ensureRemindersSchema";
 import { ensureFieldPhotoSchema } from "./lib/ensureFieldPhotoSchema";
 import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 import { ensureCrewCompanySchema } from "./lib/ensureCrewCompanySchema";
+import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -30,6 +31,19 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+/**
+ * The vendors bootstrap blocks startup instead of running alongside the
+ * others: several code paths (the vendors module, queues, voice, the command
+ * brain) `select *` from vendors, so serving before its columns exist means
+ * 500s on a live database. Exiting on failure lets the workflow restart and
+ * retry rather than serving a schema the code can't read.
+ */
+ensureVendorContractSchema().then(startServer, (err) => {
+  logger.error({ err }, "vendor contract schema bootstrap failed");
+  process.exit(1);
+});
+
+function startServer() {
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -91,3 +105,4 @@ app.listen(port, (err) => {
       logger.error({ err }, "Failed to bootstrap SMS delivery-tracking schema"),
     );
 });
+}

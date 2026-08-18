@@ -1,5 +1,4 @@
 import {
-  ExternalLink,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
@@ -10,7 +9,6 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
-const BASE44_URL = "https://wakeful-ready-track-flow.base44.app";
 const STATUS_URL = `${import.meta.env.BASE_URL}api/settings/sync-base44/status`;
 const SYNC_URL   = `${import.meta.env.BASE_URL}api/settings/sync-base44`;
 
@@ -114,31 +112,22 @@ export default function WorkEmbed() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-8">
 
-      {/* Main launch card */}
-      <div className="w-full max-w-md rounded-2xl border border-[var(--hairline)] bg-[var(--secondary)] p-8 flex flex-col items-center gap-6 shadow-xl">
+      {/* The Base44 work app is no longer an operator destination — the sync
+          engine keeps feeding Dispatch and Calendar, and this page is only
+          here to say whether that sync is healthy. */}
+      <div className="w-full max-w-md rounded-2xl border border-[var(--hairline)] bg-[var(--secondary)] p-8 flex flex-col items-center gap-3 shadow-xl">
         <div className="w-16 h-16 rounded-2xl bg-[var(--gold-light)] flex items-center justify-center shadow-[0_0_24px_rgba(180,255,68,0.35)]">
-          <ExternalLink className="w-7 h-7 text-black" strokeWidth={2.5} />
+          <RefreshCw className="w-7 h-7 text-black" strokeWidth={2.5} />
         </div>
-
         <div className="text-center space-y-1">
           <p className="font-display font-bold text-lg text-white tracking-tight">
-            Track Flow — Work App
+            Work app sync
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Everything you add here syncs automatically into Dispatch, Calendar,
-            and the rest of HALO every 2 minutes.
+            Upstream work records sync into Dispatch, Calendar, and the rest of
+            HALO every 2 minutes. Nothing to open — this is the health check.
           </p>
         </div>
-
-        <a
-          href={BASE44_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full h-12 rounded-xl bg-[var(--gold-light)] text-black font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(180,255,68,0.25)] hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          Open Work App
-          <ExternalLink className="w-4 h-4" strokeWidth={2.5} />
-        </a>
       </div>
 
       {/* Sync status card */}

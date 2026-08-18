@@ -70,10 +70,9 @@ export const WORK_TABS: HubTab[] = [
   { label: "Board", href: "/jobboard", testId: "hub-tab-board" },
   { label: "Dispatch", href: "/dispatch", testId: "hub-tab-dispatch" },
   { label: "Calendar", href: "/calendar", testId: "hub-tab-calendar" },
-  // Base44 ("Track Flow") is the upstream work app that feeds Dispatch and
-  // Calendar. It sets X-Frame-Options: DENY so it cannot be embedded — this
-  // tab opens the launcher page, which links out to it and shows sync status.
-  { label: "Work App", href: "/work", testId: "hub-tab-work" },
+  // The upstream Base44 work app is not an operator destination: it still
+  // feeds Dispatch and Calendar through the sync engine, and its sync status
+  // lives in Pulse settings, but nobody navigates to it from here.
 ];
 
 export const CLIENT_TABS: HubTab[] = [

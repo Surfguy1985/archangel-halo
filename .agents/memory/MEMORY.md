@@ -140,4 +140,5 @@
 - [Bounded scan filters](halo-bounded-scan-filters.md) — row-budgeted feed scans must push EVERY filter axis into SQL; filtering after the scan lets a busy entity empty another's results.
 - [HALO field photos](halo-field-photos.md) — crew photos live in crew_photos AND mirrored photo_before/after activities; dedupe by storage_path, retries must be no-ops.
 - [HALO shared crew map pins](halo-crew-map-pins.md) — all six maps share one board-ui pin fed by per-surface adapters; contractor label resolved server-side, crews.company null = in-house.
+- [HALO vendors module](halo-vendors-module.md) — vendors reach jobs only via POs; averages are null-means-no-data; exactly one in-house row (partial unique index, blocks startup).
 - [HALO crew link shapes](halo-crew-links.md) — portal/checkin/join are always `<origin>/<kind>/<token>`; never BASE_URL, never /halo-crew/ (Expo path dies in prod).

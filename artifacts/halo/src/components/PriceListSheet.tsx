@@ -1,0 +1,104 @@
+/**
+ * Read-only master price list, opened from the Vendors page.
+ *
+ * Same catalog the Price Book edits — the vendors module never keeps its own
+ * copy of pricing.
+ */
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { useListCatalogItems } from "@workspace/api-client-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+function rateLabel(rate: number | null | undefined, unit: string | null | undefined) {
+  if (rate == null) return "—";
+  const money = `$${rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return unit ? `${money} / ${unit}` : money;
+}
+
+export function PriceListSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: items, isLoading } = useListCatalogItems();
+  const [query, setQuery] = useState("");
+
+  const visible = useMemo(() => {
+    const list = items ?? [];
+    const q = query.trim().toLowerCase();
+    const matched = q
+      ? list.filter((i) =>
+          [i.service, i.detail, i.category, i.unit]
+            .filter(Boolean)
+            .some((s) => String(s).toLowerCase().includes(q)),
+        )
+      : list;
+    return [...matched].sort((a, b) => a.service.localeCompare(b.service));
+  }, [items, query]);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[26px] bg-[var(--paper)] p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+      >
+        <div className="w-[40px] h-[4.5px] rounded-[3px] bg-[rgba(23,24,28,0.16)] mx-auto mt-[10px] mb-[4px] shrink-0" />
+        <div className="p-[8px_18px_26px] overflow-y-auto">
+          <SheetHeader className="text-left mb-[12px]">
+            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">
+              Master price list
+            </SheetTitle>
+            <div className="text-[13px] text-muted-foreground">
+              Standard rates. Edit them in the Price Book.
+            </div>
+          </SheetHeader>
+          <div className="relative mb-[12px]">
+            <Search className="absolute left-[14px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a service…"
+              data-testid="input-price-list-search"
+              className="w-full bg-card border border-[var(--hairline)] rounded-full py-[11px] pl-[38px] pr-[14px] text-[14px] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
+            />
+          </div>
+          {isLoading ? (
+            <div className="animate-pulse h-32 bg-card rounded-[20px] border border-[var(--hairline)]" />
+          ) : !items?.length ? (
+            <div className="text-center text-[13px] text-muted-foreground py-[36px]">
+              No services on the master list yet.
+            </div>
+          ) : !visible.length ? (
+            <div className="text-center text-[13px] text-muted-foreground py-[36px]">
+              No service matches "{query.trim()}".
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[8px]">
+              {visible.map((i) => (
+                <div
+                  key={i.id}
+                  data-testid={`row-price-${i.id}`}
+                  className="bg-card rounded-[16px] border border-[var(--hairline)] p-[12px_14px] flex items-center gap-[10px]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[14px] text-[var(--ink)] truncate">
+                      {i.service}
+                    </div>
+                    <div className="text-[11.5px] text-muted-foreground truncate">
+                      {[i.category, i.detail].filter(Boolean).join(" · ") || "Catalog"}
+                    </div>
+                  </div>
+                  <div className="text-[13.5px] font-bold text-[var(--ink)] shrink-0">
+                    {rateLabel(i.rate, i.unit)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

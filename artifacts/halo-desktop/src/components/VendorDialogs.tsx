@@ -59,6 +59,9 @@ function apiError(err: unknown): string | null {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** in_house is our own crew organization — it pins to the top of the module. */
+type VendorKind = "in_house" | "subcontractor";
+
 export function VendorDialog({
   open,
   onOpenChange,
@@ -78,6 +81,8 @@ export function VendorDialog({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [coiExpiresOn, setCoiExpiresOn] = useState("");
+  const [vendorType, setVendorType] = useState<VendorKind>("subcontractor");
+  const [contracted, setContracted] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -88,6 +93,8 @@ export function VendorDialog({
     setEmail(vendor?.email ?? "");
     setPhone(vendor?.phone ?? "");
     setCoiExpiresOn(vendor?.coiExpiresOn ?? "");
+    setVendorType(vendor?.vendorType === "in_house" ? "in_house" : "subcontractor");
+    setContracted((vendor?.contractStatus ?? "contracted") !== "inactive");
     setError(null);
  }, [open, vendor]);
 
@@ -122,6 +129,8 @@ export function VendorDialog({
             email: email.trim() || null,
             phone: phone.trim() || null,
             coiExpiresOn: coiExpiresOn || null,
+            vendorType,
+            contractStatus: contracted ? "contracted" : "inactive",
          },
        },
         {
@@ -142,6 +151,8 @@ export function VendorDialog({
             email: email.trim() || undefined,
             phone: phone.trim() || undefined,
             coiExpiresOn: coiExpiresOn || undefined,
+            vendorType,
+            contractStatus: contracted ? "contracted" : "inactive",
          },
        },
         {
@@ -239,6 +250,46 @@ export function VendorDialog({
                 onChange={(e) => setCoiExpiresOn(e.target.value)}
               />
             </Field>
+            <Field label="Type">
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["subcontractor", "Subcontractor"],
+                    ["in_house", "In-house"],
+                  ] as [VendorKind, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setVendorType(value)}
+                    data-testid={`button-vendor-type-${value}`}
+                    className={`flex-1 rounded-[11px] border py-2 text-sm font-semibold transition-colors ${
+                      vendorType === value
+                        ? "bg-[var(--ink)] text-white border-[var(--ink)]"
+                        : "bg-white text-muted-foreground border-border hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={contracted}
+                onChange={(e) => setContracted(e.target.checked)}
+                data-testid="checkbox-vendor-contracted"
+                className="w-4 h-4 accent-[var(--gold-dark)]"
+              />
+              <span>
+                Currently contracted
+                <span className="block text-xs text-muted-foreground">
+                  Unchecked keeps the record and its history, but hides it from
+                  the default list.
+                </span>
+              </span>
+            </label>
             {error && <p className={errorCls}>{error}</p>}
           </div>
 

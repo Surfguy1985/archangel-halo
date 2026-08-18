@@ -4633,6 +4633,28 @@ export interface InventoryAdjust {
   reason?: string;
 }
 
+/**
+ * @nullable
+ */
+export type VendorVendorType = typeof VendorVendorType[keyof typeof VendorVendorType] | null;
+
+
+export const VendorVendorType = {
+  in_house: 'in_house',
+  subcontractor: 'subcontractor',
+} as const;
+
+/**
+ * @nullable
+ */
+export type VendorContractStatus = typeof VendorContractStatus[keyof typeof VendorContractStatus] | null;
+
+
+export const VendorContractStatus = {
+  contracted: 'contracted',
+  inactive: 'inactive',
+} as const;
+
 export interface Vendor {
   id: string;
   name: string;
@@ -4646,7 +4668,35 @@ export interface Vendor {
   coiExpiresOn?: string | null;
   /** @nullable */
   compliant?: boolean | null;
+  /** @nullable */
+  vendorType?: VendorVendorType;
+  /** @nullable */
+  contractStatus?: VendorContractStatus;
+  /** @nullable */
+  avgPoDays?: number | null;
+  /** @nullable */
+  avgPoSamples?: number | null;
+  /** @nullable */
+  avgTurnDays?: number | null;
+  /** @nullable */
+  avgTurnSamples?: number | null;
 }
+
+export type VendorInputVendorType = typeof VendorInputVendorType[keyof typeof VendorInputVendorType];
+
+
+export const VendorInputVendorType = {
+  in_house: 'in_house',
+  subcontractor: 'subcontractor',
+} as const;
+
+export type VendorInputContractStatus = typeof VendorInputContractStatus[keyof typeof VendorInputContractStatus];
+
+
+export const VendorInputContractStatus = {
+  contracted: 'contracted',
+  inactive: 'inactive',
+} as const;
 
 export interface VendorInput {
   /** @minLength 1 */
@@ -4655,7 +4705,25 @@ export interface VendorInput {
   email?: string;
   phone?: string;
   coiExpiresOn?: string;
+  vendorType?: VendorInputVendorType;
+  contractStatus?: VendorInputContractStatus;
 }
+
+export type VendorPatchVendorType = typeof VendorPatchVendorType[keyof typeof VendorPatchVendorType];
+
+
+export const VendorPatchVendorType = {
+  in_house: 'in_house',
+  subcontractor: 'subcontractor',
+} as const;
+
+export type VendorPatchContractStatus = typeof VendorPatchContractStatus[keyof typeof VendorPatchContractStatus];
+
+
+export const VendorPatchContractStatus = {
+  contracted: 'contracted',
+  inactive: 'inactive',
+} as const;
 
 export interface VendorPatch {
   /** @minLength 1 */
@@ -4668,6 +4736,8 @@ export interface VendorPatch {
   phone?: string | null;
   /** @nullable */
   coiExpiresOn?: string | null;
+  vendorType?: VendorPatchVendorType;
+  contractStatus?: VendorPatchContractStatus;
 }
 
 export interface PurchaseOrder {

@@ -16789,6 +16789,14 @@ components:
         phone: { type: ["string", "null"] }
         coiExpiresOn: { type: ["string", "null"] }
         compliant: { type: ["boolean", "null"] }
+        # in_house = our own crew organization, pinned first in the module.
+        vendorType: { type: ["string", "null"], enum: ["in_house", "subcontractor", null] }
+        contractStatus: { type: ["string", "null"], enum: ["contracted", "inactive", null] }
+        # null = nothing attributable yet. Never send 0 for "no data".
+        avgPoDays: { type: ["number", "null"] }
+        avgPoSamples: { type: ["number", "null"] }
+        avgTurnDays: { type: ["number", "null"] }
+        avgTurnSamples: { type: ["number", "null"] }
     VendorInput:
       type: object
       required: [name]
@@ -16798,6 +16806,8 @@ components:
         email: { type: string }
         phone: { type: string }
         coiExpiresOn: { type: string }
+        vendorType: { type: string, enum: ["in_house", "subcontractor"] }
+        contractStatus: { type: string, enum: ["contracted", "inactive"] }
     VendorPatch:
       type: object
       properties:
@@ -16806,6 +16816,8 @@ components:
         email: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
         coiExpiresOn: { type: ["string", "null"] }
+        vendorType: { type: string, enum: ["in_house", "subcontractor"] }
+        contractStatus: { type: string, enum: ["contracted", "inactive"] }
 
     PurchaseOrder:
       type: object

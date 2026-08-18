@@ -89,7 +89,6 @@ const MODULE_HIDDEN_KEY = "halo_command_module_hidden";
 
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
-const BASE44_URL = "https://wakeful-ready-track-flow.base44.app";
 const FALLBACK: [number, number] = [32.7767, -96.797];
 const HUD_KEY = "halo_pulse_hud_v2";
 const OPEN_KEY = "halo_pulse_hud_open_v2";
@@ -1351,7 +1350,6 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
           jobs={jobs ?? []}
           catalog={catalog ?? []}
           onOpenCatalog={() => navigate("/catalog")}
-          onOpenWork={() => window.open(BASE44_URL, "_blank", "noopener")}
         />
       ),
     },
@@ -1363,7 +1361,6 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
         <HaloWaitingCard
           poJobs={poJobs}
           uncrewed={liveJobs.filter((j) => !j.crewLeaderId)}
-          onOpenWork={() => window.open(BASE44_URL, "_blank", "noopener")}
         />
       ),
     },
@@ -1580,7 +1577,6 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
               <div className="pulse-menu" role="menu">
                 <button type="button" onClick={() => { setMenuOpen(false); navigate(HREF.home); }}>HALO chat</button>
                 <button type="button" onClick={() => { setMenuOpen(false); navigate(HREF.properties); }}>Records</button>
-                <button type="button" onClick={() => { setMenuOpen(false); window.open(BASE44_URL, "_blank", "noopener"); }}>Base44 Work</button>
               </div>
             )}
           </div>

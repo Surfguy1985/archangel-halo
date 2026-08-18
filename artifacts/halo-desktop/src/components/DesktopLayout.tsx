@@ -192,10 +192,6 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
                 <Feather className="w-4 h-4 mr-2" />
                 Wings Program
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate("/work")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-work-sync">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Base44 Work Sync
-              </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
               <DropdownMenuLabel className="font-display text-xs">Showcase</DropdownMenuLabel>
               <DropdownMenuItem onSelect={openOfficeDemo} disabled={demoBusy} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-office-board-demo">

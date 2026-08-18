@@ -26,6 +26,13 @@ export const vendorsTable = pgTable("vendors", {
   email: text("email"),
   phone: text("phone"),
   coiExpiresOn: date("coi_expires_on", { mode: "string" }),
+  // "in_house" is the company's own crew organization (Archangel Contractors)
+  // — it is pinned to the top of the vendors module and never sorted in among
+  // the subs. Everything else is an outside vendor.
+  vendorType: text("vendor_type").notNull().default("subcontractor"),
+  // "contracted" vendors are the ones we currently use; "inactive" ones stay
+  // on file (history, old POs) but drop out of the default list.
+  contractStatus: text("contract_status").notNull().default("contracted"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

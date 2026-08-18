@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { VendorContractStatus } from './vendorContractStatus';
+import type { VendorVendorType } from './vendorVendorType';
 
 export interface Vendor {
   id: string;
@@ -19,4 +21,16 @@ export interface Vendor {
   coiExpiresOn?: string | null;
   /** @nullable */
   compliant?: boolean | null;
+  /** @nullable */
+  vendorType?: VendorVendorType;
+  /** @nullable */
+  contractStatus?: VendorContractStatus;
+  /** @nullable */
+  avgPoDays?: number | null;
+  /** @nullable */
+  avgPoSamples?: number | null;
+  /** @nullable */
+  avgTurnDays?: number | null;
+  /** @nullable */
+  avgTurnSamples?: number | null;
 }

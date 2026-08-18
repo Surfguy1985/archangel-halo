@@ -1,4 +1,4 @@
-import { useMemo, useState} from "react";
+import { useMemo, useState } from "react";
 import {
   useListVendors,
   useListPurchaseOrders,
@@ -16,10 +16,14 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Home,
+  Timer,
+  ListOrdered,
 } from "lucide-react";
-import { Skeleton} from "@/components/ui/skeleton";
-import { VendorDialog} from "@/components/VendorDialogs";
-import { exportCsv} from "@/lib/exportCsv";
+import { Skeleton } from "@/components/ui/skeleton";
+import { VendorDialog } from "@/components/VendorDialogs";
+import { PriceListDialog } from "@/components/PriceListDialog";
+import { exportCsv } from "@/lib/exportCsv";
 
 /* ----------------------------------------------------------- date helpers */
 
@@ -28,7 +32,7 @@ function pad(n: number) {
 }
 function todayLocal() {
   const d = new Date();
-  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 function daysUntil(ymd: string): number {
   const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
@@ -43,8 +47,13 @@ function fmtYmd(ymd: string) {
     month: "short",
     day: "numeric",
     year: "numeric",
- });
+  });
 }
+
+/* ------------------------------------------------------------ vendor kind */
+
+const isInHouse = (v: Vendor) => v.vendorType === "in_house";
+const isContracted = (v: Vendor) => (v.contractStatus ?? "contracted") !== "inactive";
 
 /* ------------------------------------------------------------ COI status */
 
@@ -58,7 +67,7 @@ function coiStatus(v: Vendor): CoiStatus {
   return "compliant";
 }
 
-function StatusBadge({ vendor}: { vendor: Vendor}) {
+function StatusBadge({ vendor }: { vendor: Vendor }) {
   const status = coiStatus(vendor);
   if (status === "compliant") {
     return (
@@ -66,16 +75,16 @@ function StatusBadge({ vendor}: { vendor: Vendor}) {
         <ShieldCheck className="w-3.5 h-3.5" /> Compliant
       </span>
     );
- }
+  }
   if (status === "expiring") {
     const days = daysUntil(vendor.coiExpiresOn!);
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
         <Clock3 className="w-3.5 h-3.5" />
-        {days === 0 ? "Expires today" :`Expires in ${days}d`}
+        {days === 0 ? "Expires today" : `Expires in ${days}d`}
       </span>
     );
- }
+  }
   return (
     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
       <ShieldAlert className="w-3.5 h-3.5" />
@@ -84,20 +93,59 @@ function StatusBadge({ vendor}: { vendor: Vendor}) {
   );
 }
 
+/* --------------------------------------------------------------- metrics */
+
+/**
+ * A missing average is stated, never faked. "0.0d" and "—" both read like
+ * measurements — the office has to be able to tell "they're instant" from
+ * "we've never measured them".
+ */
+function MetricCell({
+  days,
+  samples,
+  noun,
+}: {
+  days: number | null | undefined;
+  samples: number | null | undefined;
+  noun: string;
+}) {
+  if (days == null) {
+    return (
+      <span className="text-xs text-muted-foreground italic">No data yet</span>
+    );
+  }
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span className="font-semibold text-[var(--ink)]">{days.toFixed(1)}d</span>
+      <span className="text-[11px] text-muted-foreground">
+        {samples ?? 0} {noun}
+        {(samples ?? 0) === 1 ? "" : "s"}
+      </span>
+    </span>
+  );
+}
+
+function metricCsv(days: number | null | undefined, samples: number | null | undefined) {
+  return days == null ? "No data yet" : `${days.toFixed(1)} (${samples ?? 0})`;
+}
+
 /* ------------------------------------------------------------------ page */
 
-type FilterKey = "all" | CoiStatus;
-type SortKey = "name" | "trade" | "coi";
+type ContractFilter = "contracted" | "inactive" | "all";
+type CoiFilter = "all" | CoiStatus;
+type SortKey = "name" | "trade" | "coi" | "turn" | "po";
 
 export default function Vendors() {
   const { data: vendors, isLoading, isError, refetch } = useListVendors();
   const { data: pos } = useListPurchaseOrders();
 
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [contractFilter, setContractFilter] = useState<ContractFilter>("contracted");
+  const [coiFilter, setCoiFilter] = useState<CoiFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [priceListOpen, setPriceListOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
 
   const openPoCount = useMemo(() => {
@@ -112,17 +160,22 @@ export default function Vendors() {
 
   const counts = useMemo(() => {
     const all = vendors ?? [];
+    const contracted = all.filter(isContracted);
     return {
-      total: all.length,
-      compliant: all.filter((v) => coiStatus(v) === "compliant").length,
-      expiring: all.filter((v) => coiStatus(v) === "expiring").length,
-      lapsed: all.filter((v) => coiStatus(v) === "lapsed").length,
+      all: all.length,
+      contracted: contracted.length,
+      inactive: all.length - contracted.length,
+      compliant: contracted.filter((v) => coiStatus(v) === "compliant").length,
+      expiring: contracted.filter((v) => coiStatus(v) === "expiring").length,
+      lapsed: contracted.filter((v) => coiStatus(v) === "lapsed").length,
     };
   }, [vendors]);
 
   const visible = useMemo(() => {
     let list = vendors ?? [];
-    if (filter !== "all") list = list.filter((v) => coiStatus(v) === filter);
+    if (contractFilter === "contracted") list = list.filter(isContracted);
+    else if (contractFilter === "inactive") list = list.filter((v) => !isContracted(v));
+    if (coiFilter !== "all") list = list.filter((v) => coiStatus(v) === coiFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter((v) =>
@@ -133,15 +186,28 @@ export default function Vendors() {
     }
     const dir = sortDir;
     return [...list].sort((a, b) => {
+      // Our own organization is not one vendor among many — it stays on top
+      // whatever the sort says.
+      if (isInHouse(a) !== isInHouse(b)) return isInHouse(a) ? -1 : 1;
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
       if (sortKey === "trade")
         return (a.trade ?? "\uffff").localeCompare(b.trade ?? "\uffff") * dir;
+      if (sortKey === "turn" || sortKey === "po") {
+        // Unmeasured vendors sort last in both directions — an absent average
+        // is not "fast".
+        const av = (sortKey === "turn" ? a.avgTurnDays : a.avgPoDays) ?? null;
+        const bv = (sortKey === "turn" ? b.avgTurnDays : b.avgPoDays) ?? null;
+        if (av == null && bv == null) return a.name.localeCompare(b.name);
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av - bv) * dir;
+      }
       // COI: soonest expiry first; missing dates last
       const av = a.coiExpiresOn ?? "9999-99-99";
       const bv = b.coiExpiresOn ?? "9999-99-99";
       return av.localeCompare(bv) * dir;
     });
-  }, [vendors, filter, query, sortKey, sortDir]);
+  }, [vendors, contractFilter, coiFilter, query, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -174,18 +240,26 @@ export default function Vendors() {
       `vendors-${todayLocal()}.csv`,
       [
         { key: "name", label: "Name" },
+        { key: "type", label: "Type" },
+        { key: "contract", label: "Contract" },
         { key: "trade", label: "Trade" },
         { key: "email", label: "Email" },
         { key: "phone", label: "Phone" },
+        { key: "avgTurn", label: "Avg turn (days)" },
+        { key: "avgPo", label: "Avg PO (days)" },
         { key: "coiExpiresOn", label: "COI expires" },
         { key: "status", label: "Status" },
         { key: "openPos", label: "Open POs" },
       ],
       visible.map((v) => ({
         name: v.name,
+        type: isInHouse(v) ? "In-house" : "Subcontractor",
+        contract: isContracted(v) ? "Contracted" : "Inactive",
         trade: v.trade ?? "",
         email: v.email ?? "",
         phone: v.phone ?? "",
+        avgTurn: metricCsv(v.avgTurnDays, v.avgTurnSamples),
+        avgPo: metricCsv(v.avgPoDays, v.avgPoSamples),
         coiExpiresOn: v.coiExpiresOn ?? "",
         status:
           coiStatus(v) === "compliant"
@@ -198,25 +272,38 @@ export default function Vendors() {
     );
   };
 
-  const filters: { key: FilterKey; label: string; count: number }[] = [
-    { key: "all", label: "All", count: counts.total },
+  const contractFilters: { key: ContractFilter; label: string; count: number }[] = [
+    { key: "contracted", label: "Contracted", count: counts.contracted },
+    { key: "inactive", label: "Inactive", count: counts.inactive },
+    { key: "all", label: "All", count: counts.all },
+  ];
+
+  const coiFilters: { key: CoiFilter; label: string; count: number }[] = [
+    { key: "all", label: "Any COI", count: counts.contracted },
     { key: "compliant", label: "Compliant", count: counts.compliant },
     { key: "expiring", label: "Expiring soon", count: counts.expiring },
     { key: "lapsed", label: "Lapsed", count: counts.lapsed },
   ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">
             Vendors
           </h1>
           <p className="text-muted-foreground">
-            Manage your third-party vendors and COI compliance.
+            Who we're contracted with, what they charge, and how fast they move.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPriceListOpen(true)}
+            data-testid="button-price-list"
+            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+          >
+            <ListOrdered className="w-4 h-4" /> Price list
+          </button>
           <button
             onClick={doExport}
             disabled={!visible.length}
@@ -227,6 +314,7 @@ export default function Vendors() {
           <button
             onClick={openAdd}
             className="btn-gold inline-flex items-center gap-1.5 px-4 h-9 text-sm"
+            data-testid="button-add-vendor"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> Add vendor
           </button>
@@ -236,8 +324,8 @@ export default function Vendors() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          label="Vendors"
-          value={counts.total}
+          label="Contracted"
+          value={counts.contracted}
           icon={<Truck className="w-5 h-5 text-[var(--gold)]" />}
         />
         <SummaryCard
@@ -265,22 +353,40 @@ export default function Vendors() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, trade, or contact…"
+            data-testid="input-vendor-search"
             className="w-full bg-card border border-[var(--hairline)] rounded-full py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)]/20"
           />
         </div>
         <div className="flex gap-1.5">
-          {filters.map((f) => (
+          {contractFilters.map((f) => (
             <button
               key={f.key}
-              onClick={() => setFilter(f.key)}
+              onClick={() => setContractFilter(f.key)}
+              data-testid={`filter-contract-${f.key}`}
               className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
-                filter === f.key
+                contractFilter === f.key
                   ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                   : "bg-card text-muted-foreground border-[var(--hairline)] hover:text-foreground"
               }`}
             >
               {f.label}
               <span className="ml-1.5 opacity-70">{f.count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {coiFilters.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setCoiFilter(f.key)}
+              data-testid={`filter-coi-${f.key}`}
+              className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
+                coiFilter === f.key
+                  ? "bg-[var(--gold-light)] text-black border-[var(--gold-light)]"
+                  : "bg-card text-muted-foreground border-[var(--hairline)] hover:text-foreground"
+              }`}
+            >
+              {f.label}
             </button>
           ))}
         </div>
@@ -309,7 +415,7 @@ export default function Vendors() {
             No vendors yet
           </p>
           <p className="text-sm text-muted-foreground mb-4">
-            Add your first vendor to start tracking COI compliance.
+            Add the first company you're contracted with.
           </p>
           <button
             onClick={openAdd}
@@ -320,7 +426,7 @@ export default function Vendors() {
         </div>
       ) : !visible.length ? (
         <div className="text-center py-12 text-muted-foreground bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-          No vendors match your search.
+          No vendors match this view.
         </div>
       ) : (
         <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -334,6 +440,12 @@ export default function Vendors() {
                   Trade <SortIcon col="trade" />
                 </Th>
                 <Th>Contact</Th>
+                <Th onClick={() => toggleSort("turn")}>
+                  Avg turn <SortIcon col="turn" />
+                </Th>
+                <Th onClick={() => toggleSort("po")}>
+                  Avg PO <SortIcon col="po" />
+                </Th>
                 <Th className="text-center">Open POs</Th>
                 <Th onClick={() => toggleSort("coi")}>
                   COI expires <SortIcon col="coi" />
@@ -346,17 +458,43 @@ export default function Vendors() {
               {visible.map((v) => (
                 <tr
                   key={v.id}
-                  className="hover:bg-black/[0.02] transition-colors cursor-pointer"
+                  data-testid={`row-vendor-${v.id}`}
+                  className={`transition-colors cursor-pointer ${
+                    isInHouse(v)
+                      ? "bg-[var(--gold-light)]/12 hover:bg-[var(--gold-light)]/20"
+                      : "hover:bg-black/[0.02]"
+                  }`}
                   onClick={() => openEdit(v)}
                 >
                   <td className="px-6 py-4 font-semibold text-[var(--ink)]">
-                    {v.name}
+                    <div className="flex items-center gap-2">
+                      {isInHouse(v) ? (
+                        <Home className="w-4 h-4 text-[var(--gold)] shrink-0" />
+                      ) : null}
+                      <span>{v.name}</span>
+                      {isInHouse(v) ? (
+                        <span className="px-2 py-0.5 rounded-full bg-[var(--ink)] text-white text-[10px] font-bold uppercase tracking-[0.06em]">
+                          In-house
+                        </span>
+                      ) : null}
+                      {!isContracted(v) ? (
+                        <span className="px-2 py-0.5 rounded-full bg-black/[0.06] text-muted-foreground text-[10px] font-bold uppercase tracking-[0.06em]">
+                          Inactive
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {v.trade || "—"}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {[v.email, v.phone].filter(Boolean).join(" · ") || "—"}
+                  </td>
+                  <td className="px-6 py-4" data-testid={`text-turn-${v.id}`}>
+                    <MetricCell days={v.avgTurnDays} samples={v.avgTurnSamples} noun="job" />
+                  </td>
+                  <td className="px-6 py-4" data-testid={`text-po-${v.id}`}>
+                    <MetricCell days={v.avgPoDays} samples={v.avgPoSamples} noun="PO" />
                   </td>
                   <td className="px-6 py-4 text-center text-muted-foreground">
                     {openPoCount.get(v.id) || "—"}
@@ -386,7 +524,14 @@ export default function Vendors() {
         </div>
       )}
 
+      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+        <Timer className="w-3.5 h-3.5" />
+        Avg turn is job start to completion; avg PO is order to received. Both
+        are measured from work attributed to that vendor.
+      </p>
+
       <VendorDialog open={dialogOpen} onOpenChange={setDialogOpen} vendor={editing} />
+      <PriceListDialog open={priceListOpen} onOpenChange={setPriceListOpen} />
     </div>
   );
 }
@@ -404,7 +549,7 @@ function Th({
     <th
       className={`px-6 py-3 font-semibold text-muted-foreground   text-xs ${
         onClick ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""
-     } ${className}`}
+      } ${className}`}
       onClick={onClick}
     >
       <span className="inline-flex items-center gap-1">{children}</span>

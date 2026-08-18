@@ -31,6 +31,7 @@ import {
 } from "@workspace/api-zod";
 import { localToday } from "../lib/localDate";
 import { ser } from "../lib/serialize";
+import { computeVendorMetrics, NO_VENDOR_METRICS } from "../lib/vendorMetrics";
 
 const router: IRouter = Router();
 
@@ -71,11 +72,15 @@ router.post("/inventory/:id/adjust", async (req, res): Promise<void> => {
 router.get("/vendors", async (_req, res): Promise<void> => {
   const rows = await db.select().from(vendorsTable);
   const today = localToday();
+  const metrics = await computeVendorMetrics(
+    rows.filter((v) => v.vendorType === "in_house").map((v) => v.id),
+  );
   res.json(
     ListVendorsResponse.parse(
       rows.map((v) => ({
         ...ser(v),
         compliant: v.coiExpiresOn ? v.coiExpiresOn >= today : false,
+        ...(metrics.get(v.id) ?? NO_VENDOR_METRICS),
       })),
     ),
   );
@@ -97,11 +102,47 @@ router.patch("/vendors/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Nothing to update" });
     return;
   }
-  const [row] = await db
-    .update(vendorsTable)
-    .set(patch)
-    .where(eq(vendorsTable.id, id))
-    .returning();
+  const [current] = await db
+    .select()
+    .from(vendorsTable)
+    .where(eq(vendorsTable.id, id));
+  if (!current) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  const stayingInHouse =
+    (patch.vendorType ?? current.vendorType) === "in_house";
+  if (stayingInHouse && patch.contractStatus === "inactive") {
+    // The in-house row is pinned at the top of the module and holds our own
+    // crews' turn time. Hiding it behind the inactive filter would quietly
+    // empty the anchor of the whole list.
+    res.status(409).json({
+      error: "Your own organization is always active and can't be set inactive.",
+    });
+    return;
+  }
+  let row;
+  try {
+    [row] = await db
+      .update(vendorsTable)
+      .set(patch)
+      .where(eq(vendorsTable.id, id))
+      .returning();
+  } catch (err) {
+    // A partial unique index keeps exactly one in-house row. Drizzle wraps pg
+    // errors, so the code can sit one level down.
+    const code =
+      (err as { code?: string }).code ??
+      ((err as { cause?: { code?: string } }).cause?.code ?? "");
+    if (code === "23505") {
+      res.status(409).json({
+        error:
+          "Another vendor is already marked as your own organization. Change that one first.",
+      });
+      return;
+    }
+    throw err;
+  }
   if (!row) {
     res.status(404).json({ error: "Vendor not found" });
     return;
@@ -123,6 +164,16 @@ router.delete("/vendors/:id", async (req, res): Promise<void> => {
       .from(vendorsTable)
       .where(eq(vendorsTable.id, id));
     if (!vendor) return { status: 404 as const, error: "Vendor not found" };
+    if (vendor.vendorType === "in_house") {
+      // The in-house organization is the anchor of the vendors module: it is
+      // pinned first and carries our own crews' turn time. Deleting it would
+      // silently drop that row until the next server boot re-seeded it.
+      return {
+        status: 409 as const,
+        error:
+          "This is your own organization. Mark it inactive instead of deleting it.",
+      };
+    }
 
     const pos = await tx
       .select()
