@@ -52,6 +52,15 @@ portal, and pay, invoices and payment details all hang off portal identity.
 - The self-add path matches an existing person by literal lowercased name under
   the same foreman, inside a transaction behind an advisory lock. Never `ILIKE`
   (its `%`/`_` match other people) and never an unlocked read-then-insert (twins).
+- The "who do you report to" picker deliberately lists **every** name, not just
+  people flagged as foremen: a new hire knows who runs their day, not how that
+  person is filed. Only an *active foreman* may ever be written to
+  `crews.leader_id`, though — pin colours and team membership depend on it — so
+  naming anyone else falls back to that person's own foreman (validated the same
+  way) and otherwise stores nothing, with the named person recorded in the
+  office's approval notification. Resolve both hops **inside** the join
+  transaction; a leader read before the insert can be deactivated or re-parented
+  underneath you.
 
 # Never mint a portal token from a read/list surface
 

@@ -21,7 +21,7 @@ import {
   useClaimCrewRosterSpot,
   useJoinCrewRoster,
 } from "@workspace/api-client-react";
-import { Loader2, ArrowRight, UserPlus, ArrowLeft, Clock, ShieldX } from "lucide-react";
+import { Loader2, ArrowRight, UserPlus, Plus, ArrowLeft, Clock, ShieldX } from "lucide-react";
 
 type Person = {
   id: string;
@@ -109,13 +109,27 @@ export default function CrewRoster({ code }: { code: string }) {
   });
 
   const groups = useMemo(() => (roster.data?.groups ?? []) as Group[], [roster.data]);
-  const foremen = useMemo(
-    () =>
-      groups
-        .filter((g) => g.leaderId)
-        .map((g) => ({ id: g.leaderId as string, title: g.title })),
-    [groups],
-  );
+
+  // Every name on the roster is offered as "who do you report to", not just the
+  // people already flagged as foremen — a new hire knows the name of the person
+  // who runs their day, not how that person is filed in HALO. Foremen sit at the
+  // top because that is the usual answer; the office fixes the rest on approval.
+  const reportsTo = useMemo(() => {
+    const seen = new Set<string>();
+    const all: Person[] = [];
+    for (const g of groups) {
+      for (const p of g.people) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        all.push(p);
+      }
+    }
+    const byName = (a: Person, b: Person) => a.name.localeCompare(b.name);
+    return {
+      foremen: all.filter((p) => p.isForeman).sort(byName),
+      others: all.filter((p) => !p.isForeman).sort(byName),
+    };
+  }, [groups]);
 
   // A remembered, approved pick means this phone already belongs to someone —
   // send them straight in rather than making them find their name every morning.
@@ -313,11 +327,26 @@ export default function CrewRoster({ code }: { code: string }) {
             className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-slate-400"
           >
             <option value="">Nobody — I work on my own</option>
-            {foremen.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.title}
-              </option>
-            ))}
+            {reportsTo.foremen.length ? (
+              <optgroup label="Foremen">
+                {reportsTo.foremen.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                    {f.trade ? ` · ${f.trade}` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {reportsTo.others.length ? (
+              <optgroup label="Everyone else">
+                {reportsTo.others.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.trade ? ` · ${p.trade}` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
           <p className="mt-2 text-[12px] text-slate-400">
             Your map pin takes your foreman's colour so the office can see the whole team at a
@@ -335,6 +364,26 @@ export default function CrewRoster({ code }: { code: string }) {
         </div>
       ) : (
         <div className="space-y-6 px-5 py-5">
+          {/* Top of the list, not the bottom: someone who isn't on the roster
+              shouldn't have to scroll past every other name to find that out. */}
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-3 text-left"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
+              <Plus className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-slate-900">
+                Add your name if it's not listed
+              </span>
+              <span className="block text-[12px] text-slate-500">
+                Then pick the foreman you report to
+              </span>
+            </span>
+          </button>
+
           {groups.map((group) => (
             <section key={group.key}>
               <div className="flex items-center gap-2">
@@ -382,15 +431,6 @@ export default function CrewRoster({ code }: { code: string }) {
               </div>
             </section>
           ))}
-
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3.5 text-[14px] font-semibold text-slate-600"
-          >
-            <UserPlus className="h-4 w-4" />
-            I'm not on this list
-          </button>
         </div>
       )}
     </div>

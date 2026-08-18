@@ -64,6 +64,7 @@ async function requestDeviceBearer(
   crew: { id: string; name: string },
   requestedName: string,
   reason: "picked" | "self-added",
+  note?: string | null,
 ): Promise<{ claimId: string; token: string }> {
   const minted = mintPortalToken();
   const [row] = await db
@@ -84,10 +85,14 @@ async function requestDeviceBearer(
     entityType: "crew",
     entityId: crew.id,
     title: `Approve crew link · ${crew.name}`,
-    body:
+    body: [
       reason === "self-added"
         ? `${requestedName} added themselves from the crew code and is waiting for a link. Approve it on the Crew links page — they can't see any pay until you do.`
         : `Someone scanned the crew code and picked ${crew.name}. Approve it on the Crew links page — the link stays dead until you do.`,
+      note,
+    ]
+      .filter(Boolean)
+      .join(" "),
   });
 
   return { claimId: row.id, token: minted.token };
@@ -304,26 +309,55 @@ router.post("/roster/:code/join", rosterWrite, async (req, res): Promise<void> =
     }
     const { name, leaderId, phone } = parsed.data;
 
-    // A foreman must actually be a foreman, or the pin colours stop meaning
-    // anything and a member ends up leading a team they aren't on.
-    let leader: { id: string } | null = null;
-    if (leaderId) {
-      const [row] = await db.select().from(crewsTable).where(eq(crewsTable.id, leaderId)).limit(1);
-      if (!row || row.active === false || !isForeman(row)) {
-        res.status(400).json({ error: "Pick the foreman you report to" });
-        return;
-      }
-      leader = { id: row.id };
-    }
-
     // The roster is already full of near-duplicate rows, so an exact name match
     // under the same foreman claims that person instead of adding yet another.
     // Literal case-insensitive equality — never ILIKE, whose % and _ would let
     // a typed name match somebody else. Serialized on the normalized name so
     // two taps can't both miss the read and insert twins.
+    //
+    // Who they report to is resolved in here too, not before: the whole point
+    // of the picker is that it offers every name, so the row it points at has
+    // to be re-read under the same snapshot that writes the crew.
     const key = name.toLowerCase();
-    const crew = await db.transaction(async (tx) => {
+    const outcome = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crew-roster-join:${key}`}))`);
+
+      // The list offers every name, because a new hire knows who runs their
+      // day, not how that person is filed in HALO. Only an active foreman may
+      // ever be stored as the leader, though — otherwise the pin colours stop
+      // meaning anything and somebody ends up leading a team they aren't on.
+      // Naming anyone else falls back to that person's own foreman (when that
+      // parent is itself an active foreman) and tells the office who was
+      // actually named, so they fix it on approval instead of the crew member
+      // being bounced off the door.
+      let leader: { id: string } | null = null;
+      let note: string | null = null;
+      if (leaderId) {
+        const [named] = await tx
+          .select()
+          .from(crewsTable)
+          .where(eq(crewsTable.id, leaderId))
+          .limit(1);
+        if (!named || named.active === false) return { rejected: true as const };
+        if (isForeman(named)) {
+          leader = { id: named.id };
+        } else {
+          let parent: { id: string; name: string } | null = null;
+          if (named.leaderId && named.leaderId !== named.id) {
+            const [row] = await tx
+              .select()
+              .from(crewsTable)
+              .where(eq(crewsTable.id, named.leaderId))
+              .limit(1);
+            if (row && row.active !== false && isForeman(row)) parent = { id: row.id, name: row.name };
+          }
+          leader = parent ? { id: parent.id } : null;
+          note = parent
+            ? `They said they report to ${named.name}, who isn't a foreman in HALO — filed under ${parent.name}'s crew for now, so check it before you approve.`
+            : `They said they report to ${named.name}, who isn't a foreman in HALO and isn't on a crew — pick their crew before you approve.`;
+        }
+      }
+
       const [existing] = await tx
         .select()
         .from(crewsTable)
@@ -334,7 +368,7 @@ router.post("/roster/:code/join", rosterWrite, async (req, res): Promise<void> =
           ),
         )
         .limit(1);
-      if (existing && existing.active !== false) return existing;
+      if (existing && existing.active !== false) return { crew: existing, note };
       const [created] = await tx
         .insert(crewsTable)
         .values({
@@ -344,15 +378,20 @@ router.post("/roster/:code/join", rosterWrite, async (req, res): Promise<void> =
           active: true,
         })
         .returning();
-      return created;
+      return { crew: created, note };
     });
 
+    if ("rejected" in outcome) {
+      res.status(400).json({ error: "Pick the person you report to" });
+      return;
+    }
+    const crew = outcome.crew;
     if (!crew) {
       res.status(500).json({ error: "Couldn't add you to the roster" });
       return;
     }
 
-    const { claimId, token } = await requestDeviceBearer(crew, name, "self-added");
+    const { claimId, token } = await requestDeviceBearer(crew, name, "self-added", outcome.note);
     const colors = buildCrewPinColors(await loadActiveCrews());
 
     res.json({
