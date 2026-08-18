@@ -23,6 +23,7 @@ import InvoiceDetail from "@/pages/InvoiceDetail";
 import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
+import { HaloCrewPaycardPage as CrewCheckinPage } from "@workspace/board-ui";
 import JobBoard from "@/pages/JobBoard";
 import WorkEmbed from "@/pages/WorkEmbed";
 import Catalog from "@/pages/Catalog";
@@ -77,6 +78,9 @@ function App() {
           <Switch>
             {/* ── Public crew portal (no auth) ──────────────────────────── */}
             <Route path="/portal/:token" component={CrewPortal} />
+            <Route path="/checkin/:token">
+              {(params) => <CrewCheckinPage token={params.token} />}
+            </Route>
 
             <Route path="/views">
               <Suspense fallback={<BoardRouteFallback />}>
@@ -96,13 +100,12 @@ function App() {
               }}
             </Route>
 
-            {/* ── Home — map-first Property Pulse HUD with a floating HALO
-                command module.  Same full-bleed, no-sidebar treatment as
-                /pulse (both render the same PropertyPulse component).    */}
+            {/* ── Home — Property Portfolio desk (corporate). Same full-bleed
+                map HUD as Pulse and Punchlist; only the desk profile changes. */}
             <Route path="/">
               <OfficeGate>
                 <SplashScreen />
-                <PropertyPulse />
+                <PropertyPulse level="portfolio" />
               </OfficeGate>
             </Route>
 
@@ -125,11 +128,19 @@ function App() {
               {() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/chat"); return null; }}
             </Route>
 
-            {/* Property Pulse — full-bleed tablet dashboard (optional ops view) */}
+            {/* Property Pulse — property-manager desk */}
             <Route path="/pulse">
               <OfficeGate>
                 <SplashScreen />
-                <PropertyPulse />
+                <PropertyPulse level="pulse" />
+              </OfficeGate>
+            </Route>
+
+            {/* Property Punchlist — Archangel Contractors / vendor desk */}
+            <Route path="/punchlist">
+              <OfficeGate>
+                <SplashScreen />
+                <PropertyPulse level="punchlist" />
               </OfficeGate>
             </Route>
 

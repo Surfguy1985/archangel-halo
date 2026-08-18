@@ -8,31 +8,38 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Box,
-  CalendarDays,
-  Clock,
-  History,
+  FileDown,
   Home,
+  Hourglass,
+  ClipboardList,
   LayoutGrid,
   Loader2,
   MessageCircle,
   MoreVertical,
+  QrCode,
   RefreshCw,
   Search,
   Send,
   Settings,
-  User,
+  Users,
   X,
 } from "lucide-react";
 import {
+  useActivatePresentationDemo,
   useGetBusinessSettings,
   useGetCrewMapPins,
+  useGetPortfolioPulse,
   useGetToday,
+  useListCatalogItems,
+  useListClientPortfolios,
   useListJobs,
   useListNotifications,
   useListProperties,
   getGetCrewMapPinsQueryKey,
+  getGetPortfolioPulseQueryKey,
   getGetTodayQueryKey,
+  getListCatalogItemsQueryKey,
+  getListClientPortfoliosQueryKey,
   getListJobsQueryKey,
   getListNotificationsQueryKey,
   getListPropertiesQueryKey,
@@ -45,13 +52,34 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { GpsFinder } from "@/components/GpsFinder";
 import { SiteTwin } from "@/components/SiteTwin";
+import haloLogo from "../assets/halo-logo.png";
+import {
+  HaloVacancyChip,
+  HaloLevelBar,
+  HaloProofPair,
+  HaloReportsCard,
+  HaloVendorsCard,
+  HaloWaitingCard,
+  HaloCrewPaycards,
+  HaloPosCard,
+  PulseWatchRings,
+  callbackRate,
+  formatUsdCents,
+  haloDeskPanels,
+  haloMapCrews,
+  haloStoryTitle,
+  meanPoProvideDays,
+  meanPoWaitDays,
+  propertyMapPoint,
+  type HaloStoryLevel,
+} from "@workspace/board-ui";
 
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
 const BASE44_URL = "https://wakeful-ready-track-flow.base44.app";
 const FALLBACK: [number, number] = [32.7767, -96.797];
-const HUD_KEY = "halo_pulse_hud_v1";
-const OPEN_KEY = "halo_pulse_hud_open_v1";
+const HUD_KEY = "halo_pulse_hud_v2";
+const OPEN_KEY = "halo_pulse_hud_open_v2";
 
 const DESKTOP = String(import.meta.env.BASE_URL ?? "").includes("desktop");
 const HREF = {
@@ -65,7 +93,7 @@ const HREF = {
   work: DESKTOP ? "/work" : "/",
 };
 
-type PanelId = "overview" | "sites" | "crew" | "schedule" | "units" | "calendar" | "activity" | "settings";
+type PanelId = "overview" | "sites" | "crew" | "schedule" | "units" | "calendar" | "activity" | "settings" | "reports" | "vendors" | "waiting";
 type BoxPos = { x: number; y: number; w: number; h: number };
 type SmsStatus = { configured: boolean; fromLast4: string | null };
 type SyncStatus = { finishedAt: string | null; stale: boolean };
@@ -74,22 +102,23 @@ type RankedSite = PropertySummary & { crewsOnSite: number; overdueJobs: number; 
 const NAV: Array<{ id: PanelId; label: string; Icon: typeof Home }> = [
   { id: "overview", label: "Overview", Icon: Home },
   { id: "sites", label: "Sites", Icon: LayoutGrid },
-  { id: "crew", label: "Crew", Icon: User },
-  { id: "schedule", label: "Schedule", Icon: Clock },
-  { id: "units", label: "Units", Icon: Box },
-  { id: "calendar", label: "Calendar", Icon: CalendarDays },
-  { id: "activity", label: "Activity", Icon: History },
-  { id: "settings", label: "Settings", Icon: Settings },
+  { id: "crew", label: "Crew", Icon: QrCode },
+  { id: "reports", label: "Reports", Icon: FileDown },
+  { id: "vendors", label: "Vendors", Icon: Users },
+  { id: "waiting", label: "Waiting", Icon: Hourglass },
 ];
 
 const DEFAULT_POS: Record<PanelId, BoxPos> = {
   sites: { x: 12, y: 12, w: 228, h: 520 },
   overview: { x: -1, y: 12, w: 240, h: 248 },
-  crew: { x: -1, y: 272, w: 240, h: 300 },
+  crew: { x: -1, y: 12, w: 340, h: 520 },
   schedule: { x: -1, y: -1, w: 260, h: 220 },
   activity: { x: 252, y: -1, w: 340, h: 200 },
   units: { x: 604, y: -1, w: 360, h: 200 },
   calendar: { x: 252, y: 12, w: 420, h: 360 },
+  reports: { x: 24, y: 16, w: 320, h: 440 },
+  vendors: { x: 24, y: 16, w: 320, h: 440 },
+  waiting: { x: 24, y: 16, w: 300, h: 400 },
   settings: { x: 300, y: 80, w: 320, h: 300 },
 };
 
@@ -232,6 +261,9 @@ const DEFAULT_OPEN: Record<PanelId, boolean> = {
   units: false,
   calendar: false,
   activity: false,
+  reports: false,
+  vendors: false,
+  waiting: false,
   settings: false,
 };
 
@@ -253,6 +285,17 @@ function pinIcon(hot: boolean, pulse = false) {
     iconSize: [28, 34],
     iconAnchor: [14, 34],
     html: `<div style="position:relative">${pulse ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-70%);width:36px;height:36px;border-radius:50%;background:${LIME}40;animation:pulse-dot 1.5s infinite"></div>` : ""}<svg width="28" height="34" viewBox="0 0 28 34" fill="none"><path d="M14 0C8.48 0 4 4.48 4 10c0 7.87 10 24 10 24S24 17.87 24 10C24 4.48 19.52 0 14 0z" fill="${fill}"/><circle cx="14" cy="10" r="4.5" fill="${inner}"/></svg></div>`,
+  });
+}
+
+function crewPinIcon(status: "site" | "route", mock: boolean) {
+  const fill = status === "site" ? LIME : "#E4C25A";
+  const ring = mock ? "4px dashed rgba(255,255,255,0.55)" : "2px solid #0F1B2D";
+  return divIcon({
+    className: "",
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:${fill};border:${ring};box-shadow:0 0 0 6px ${fill}33,0 6px 16px rgba(0,0,0,0.35)"></div>`,
   });
 }
 
@@ -312,10 +355,22 @@ function rankSites(properties: PropertySummary[], jobs: Job[], pins: CrewMapPin[
     });
 }
 
-function statusLines(openJobs: number, crewsOnSite: number, overdueJobs: number) {
+function statusLines(openJobs: number, crewsOnSite: number, overdueJobs: number, vendor = false) {
   return {
     primary: openJobs > 0 ? `${openJobs} Open Turn${openJobs === 1 ? "" : "s"}` : "Clear",
-    secondary: crewsOnSite > 0 ? "Crew on Site" : overdueJobs > 0 ? `${overdueJobs} Behind` : openJobs > 0 ? "Needs Dispatch" : "Quiet",
+    secondary: vendor
+      ? crewsOnSite > 0
+        ? "Crew on Site"
+        : overdueJobs > 0
+          ? `${overdueJobs} Behind`
+          : openJobs > 0
+            ? "Needs Dispatch"
+            : "Quiet"
+      : overdueJobs > 0
+        ? `${overdueJobs} Behind`
+        : openJobs > 0
+          ? "In turn"
+          : "Quiet",
   };
 }
 
@@ -457,11 +512,13 @@ function HudBox({
   );
 }
 
-export default function PropertyPulse() {
+export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
+  const level: HaloStoryLevel = props.level ?? "pulse";
+  const vendorDesk = level === "punchlist";
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const poll = { refetchInterval: 15_000 as const };
+  const poll = { refetchInterval: level === "punchlist" ? 4_000 : 15_000 };
   const stageRef = useRef<HTMLDivElement>(null);
 
   const { data: properties, isLoading: propsLoading } = useListProperties(undefined, {
@@ -472,6 +529,24 @@ export default function PropertyPulse() {
   const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), ...poll } });
   const { data: notes } = useListNotifications({ query: { queryKey: getListNotificationsQueryKey(), ...poll } });
   const { data: biz } = useGetBusinessSettings();
+  const { data: portfolios } = useListClientPortfolios({
+    query: { enabled: level !== "punchlist", queryKey: getListClientPortfoliosQueryKey() },
+  });
+  const portfolioId = portfolios?.portfolios?.[0]?.id ?? "";
+  const { data: pulseDoc } = useGetPortfolioPulse(
+    portfolioId || "pending",
+    { range: "this_month" },
+    {
+      query: {
+        enabled: Boolean(portfolioId) && level !== "punchlist",
+        queryKey: getGetPortfolioPulseQueryKey(portfolioId || "pending", { range: "this_month" }),
+      },
+    },
+  );
+  const { data: catalog } = useListCatalogItems({
+    query: { enabled: level === "pulse", queryKey: getListCatalogItemsQueryKey() },
+  });
+  const activateDemo = useActivatePresentationDemo();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -528,6 +603,22 @@ export default function PropertyPulse() {
   useEffect(() => {
     localStorage.setItem(OPEN_KEY, JSON.stringify(open));
   }, [open]);
+
+  useEffect(() => {
+    const allow = new Set(haloDeskPanels(level));
+    setOpen((o) => {
+      const next = { ...o };
+      let changed = false;
+      for (const id of Object.keys(DEFAULT_OPEN) as PanelId[]) {
+        const should = allow.has(id as "overview" | "sites" | "reports" | "vendors" | "waiting" | "crew");
+        if (next[id] !== should) {
+          next[id] = should;
+          changed = true;
+        }
+      }
+      return changed ? next : o;
+    });
+  }, [level]);
 
   const loadSms = useCallback(async () => {
     try {
@@ -598,21 +689,22 @@ export default function PropertyPulse() {
   }, [filtered, ranked, selectedId]);
 
   const selected = ranked.find((p) => p.id === selectedId) ?? null;
-  const selectedPin =
-    (pins ?? []).find(
-      (c) =>
-        (c.todayStatus === "site" || c.todayStatus === "route") &&
-        (c.todayProperty === selected?.name || c.todayJob === selected?.hotJob?.jobNo),
-    ) ??
-    (pins ?? []).find((c) => c.todayProperty === selected?.name) ??
-    null;
+  const selectedPin = !vendorDesk
+    ? null
+    : (pins ?? []).find(
+        (c) =>
+          (c.todayStatus === "site" || c.todayStatus === "route") &&
+          (c.todayProperty === selected?.name || c.todayJob === selected?.hotJob?.jobNo),
+      ) ??
+      (pins ?? []).find((c) => c.todayProperty === selected?.name) ??
+      null;
   const overlayJob = selected?.hotJob ?? null;
   const todayStr = localYmd();
   const uncrewed = liveJobs.filter((j) => !j.crewLeaderId).length;
   const overdueJobs = liveJobs.filter((j) => j.scheduledOn && j.scheduledOn < todayStr).length;
   const crewsOnSite = (pins ?? []).filter((p) => p.todayStatus === "site").length;
   const doneToday = (jobs ?? []).filter((j) => j.status === "complete" && j.scheduledOn === todayStr).length;
-  const liveCount = ranked.filter((p) => p.crewsOnSite > 0).length;
+  const liveCount = ranked.filter((p) => (vendorDesk ? p.crewsOnSite > 0 : p.openJobs > 0)).length;
   // The 30-day window slides with the clock, so the metric must recompute on
   // the tick too — jobs alone can stay referentially identical for hours.
   const turnBucket = Math.floor(now.getTime() / 3_600_000);
@@ -708,8 +800,12 @@ export default function PropertyPulse() {
   );
 
   const lines = selected
-    ? statusLines(selected.openJobs, selected.crewsOnSite, selected.overdueJobs)
+    ? statusLines(selected.openJobs, selected.crewsOnSite, selected.overdueJobs, vendorDesk)
     : { primary: "Open Turns", secondary: "Quiet" };
+  const callbacks = callbackRate(jobs ?? []);
+  const poWait = meanPoWaitDays(liveJobs);
+  const poProvide = meanPoProvideDays(jobs ?? []);
+  const mapCrews = haloMapCrews({ properties: ranked, pins: pins ?? [] });
 
   const statTile = (id: DrillId, tone: string, value: ReactNode, label: string, hint: string) => (
     <button
@@ -725,18 +821,9 @@ export default function PropertyPulse() {
   );
 
   const mapPoints: [number, number][] = [];
-  for (const p of ranked) {
-    if (p.latitude != null && p.longitude != null) mapPoints.push([p.latitude, p.longitude]);
-  }
-  for (const c of pins ?? []) {
-    if (c.lat != null && c.lng != null) mapPoints.push([c.lat, c.lng]);
-  }
-  const selectedCoord: [number, number] | null =
-    selected?.latitude != null && selected?.longitude != null
-      ? [selected.latitude, selected.longitude]
-      : selectedPin?.lat != null && selectedPin?.lng != null
-        ? [selectedPin.lat, selectedPin.lng]
-        : null;
+  for (const p of ranked) mapPoints.push(propertyMapPoint(p));
+  for (const c of mapCrews) mapPoints.push([c.lat, c.lng]);
+  const selectedCoord: [number, number] | null = selected ? propertyMapPoint(selected) : null;
 
   const calDays = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
@@ -887,18 +974,49 @@ export default function PropertyPulse() {
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const portfolio = biz?.companyName?.replace(/\s+LLC$/i, "") || "Property Pulse";
+  const proof = (() => {
+    for (const p of pins ?? []) {
+      const shots = p.photos ?? [];
+      const before = shots.find((x) => /before/i.test(x.phase ?? ""))?.url ?? shots[1]?.url;
+      const after = shots.find((x) => /after/i.test(x.phase ?? ""))?.url ?? shots[0]?.url;
+      if (before || after) return { before, after, title: p.todayProperty || p.name };
+    }
+    return null;
+  })();
+  const nav = NAV.filter((n) => haloDeskPanels(level).includes(n.id as "overview" | "sites" | "reports" | "vendors" | "waiting" | "crew")).map((n) =>
+    n.id === "sites" && level === "pulse" ? { ...n, label: "POs", Icon: ClipboardList } : n,
+  );
 
   return (
     <div className="pulse-hud">
       <header className="pulse-hud-head">
-        <button type="button" className="pulse-hud-brand" onClick={() => navigate(HREF.home)} aria-label="HALO chat">
-          <span className="pulse-hud-mark">H</span>
+        <button type="button" className="pulse-hud-brand" onClick={() => navigate(HREF.home)} aria-label="HALO home">
+          <img className="pulse-hud-logo" src={haloLogo} alt="HALO" />
+          <span className="pulse-hud-brand-rule" aria-hidden />
           <div>
-            <p>Archangel Operations</p>
-            <h1>Property Pulse</h1>
+            <h1>
+              {haloStoryTitle(level)}
+              <sup className="pulse-hud-tm">™</sup>
+            </h1>
+            <p className="halo-story-line">One system. Three desks.</p>
           </div>
         </button>
+        <HaloLevelBar
+          active={level}
+          hrefs={{ portfolio: "/property-portfolio", pulse: "/pulse", punchlist: "/punchlist" }}
+          onGo={(href) => navigate(href)}
+        />
         <div className="pulse-hud-head-right">
+          {level !== "punchlist" ? (
+            <HaloVacancyChip
+              pulse={pulseDoc}
+              avgTurnDays={avgTurnDays}
+              callbacks={callbacks}
+              poProvideDays={poProvide.days}
+              poProvideSample={poProvide.sample}
+              poWaiting={posNeeded}
+            />
+          ) : null}
           <div className="pulse-hud-clock">
             <strong>{timeStr}</strong>
             <span>{dateStr}</span>
@@ -930,15 +1048,17 @@ export default function PropertyPulse() {
               </div>
             )}
           </div>
+          {vendorDesk ? (
           <button type="button" className="pulse-hud-dispatch" onClick={() => navigate(HREF.dispatch)}>
             <Send size={14} /> Dispatch
           </button>
+          ) : null}
         </div>
       </header>
 
       <div className="pulse-hud-body">
         <nav className="pulse-hud-nav" aria-label="Pulse panels">
-          {NAV.map(({ id, label, Icon }) => (
+          {nav.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
@@ -971,108 +1091,164 @@ export default function PropertyPulse() {
               url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
             <FitPins points={mapPoints} selected={selectedCoord} />
-            {ranked.map((p) =>
-              p.latitude != null && p.longitude != null ? (
+            {ranked.map((p) => {
+              const pos = propertyMapPoint(p);
+              return (
                 <Marker
                   key={p.id}
-                  position={[p.latitude, p.longitude]}
-                  icon={pinIcon(p.id === selectedId || p.crewsOnSite > 0, p.crewsOnSite > 0)}
+                  position={pos}
+                  icon={pinIcon(p.id === selectedId || p.openJobs > 0, p.id === selectedId)}
                   eventHandlers={{ click: () => { setSelectedId(p.id); if (!open.sites) toggle("sites"); } }}
                 >
                   <Popup>
                     <div className="pulse-popup">
                       <strong>{p.name}</strong>
-                      <em>{statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs).secondary}</em>
+                      <em>{statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs, vendorDesk).secondary}</em>
                       <span>{p.hotJob?.jobNo || p.city || "—"}</span>
                     </div>
                   </Popup>
                 </Marker>
-              ) : null,
-            )}
-            {(pins ?? []).map((c) =>
-              c.lat != null && c.lng != null ? (
-                <Marker
-                  key={`crew-${c.id}`}
-                  position={[c.lat, c.lng]}
-                  icon={pinIcon(c.todayStatus === "site" || c.todayStatus === "route", c.todayStatus === "site")}
-                />
-              ) : null,
-            )}
+              );
+            })}
+            {mapCrews.map((c) => (
+              <Marker key={`crew-${c.id}`} position={[c.lat, c.lng]} icon={crewPinIcon(c.status, c.mock)}>
+                <Popup>
+                  <div className="pulse-popup">
+                    <strong>{c.name}</strong>
+                    <em>{c.mock ? "On the book" : "Live GPS"}</em>
+                    <span>
+                      {c.trade} · {c.propertyName}
+                    </span>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
 
-          <HudBox id="overview" title="Overview" kicker="Live" open={open.overview} z={zOf("overview")} stageRef={stageRef} onClose={() => toggle("overview")} onFocus={() => focus("overview")}>
-            <div className="pulse-stat-grid">
-              {statTile("sites", "lime", liveCount, "Active sites", "Properties with a crew on site")}
-              {statTile("crews", "green", crewsOnSite, "Crews out", "Crews checked in on a site right now")}
-              {statTile("turns", "amber", liveJobs.length, "Open turns", "Jobs not yet complete, paid or cancelled")}
-              {statTile("done", "violet", doneToday, "Done today", "Jobs completed on today's schedule")}
-            </div>
-            <div className="pulse-stat-grid three">
-              {statTile(
-                "turntime",
-                "cyan",
-                avgTurnDays == null ? "—" : `${avgTurnDays.toFixed(1)}d`,
-                "Avg turn",
-                turnSample > 0
-                  ? `${turnSample} jobs completed in the last 30 days`
-                  : "No jobs completed in the last 30 days",
-              )}
-              {statTile("rework", "rose", reworks, "Re-works", "Jobs reopened after being called done")}
-              {statTile("po", "amber", posNeeded, "POs needed", "Live jobs still missing a client PO")}
-            </div>
+          <HudBox id="overview" title="Overview" kicker={level === "portfolio" ? "The region" : level === "pulse" ? "This morning" : "The field"} open={open.overview} z={zOf("overview")} stageRef={stageRef} onClose={() => toggle("overview")} onFocus={() => focus("overview")}>
+            {level === "portfolio" ? (
+              <>
+                <PulseWatchRings
+                  days={pulseDoc?.supporting.medianTurnDays ?? avgTurnDays}
+                  target={pulseDoc?.supporting.targetTurnDays ?? 7}
+                  openTurns={pulseDoc?.supporting.unitsInTurn ?? liveJobs.length}
+                  doneToday={0}
+                  sample={turnSample}
+                />
+                <p className="halo-desk-lead">
+                  {pulseDoc
+                    ? `${formatUsdCents(pulseDoc.headline.vacancyCostCents)} ${pulseDoc.headline.label}`
+                    : "Vacancy $ lands here from the client-board clock — same formula as the board pack."}
+                </p>
+                <div className="pulse-stat-grid">
+                  {statTile("sites", "lime", ranked.length, "Communities", "Every community on the map")}
+                  {statTile("turns", "amber", pulseDoc?.supporting.unitsInTurn ?? liveJobs.length, "In turn", "Units in turn this window")}
+                  {statTile(
+                    "turntime",
+                    "cyan",
+                    (pulseDoc?.supporting.medianTurnDays ?? avgTurnDays) == null
+                      ? "—"
+                      : `${(pulseDoc?.supporting.medianTurnDays ?? avgTurnDays)!.toFixed(1)}d`,
+                    "Typical turn",
+                    "Median vacant days vs a 7-day target",
+                  )}
+                  {statTile("done", "violet", pulseDoc?.supporting.predictedLateThisWeek ?? doneToday, "Late this week", "Turns predicted late")}
+                </div>
+              </>
+            ) : null}
+            {level === "pulse" ? (
+              <>
+                <PulseWatchRings days={avgTurnDays} target={7} openTurns={liveJobs.length} doneToday={doneToday} sample={turnSample} />
+                <HaloProofPair
+                  title={proof?.title ?? "Before / after"}
+                  caption={proof ? "Field pictures already on this job" : "Pictures show up when the field posts them"}
+                  before={proof?.before}
+                  after={proof?.after}
+                  onOpen={() => setDrill((d) => (d === "turns" ? null : "turns"))}
+                />
+                <div className="pulse-stat-grid">
+                  {statTile("turns", "amber", liveJobs.length, "Active units", "Open turns on site today")}
+                  {statTile("turntime", "cyan", avgTurnDays == null ? "—" : `${avgTurnDays.toFixed(1)}d`, "Time per turn", turnSample > 0 ? `${turnSample} finished in 30 days` : "No jobs finished in 30 days")}
+                  {statTile("rework", "rose", callbacks.count, "Callbacks", "Jobs reopened after being called done")}
+                  {statTile("po", "amber", poWait == null ? "—" : `${poWait.toFixed(1)}d`, "PO wait", "Average days live jobs wait for a PO")}
+                </div>
+                <p className="halo-desk-lead">{mapCrews.filter((c) => !c.mock).length} live crews on the map · {mapCrews.length} showing.</p>
+              </>
+            ) : null}
+            {level === "punchlist" ? (
+              <>
+                <div className="pulse-stat-grid">
+                  {statTile("sites", "lime", liveCount, "Sites today", "Communities with live work")}
+                  {statTile("po", "amber", posNeeded, "Waiting on PO", "Live jobs still missing a client PO")}
+                  {statTile("crews", "green", mapCrews.length, "Crews out", "Live GPS plus crews on the book")}
+                </div>
+                <p className="halo-desk-lead">Punch lives in the Work app. This desk is where to go and what is waiting on the office.</p>
+              </>
+            ) : null}
             {drill && (
               <div className="pulse-drill">
                 {drillData[drill].rows.length === 0 ? (
                   <p className="pulse-drill-empty">{drillData[drill].empty}</p>
                 ) : (
-                  <>
-                    {drillData[drill].rows.slice(0, DRILL_MAX).map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        className="pulse-drill-row"
-                        onClick={() => r.propertyId && setSelectedId(r.propertyId)}
-                      >
-                        <strong>{r.label}</strong>
-                        <em>{r.meta}</em>
-                      </button>
-                    ))}
-                    {drillData[drill].rows.length > DRILL_MAX && (
-                      <p className="pulse-drill-more">
-                        +{drillData[drill].rows.length - DRILL_MAX} more
-                      </p>
-                    )}
-                  </>
+                  drillData[drill].rows.slice(0, DRILL_MAX).map((r) => (
+                    <button key={r.id} type="button" className="pulse-drill-row" onClick={() => r.propertyId && setSelectedId(r.propertyId)}>
+                      <strong>{r.label}</strong>
+                      <em>{r.meta}</em>
+                    </button>
+                  ))
                 )}
-              </div>
-            )}
-            {(uncrewed > 0 || overdueJobs > 0) && (
-              <div className="pulse-flags">
-                {overdueJobs > 0 && <span className="pulse-flag late">{overdueJobs} behind schedule</span>}
-                {uncrewed > 0 && <span className="pulse-flag open">{uncrewed} need a crew</span>}
               </div>
             )}
             {selected && (
               <div className="pulse-overview-site">
                 <strong>{selected.name}</strong>
                 <p>{lines.primary} · {lines.secondary}</p>
-                <div className="pulse-hud-actions">
-                  <button type="button" className="pulse-overlay-cta" onClick={() => selected.latitude == null ? setGpsOpen(true) : setTwinOpen(true)}>
-                    {selected.latitude == null ? "Pin GPS" : "Open site twin"}
-                  </button>
-                  <button type="button" className="pulse-overlay-ghost" disabled={pinging} onClick={() => void pingTarget()}>
-                    {pinging ? "Pinging…" : "Ping crew"}
-                  </button>
-                </div>
               </div>
             )}
           </HudBox>
 
-          <HudBox id="sites" title="Sites" kicker={`${liveCount} live`} open={open.sites} z={zOf("sites")} stageRef={stageRef} onClose={() => toggle("sites")} onFocus={() => focus("sites")}>
+          <HudBox id="reports" title="Reports" kicker="Board pack" open={open.reports} z={zOf("reports")} stageRef={stageRef} onClose={() => toggle("reports")} onFocus={() => focus("reports")}>
+            <HaloReportsCard
+              pulse={pulseDoc}
+              presenting={activateDemo.isPending}
+              onPresent={() => {
+                activateDemo.mutate(undefined, {
+                  onSuccess: () => {
+                    toast({ title: "Presentation is live", description: "The map now carries the demo sites and crews." });
+                    void queryClient.invalidateQueries();
+                  },
+                  onError: () => toast({ title: "Couldn't start the presentation", variant: "destructive" }),
+                });
+              }}
+            />
+          </HudBox>
+
+          <HudBox id="vendors" title="Vendors" kicker="Price book" open={open.vendors} z={zOf("vendors")} stageRef={stageRef} onClose={() => toggle("vendors")} onFocus={() => focus("vendors")}>
+            <HaloVendorsCard
+              jobs={jobs ?? []}
+              catalog={catalog ?? []}
+              onOpenCatalog={() => navigate("/catalog")}
+              onOpenWork={() => window.open(BASE44_URL, "_blank", "noopener")}
+            />
+          </HudBox>
+
+          <HudBox id="waiting" title="Waiting" kicker="Office clock" open={open.waiting} z={zOf("waiting")} stageRef={stageRef} onClose={() => toggle("waiting")} onFocus={() => focus("waiting")}>
+            <HaloWaitingCard
+              poJobs={poJobs}
+              uncrewed={liveJobs.filter((j) => !j.crewLeaderId)}
+              onOpenWork={() => window.open(BASE44_URL, "_blank", "noopener")}
+            />
+          </HudBox>
+
+          <HudBox id="sites" title={level === "pulse" ? "POs" : "Sites"} kicker={level === "pulse" ? `${poJobs.length} missing` : `${liveCount} live`} open={open.sites} z={zOf("sites")} stageRef={stageRef} onClose={() => toggle("sites")} onFocus={() => focus("sites")}>
+            {level === "pulse" ? (
+              <HaloPosCard jobs={liveJobs} selectedPropertyId={selectedId} />
+            ) : (
+              <>
             <p className="pulse-hud-portfolio">{portfolio}</p>
             {propsLoading && <p className="pulse-empty">Loading sites…</p>}
             {filtered.map((p) => {
-              const st = statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs);
+              const st = statusLines(p.openJobs, p.crewsOnSite, p.overdueJobs, vendorDesk);
               const on = p.id === selectedId;
               const dark = p.crewsOnSite > 0;
               return (
@@ -1088,18 +1264,12 @@ export default function PropertyPulse() {
                 </button>
               );
             })}
+              </>
+            )}
           </HudBox>
 
-          <HudBox id="crew" title="Crew" kicker={`${(pins ?? []).length} tracked`} open={open.crew} z={zOf("crew")} stageRef={stageRef} onClose={() => toggle("crew")} onFocus={() => focus("crew")}>
-            {(pins ?? []).length === 0 && <p className="pulse-empty">No crew GPS yet today.</p>}
-            {(pins ?? []).map((c) => (
-              <div key={c.id} className="pulse-crew-row">
-                <b>{c.name}</b>
-                <em>{c.todayProperty || c.trade || "—"} · {c.todayStatus || "idle"}</em>
-                <span>{c.todayJob || c.unitNo || ""}</span>
-              </div>
-            ))}
-            <button type="button" className="pulse-overlay-ghost" onClick={() => navigate(HREF.crews)}>Open crew records</button>
+          <HudBox id="crew" title="Crew" kicker="Paycards" open={open.crew} z={zOf("crew")} stageRef={stageRef} onClose={() => toggle("crew")} onFocus={() => focus("crew")}>
+            <HaloCrewPaycards pins={pins} />
           </HudBox>
 
           <HudBox id="schedule" title="Schedule" kicker="Today + tomorrow" open={open.schedule} z={zOf("schedule")} stageRef={stageRef} onClose={() => toggle("schedule")} onFocus={() => focus("schedule")}>
@@ -1208,6 +1378,10 @@ export default function PropertyPulse() {
           onRequestPhotos={(u) => void requestUnitPhotos(u)}
         />
       )}
+      <button type="button" className="halo-ask-pill" onClick={() => navigate(HREF.home)} aria-label="Ask HALO" title="Ask HALO">
+        <MessageCircle size={28} />
+        Ask HALO
+      </button>
     </div>
   );
 }

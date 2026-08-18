@@ -168,9 +168,21 @@ function App() {
               </OfficeGate>
             </Route>
 
+            <Route path="/property-portfolio">
+              <OfficeGate>
+                <PropertyPulse level="portfolio" />
+              </OfficeGate>
+            </Route>
+
             <Route path="/pulse">
               <OfficeGate>
-                <PropertyPulse />
+                <PropertyPulse level="pulse" />
+              </OfficeGate>
+            </Route>
+
+            <Route path="/punchlist">
+              <OfficeGate>
+                <PropertyPulse level="punchlist" />
               </OfficeGate>
             </Route>
 

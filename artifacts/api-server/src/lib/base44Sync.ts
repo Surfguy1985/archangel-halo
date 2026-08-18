@@ -635,11 +635,23 @@ async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
         boardStatus,
       };
 
+      const inboundPo = String(rec.po_number ?? rec.poNumber ?? rec.purchase_order ?? "").trim();
       if (isNew) {
-        await db.insert(jobsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
+        await db.insert(jobsTable).values({
+          id: haloId,
+          ...payload,
+          ...(inboundPo ? { poNumber: inboundPo.toUpperCase() } : {}),
+        }).onConflictDoNothing();
         created++;
       } else {
-        await db.update(jobsTable).set(payload).where(eq(jobsTable.id, haloId));
+        const cur = await db
+          .select({ poNumber: jobsTable.poNumber })
+          .from(jobsTable)
+          .where(eq(jobsTable.id, haloId))
+          .limit(1);
+        const patch: Record<string, unknown> = { ...payload };
+        if (!cur[0]?.poNumber?.trim() && inboundPo) patch.poNumber = inboundPo.toUpperCase();
+        await db.update(jobsTable).set(patch).where(eq(jobsTable.id, haloId));
         updated++;
       }
 

@@ -1,10 +1,22 @@
 ---
 name: HALO Property Pulse
-description: Optional tablet dashboard at /pulse matching the Property Pulse seed; live HALO + Base44 + Twilio SMS.
+description: One map HUD, three desks — Portfolio (corporate), Pulse (PM), Punchlist (Archangel Contractors).
 ---
 
-- `/pulse` is the Figma Make HUD ([Design Halo Interface](https://www.figma.com/make/yNS3Pu0b9cSzEO0k16cI4l/Design-Halo-Interface--Copy-?t=JesuQqT9qSIV1dlR-1)): navy header + left rail + full-bleed Carto Voyager map. HALO chat stays at `/`. Do not wrap Pulse in DesktopLayout/OpsLayout.
-- **Tabs do not navigate.** Each rail tab (Overview, Sites, Crew, Schedule, Units, Calendar, Activity, Settings) toggles a draggable, resizable, hideable box over the map. Positions persist in `halo_pulse_hud_v1`; open set in `halo_pulse_hud_open_v1`. Multiple boxes can be open at once.
-- Boxes are wired to live HALO: properties/jobs/crew GPS/Today feed/notifications/Twilio/Base44 sync. Dispatch in the header still routes to job board. GPS Finder + Site Twin remain full-screen overlays from Overview/Settings.
-- Lime is `#B4FF44`. Fonts stay Outfit + Plus Jakarta Sans. Map pins are lime teardrops when a site is live.
-- Ranking/copy lives in `artifacts/api-server/src/lib/pulseCore.ts`. Duplicate UI in `artifacts/halo` and `artifacts/halo-desktop`.
+HALO is **one system, three desks**. Every desk is a live Carto map plus **three cards** and the lime Ask HALO pill. Header tiles are real portraits (Camille Hart / Elena Ruiz / Marcus Hale).
+
+| Desk | Who | Cards | Desktop | Mobile |
+|---|---|---|---|---|
+| Property Portfolio | Corporate | Overview · Sites · Reports | `/` | `/property-portfolio` |
+| Property Pulse | Property manager | Overview · POs · Vendors | `/pulse` | `/pulse` |
+| Property Punchlist | Archangel Contractors | Overview · Sites · Crew (QR paycards) | `/punchlist` | `/punchlist` |
+
+**Corporate** cares about the board pack: vacancy $ (client-board clock, one formula), typical turn days, CSV export, Present. Not crew tools.
+
+**Pulse** cares about the morning: active units, POs (enter missing numbers by unit — stamps the job, texts the crew, and writes the PO into Base44 dispatch/field), time per turn, callbacks, vendors.
+
+**Punchlist** is the field desk: where to go (map + sites), printed QR paycards per crew member, live green pins on check-in. Punch itself stays in Work. Each crew card is a paycard — they scan, log the unit, take before/after photos, and check out to get paid.
+
+Map shows every community (real lat/lng, else city pin) and crew (live GPS when present, plus on-the-book demo dots). Solid lime/gold dots = live GPS; dashed = demo fill so a presentation is never an empty map.
+
+`/portfolio` stays Client Portfolio Pulse. Do not wrap these HUDs in DesktopLayout. Lime `#B4FF44`. Outfit + Plus Jakarta Sans.

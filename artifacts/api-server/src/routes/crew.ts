@@ -463,7 +463,14 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
             trade: c.trade ?? null,
             phone: c.phone ?? null,
             selfiePath: c.selfiePath ?? null,
-            todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
+            todayStatus:
+              last?.kind === "checkin" && last.lat != null && last.lng != null
+                ? "site"
+                : sched
+                  ? sched.status === "done"
+                    ? "done"
+                    : "site"
+                  : "idle",
             todayJob: job?.jobNo ?? null,
             todayProperty: job ? (propName.get(job.propertyId) ?? null) : null,
             unitNo: job?.unitNo ?? null,

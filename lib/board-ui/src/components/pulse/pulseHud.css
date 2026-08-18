@@ -37,12 +37,12 @@
 }
 
 .cb-hud-head {
-  height: 58px;
+  height: 64px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 0 16px 0 12px;
   background: var(--cb-navy);
   border-bottom: 1px solid rgba(180, 255, 68, 0.12);
@@ -101,6 +101,18 @@
   letter-spacing: -0.03em;
   line-height: 1.1;
   color: #f4f4f0;
+}
+.cb-hud-head .halo-levels {
+  flex: 1;
+  justify-content: center;
+}
+.cb-hud-tm {
+  font-size: 0.38em;
+  font-weight: 600;
+  letter-spacing: 0;
+  vertical-align: super;
+  margin-left: 3px;
+  opacity: 0.55;
 }
 .cb-hud-head-right {
   display: flex;
@@ -1314,6 +1326,13 @@
   background: #fff;
   border: 1px solid var(--cb-line);
 }
+button.cb-stat {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
 .cb-stat b {
   display: block;
   font-family: var(--cb-display);
@@ -1549,6 +1568,13 @@
   font-size: 13px;
 }
 
+.cb-overview-who {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(210, 224, 255, 0.62);
+}
 .cb-overview-site strong {
   display: block;
   font-size: 13px;

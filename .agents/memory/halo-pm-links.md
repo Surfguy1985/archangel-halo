@@ -30,15 +30,18 @@ Default expiry: 90 days (semi-permanent bookmarks).
 
 **Office API (behind gate):**
 - `POST /crew-checkin-links`, `GET /crew-checkin-links`, `DELETE /crew-checkin-links/:token`
+- `POST /crew-checkin-links/paycards` — mint/reuse one printable URL per active crew. Label stores `HALO paycard | {url}` so printed QR codes stay stable.
 
 **Public API:**
-- `GET /checkin/:token` — crew info + today's assignment from jobs table
-- `POST /checkin/:token/checkin` — record GPS check-in into crew_checkins table
-- `POST /checkin/:token/checkout` — record GPS checkout into crew_checkins table
+- `GET /checkin/:token` — crew info + today's assignment + today's before/after photos
+- `POST /checkin/:token/checkin` — GPS required, unit required (`unitNo`). Writes `crew_checkins` + a `crew_track_points` breadcrumb so the green pin appears immediately
+- `POST /checkin/:token/photos` — `{ storagePath, phase: before|after }` into `crew_photos` (same store as the portal)
+- `POST /checkin/:token/checkout` — 409 unless before AND after photos exist
+- `POST /checkin/:token/location` — trail pings while checked in
 
-Check-in records go into the existing `crew_checkins` table (not a new table). The links table only holds tokens.
+Check-in records go into the existing `crew_checkins` table (not a new table). The links table only holds tokens. Map pins treat an open GPS check-in as `todayStatus: "site"` even without a schedule row.
 
-**Frontend:** `/checkin/:token` → `CrewCheckinPage.tsx` (public route in App.tsx)
+**Frontend:** `/checkin/:token` → `HaloCrewPaycardPage` (public, no OfficeGate). Punchlist Crew card prints the QR.
 
 ## Brain Commands
 

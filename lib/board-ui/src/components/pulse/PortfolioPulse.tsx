@@ -18,18 +18,20 @@ import "./pulseHud.css";
 import haloLogo from "../../assets/halo-logo.png";
 import {
   AlertTriangle,
-  Camera,
   Columns3,
   Expand,
+  Home,
   Shrink,
   LayoutGrid,
   MessageCircle,
   MoreVertical,
   Search,
-  Timer,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { HaloLevelBar } from "./HaloLevelBar";
+import { HaloProofPair, PulseWatchRings } from "./PulseWatchRings";
+import { HALO_STORY, haloStoryTitle, type HaloStoryLevel } from "./haloLevels";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type {
   PortfolioAttentionDocument,
@@ -50,9 +52,9 @@ import { interpretPulseQuestion, type GuideAction, type GuideContext } from "./p
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
 const FALLBACK: [number, number] = [32.7767, -96.797];
-const OPEN_KEY = "halo_client_pulse_hud_open_v6";
-const MODE_KEY = "halo_client_pulse_hud_mode_v6";
-const POS_KEY = "halo_client_pulse_hud_pos_v6";
+const OPEN_KEY = "halo_client_pulse_hud_open_v7";
+const MODE_KEY = "halo_client_pulse_hud_mode_v7";
+const POS_KEY = "halo_client_pulse_hud_pos_v7";
 type BoxPos = { x: number; y: number; w: number; h: number };
 type PanelMode = "dock" | "float";
 export type PortfolioPulseProps = {
@@ -92,6 +94,12 @@ export type PortfolioPulseProps = {
    * in both themes.
    */
   theme?: "dark" | "light";
+  /** Which of the three HALO desks this board is telling. */
+  storyLevel?: HaloStoryLevel;
+  deskHrefs?: Partial<Record<HaloStoryLevel, string>>;
+  /** When true, the three desk tiles are the story — they do not navigate. */
+  deskLocked?: boolean;
+  onDeskGo?: (href: string, level: HaloStoryLevel) => void;
 };
 
 type PanelId =
@@ -109,20 +117,17 @@ type PanelId =
   | "tools";
 
 const PRIMARY_NAV: Array<{ id: PanelId; label: string; Icon: LucideIcon }> = [
-  { id: "chat", label: "Ask", Icon: MessageCircle },
+  { id: "overview", label: "Overview", Icon: Home },
   { id: "sites", label: "Sites", Icon: LayoutGrid },
   { id: "attention", label: "Needs", Icon: AlertTriangle },
-  { id: "turns", label: "Turns", Icon: Timer },
-  { id: "photos", label: "Photos", Icon: Camera },
 ];
 
 const MORE_NAV: Array<{ id: PanelId; label: string }> = [
   { id: "vacancy", label: "Vacancy $" },
-  { id: "crew", label: "Crew today" },
-  { id: "overview", label: "Overview" },
+  { id: "turns", label: "Turns" },
+  { id: "photos", label: "Photos" },
   { id: "range", label: "Range" },
   { id: "compliance", label: "Compliance" },
-  { id: "activity", label: "Activity" },
   { id: "tools", label: "Tools" },
 ];
 
@@ -174,7 +179,7 @@ const DEFAULT_POS: Record<PanelId, BoxPos> = {
   turns: { x: 24, y: 330, w: 420, h: 420 },
   photos: { x: 460, y: 330, w: 400, h: 440 },
   crew: { x: 760, y: 16, w: 320, h: 280 },
-  overview: { x: 760, y: 310, w: 280, h: 240 },
+  overview: { x: 24, y: 16, w: 340, h: 440 },
   sites: { x: 24, y: 16, w: 260, h: 480 },
   attention: { x: 420, y: 310, w: 360, h: 280 },
   range: { x: 800, y: 16, w: 300, h: 260 },
@@ -189,9 +194,9 @@ const DEFAULT_OPEN: Record<PanelId, boolean> = {
   turns: false,
   photos: false,
   crew: false,
-  overview: false,
+  overview: true,
   sites: true,
-  attention: true,
+  attention: false,
   range: false,
   compliance: false,
   activity: false,
@@ -682,8 +687,6 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
   const nextNeed = needItems[0] ?? null;
   const title = pulse?.viewLabel ?? pulse?.portfolioName ?? "Portfolio";
   const crewToday = props.attention?.crewToday ?? [];
-  const crewOnSelected = selectedId ? crewToday.filter((c) => c.propertyId === selectedId) : [];
-  const liveSiteCount = new Set(crewToday.map((c) => c.propertyId)).size;
   const guideContext: GuideContext = {
     title,
     vacancyLabel: pulse?.headline.label,
@@ -734,8 +737,9 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
 
   const onGuideAction = (action: GuideAction) => {
     if (action.type === "open") {
-      setOpen((o) => ({ ...o, [action.panel]: true }));
-      focus(action.panel);
+      const panel = action.panel === "crew" || action.panel === "activity" ? "overview" : action.panel;
+      setOpen((o) => ({ ...o, [panel]: true }));
+      focus(panel);
     } else if (action.type === "select") {
       setSelectedId(action.propertyId);
       setOpen((o) => ({ ...o, sites: true }));
@@ -767,7 +771,8 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
   );
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   const dateStr = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  const kicker = propertyOnly ? "Property Pulse" : "Portfolio Pulse";
+  const storyLevel: HaloStoryLevel = props.storyLevel ?? (propertyOnly ? "pulse" : "portfolio");
+  const proofUnit = (props.attention?.photoUnits ?? [])[0] ?? null;
 
   return (
     <HudLayout.Provider value={hudLayout}>
@@ -786,10 +791,19 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           <img className="cb-hud-logo" src={haloLogo} alt="HALO" />
           <span className="cb-hud-brand-rule" aria-hidden />
           <div>
-            <p>{kicker}</p>
-            <h1>{title}</h1>
+            <h1>
+              {haloStoryTitle(storyLevel)}
+              <sup className="cb-hud-tm">™</sup>
+            </h1>
+            <p className="halo-story-line">{title}</p>
           </div>
         </button>
+        <HaloLevelBar
+          active={storyLevel}
+          hrefs={props.deskHrefs}
+          locked={props.deskLocked}
+          onGo={(href, level) => props.onDeskGo?.(href, level)}
+        />
         <div className="cb-hud-head-right">
           <button
             type="button"
@@ -1115,30 +1129,55 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           <HudBox
             id="overview"
             title="Overview"
-            kicker="This window"
+            kicker={HALO_STORY[storyLevel].kicker}
             open={open.overview}
             z={zOf("overview")}
             stageRef={stageRef}
             onClose={() => toggle("overview")}
             onFocus={() => focus("overview")}
           >
+            <p className="cb-overview-who">{HALO_STORY[storyLevel].who} · {HALO_STORY[storyLevel].line}</p>
+            <PulseWatchRings
+              days={pulse?.supporting.medianTurnDays ?? null}
+              target={pulse?.supporting.targetTurnDays ?? 7}
+              openTurns={pulse?.supporting.unitsInTurn ?? 0}
+              doneToday={0}
+            />
+            <HaloProofPair
+              title={
+                proofUnit
+                  ? `${shortCommunity(proofUnit.propertyName)} · ${proofUnit.unitNumber}`
+                  : "Before / after"
+              }
+              caption={
+                proofUnit
+                  ? "Field pictures already on this turn"
+                  : "Pictures show up when the field posts them"
+              }
+              before={proofUnit?.before[0]?.url}
+              after={proofUnit?.after[0]?.url}
+              onOpen={() => {
+                setOpen((o) => ({ ...o, photos: true }));
+                focus("photos");
+              }}
+            />
             <div className="cb-stat-grid">
-              <div className="cb-stat lime">
+              <button type="button" className="cb-stat lime" onClick={() => toggle("vacancy")}>
+                <b>{formatUsdCents(pulse?.headline.vacancyCostCents ?? "0")}</b>
+                <span>Empty-home rent</span>
+              </button>
+              <button type="button" className="cb-stat ink" onClick={() => toggle("turns")}>
                 <b>{pulse?.supporting.unitsInTurn ?? "—"}</b>
                 <span>Units in turn</span>
-              </div>
-              <div className="cb-stat ink">
-                <b>{pulse?.supporting.medianTurnDays ?? "—"}</b>
-                <span>Median days</span>
-              </div>
-              <div className="cb-stat gold">
-                <b>{pulse?.supporting.targetTurnDays ?? "—"}</b>
-                <span>Target days</span>
-              </div>
-              <div className="cb-stat coral">
+              </button>
+              <button type="button" className="cb-stat gold" onClick={() => toggle("attention")}>
+                <b>{attentionCount || "—"}</b>
+                <span>Needs your name</span>
+              </button>
+              <button type="button" className="cb-stat coral" onClick={() => toggle("turns")}>
                 <b>{pulse?.supporting.predictedLateThisWeek ?? "—"}</b>
                 <span>Late this week</span>
-              </div>
+              </button>
             </div>
             {selected ? (
               <div className="cb-overview-site">
@@ -1204,7 +1243,6 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
             {filtered.length === 0 ? <p className="cb-empty">No communities match.</p> : null}
             {filtered.map((tile) => {
               const on = tile.propertyId === selectedId;
-              const crewHere = crewToday.filter((c) => c.propertyId === tile.propertyId).length;
               return (
                 <button
                   key={tile.propertyId}
@@ -1218,7 +1256,6 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
                   <span>{shortCommunity(tile.name)}</span>
                   <em>
                     {tile.unitsInTurn} in turn · {tile.statusLabel}
-                    {on && crewHere > 0 ? ` · Crew on site · ${crewHere}` : ""}
                   </em>
                   <small>
                     {tile.city ? `${tile.city} · ` : ""}
@@ -1486,9 +1523,9 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
           <div className="cb-hud-map-chrome">
             {tiles.length > 0 ? (
               <p className="cb-map-chip">
-                {liveSiteCount} of {tiles.length} sites live
-                {crewOnSelected.length > 0
-                  ? ` · ${crewOnSelected.length} on ${shortCommunity(selected?.name ?? "site")}`
+                {tiles.length} {propertyOnly ? "community" : "communities"}
+                {pulse?.supporting.unitsInTurn
+                  ? ` · ${pulse.supporting.unitsInTurn} in turn`
                   : ""}
               </p>
             ) : null}
@@ -1516,6 +1553,21 @@ export function PortfolioPulse(props: PortfolioPulseProps) {
         </div>
         <div className="cb-hud-float-layer" ref={floatLayer} data-ready={mounted ? "1" : "0"} />
       </div>
+      {!open.chat ? (
+        <button
+          type="button"
+          className="halo-ask-pill"
+          onClick={() => {
+            setOpen((o) => ({ ...o, chat: true }));
+            focus("chat");
+          }}
+          aria-label="Ask HALO"
+          title="Ask HALO"
+        >
+          <MessageCircle size={28} />
+          Ask HALO
+        </button>
+      ) : null}
     </div>
     </HudLayout.Provider>
   );

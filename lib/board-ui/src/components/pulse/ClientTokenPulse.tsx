@@ -69,6 +69,8 @@ export function ClientTokenPulse(props: ClientTokenPulseProps) {
 
   return (
     <PortfolioPulse
+      storyLevel={propertyOnly ? "pulse" : "portfolio"}
+      deskLocked
       pulse={pulse.data}
       attention={attention.data}
       streamUrl={token ? getStreamClientPortfolioPulseUrl(token) : null}

@@ -1,6 +1,6 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins, FileSignature, Sun, Moon, Monitor} from "lucide-react";
+import { Mic, Bell, LayoutGrid, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins, FileSignature, Sun, Moon, Monitor, Hammer} from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast} from "@/hooks/use-toast";
 import { useQueryClient} from "@tanstack/react-query";
@@ -106,10 +106,12 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
-          <NavKicker label="Daily" />
-          <NavItem href="/" icon={Sparkles} label="HALO" active={location === "/"} tourId="nav-today" />
+          <NavKicker label="Desks" />
+          <NavItem href="/" icon={Building} label="Portfolio" active={location === "/"} tourId="nav-today" />
           <NavItem href="/pulse" icon={Briefcase} label="Pulse" active={location.startsWith("/pulse")} />
-          <NavItem href="/portfolio" icon={Building} label="Portfolio" active={location.startsWith("/portfolio")} />
+          <NavItem href="/punchlist" icon={Hammer} label="Punchlist" active={location.startsWith("/punchlist")} />
+          <NavItem href="/portfolio" icon={LayoutGrid} label="Client board" active={location.startsWith("/portfolio")} />
+          <NavItem href="/chat" icon={Sparkles} label="HALO chat" active={location.startsWith("/chat")} />
           <NavKicker label="Records" />
           <NavItem
             href="/jobboard"

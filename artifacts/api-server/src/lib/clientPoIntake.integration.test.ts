@@ -31,6 +31,9 @@ vi.mock("./sms", () => ({
 vi.mock("./pushNotification", () => ({
   pushToCrewId: async () => undefined,
 }));
+vi.mock("./base44Write", () => ({
+  pushPoToBase44: async () => ({ ok: true, error: null }),
+}));
 
 // Import AFTER the mocks are registered so the executor picks them up.
 const { executeClientPoReceive } = await import("./jarvisDispatch");

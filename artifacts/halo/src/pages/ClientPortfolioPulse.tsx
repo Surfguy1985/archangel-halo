@@ -59,6 +59,9 @@ export default function ClientPortfolioPulse() {
 
   return (
     <PortfolioPulse
+      storyLevel="portfolio"
+      deskHrefs={{ portfolio: "/property-portfolio", pulse: "/pulse", punchlist: "/punchlist" }}
+      onDeskGo={(href) => navigate(href)}
       pulse={pulse.data}
       attention={attention.data}
       streamUrl={id ? getStreamPortfolioPulseUrl(id) : null}

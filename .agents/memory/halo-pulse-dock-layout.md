@@ -8,8 +8,8 @@ default into an importance-ranked rail, and any panel can be popped out to float
 (drag + resize) and docked again. A Reset layout control restores defaults.
 
 Rail assignment is editorial, not alphabetical:
-- **left rail** = "where do I look right now" — the panels that drive map selection.
-- **right rail** = supporting detail, consulted *after* a site is picked.
+- **left rail** = "where do I look right now" — Overview, Sites (POs on the Pulse desk), and the desk's third card (Reports / Vendors / Crew paycards).
+- **right rail** = unused on the three-desk default. GPS Finder / Site Twin stay Punchlist map tools, not extra cards.
 - The map keeps the whole centre channel between the rails.
 
 **Why:** the office uses this as a wall dashboard. Ranking by urgency means the two

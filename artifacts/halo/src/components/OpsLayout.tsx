@@ -8,7 +8,9 @@ import haloLogo from "../assets/halo-logo.png";
 import { ArrivalDetection } from "./ArrivalSheet";
 
 const NAV = [
+  { href: "/property-portfolio", label: "Portfolio" },
   { href: "/pulse", label: "Pulse" },
+  { href: "/punchlist", label: "Punchlist" },
   { href: "/ops", label: "Today" },
   { href: "/properties", label: "Properties" },
   { href: "/jobboard", label: "Jobs" },

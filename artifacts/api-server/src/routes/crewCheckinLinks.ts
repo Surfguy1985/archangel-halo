@@ -1,12 +1,14 @@
 /**
- * Crew check-in links — one bookmark, two taps: check in / check out.
+ * Crew check-in links — printed QR paycard + live GPS pin.
  *
  * Office: POST/GET/DELETE /crew-checkin-links
+ *         POST /crew-checkin-links/paycards  (printable URL per crew)
  * Public: GET  /checkin/:token
- *         POST /checkin/:token/checkin|checkout|location
+ *         POST /checkin/:token/checkin|checkout|location|photos
  *
- * Tokens are hashed at rest. GPS is session-justified only.
- * Checkout never requires photos, checklists, or invoices.
+ * Tokens are hashed at rest. The paycard URL is stored on the link label so
+ * printed cards stay stable. Check-in requires GPS (green pin). Checkout
+ * requires before + after photos — they do this to get paid.
  */
 
 import { Router } from "express";
@@ -18,28 +20,35 @@ import {
   crewsTable,
   crewCheckinsTable,
   crewTrackPointsTable,
+  crewPhotosTable,
   jobsTable,
   propertiesTable,
 } from "@workspace/db";
 import { recordFieldProvenance } from "../lib/fieldProvenance";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { eq, and, gte, desc, isNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { limits } from "../lib/rateLimit";
 import { sendSms, smsEnabled } from "../lib/sms";
 import {
   classifyCrewTokenShape,
+  checkoutPhotosReady,
   crewLinkHttpStatus,
   decideCheckin,
   decideCheckout,
   decideLocationPing,
+  decodePaycardUrl,
+  encodePaycardLabel,
   evaluateCrewLink,
   evaluateGps,
   formatTodayAssignment,
-  gpsAllowsCheckin,
+  gpsPlacesMapPin,
   hashCrewToken,
   localIsoDate,
   mapSessionView,
+  matchDispatchJob,
   mintCrewToken,
+  paycardUnitLabel,
   sessionFromEvents,
   todaysDispatch,
   type CrewLinkRecord,
@@ -220,6 +229,87 @@ function gpsColumns(verdict: ReturnType<typeof evaluateGps>): {
     return { lat: verdict.lat, lng: verdict.lng, accuracy: verdict.accuracy };
   }
   return { lat: null, lng: null, accuracy: null };
+}
+
+async function dropTrackPoint(input: {
+  crewId: string;
+  jobId: string | null;
+  lat: number;
+  lng: number;
+  accuracy: number | null;
+}) {
+  const [ping] = await db
+    .insert(crewTrackPointsTable)
+    .values({
+      crewId: input.crewId,
+      jobId: input.jobId,
+      lat: input.lat,
+      lng: input.lng,
+      accuracy: input.accuracy,
+    })
+    .returning({ id: crewTrackPointsTable.id });
+  if (ping) {
+    void recordFieldProvenance({
+      eventId: ping.id,
+      kind: "location",
+      crewId: input.crewId,
+      haloJobId: input.jobId,
+      lat: input.lat,
+      lng: input.lng,
+    });
+  }
+}
+
+async function loadPaycardPhotos(crewId: string, jobId: string | null, takenOn: string) {
+  const rows = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.crewId, crewId))
+    .orderBy(desc(crewPhotosTable.createdAt))
+    .limit(40);
+  const relevant = rows.filter((r) => (jobId ? r.jobId === jobId : r.takenOn === takenOn) || r.takenOn === takenOn);
+  const before = relevant.filter((r) => r.phase === "before");
+  const after = relevant.filter((r) => r.phase === "after");
+  return {
+    before: before.length,
+    after: after.length,
+    items: relevant.slice(0, 12).map((r) => ({
+      id: r.id,
+      phase: r.phase,
+      url: `/api/storage${r.storagePath}`,
+      takenOn: r.takenOn,
+    })),
+  };
+}
+
+async function ensurePaycardUrl(crew: { id: string; name: string }, origin: string): Promise<string> {
+  const now = new Date();
+  const links = await db
+    .select()
+    .from(crewCheckinLinksTable)
+    .where(
+      and(
+        eq(crewCheckinLinksTable.crewId, crew.id),
+        isNull(crewCheckinLinksTable.revokedAt),
+        gte(crewCheckinLinksTable.expiresAt, now),
+      ),
+    )
+    .orderBy(desc(crewCheckinLinksTable.createdAt));
+  for (const row of links) {
+    const url = decodePaycardUrl(row.label);
+    if (url) return url;
+  }
+  const minted = mintCrewToken();
+  const url = `${origin}/checkin/${minted.token}`;
+  await db.insert(crewCheckinLinksTable).values({
+    token: `h:${minted.tokenHash}`,
+    tokenHash: minted.tokenHash,
+    tokenPrefix: minted.tokenPrefix,
+    crewId: crew.id,
+    expiresAt: new Date(Date.now() + 365 * 86_400_000),
+    label: encodePaycardLabel(url),
+  });
+  return url;
 }
 
 // ─── Office: generate a link ──────────────────────────────────────────────────
@@ -405,6 +495,42 @@ router.get("/crew-checkin-links", async (_req, res): Promise<void> => {
   }
 });
 
+/**
+ * Office: one printable paycard URL per active crew member.
+ * Reuses an existing HALO paycard link so printed QR codes stay live.
+ */
+router.post("/crew-checkin-links/paycards", async (req, res): Promise<void> => {
+  try {
+    const origin = publicAppOrigin(req);
+    const crews = await db
+      .select({
+        id: crewsTable.id,
+        name: crewsTable.name,
+        trade: crewsTable.trade,
+        selfiePath: crewsTable.selfiePath,
+        active: crewsTable.active,
+      })
+      .from(crewsTable)
+      .orderBy(crewsTable.name);
+    const cards = [];
+    for (const crew of crews) {
+      if (crew.active === false) continue;
+      const url = await ensurePaycardUrl(crew, origin);
+      cards.push({
+        crewId: crew.id,
+        name: crew.name,
+        trade: crew.trade ?? null,
+        selfiePath: crew.selfiePath ?? null,
+        url,
+      });
+    }
+    res.json({ cards });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin-links: paycards failed");
+    res.status(500).json({ error: "Failed to load paycards" });
+  }
+});
+
 router.delete("/crew-checkin-links/:token", async (req, res): Promise<void> => {
   try {
     const raw = tokenParam(req.params.token);
@@ -482,6 +608,12 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
 
     await audit(row.id, "accessed", req);
 
+    const photos = await loadPaycardPhotos(
+      crew.id,
+      map.status === "in" ? (session.openCheckin?.jobId ?? null) : null,
+      localIsoDate(now),
+    );
+
     res.json({
       crew: { id: crew.id, name: crew.name },
       todayAssignment: assignment
@@ -490,11 +622,17 @@ router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void
             unitLabel: assignment.unitLabel,
             jobDescription: assignment.jobDescription,
             units: assignment.units,
+            jobIds: assignment.jobIds,
           }
         : null,
       currentStatus: map.status,
       lastCheckin: map.checkedInAt,
       session: map,
+      photos,
+      pay: {
+        mustCompleteToGetPaid: true,
+        steps: ["unit", "checkin", "before", "after", "checkout"],
+      },
       backgroundGpsSupported: false,
     });
   } catch (err) {
@@ -525,12 +663,28 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
 
     const now = new Date();
     const gps = evaluateGps(gpsBody(req.body), now);
-    if (!gpsAllowsCheckin(gps)) {
-      const code = gps.status === "stale" ? "gps_stale" : "gps_invalid";
+    if (!gpsPlacesMapPin(gps)) {
+      const code =
+        gps.status === "stale" ? "gps_stale" : gps.status === "unavailable" ? "gps_required" : "gps_invalid";
       await audit(row.id, "denied", req, { code });
       res.status(400).json({
-        error: gps.status === "stale" ? "Location is too old. Try again." : "Location looks invalid.",
+        error:
+          gps.status === "stale"
+            ? "Location is too old. Try again."
+            : gps.status === "unavailable"
+              ? "Turn on location so we can put you on the map — required to get paid."
+              : "Location looks invalid.",
         code,
+      });
+      return;
+    }
+
+    const unit = paycardUnitLabel((req.body as { unitNo?: unknown; unitLabel?: unknown }).unitNo
+      ?? (req.body as { unitLabel?: unknown }).unitLabel);
+    if (!unit) {
+      res.status(400).json({
+        error: "Log the unit you are on before you check in — required to get paid.",
+        code: "unit_required",
       });
       return;
     }
@@ -553,8 +707,10 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     }
 
     const dispatch = await loadDispatch(crew.id, now);
-    const primaryJobId = dispatch[0]?.id ?? session.openCheckin?.jobId ?? null;
+    const matched = matchDispatchJob(dispatch, unit);
+    const primaryJobId = matched?.id ?? session.openCheckin?.jobId ?? null;
     const coords = gpsColumns(gps);
+    const unitLabel = `Unit ${unit}`;
     if ((decision as { action?: string }).action === "create") {
       const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
@@ -563,7 +719,7 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
         lat: coords.lat,
         lng: coords.lng,
         accuracy: coords.accuracy,
-        label: "Check-in via link",
+        label: unitLabel,
       }).returning({ id: crewCheckinsTable.id });
       if (punch) {
         void recordFieldProvenance({
@@ -573,15 +729,26 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
           haloJobId: primaryJobId,
           lat: coords.lat,
           lng: coords.lng,
-          propertyName: dispatch[0]?.propertyName ?? null,
+          propertyName: matched?.propertyName ?? dispatch[0]?.propertyName ?? null,
+        });
+      }
+      if (coords.lat != null && coords.lng != null) {
+        await dropTrackPoint({
+          crewId: crew.id,
+          jobId: primaryJobId,
+          lat: coords.lat,
+          lng: coords.lng,
+          accuracy: coords.accuracy,
         });
       }
     }
 
-    await audit(row.id, "checkin", req, { replay: (decision as { action?: string }).action === "replay", gps: gps.status });
+    await audit(row.id, "checkin", req, { replay: (decision as { action?: string }).action === "replay", gps: gps.status, unit });
     res.json({
       ok: true,
       checkedIn: true,
+      pin: true,
+      unit,
       replayed: (decision as { action?: string }).action === "replay",
       reason: (decision as { reason?: string }).reason,
       gps: gps.status,
@@ -661,6 +828,21 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
             ? "This link is not for that crew."
             : "This crew is not active.";
       res.status(decision.status).json({ error: message, code: decision.code });
+      return;
+    }
+
+    const photos = await loadPaycardPhotos(
+      crew.id,
+      session.openCheckin?.jobId ?? null,
+      localIsoDate(now),
+    );
+    if (!checkoutPhotosReady(photos.before, photos.after)) {
+      res.status(409).json({
+        error: "Add before and after photos to get paid.",
+        code: "photos_required",
+        before: photos.before,
+        after: photos.after,
+      });
       return;
     }
 
@@ -759,6 +941,98 @@ router.post("/checkin/:token/location", limits.trackPoint, async (req, res): Pro
   } catch (err) {
     logger.error({ err }, "crew-checkin: location failed");
     res.status(500).json({ error: "Failed to record location" });
+  }
+});
+
+router.post("/checkin/:token/photos", limits.checkinWrite, async (req, res): Promise<void> => {
+  try {
+    const resolved = await resolveLink(tokenParam(req.params.token));
+    if ("err" in resolved) {
+      sendLinkError(res, resolved.err);
+      return;
+    }
+    const { row } = resolved;
+    await touchAccess(row.id);
+
+    const [crew] = await db
+      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.crewId))
+      .limit(1);
+    if (!crew || crew.active === false) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const storagePath = typeof body.storagePath === "string" ? body.storagePath.trim() : "";
+    const phase = body.phase === "after" ? "after" : body.phase === "before" ? "before" : null;
+    if (!storagePath || !storagePath.startsWith("/")) {
+      res.status(400).json({ error: "A photo file is required.", code: "photo_required" });
+      return;
+    }
+    if (!phase) {
+      res.status(400).json({ error: "Mark the photo before or after.", code: "phase_required" });
+      return;
+    }
+
+    const now = new Date();
+    const { session } = await loadSession(crew.id);
+    const dispatch = await loadDispatch(crew.id, now);
+    const jobId =
+      (typeof body.jobId === "string" && body.jobId) ||
+      session.openCheckin?.jobId ||
+      dispatch[0]?.id ||
+      null;
+    const takenOn =
+      typeof body.takenOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.takenOn)
+        ? body.takenOn
+        : localIsoDate(now);
+
+    let sha256: string | null = null;
+    let sizeBytes: number | null = null;
+    try {
+      const storage = new ObjectStorageService();
+      const file = await storage.getObjectEntityFile(storagePath);
+      const [buf] = await file.download();
+      sha256 = createHash("sha256").update(buf).digest("hex");
+      sizeBytes = buf.length;
+    } catch (err) {
+      logger.warn({ err }, "Could not fingerprint paycard photo");
+    }
+
+    const gps = evaluateGps(gpsBody(body), now);
+    const coords = gpsColumns(gps);
+    const [photo] = await db
+      .insert(crewPhotosTable)
+      .values({
+        crewId: crew.id,
+        jobId,
+        storagePath,
+        takenOn,
+        note: typeof body.note === "string" ? body.note : null,
+        phase,
+        sha256,
+        sizeBytes,
+        lat: coords.lat,
+        lng: coords.lng,
+        accuracy: coords.accuracy,
+        capturedAt: now,
+      })
+      .returning();
+
+    await audit(row.id, "photo", req, { phase, jobId });
+    const photos = await loadPaycardPhotos(crew.id, jobId, takenOn);
+    res.status(201).json({
+      ok: true,
+      photo: photo
+        ? { id: photo.id, phase: photo.phase, url: `/api/storage${photo.storagePath}` }
+        : null,
+      photos,
+    });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin: photo failed");
+    res.status(500).json({ error: "Failed to save photo" });
   }
 });
 

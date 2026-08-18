@@ -20,6 +20,25 @@ export type { PortfolioPulseProps } from './components/pulse/PortfolioPulse';
 export { ClientTokenPulse } from './components/pulse/ClientTokenPulse';
 export type { ClientTokenPulseProps } from './components/pulse/ClientTokenPulse';
 export { ClientBoardViewPicker, CAF_REGIONAL_TOKEN, CAF_PALOMA_TOKEN } from './components/pulse/ClientBoardViewPicker';
+export { HaloLevelBar } from './components/pulse/HaloLevelBar';
+export { PulseWatchRings, HaloProofPair } from './components/pulse/PulseWatchRings';
+export { HaloVacancyChip } from './components/pulse/HaloVacancyChip';
+export { HaloReportsCard, HaloVendorsCard, HaloWaitingCard } from './components/pulse/haloDeskCards';
+export { HaloPosCard } from './components/pulse/HaloPosCard';
+export { HaloCrewPaycards } from './components/pulse/HaloCrewPaycard';
+export { HaloCrewPaycardPage } from './components/pulse/HaloCrewPaycardPage';
+export { HALO_STORY, HALO_STORY_ORDER, haloStoryTitle, haloStoryHref } from './components/pulse/haloLevels';
+export type { HaloStoryLevel, HaloStoryDesk } from './components/pulse/haloLevels';
+export {
+  haloDeskPanels,
+  haloMapCrews,
+  propertyMapPoint,
+  downloadVacancyCsv,
+  vendorDeskRows,
+  meanPoWaitDays,
+  meanPoProvideDays,
+  callbackRate,
+} from './components/pulse/haloDeskIntel';
 export type { ClientBoardViewPickerProps } from './components/pulse/ClientBoardViewPicker';
 export { useClientBoardSession } from './hooks/useClientBoardSession';
 export { formatUsdCents, signedUsdCents } from './components/pulse/formatUsdCents';

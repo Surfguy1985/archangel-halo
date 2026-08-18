@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { emitFalkonEvent } from "../lib/falkonEmit";
+import { stampJobClientPo } from "../lib/clientPoStamp";
 import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
@@ -690,6 +691,35 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     emitBoardEvent(fresh.propertyId);
   const { propName, crewName } = await lookups();
   res.json(UpdateJobResponse.parse(decorateJob(fresh, propName, crewName)));
+});
+
+router.post("/jobs/:id/client-po", async (req, res): Promise<void> => {
+  const id = typeof req.params.id === "string" ? req.params.id : "";
+  if (!id) {
+    res.status(400).json({ error: "Job required" });
+    return;
+  }
+  const body = (req.body ?? {}) as { poNumber?: unknown };
+  const result = await stampJobClientPo({
+    jobId: id,
+    poNumber: body.poNumber,
+    source: "pulse desk",
+  });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error, code: result.code });
+    return;
+  }
+  res.json({
+    ok: true,
+    already: result.already,
+    poNumber: result.poNumber,
+    jobId: result.jobId,
+    jobNo: result.jobNo,
+    unitNo: result.unitNo,
+    propertyName: result.propertyName,
+    notify: result.notify,
+    base44: result.base44,
+  });
 });
 
 router.delete("/jobs/:id", async (req, res): Promise<void> => {

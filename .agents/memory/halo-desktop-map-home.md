@@ -3,10 +3,11 @@ name: HALO desktop map-first home
 description: Desktop root is the live map with the chat as a floating module; the full-screen chat still exists at its own route.
 ---
 
-Desktop `/` renders the Property Pulse map HUD. The HALO chat is no longer a full-screen
-page there — it runs inside a small floating window over the map, and the same chat page
-component serves both shapes through a `compact` prop (compact = thread + composer only,
-no hero, no own header, no `100dvh`).
+Desktop `/` is the **Property Portfolio** desk (corporate) — the same PropertyPulse map HUD
+as `/pulse` (PM) and `/punchlist` (Archangel Contractors). The HALO chat is no longer a
+full-screen page there — it runs inside a small floating window over the map (Ask HALO
+pill, 2×, bottom-right), and the same chat page component serves both shapes through a
+`compact` prop (compact = thread + composer only, no hero, no own header, no `100dvh`).
 
 **Why:** the owner wants the map to be the operating picture and the chat to be an
 assistant he can move or dismiss, not a wall that hides the map.

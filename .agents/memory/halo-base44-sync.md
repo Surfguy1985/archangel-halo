@@ -7,6 +7,7 @@ description: One-way pull from the Base44 legacy system into HALO tables. Runs e
 
 ## Endpoint
 - URL: `https://wakeful-ready-track-flow.base44.app/functions/haloRead` (overridable via `BASE44_READ_URL`).
+- Write-back for Pulse POs: `https://wakeful-ready-track-flow.base44.app/functions/haloWrite` (`BASE44_WRITE_URL`, token `HALO_WRITE_TOKEN` or `HALO_READ_TOKEN`). Body `{ action: "set_po", po_number, unit_id, crew_job_ids, job_no, unit_number, property }`. HALO stamps the job even if Work is down. Inbound unit sync never overwrites a HALO PO with empty.
   Earlier notes recorded an `/api/apps/<app>/functions/haloRead` path — that is **not** what the client uses.
 - Auth header: `x-halo-token: <HALO_READ_TOKEN secret>`
 - Payload shape is `{ generated_at, data: { <resource>: [...] } }` — **resources are nested under `data`**, not top level.

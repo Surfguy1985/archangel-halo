@@ -1,10 +1,11 @@
 /**
  * Crew check-in / check-out policy (pure, no I/O).
  *
- * Crew responsibility is two taps: CHECK IN and CHECK OUT.
- * HALO already knows dispatch. Do not ask crews to re-enter it.
- * GPS is session-justified only. Background tracking after the browser
- * suspends is not claimed.
+ * Paycard flow (printed QR): log the unit → check in with GPS (green pin) →
+ * before photo → after photo → check out. Completing the card is how they
+ * get paid. Dispatch still pre-fills the unit; they confirm it.
+ * GPS is required to place the map pin. Background tracking after the
+ * browser suspends is not claimed.
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -161,6 +162,44 @@ export function evaluateGps(fix: GpsFix | null | undefined, now: Date): GpsVerdi
 
 export function gpsAllowsCheckin(verdict: GpsVerdict): boolean {
   return verdict.status === "ok" || verdict.status === "low_accuracy" || verdict.status === "unavailable";
+}
+
+/** Paycard check-in must drop a live pin — a missing fix cannot be paid. */
+export function gpsPlacesMapPin(verdict: GpsVerdict): boolean {
+  return verdict.status === "ok" || verdict.status === "low_accuracy";
+}
+
+export const PAYCARD_LABEL_PREFIX = "HALO paycard";
+
+export function encodePaycardLabel(url: string): string {
+  return `${PAYCARD_LABEL_PREFIX} | ${url}`;
+}
+
+export function decodePaycardUrl(label: string | null | undefined): string | null {
+  if (!label) return null;
+  const idx = label.indexOf("|");
+  if (idx < 0) return null;
+  if (!label.slice(0, idx).trim().startsWith(PAYCARD_LABEL_PREFIX)) return null;
+  const url = label.slice(idx + 1).trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
+export function paycardUnitLabel(unitRaw: unknown): string | null {
+  if (typeof unitRaw !== "string") return null;
+  const u = unitRaw.trim().replace(/^unit\s+/i, "").trim();
+  if (!u || u.length > 32) return null;
+  return u;
+}
+
+export function matchDispatchJob(jobs: DispatchJob[], unit: string | null): DispatchJob | null {
+  if (jobs.length === 0) return null;
+  if (!unit) return jobs[0] ?? null;
+  const want = unit.trim().toLowerCase();
+  return jobs.find((j) => (j.unitNo ?? "").trim().toLowerCase() === want) ?? jobs[0] ?? null;
+}
+
+export function checkoutPhotosReady(before: number, after: number): boolean {
+  return before > 0 && after > 0;
 }
 
 export function sessionFromEvents(events: PunchEvent[], _now?: Date): SessionState {

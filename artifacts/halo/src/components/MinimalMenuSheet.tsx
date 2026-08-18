@@ -14,6 +14,8 @@ import {
   X,
   LayoutGrid,
   Briefcase,
+  Building,
+  Hammer,
   PanelsTopLeft,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -143,6 +145,19 @@ export function MinimalMenuSheet({
               </button>
             )}
 
+            <Link href="/property-portfolio" onClick={close}>
+              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
+                <div className="w-8 h-8 rounded-full bg-[#0F1B2D] border border-[#B4FF44]/40 grid place-items-center shrink-0">
+                  <Building className="w-4 h-4 text-[#B4FF44]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-medium text-white/80">Property Portfolio</div>
+                  <div className="text-[11.5px] text-white/35">Corporate · one map, every community</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+              </div>
+            </Link>
+
             <Link href="/pulse" onClick={close}>
               <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
                 <div className="w-8 h-8 rounded-full bg-[#B4FF44] grid place-items-center shrink-0">
@@ -150,7 +165,20 @@ export function MinimalMenuSheet({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13.5px] font-medium text-white/80">Property Pulse</div>
-                  <div className="text-[11.5px] text-white/35">Live map, sites, and crew pings</div>
+                  <div className="text-[11.5px] text-white/35">Property manager · what needs your name</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+              </div>
+            </Link>
+
+            <Link href="/punchlist" onClick={close}>
+              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-b from-[#E8D48A] to-[#C9A227] grid place-items-center shrink-0">
+                  <Hammer className="w-4 h-4 text-[#07101E]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-medium text-white/80">Property Punchlist</div>
+                  <div className="text-[11.5px] text-white/35">Archangel Contractors · the work still open</div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
               </div>

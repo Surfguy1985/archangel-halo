@@ -2,19 +2,25 @@ import { describe, expect, it } from "vitest";
 import {
   BACKGROUND_GPS_SUPPORTED,
   CHECKIN_COOLDOWN_MS,
+  checkoutPhotosReady,
   classifyCrewTokenShape,
   crewLinkHttpStatus,
   crewPortalExposed,
   decideCheckin,
   decideCheckout,
   decideLocationPing,
+  decodePaycardUrl,
+  encodePaycardLabel,
   evaluateCrewLink,
   evaluateGps,
   formatTodayAssignment,
   gpsAllowsCheckin,
+  gpsPlacesMapPin,
   hashCrewToken,
   mapSessionView,
+  matchDispatchJob,
   mintCrewToken,
+  paycardUnitLabel,
   sessionFromEvents,
   todaysDispatch,
   type CrewLinkRecord,
@@ -191,6 +197,29 @@ describe("GPS unavailable / low accuracy / stale", () => {
 
   it("rejects invalid coordinates", () => {
     expect(evaluateGps({ lat: 999, lng: 0 }, now).status).toBe("invalid");
+  });
+
+  it("only places a map pin when a real fix exists", () => {
+    expect(gpsPlacesMapPin(evaluateGps({ lat: null, lng: null }, now))).toBe(false);
+    expect(gpsPlacesMapPin(evaluateGps({ lat: 30.27, lng: -97.74, accuracy: 12 }, now))).toBe(true);
+    expect(gpsPlacesMapPin(evaluateGps({ lat: 30.27, lng: -97.74, accuracy: 500 }, now))).toBe(true);
+  });
+});
+
+describe("paycard unit + print URL", () => {
+  it("round-trips the printable paycard URL in the link label", () => {
+    const url = "https://halo.app/checkin/crew_abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234";
+    expect(decodePaycardUrl(encodePaycardLabel(url))).toBe(url);
+    expect(decodePaycardUrl("Marcus — check-in link")).toBeNull();
+  });
+
+  it("lets the crew log the unit and still matches dispatch", () => {
+    expect(paycardUnitLabel("  Unit 214 ")).toBe("214");
+    expect(paycardUnitLabel("")).toBeNull();
+    const jobs = [job({ unitNo: "214" }), job({ id: "job-2", unitNo: "108" })];
+    expect(matchDispatchJob(jobs, "214")?.id).toBe("job-1");
+    expect(checkoutPhotosReady(1, 1)).toBe(true);
+    expect(checkoutPhotosReady(1, 0)).toBe(false);
   });
 });
 

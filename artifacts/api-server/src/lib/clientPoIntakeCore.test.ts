@@ -4,6 +4,7 @@ import {
   extractUnitLabel,
   isLiveJob,
   matchProperties,
+  normalizePoNumber,
   resolveClientPo,
   type PoJobCandidate,
   type PoPropertyCandidate,
@@ -35,6 +36,15 @@ describe("extractPoNumber", () => {
   });
   it("returns null when there is no PO cue", () => {
     expect(extractPoNumber("send the invoice for unit 204")).toBeNull();
+  });
+});
+
+describe("normalizePoNumber", () => {
+  it("accepts the property-typed number and rejects junk", () => {
+    expect(normalizePoNumber("  #po-12ab ")).toBe("PO-12AB");
+    expect(normalizePoNumber("  #12AB ")).toBe("12AB");
+    expect(normalizePoNumber("")).toBeNull();
+    expect(normalizePoNumber("not a po!!!")).toBeNull();
   });
 });
 

@@ -37,6 +37,15 @@ export function isLiveJob(job: { status: string }): boolean {
   return !CLOSED_STATUS_SET.has((job.status ?? "").toLowerCase());
 }
 
+/** Pulse + chat share one PO shape: trim, strip #, uppercase, short token. */
+export function normalizePoNumber(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim().replace(/^#+\s*/, "").toUpperCase();
+  if (!t || t.length > 24) return null;
+  if (!/^[A-Z0-9][A-Z0-9-]{0,23}$/.test(t)) return null;
+  return t;
+}
+
 /**
  * Pull the PO number out of operator language.
  * Accepts "PO 12345", "PO# 12345", "PO-12345", "purchase order 12345",

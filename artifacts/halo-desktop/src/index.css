@@ -401,12 +401,12 @@ body {
   font-family: var(--font-sans);
 }
 .pulse-hud-head {
-  height: 58px;
+  height: 72px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 0 16px 0 12px;
   background: #0F1B2D;
   border-bottom: 1px solid rgba(180,255,68,0.12);
@@ -469,6 +469,10 @@ body {
   vertical-align: super;
   margin-left: 3px;
   opacity: 0.55;
+}
+.pulse-hud-head .halo-levels {
+  flex: 1;
+  justify-content: center;
 }
 .pulse-hud-head-right {
   display: flex;
