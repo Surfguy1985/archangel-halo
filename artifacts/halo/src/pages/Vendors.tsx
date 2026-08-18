@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useListVendors, type Vendor } from "@workspace/api-client-react";
-import { Plus, Search, ListOrdered, Home } from "lucide-react";
+import { Plus, Search, ListOrdered, Home, ChevronRight } from "lucide-react";
 import { AddVendorSheet } from "@/components/AddVendorSheet";
 import { PriceListSheet } from "@/components/PriceListSheet";
 
@@ -42,6 +42,7 @@ function Metric({
 export default function Vendors() {
   const { data: vendors, isLoading } = useListVendors();
   const [addOpen, setAddOpen] = useState(false);
+  const [editVendor, setEditVendor] = useState<Vendor | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -132,10 +133,11 @@ export default function Vendors() {
       ) : (
         <div className="flex flex-col gap-[10px]">
           {visible.map((v) => (
-            <div
+            <button
               key={v.id}
               data-testid={`card-vendor-${v.id}`}
-              className={`rounded-[20px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] ${
+              onClick={() => setEditVendor(v)}
+              className={`w-full text-left rounded-[20px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] transition-transform active:scale-[0.98] ${
                 isInHouse(v)
                   ? "bg-[var(--gold-light)]/15 border-[var(--gold-light)]"
                   : "bg-card border-[var(--hairline)]"
@@ -166,19 +168,22 @@ export default function Vendors() {
                       "No details"}
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <span
-                    className={`text-[10.5px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full text-white ${
-                      v.compliant === false ? "bg-[var(--red)]" : "bg-[var(--green)]"
-                    }`}
-                  >
-                    {v.compliant === false ? "COI lapsing" : "Compliant"}
-                  </span>
-                  {v.coiExpiresOn && (
-                    <div className="text-[11px] text-muted-foreground mt-[3px]">
-                      exp {new Date(v.coiExpiresOn).toLocaleDateString()}
-                    </div>
-                  )}
+                <div className="flex items-start gap-[6px] shrink-0">
+                  <div className="text-right">
+                    <span
+                      className={`text-[10.5px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full text-white ${
+                        v.compliant === false ? "bg-[var(--red)]" : "bg-[var(--green)]"
+                      }`}
+                    >
+                      {v.compliant === false ? "COI lapsing" : "Compliant"}
+                    </span>
+                    {v.coiExpiresOn && (
+                      <div className="text-[11px] text-muted-foreground mt-[3px]">
+                        exp {new Date(v.coiExpiresOn).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="w-[15px] h-[15px] text-muted-foreground mt-[3px]" />
                 </div>
               </div>
               <div className="flex gap-[10px] mt-[12px] pt-[10px] border-t border-[var(--hairline)]">
@@ -195,12 +200,17 @@ export default function Vendors() {
                   noun="PO"
                 />
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
 
       <AddVendorSheet open={addOpen} onOpenChange={setAddOpen} />
+      <AddVendorSheet
+        open={!!editVendor}
+        onOpenChange={(o) => { if (!o) setEditVendor(null); }}
+        vendor={editVendor}
+      />
       <PriceListSheet open={priceOpen} onOpenChange={setPriceOpen} />
     </div>
   );
