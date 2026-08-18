@@ -24,6 +24,11 @@ export interface ClientBoardMapCrew {
      * @nullable
      */
   serviceLabel?: string | null;
+  /**
+     * Resolved map pin colour — gold for the contractor's own staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   selfieUrl?: string | null;
   jobId?: string;

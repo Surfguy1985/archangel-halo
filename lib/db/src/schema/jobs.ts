@@ -32,6 +32,10 @@ export const crewsTable = pgTable("crews", {
   // Team structure: members report to a foreman (a crew with isLeader=true).
   // Null = independent (or is themselves a leader). No DB FK — guarded in code.
   leaderId: uuid("leader_id"),
+  // Map pin colour for this crew's team, saved so a foreman keeps the same
+  // colour. Null = derive it (Archangel staff gold, members inherit their
+  // foreman's, foremen get a stable palette slot). See lib/crewPinColor.ts.
+  pinColor: text("pin_color"),
   active: boolean("active").default(true),
   portalToken: text("portal_token"),
   // sha256 of the URL bearer. portal_token holds either legacy plaintext or `h:<hash>`.

@@ -72,6 +72,8 @@ export type HaloMapCrew = {
   /** Today's work in one line, as resolved by the server. */
   service?: string | null;
   unitNo?: string | null;
+  /** Team colour resolved server-side — gold for staff, foreman's for a crew. */
+  pinColor?: string | null;
 };
 
 const DEMO_CREW: Array<{ name: string; trade: string; status: "site" | "route" }> = [
@@ -108,6 +110,7 @@ export function haloMapCrews(args: {
       contractor: c.contractor ?? null,
       service: c.serviceLabel ?? null,
       unitNo: c.unitNo ?? null,
+      pinColor: c.pinColor ?? null,
     });
   }
   const taken = new Set(live.map((c) => c.propertyName.toLowerCase()));

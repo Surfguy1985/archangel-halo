@@ -32,6 +32,11 @@ export interface Crew {
   leaderId?: string | null;
   /** @nullable */
   role?: string | null;
+  /**
+     * Resolved map pin colour — gold for Archangel staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   hireDate?: string | null;
   /** @nullable */

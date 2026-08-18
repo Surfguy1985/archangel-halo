@@ -2,7 +2,11 @@ import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
 import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
 import { completeJsonWithImage } from "../lib/ai";
-import { ensurePortalBearer, publicPortalBearer } from "../lib/portalToken";
+import {
+  ensurePortalBearer,
+  mintAndPersistPortalToken,
+  publicPortalBearer,
+} from "../lib/portalToken";
 import { z } from "zod";
 import {
   db,
@@ -75,10 +79,17 @@ import {
   SaveCrewDayPlanParams,
   SaveCrewDayPlanBody,
   SaveCrewDayPlanResponse,
+  BuildCrewLinkBoardResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
+import {
+  ARCHANGEL_GOLD,
+  buildCrewPinColors,
+  isArchangelStaff,
+  isForeman,
+} from "../lib/crewPinColor";
 import { latestCrewAck } from "../lib/crewLinkAck";
 import { CREW_ACK_TTL_MS } from "../lib/crewInstructions";
 import { jobLabelMap } from "../lib/jobLabels";
@@ -157,6 +168,90 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
             expiresAt: new Date(ack.agreedAt.getTime() + CREW_ACK_TTL_MS).toISOString(),
           }
         : { accepted: false },
+    }),
+  );
+});
+
+/**
+ * The whole roster as scannable cards.
+ *
+ * One card per foreman (their crew listed beneath them, all wearing the
+ * foreman's colour), one per Archangel staff member in gold, one per
+ * independent. Every card carries the crew's permanent portal path, minted
+ * here if the crew never had one, because a printed QR that resolves to
+ * nothing is worse than no QR at all.
+ */
+router.post("/crews/links", async (_req, res): Promise<void> => {
+  const [rows, companyName] = await Promise.all([
+    db.select().from(crewsTable),
+    getBusinessSettings()
+      .then((s) => s.companyName ?? null)
+      .catch(() => null),
+  ]);
+  const active = rows.filter((c) => c.active !== false);
+  const colors = buildCrewPinColors(active);
+
+  // Staff and foremen carry their own card; everyone else who reports to a
+  // foreman is listed inside that foreman's card rather than getting a link.
+  const leaderIds = new Set(active.filter((c) => isForeman(c)).map((c) => c.id));
+  const cardCrews = active.filter(
+    (c) => isArchangelStaff(c.role) || isForeman(c) || !c.leaderId || !leaderIds.has(c.leaderId),
+  );
+  const cardIds = new Set(cardCrews.map((c) => c.id));
+
+  // Never mint over a link that already exists. Tokens are hashed at rest, so
+  // an issued bearer cannot be re-read — opening this board must not rotate it
+  // and silently kill every QR already printed or texted out. Only a crew who
+  // has never had a link gets one here; the rest either show their legacy
+  // plaintext bearer or say "already issued".
+  const tokens = await Promise.all(
+    cardCrews.map(async (c) => {
+      const existing = publicPortalBearer(c.portalToken);
+      if (existing) return { token: existing, issued: true };
+      if (c.portalTokenHash) return { token: null, issued: true };
+      const minted = await mintAndPersistPortalToken(c.id).catch(() => null);
+      return { token: minted, issued: !!minted };
+    }),
+  );
+
+  const membersOf = (leaderId: string) =>
+    active
+      .filter((c) => c.leaderId === leaderId && c.id !== leaderId && !cardIds.has(c.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        role: c.role ?? null,
+        trade: c.trade ?? null,
+        selfiePath: c.selfiePath ?? null,
+      }));
+
+  const teams = cardCrews
+    .map((c, i) => ({
+      id: c.id,
+      name: c.name,
+      kind: isArchangelStaff(c.role) ? "staff" : isForeman(c) ? "team" : "independent",
+      role: c.role ?? null,
+      trade: c.trade ?? null,
+      phone: c.phone ?? null,
+      selfiePath: c.selfiePath ?? null,
+      pinColor: colors.get(c.id) ?? ARCHANGEL_GOLD,
+      portalPath: tokens[i]?.token ? `/portal/${tokens[i]!.token}` : null,
+      // True with no path = the crew has a live link that can't be shown again;
+      // the office must deliberately re-issue it from the crew's page.
+      linkIssued: !!tokens[i]?.issued,
+      members: isForeman(c) ? membersOf(c.id) : [],
+    }))
+    .sort((a, b) => {
+      const rank = (k: string) => (k === "staff" ? 0 : k === "team" ? 1 : 2);
+      return rank(a.kind) - rank(b.kind) || a.name.localeCompare(b.name);
+    });
+
+  res.json(
+    BuildCrewLinkBoardResponse.parse({
+      staffColor: ARCHANGEL_GOLD,
+      companyName,
+      teams,
     }),
   );
 });
@@ -465,6 +560,11 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
     });
     trailByCrew.set(r.crewId, list);
   }
+  // Colour is a property of the person, not of their check-in: Archangel staff
+  // are gold and a foreman's people all wear the foreman's colour, so a busy
+  // map still reads as teams. Resolved across the whole roster because a
+  // member's colour is their leader's.
+  const pinColors = buildCrewPinColors(crews);
   res.json(
     GetCrewMapPinsResponse.parse(
       crews
@@ -496,6 +596,7 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
               jobDescription: job?.description ?? null,
               trade: c.trade ?? null,
             }),
+            pinColor: pinColors.get(c.id) ?? null,
             phone: c.phone ?? null,
             selfiePath: c.selfiePath ?? null,
             todayStatus:

@@ -4585,6 +4585,7 @@ export const CreateCrewResponse = zod.object({
   "isLeader": zod.boolean().nullish(),
   "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
   "role": zod.string().nullish(),
+  "pinColor": zod.string().nullish().describe('Resolved map pin colour — gold for Archangel staff, the foreman\'s colour for their team'),
   "hireDate": zod.string().nullish(),
   "wingsExcluded": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
@@ -4618,6 +4619,7 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "trade": zod.string().nullish(),
   "contractor": zod.string().nullish().describe('Company the crew works for — the business\'s own name for in-house crews, the sub\'s name otherwise'),
   "serviceLabel": zod.string().nullish().describe('One short line naming the work this crew is on today'),
+  "pinColor": zod.string().nullish().describe('Resolved map pin colour — gold for Archangel staff, the foreman\'s colour for their team'),
   "phone": zod.string().nullish(),
   "selfiePath": zod.string().nullish(),
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
@@ -4757,6 +4759,7 @@ export const UpdateCrewResponse = zod.object({
   "isLeader": zod.boolean().nullish(),
   "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
   "role": zod.string().nullish(),
+  "pinColor": zod.string().nullish().describe('Resolved map pin colour — gold for Archangel staff, the foreman\'s colour for their team'),
   "hireDate": zod.string().nullish(),
   "wingsExcluded": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
@@ -6572,6 +6575,35 @@ export const GetCrewDetailResponse = zod.object({
 
 
 /**
+ * Returns the whole roster ready to print or hand around: Archangel staff in gold, each foreman with their team beneath them in the foreman's colour, and independents on their own. Mints a portal token for anyone missing one, so every card on the board has a scannable link that never changes.
+ * @summary Every active crew's permanent link and pin colour, grouped by team
+ */
+export const BuildCrewLinkBoardResponse = zod.object({
+  "staffColor": zod.string().describe('The gold every Archangel owner and employee wears'),
+  "companyName": zod.string().nullish(),
+  "teams": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.string().describe('staff (Archangel owner\/employee) | team (foreman + crew) | independent'),
+  "role": zod.string().nullish(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "selfiePath": zod.string().nullish(),
+  "pinColor": zod.string().describe('Hex colour this card and every member wears on the map'),
+  "portalPath": zod.string().nullish().describe('Permanent \/portal\/<token> path — the link the QR encodes'),
+  "linkIssued": zod.boolean().nullish().describe('A permanent link exists. True with a null portalPath means it was issued already and cannot be shown again — re-issue it from the crew\'s page'),
+  "members": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "role": zod.string().nullish(),
+  "trade": zod.string().nullish(),
+  "selfiePath": zod.string().nullish()
+}))
+}))
+})
+
+
+/**
  * @summary Generate (or return existing) the crew's live portal token
  */
 export const GenerateCrewPortalLinkParams = zod.object({
@@ -7260,6 +7292,7 @@ export const UpdateCrewAccessResponse = zod.object({
   "isLeader": zod.boolean().nullish(),
   "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
   "role": zod.string().nullish(),
+  "pinColor": zod.string().nullish().describe('Resolved map pin colour — gold for Archangel staff, the foreman\'s colour for their team'),
   "hireDate": zod.string().nullish(),
   "wingsExcluded": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
@@ -13281,6 +13314,7 @@ export const GetClientBoardMapResponse = zod.object({
   "crewTrade": zod.string().nullish(),
   "contractor": zod.string().nullish().describe('Company the crew works for — the business\'s own name for in-house crews, the sub\'s name otherwise'),
   "serviceLabel": zod.string().nullish().describe('One short line naming the work this crew is on today'),
+  "pinColor": zod.string().nullish().describe('Resolved map pin colour — gold for the contractor\'s own staff, the foreman\'s colour for their team'),
   "selfieUrl": zod.string().nullish(),
   "jobId": zod.string().optional(),
   "jobNo": zod.string(),

@@ -29,7 +29,13 @@ interface CrewMarker {
   isCheckedIn: boolean;
   trade?: string | null;
   lastPing?: string | null;
+  /** Team colour from the server (gold = Archangel staff). Null = fall back to status. */
+  pinColor?: string | null;
 }
+
+/** Only a plain hex may reach an inline style — these strings hit the DOM raw. */
+const safeHex = (value: unknown): string | null =>
+  typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim()) ? value.trim() : null;
 
 function LeafletMap({ markers, center, zoom }: {
   markers: CrewMarker[];
@@ -60,7 +66,8 @@ function LeafletMap({ markers, center, zoom }: {
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
       markers.forEach(crew => {
-        const color = crew.isCheckedIn ? "#22C55E" : "#3B82F6";
+        // Team colour owns the pin; the fill still says whether they're in.
+        const color = safeHex(crew.pinColor) ?? (crew.isCheckedIn ? "#22C55E" : "#3B82F6");
         const initials = crew.name.split(" ").map(w => w[0] ?? "").join("").slice(0, 2).toUpperCase();
         const lastPingStr = crew.lastPing ? (() => {
           try {
@@ -130,6 +137,7 @@ export function LiveMapCard({ query: _q }: { query?: string }) {
       isCheckedIn: !!(c.isCheckedIn || c.checkedInAt || c.lastCheckinAt),
       trade: c.trade ?? c.role ?? null,
       lastPing: c.lastPingAt ?? c.lastCheckinAt ?? null,
+      pinColor: c.pinColor ?? null,
     }))
     .filter(m => !isNaN(m.lat) && !isNaN(m.lng));
 

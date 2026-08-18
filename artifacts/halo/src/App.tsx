@@ -43,6 +43,7 @@ import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
 import Properties from "./pages/Properties";
 import Crews from "./pages/Crews";
+import CrewLinks from "./pages/CrewLinks";
 import CrewDetail from "./pages/CrewDetail";
 import Calendar from "./pages/Calendar";
 import Money from "./pages/Money";
@@ -259,6 +260,9 @@ function App() {
             </Route>
             <Route path="/today">
               <GatedOps><Today /></GatedOps>
+            </Route>
+            <Route path="/crew-links">
+              <GatedOps><CrewLinks /></GatedOps>
             </Route>
             <Route path="/crews/:id">
               <GatedPage><CrewDetail /></GatedPage>

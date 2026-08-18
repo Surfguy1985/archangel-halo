@@ -1,6 +1,6 @@
 import { useListCrews, useGenerateCrewPortalLink, useUpdateCrew, getListCrewsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase, HardHat } from "lucide-react";
+import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase, HardHat, QrCode } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { normalizeCrewPortalLink } from "@workspace/board-ui";
@@ -103,13 +103,22 @@ export default function Crews() {
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] leading-none">
             Crews
           </h1>
-          <button
-            onClick={() => setAddOpen(true)}
-            aria-label="Add crew member"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.9]"
-          >
-            <Plus className="w-[20px] h-[20px]" strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-[8px]">
+            <button
+              onClick={() => navigate("/crew-links")}
+              aria-label="Crew links and QR codes"
+              className="w-[38px] h-[38px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] text-[var(--ink)] transition-transform active:scale-[0.9]"
+            >
+              <QrCode className="w-[18px] h-[18px]" strokeWidth={2} />
+            </button>
+            <button
+              onClick={() => setAddOpen(true)}
+              aria-label="Add crew member"
+              className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.9]"
+            >
+              <Plus className="w-[20px] h-[20px]" strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
         <p className="text-[14px] text-muted-foreground ml-[2px]">
           Today's dispatch and vendor directory.

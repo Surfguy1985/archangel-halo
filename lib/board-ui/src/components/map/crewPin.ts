@@ -32,6 +32,12 @@ export type CrewPin = {
   service?: string | null;
   unitNo?: string | null;
   propertyName?: string | null;
+  /**
+   * Team colour: gold for the contractor's own staff, the foreman's colour for
+   * everyone on that foreman's crew. Resolved server-side so every map agrees.
+   * Falls back to the status colour when the payload predates the rule.
+   */
+  color?: string | null;
   /** Absolute URL (e.g. /api/storage/...), already resolved by the caller. */
   selfieUrl?: string | null;
   lastCheckinKind?: string | null;
@@ -45,6 +51,19 @@ export type CrewPin = {
 const ON_SITE = "#22c55e";
 const EN_ROUTE = "#E4C25A";
 const SELECTED_RING = "#B4FF44";
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * The dot is the person's team colour; the small badge keeps the check-in
+ * status the dot used to carry. Anything that isn't a plain hex is ignored —
+ * this value is interpolated into an inline style.
+ */
+function pinFill(pin: CrewPin): string {
+  const color = pin.color?.trim();
+  if (color && HEX.test(color)) return color;
+  return pin.status === "site" ? ON_SITE : EN_ROUTE;
+}
 
 export function escapeCrewPinHtml(s: string): string {
   return s
@@ -98,7 +117,7 @@ export function crewPinPlaceLine(pin: CrewPin): string {
  * unit numbers are user input, and this string goes straight into the DOM.
  */
 export function crewPinIcon(pin: CrewPin, opts?: { selected?: boolean }): DivIcon {
-  const fill = pin.status === "site" ? ON_SITE : EN_ROUTE;
+  const fill = pinFill(pin);
   const ring = pin.mock
     ? "3px dashed rgba(255,255,255,0.7)"
     : `3px solid ${opts?.selected ? SELECTED_RING : "#ffffff"}`;
@@ -108,9 +127,14 @@ export function crewPinIcon(pin: CrewPin, opts?: { selected?: boolean }): DivIco
   const chip = pin.unitNo
     ? `${crewPinShortName(pin.name)} · ${pin.unitNo}`
     : crewPinShortName(pin.name);
+  // Status moved off the dot when the dot became the team colour — it lives on
+  // as this badge, so "who" and "checked in?" are both answerable at a glance.
+  const badge = pin.mock
+    ? ""
+    : `<i class="halo-crewpin-live" style="background:${pin.status === "site" ? ON_SITE : EN_ROUTE}"></i>`;
   const html = `
     <div class="halo-crewpin${opts?.selected ? " is-selected" : ""}">
-      <div class="halo-crewpin-dot" style="background:${fill};border:${ring}">${face}</div>
+      <div class="halo-crewpin-dot" style="background:${fill};border:${ring}">${face}${badge}</div>
       <div class="halo-crewpin-chip">${escapeCrewPinHtml(chip)}</div>
     </div>`;
   return divIcon({
@@ -135,6 +159,7 @@ export function crewPinFromMapPin(p: CrewMapPin): CrewPin | null {
     lng: p.lng as number,
     status: p.lastCheckinKind === "checkout" || p.todayStatus === "route" ? "route" : "site",
     contractor: p.contractor ?? null,
+    color: p.pinColor ?? null,
     service: p.serviceLabel ?? p.trade ?? null,
     unitNo: p.unitNo ?? null,
     propertyName: p.todayProperty ?? null,
@@ -154,6 +179,7 @@ export function crewPinFromClientCrew(c: ClientBoardMapCrew): CrewPin | null {
     lng: c.lng as number,
     status: c.onSite ? "site" : "route",
     contractor: c.contractor ?? null,
+    color: c.pinColor ?? null,
     service: c.serviceLabel ?? c.crewTrade ?? null,
     unitNo: c.unitNo ?? null,
     propertyName: null,
@@ -172,6 +198,7 @@ export function crewPinFromHaloMapCrew(c: HaloMapCrew): CrewPin {
     lng: c.lng,
     status: c.status,
     contractor: c.contractor ?? null,
+    color: c.pinColor ?? null,
     service: c.service ?? c.trade ?? null,
     unitNo: c.unitNo ?? null,
     propertyName: c.propertyName,

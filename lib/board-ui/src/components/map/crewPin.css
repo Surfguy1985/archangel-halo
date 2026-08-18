@@ -33,6 +33,20 @@
     0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
+/* Check-in status badge. The dot itself carries the team colour now, so this
+   is what still answers "are they on site?" — it sits over the avatar, so it
+   needs its own stacking context inside the (overflow:hidden) dot. */
+.halo-crewpin-live {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
 .halo-crewpin-dot img {
   width: 100%;
   height: 100%;

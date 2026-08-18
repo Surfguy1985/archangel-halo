@@ -3395,6 +3395,11 @@ export interface Crew {
   leaderId?: string | null;
   /** @nullable */
   role?: string | null;
+  /**
+     * Resolved map pin colour — gold for Archangel staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   hireDate?: string | null;
   /** @nullable */
@@ -3455,6 +3460,53 @@ export interface CrewToday {
   pendingPackets?: number;
 }
 
+export interface CrewLinkMember {
+  id: string;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+}
+
+export interface CrewLinkTeam {
+  id: string;
+  name: string;
+  /** staff (Archangel owner/employee) | team (foreman + crew) | independent */
+  kind: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /** Hex colour this card and every member wears on the map */
+  pinColor: string;
+  /**
+     * Permanent /portal/<token> path — the link the QR encodes
+     * @nullable
+     */
+  portalPath?: string | null;
+  /**
+     * A permanent link exists. True with a null portalPath means it was issued already and cannot be shown again — re-issue it from the crew's page
+     * @nullable
+     */
+  linkIssued?: boolean | null;
+  members: CrewLinkMember[];
+}
+
+export interface CrewLinkBoard {
+  /** The gold every Archangel owner and employee wears */
+  staffColor: string;
+  /** @nullable */
+  companyName?: string | null;
+  teams: CrewLinkTeam[];
+}
+
 export type CrewMapPinPhotosItem = {
   id: string;
   url: string;
@@ -3491,6 +3543,11 @@ export interface CrewMapPin {
      * @nullable
      */
   serviceLabel?: string | null;
+  /**
+     * Resolved map pin colour — gold for Archangel staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -7777,6 +7834,11 @@ export interface ClientBoardMapCrew {
      * @nullable
      */
   serviceLabel?: string | null;
+  /**
+     * Resolved map pin colour — gold for the contractor's own staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   selfieUrl?: string | null;
   jobId?: string;

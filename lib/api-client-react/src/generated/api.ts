@@ -169,6 +169,7 @@ import type {
   CrewInvoiceInput,
   CrewInvoiceQueueItem,
   CrewInvoiceReviewInput,
+  CrewLinkBoard,
   CrewMapPin,
   CrewMessage,
   CrewPacket,
@@ -14746,6 +14747,78 @@ export function useGetCrewDetail<TData = Awaited<ReturnType<typeof getCrewDetail
 
 
 
+
+export const getBuildCrewLinkBoardUrl = () => {
+
+
+
+
+  return `/api/crews/links`
+}
+
+/**
+ * Returns the whole roster ready to print or hand around: Archangel staff in gold, each foreman with their team beneath them in the foreman's colour, and independents on their own. Mints a portal token for anyone missing one, so every card on the board has a scannable link that never changes.
+ * @summary Every active crew's permanent link and pin colour, grouped by team
+ */
+export const buildCrewLinkBoard = async ( options?: RequestInit): Promise<CrewLinkBoard> => {
+
+  return customFetch<CrewLinkBoard>(getBuildCrewLinkBoardUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBuildCrewLinkBoardMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildCrewLinkBoard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buildCrewLinkBoard>>, TError,void, TContext> => {
+
+const mutationKey = ['buildCrewLinkBoard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buildCrewLinkBoard>>, void> = () => {
+
+
+          return  buildCrewLinkBoard(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BuildCrewLinkBoardMutationResult = NonNullable<Awaited<ReturnType<typeof buildCrewLinkBoard>>>
+
+    export type BuildCrewLinkBoardMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Every active crew's permanent link and pin colour, grouped by team
+ */
+export const useBuildCrewLinkBoard = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildCrewLinkBoard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof buildCrewLinkBoard>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getBuildCrewLinkBoardMutationOptions(options));
+    }
 
 export const getGenerateCrewPortalLinkUrl = (id: string,) => {
 

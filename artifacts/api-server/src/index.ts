@@ -15,6 +15,7 @@ import { ensureRemindersSchema } from "./lib/ensureRemindersSchema";
 import { ensureFieldPhotoSchema } from "./lib/ensureFieldPhotoSchema";
 import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 import { ensureCrewCompanySchema } from "./lib/ensureCrewCompanySchema";
+import { ensureCrewPinColorSchema } from "./lib/ensureCrewPinColorSchema";
 import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
@@ -45,8 +46,12 @@ if (Number.isNaN(port) || port <= 0) {
 // vendor_rates must exist before traffic is served: rate routes query it directly
 // and there is no per-request readiness guard. Chain it with the vendor schema
 // bootstrap so both complete (or fail loudly) before app.listen() is called.
+// crews.pin_color joins them: drizzle selects it on every `select * from crews`
+// (crew list, map pins, portal auth), so serving before the column exists turns
+// every crew read into a 500.
 ensureVendorContractSchema()
   .then(() => ensureVendorRatesSchema())
+  .then(() => ensureCrewPinColorSchema())
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);

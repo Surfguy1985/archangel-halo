@@ -24,3 +24,13 @@ any base-pathed artifact (e.g. the desktop app at `/desktop/`).
   (`/api/storage…`, PDFs, downloads) must be absolute `/api/...`.
 - Any new public token surface must also be added to the office-auth public
   prefixes or it 401s.
+
+# Never mint a portal token from a read/list surface
+
+Portal bearers are hashed at rest, so an already-issued link cannot be read
+back. A roster or list endpoint that "ensures" a link for every crew therefore
+mints a fresh token and overwrites the old one, silently killing every QR code
+already printed or texted. A list may mint **only** for a crew that has neither
+a legacy plaintext bearer nor a stored hash; for the rest it reports that a link
+exists and leaves re-issuing to the deliberate per-crew action.
+

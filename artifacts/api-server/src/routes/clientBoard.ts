@@ -35,6 +35,7 @@ import {
 import { resolveClientBoardLink } from "../lib/clientBoardLink";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
+import { buildCrewPinColors } from "../lib/crewPinColor";
 import {
   ClientBoardLoginBody,
   ClientBoardLoginResponse,
@@ -3004,6 +3005,7 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
       : Promise.resolve([]),
   ]);
   const crewById = new Map(crews.map((c) => [c.id, c]));
+  const crewColors = buildCrewPinColors(crews);
   const jobById = new Map(active.map((j) => [j.id, j]));
 
   // Group photos and line items by jobId for O(1) lookup.
@@ -3115,6 +3117,7 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
           jobDescription: j.description ?? null,
           trade: crew?.trade ?? null,
         }),
+        pinColor: crew ? (crewColors.get(crew.id) ?? null) : null,
         selfieUrl: crew?.selfiePath ? storageUrl(crew.selfiePath) : null,
         jobId: j.id,
         jobNo: j.jobNo,

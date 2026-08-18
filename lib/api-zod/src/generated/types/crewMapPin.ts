@@ -24,6 +24,11 @@ export interface CrewMapPin {
      * @nullable
      */
   serviceLabel?: string | null;
+  /**
+     * Resolved map pin colour — gold for Archangel staff, the foreman's colour for their team
+     * @nullable
+     */
+  pinColor?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */

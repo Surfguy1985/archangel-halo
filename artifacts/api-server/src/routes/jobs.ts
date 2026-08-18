@@ -127,6 +127,7 @@ import { raiseClientCard } from "../lib/clientBoard";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { localToday } from "../lib/localDate";
 import { crewAckStates, NO_ACK } from "../lib/crewLinkAck";
+import { buildCrewPinColors } from "../lib/crewPinColor";
 
 const router: IRouter = Router();
 
@@ -2375,6 +2376,7 @@ router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
 
 router.get("/crews", async (_req, res): Promise<void> => {
   const crews = await db.select().from(crewsTable);
+  const crewColors = buildCrewPinColors(crews);
   const today = new Date().toISOString().slice(0, 10);
   const schedules = await db.select().from(schedulesTable);
   const jobs = await db.select().from(jobsTable);
@@ -2405,6 +2407,9 @@ router.get("/crews", async (_req, res): Promise<void> => {
           ...ser(c),
           access: (c.accessGrants as object | null) ?? null,
           leaderName: leader?.name ?? null,
+          // Gold for Archangel's own people, the foreman's colour for their
+          // crew — resolved here so every list, map and roster agrees.
+          pinColor: crewColors.get(c.id) ?? null,
           todayStatus: todaySched
             ? (todaySched.status === "done" ? "done" : "site")
             : "idle",
