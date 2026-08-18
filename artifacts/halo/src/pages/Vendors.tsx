@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useListVendors, type Vendor } from "@workspace/api-client-react";
-import { Plus, Search, ListOrdered, Home, ChevronRight, Receipt } from "lucide-react";
+import { Plus, Search, ListOrdered, BarChart2, Home, ChevronRight, Receipt } from "lucide-react";
 import { AddVendorSheet } from "@/components/AddVendorSheet";
 import { PriceListSheet } from "@/components/PriceListSheet";
+import { VendorCompareSheet } from "@/components/VendorCompareSheet";
 
 const isInHouse = (v: Vendor) => v.vendorType === "in_house";
 const isContracted = (v: Vendor) => (v.contractStatus ?? "contracted") !== "inactive";
@@ -45,6 +46,7 @@ export default function Vendors() {
   const [editVendor, setEditVendor] = useState<Vendor | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
   const [priceVendor, setPriceVendor] = useState<Vendor | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
@@ -95,6 +97,13 @@ export default function Vendors() {
           <ListOrdered className="w-[16px] h-[16px]" /> Price list
         </button>
       </div>
+      <button
+        onClick={() => setCompareOpen(true)}
+        data-testid="button-compare-vendors"
+        className="w-full flex items-center justify-center gap-[7px] rounded-full py-[11px] mb-[12px] font-display font-semibold text-[13.5px] bg-card border border-[var(--hairline)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
+      >
+        <BarChart2 className="w-[15px] h-[15px] text-[var(--gold)]" /> Compare vendors
+      </button>
 
       <div className="relative mb-[10px]">
         <Search className="absolute left-[14px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-muted-foreground" />
@@ -232,6 +241,7 @@ export default function Vendors() {
         }}
         vendor={priceVendor}
       />
+      <VendorCompareSheet open={compareOpen} onOpenChange={setCompareOpen} />
     </div>
   );
 }

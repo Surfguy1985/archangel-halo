@@ -17,6 +17,8 @@ import {
   crewPaymentsTable,
   crewCheckinsTable,
   activitiesTable,
+  vendorRatesTable,
+  vendorsTable,
 } from "@workspace/db";
 import {
   ListPropertiesResponse,
@@ -64,6 +66,8 @@ import {
   SavePriceSheetItemsResponse,
   WritePropertyBriefParams,
   WritePropertyBriefResponse,
+  ListCatalogItemVendorRatesParams,
+  ListCatalogItemVendorRatesResponse,
 } from "@workspace/api-zod";
 import { ser, serList } from "../lib/serialize";
 import { completeText, completeJson, completeJsonWithImage } from "../lib/ai";
@@ -722,6 +726,58 @@ router.delete("/catalog-items/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(DeleteCatalogItemResponse.parse({ ok: true }));
+});
+
+/**
+ * GET /catalog-items/:id/vendor-rates
+ *
+ * Returns every vendor that has a rate for this catalog service, sorted by
+ * rate ascending so the cheapest option is always first. The master price is
+ * included as a reference column so the office can see how each vendor
+ * compares to the company's own rate book.
+ */
+router.get("/catalog-items/:id/vendor-rates", async (req, res): Promise<void> => {
+  const { id } = ListCatalogItemVendorRatesParams.parse(req.params);
+
+  const [item] = await db
+    .select()
+    .from(catalogItemsTable)
+    .where(eq(catalogItemsTable.id, id));
+  if (!item) {
+    res.status(404).json({ error: "Catalog item not found" });
+    return;
+  }
+
+  const rates = await db
+    .select({
+      vendorId: vendorRatesTable.vendorId,
+      rate: vendorRatesTable.rate,
+    })
+    .from(vendorRatesTable)
+    .where(eq(vendorRatesTable.catalogItemId, id));
+
+  let vendorRows: (typeof vendorsTable.$inferSelect)[] = [];
+  if (rates.length > 0) {
+    vendorRows = await db
+      .select()
+      .from(vendorsTable)
+      .where(inArray(vendorsTable.id, rates.map((r) => r.vendorId)));
+  }
+
+  const vendorNameById = new Map(vendorRows.map((v) => [v.id, v.name]));
+
+  const result = rates
+    .map((r) => ({
+      vendorId: r.vendorId,
+      vendorName: vendorNameById.get(r.vendorId) ?? "Unknown",
+      service: item.service,
+      unit: item.unit ?? null,
+      rate: r.rate,
+      masterRate: item.rate ?? null,
+    }))
+    .sort((a, b) => a.rate - b.rate);
+
+  res.json(ListCatalogItemVendorRatesResponse.parse(result));
 });
 
 router.post(

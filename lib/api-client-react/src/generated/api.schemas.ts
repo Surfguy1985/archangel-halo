@@ -4756,6 +4756,17 @@ export interface VendorRate {
   masterRate?: number | null;
 }
 
+export interface CatalogItemVendorRate {
+  vendorId: string;
+  vendorName: string;
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  masterRate?: number | null;
+}
+
 export interface VendorRateInput {
   rate: number;
 }

@@ -487,6 +487,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/CatalogItem"
 
+  /catalog-items/{id}/vendor-rates:
+    get:
+      operationId: listCatalogItemVendorRates
+      tags: [inventory]
+      summary: All vendor rates for a catalog service, sorted by rate ascending
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vendor rates for this catalog item
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogItemVendorRate"
+
   /catalog-items/{id}:
     patch:
       operationId: updateCatalogItem
@@ -16930,6 +16951,16 @@ components:
         detail: { type: ["string", "null"] }
         unit: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
+        rate: { type: number }
+        masterRate: { type: ["number", "null"] }
+    CatalogItemVendorRate:
+      type: object
+      required: [vendorId, vendorName, service, rate]
+      properties:
+        vendorId: { type: string }
+        vendorName: { type: string }
+        service: { type: string }
+        unit: { type: ["string", "null"] }
         rate: { type: number }
         masterRate: { type: ["number", "null"] }
     VendorRateInput:

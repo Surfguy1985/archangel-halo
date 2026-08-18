@@ -731,6 +731,24 @@ export const CreateCatalogItemResponse = zod.object({
 })
 
 
+/**
+ * @summary All vendor rates for a catalog service, sorted by rate ascending
+ */
+export const ListCatalogItemVendorRatesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCatalogItemVendorRatesResponseItem = zod.object({
+  "vendorId": zod.string(),
+  "vendorName": zod.string(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "masterRate": zod.number().nullish()
+})
+export const ListCatalogItemVendorRatesResponse = zod.array(ListCatalogItemVendorRatesResponseItem)
+
+
 export const UpdateCatalogItemParams = zod.object({
   "id": zod.coerce.string()
 })

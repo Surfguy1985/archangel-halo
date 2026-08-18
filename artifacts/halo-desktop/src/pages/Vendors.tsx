@@ -20,11 +20,13 @@ import {
   Home,
   Timer,
   ListOrdered,
+  BarChart2,
   Receipt,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VendorDialog } from "@/components/VendorDialogs";
 import { PriceListDialog } from "@/components/PriceListDialog";
+import { VendorCompareDialog } from "@/components/VendorCompareDialog";
 import { exportCsv } from "@/lib/exportCsv";
 
 /* ----------------------------------------------------------- date helpers */
@@ -149,6 +151,7 @@ export default function Vendors() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [priceListOpen, setPriceListOpen] = useState(false);
   const [priceListVendor, setPriceListVendor] = useState<Vendor | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
 
   const openPoCount = useMemo(() => {
@@ -381,6 +384,13 @@ export default function Vendors() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCompareOpen(true)}
+            data-testid="button-compare-vendors"
+            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+          >
+            <BarChart2 className="w-4 h-4" /> Compare vendors
+          </button>
           <button
             onClick={() => { setPriceListVendor(null); setPriceListOpen(true); }}
             data-testid="button-price-list"
@@ -654,6 +664,7 @@ export default function Vendors() {
         }}
         vendor={priceListVendor}
       />
+      <VendorCompareDialog open={compareOpen} onOpenChange={setCompareOpen} />
     </div>
   );
 }

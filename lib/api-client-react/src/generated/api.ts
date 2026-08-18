@@ -81,6 +81,7 @@ import type {
   CatalogItem,
   CatalogItemInput,
   CatalogItemUpdate,
+  CatalogItemVendorRate,
   CategorizeBankTransactionParams,
   CheckFileEntry,
   CheckScanInput,
@@ -2132,6 +2133,83 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateCatalogItemMutationOptions(options));
     }
+
+export const getListCatalogItemVendorRatesUrl = (id: string,) => {
+
+
+
+
+  return `/api/catalog-items/${id}/vendor-rates`
+}
+
+/**
+ * @summary All vendor rates for a catalog service, sorted by rate ascending
+ */
+export const listCatalogItemVendorRates = async (id: string, options?: RequestInit): Promise<CatalogItemVendorRate[]> => {
+
+  return customFetch<CatalogItemVendorRate[]>(getListCatalogItemVendorRatesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCatalogItemVendorRatesQueryKey = (id: string,) => {
+    return [
+    `/api/catalog-items/${id}/vendor-rates`
+    ] as const;
+    }
+
+
+export const getListCatalogItemVendorRatesQueryOptions = <TData = Awaited<ReturnType<typeof listCatalogItemVendorRates>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCatalogItemVendorRates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCatalogItemVendorRatesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCatalogItemVendorRates>>> = ({ signal }) => listCatalogItemVendorRates(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCatalogItemVendorRates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCatalogItemVendorRatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCatalogItemVendorRates>>>
+export type ListCatalogItemVendorRatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All vendor rates for a catalog service, sorted by rate ascending
+ */
+
+export function useListCatalogItemVendorRates<TData = Awaited<ReturnType<typeof listCatalogItemVendorRates>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCatalogItemVendorRates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCatalogItemVendorRatesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateCatalogItemUrl = (id: string,) => {
 

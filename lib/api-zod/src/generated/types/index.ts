@@ -125,6 +125,7 @@ export * from './cashFlowReport';
 export * from './catalogItem';
 export * from './catalogItemInput';
 export * from './catalogItemUpdate';
+export * from './catalogItemVendorRate';
 export * from './categorizeBankTransactionParams';
 export * from './categoryAmount';
 export * from './centsString';
