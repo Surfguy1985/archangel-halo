@@ -1,0 +1,373 @@
+/**
+ * Shared crew roster code — one QR for the whole company.
+ *
+ * Everybody scans the same code, sees the roster grouped by team, taps their
+ * own name, and walks away with their own portal link on their phone. Someone
+ * who isn't on the list adds themselves and picks the foreman they report to,
+ * which is also what decides their map pin colour.
+ *
+ * Deliberately unverified: the office chose one shared code over per-person
+ * codes, so the code alone proves nothing about who is holding it. It is a
+ * capability — unguessable, rotatable, and rate-limited here so it can't be
+ * used to enumerate or mass-claim the roster.
+ *
+ *   GET  /roster/:code           the pick-your-name list (names + colours only)
+ *   POST /roster/:code/claim     hand this device a link to that person's portal
+ *   POST /roster/:code/join      add me under a foreman, then do the same
+ */
+
+import { Router } from "express";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { db, crewsTable, crewPortalBearersTable, notificationsTable } from "@workspace/db";
+import { z } from "zod";
+import { logger } from "../lib/logger";
+import { rateLimit } from "../lib/rateLimit";
+import { isCurrentRosterCode } from "../lib/rosterCode";
+import { ensureCrewRosterSchema } from "../lib/ensureCrewRosterSchema";
+import {
+  ARCHANGEL_GOLD,
+  buildCrewPinColors,
+  isArchangelStaff,
+  isForeman,
+} from "../lib/crewPinColor";
+import { hashPortalToken, mintPortalToken } from "../lib/portalToken";
+import { getBusinessSettings } from "../lib/businessSettings";
+
+const router = Router();
+
+/** A crew scans once or twice; a script scraping names does not. */
+const rosterView = rateLimit({ limit: 40, windowMs: 60_000 });
+const rosterWrite = rateLimit({ limit: 10, windowMs: 60_000 });
+
+const ClaimBody = z.object({ crewId: z.string().uuid() });
+const JoinBody = z.object({
+  name: z.string().trim().min(2).max(80),
+  leaderId: z.string().uuid().nullish(),
+  phone: z.string().trim().max(40).nullish(),
+});
+
+function param(raw: string | string[] | undefined): string {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+/**
+ * Ask the office for a link to this person's portal.
+ *
+ * The bearer is minted now but starts PENDING, so the URL is dead until the
+ * office approves it — the shared code says nothing about who is holding the
+ * phone, and behind that portal sit the crew's pay, invoices and payment
+ * details. Existing links are never touched: this is an additional key, so
+ * approving a new phone can't kill the QR already on the old one.
+ */
+async function requestDeviceBearer(
+  crew: { id: string; name: string },
+  requestedName: string,
+  reason: "picked" | "self-added",
+): Promise<{ claimId: string; token: string }> {
+  const minted = mintPortalToken();
+  const [row] = await db
+    .insert(crewPortalBearersTable)
+    .values({
+      crewId: crew.id,
+      tokenHash: minted.tokenHash,
+      source: "roster",
+      status: "pending",
+      requestedName,
+    })
+    .returning();
+  if (!row) throw new Error("claim insert returned no row");
+
+  await db.insert(notificationsTable).values({
+    kind: "crew_portal_claim",
+    priority: "high",
+    entityType: "crew",
+    entityId: crew.id,
+    title: `Approve crew link · ${crew.name}`,
+    body:
+      reason === "self-added"
+        ? `${requestedName} added themselves from the crew code and is waiting for a link. Approve it on the Crew links page — they can't see any pay until you do.`
+        : `Someone scanned the crew code and picked ${crew.name}. Approve it on the Crew links page — the link stays dead until you do.`,
+  });
+
+  return { claimId: row.id, token: minted.token };
+}
+
+async function loadActiveCrews() {
+  const rows = await db.select().from(crewsTable);
+  return rows.filter((c) => c.active !== false);
+}
+
+async function requireCode(code: string): Promise<boolean> {
+  return isCurrentRosterCode(code);
+}
+
+// ─── The list ────────────────────────────────────────────────────────────────
+
+router.get("/roster/:code", rosterView, async (req, res): Promise<void> => {
+  try {
+    await ensureCrewRosterSchema();
+    const code = param(req.params.code);
+    if (!(await requireCode(code))) {
+      res.status(404).json({ error: "This code isn't active. Ask the office for the current one." });
+      return;
+    }
+
+    const [crews, companyName] = await Promise.all([
+      loadActiveCrews(),
+      getBusinessSettings()
+        .then((s) => s.companyName ?? null)
+        .catch(() => null),
+    ]);
+    const colors = buildCrewPinColors(crews);
+    const colorOf = (id: string) => colors.get(id) ?? ARCHANGEL_GOLD;
+
+    // Name, trade and team colour only. Trade stays because the roster carries
+    // several people with the same name and it's the one hint that lets a crew
+    // pick the right row; the raw role string (employee/owner/…) is org detail
+    // a QR holder has no business reading, so it never leaves the server.
+    const person = (c: (typeof crews)[number]) => ({
+      id: c.id,
+      name: c.name,
+      color: colorOf(c.id),
+      trade: c.trade ?? null,
+      isForeman: isForeman(c),
+    });
+    const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+
+    const staff = crews.filter((c) => isArchangelStaff(c.role));
+    const staffIds = new Set(staff.map((c) => c.id));
+    const foremen = crews.filter((c) => !staffIds.has(c.id) && isForeman(c));
+    const foremanIds = new Set(foremen.map((c) => c.id));
+
+    const groups: {
+      key: string;
+      title: string;
+      subtitle: string | null;
+      color: string;
+      leaderId: string | null;
+      people: ReturnType<typeof person>[];
+    }[] = [];
+
+    if (staff.length) {
+      groups.push({
+        key: "staff",
+        title: companyName ?? "Office",
+        subtitle: "Owners and employees",
+        color: ARCHANGEL_GOLD,
+        leaderId: null,
+        people: staff.map(person).sort(byName),
+      });
+    }
+
+    for (const f of [...foremen].sort(byName)) {
+      const team = crews.filter((c) => c.leaderId === f.id && c.id !== f.id && !staffIds.has(c.id));
+      groups.push({
+        key: f.id,
+        title: `${f.name}'s crew`,
+        subtitle: team.length ? `${team.length + 1} people` : "Foreman",
+        color: colorOf(f.id),
+        leaderId: f.id,
+        people: [person(f), ...team.map(person).sort(byName)],
+      });
+    }
+
+    const placed = new Set(groups.flatMap((g) => g.people.map((p) => p.id)));
+    const rest = crews.filter((c) => !placed.has(c.id) && !foremanIds.has(c.id));
+    if (rest.length) {
+      groups.push({
+        key: "independents",
+        title: "Everyone else",
+        subtitle: "Subs and crew without a foreman",
+        color: "#94A3B8",
+        leaderId: null,
+        people: rest.map(person).sort(byName),
+      });
+    }
+
+    res.json({ companyName, staffColor: ARCHANGEL_GOLD, groups });
+  } catch (err) {
+    logger.error({ err }, "roster view failed");
+    res.status(500).json({ error: "Couldn't load the roster" });
+  }
+});
+
+// ─── "That's me" ─────────────────────────────────────────────────────────────
+
+router.post("/roster/:code/claim", rosterWrite, async (req, res): Promise<void> => {
+  try {
+    await ensureCrewRosterSchema();
+    const code = param(req.params.code);
+    if (!(await requireCode(code))) {
+      res.status(404).json({ error: "This code isn't active. Ask the office for the current one." });
+      return;
+    }
+    const parsed = ClaimBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Pick a name from the list" });
+      return;
+    }
+
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, parsed.data.crewId))
+      .limit(1);
+    if (!crew || crew.active === false) {
+      res.status(404).json({ error: "That name is no longer on the roster" });
+      return;
+    }
+
+    // Never hand back the crew's existing link here — that would let anyone
+    // with the shared code walk straight into someone else's pay. Every claim
+    // is its own pending request the office has to approve.
+    const { claimId, token } = await requestDeviceBearer(crew, crew.name, "picked");
+    const colors = buildCrewPinColors(await loadActiveCrews());
+
+    // The path comes back now but the bearer behind it is inert: the portal
+    // refuses it until the office approves, so handing it over early is safe
+    // and saves the phone from having to be told a secret later.
+    res.json({
+      claimId,
+      crewId: crew.id,
+      name: crew.name,
+      status: "pending",
+      portalPath: `/portal/${token}`,
+      color: colors.get(crew.id) ?? ARCHANGEL_GOLD,
+    });
+  } catch (err) {
+    logger.error({ err }, "roster claim failed");
+    res.status(500).json({ error: "Couldn't send that to the office" });
+  }
+});
+
+// ─── "Has the office approved me yet?" ───────────────────────────────────────
+
+router.get("/roster/:code/claim/:claimId", rosterView, async (req, res): Promise<void> => {
+  try {
+    await ensureCrewRosterSchema();
+    const code = param(req.params.code);
+    if (!(await requireCode(code))) {
+      res.status(404).json({ error: "This code isn't active. Ask the office for the current one." });
+      return;
+    }
+    const claimId = param(req.params.claimId);
+    if (!z.string().uuid().safeParse(claimId).success) {
+      res.status(404).json({ error: "Request not found" });
+      return;
+    }
+
+    const [row] = await db
+      .select()
+      .from(crewPortalBearersTable)
+      .where(eq(crewPortalBearersTable.id, claimId))
+      .limit(1);
+    if (!row) {
+      res.status(404).json({ error: "Request not found" });
+      return;
+    }
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.crewId))
+      .limit(1);
+
+    // Only the decision travels here. The device already holds its own bearer
+    // from the claim call — it is simply dead until this says "approved", and
+    // bearers are hashed at rest so the server couldn't resend it anyway.
+    res.json({
+      claimId: row.id,
+      crewId: row.crewId,
+      name: crew?.name ?? row.requestedName ?? "Crew",
+      status: row.status,
+    });
+  } catch (err) {
+    logger.error({ err }, "roster claim status failed");
+    res.status(500).json({ error: "Couldn't check that request" });
+  }
+});
+
+// ─── "I'm not on the list" ───────────────────────────────────────────────────
+
+router.post("/roster/:code/join", rosterWrite, async (req, res): Promise<void> => {
+  try {
+    await ensureCrewRosterSchema();
+    const code = param(req.params.code);
+    if (!(await requireCode(code))) {
+      res.status(404).json({ error: "This code isn't active. Ask the office for the current one." });
+      return;
+    }
+    const parsed = JoinBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Type your full name" });
+      return;
+    }
+    const { name, leaderId, phone } = parsed.data;
+
+    // A foreman must actually be a foreman, or the pin colours stop meaning
+    // anything and a member ends up leading a team they aren't on.
+    let leader: { id: string } | null = null;
+    if (leaderId) {
+      const [row] = await db.select().from(crewsTable).where(eq(crewsTable.id, leaderId)).limit(1);
+      if (!row || row.active === false || !isForeman(row)) {
+        res.status(400).json({ error: "Pick the foreman you report to" });
+        return;
+      }
+      leader = { id: row.id };
+    }
+
+    // The roster is already full of near-duplicate rows, so an exact name match
+    // under the same foreman claims that person instead of adding yet another.
+    // Literal case-insensitive equality — never ILIKE, whose % and _ would let
+    // a typed name match somebody else. Serialized on the normalized name so
+    // two taps can't both miss the read and insert twins.
+    const key = name.toLowerCase();
+    const crew = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crew-roster-join:${key}`}))`);
+      const [existing] = await tx
+        .select()
+        .from(crewsTable)
+        .where(
+          and(
+            sql`lower(btrim(${crewsTable.name})) = ${key}`,
+            leader ? eq(crewsTable.leaderId, leader.id) : isNull(crewsTable.leaderId),
+          ),
+        )
+        .limit(1);
+      if (existing && existing.active !== false) return existing;
+      const [created] = await tx
+        .insert(crewsTable)
+        .values({
+          name,
+          phone: phone ?? null,
+          leaderId: leader?.id ?? null,
+          active: true,
+        })
+        .returning();
+      return created;
+    });
+
+    if (!crew) {
+      res.status(500).json({ error: "Couldn't add you to the roster" });
+      return;
+    }
+
+    const { claimId, token } = await requestDeviceBearer(crew, name, "self-added");
+    const colors = buildCrewPinColors(await loadActiveCrews());
+
+    res.json({
+      claimId,
+      crewId: crew.id,
+      name: crew.name,
+      status: "pending",
+      portalPath: `/portal/${token}`,
+      color: colors.get(crew.id) ?? ARCHANGEL_GOLD,
+    });
+  } catch (err) {
+    logger.error({ err }, "roster join failed");
+    res.status(500).json({ error: "Couldn't add you to the roster" });
+  }
+});
+
+export { hashPortalToken };
+export default router;

@@ -180,6 +180,10 @@ export const PUBLIC_PREFIXES = [
   // Crew check-in — one-tap GPS check-in/checkout via a texted link, no login needed
   "/checkin/",
   "/join/",
+  // Shared crew roster code — one unguessable code the whole crew scans to pick
+  // their own name. Validated per request in routes/roster.ts; it exposes names
+  // and team colours only.
+  "/roster/",
   "/twilio/",
 ];
 

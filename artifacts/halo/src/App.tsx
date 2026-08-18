@@ -44,6 +44,7 @@ import Today from "./pages/Today";
 import Properties from "./pages/Properties";
 import Crews from "./pages/Crews";
 import CrewLinks from "./pages/CrewLinks";
+import CrewRoster from "./pages/CrewRoster";
 import CrewDetail from "./pages/CrewDetail";
 import Calendar from "./pages/Calendar";
 import Money from "./pages/Money";
@@ -117,6 +118,10 @@ function App() {
             </Route>
             <Route path="/join/:token">
               {(params) => <CrewJoinPage token={params.token} />}
+            </Route>
+            {/* One shared code the whole crew scans — pick your own name. */}
+            <Route path="/roster/:code">
+              {(params) => <CrewRoster code={params.code} />}
             </Route>
 
             {/* ── Legacy redirects — bookmarked / emailed links ──────────── */}

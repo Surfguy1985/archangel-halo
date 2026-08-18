@@ -58,6 +58,11 @@ export const businessSettingsTable = pgTable("business_settings", {
   // is consumed. Storing it in the DB (not process memory) means a server
   // restart cannot replay an already-consumed token.
   resetTokenHash: text("reset_token_hash"),
+  // One shared, unguessable code behind the crew self-service roster page:
+  // everyone scans the same QR, picks their name, and walks away with their own
+  // portal link. Not a passcode — the code IS the access, so treat it as a
+  // capability and rotate it when someone leaves.
+  crewRosterCode: text("crew_roster_code"),
   resetTokenExpiresAt: timestamp("reset_token_expires_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

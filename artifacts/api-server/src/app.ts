@@ -32,7 +32,7 @@ app.use(
           url: req.url
             ?.split("?")[0]
             ?.replace(
-              /(\/(client|portal|pay|track|recap-shares|photo-shares|job-summaries|board|summary|live|checkin)\/)[^/]+/,
+              /(\/(client|portal|pay|track|recap-shares|photo-shares|job-summaries|board|summary|live|checkin|roster)\/)[^/]+/,
               "$1<redacted>",
             )
             // The SMS delivery callback's nonce is a bearer capability too, and

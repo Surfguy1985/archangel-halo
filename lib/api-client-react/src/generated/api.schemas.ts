@@ -3504,7 +3504,116 @@ export interface CrewLinkBoard {
   staffColor: string;
   /** @nullable */
   companyName?: string | null;
+  /**
+     * The one shared /roster/<code> path everybody can scan to pick their own name
+     * @nullable
+     */
+  rosterPath?: string | null;
   teams: CrewLinkTeam[];
+}
+
+export interface CrewRosterPerson {
+  id: string;
+  name: string;
+  color: string;
+  /**
+     * Shown so a crew can tell apart two people with the same name
+     * @nullable
+     */
+  trade?: string | null;
+  /** @nullable */
+  isForeman?: boolean | null;
+}
+
+export interface CrewRosterGroup {
+  /** staff | foreman crew id | independents */
+  key: string;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  color: string;
+  /**
+     * Set for a foreman's team — the foreman a new joiner would report to
+     * @nullable
+     */
+  leaderId?: string | null;
+  people: CrewRosterPerson[];
+}
+
+export interface CrewRoster {
+  /** @nullable */
+  companyName?: string | null;
+  staffColor: string;
+  groups: CrewRosterGroup[];
+}
+
+export interface CrewPortalClaim {
+  id: string;
+  crewId: string;
+  crewName: string;
+  /** @nullable */
+  requestedName?: string | null;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  foremanName?: string | null;
+  /** pending | approved | denied */
+  status: string;
+  createdAt: string;
+  /** @nullable */
+  decidedAt?: string | null;
+}
+
+export type CrewPortalClaimDecisionDecision = typeof CrewPortalClaimDecisionDecision[keyof typeof CrewPortalClaimDecisionDecision];
+
+
+export const CrewPortalClaimDecisionDecision = {
+  approve: 'approve',
+  deny: 'deny',
+} as const;
+
+export interface CrewPortalClaimDecision {
+  decision: CrewPortalClaimDecisionDecision;
+}
+
+export interface CrewPortalClaimOutcome {
+  id: string;
+  status: string;
+}
+
+export interface CrewRosterClaimStatus {
+  claimId: string;
+  crewId: string;
+  name: string;
+  /** pending | approved | denied */
+  status: string;
+}
+
+export interface CrewRosterClaimInput {
+  crewId: string;
+}
+
+export interface CrewRosterJoinInput {
+  name: string;
+  /**
+     * The foreman this person reports to — drives their pin colour
+     * @nullable
+     */
+  leaderId?: string | null;
+  /** @nullable */
+  phone?: string | null;
+}
+
+export interface CrewRosterClaim {
+  /** Poll this to find out whether the office approved */
+  claimId: string;
+  crewId: string;
+  name: string;
+  /** Always pending — the office has to approve first */
+  status: string;
+  /** /portal/<token> — this device's own key, inert until the office approves */
+  portalPath: string;
+  color: string;
 }
 
 export type CrewMapPinPhotosItem = {

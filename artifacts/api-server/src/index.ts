@@ -16,6 +16,7 @@ import { ensureFieldPhotoSchema } from "./lib/ensureFieldPhotoSchema";
 import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 import { ensureCrewCompanySchema } from "./lib/ensureCrewCompanySchema";
 import { ensureCrewPinColorSchema } from "./lib/ensureCrewPinColorSchema";
+import { ensureCrewRosterSchema } from "./lib/ensureCrewRosterSchema";
 import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
@@ -52,6 +53,7 @@ if (Number.isNaN(port) || port <= 0) {
 ensureVendorContractSchema()
   .then(() => ensureVendorRatesSchema())
   .then(() => ensureCrewPinColorSchema())
+  .then(() => ensureCrewRosterSchema())
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);

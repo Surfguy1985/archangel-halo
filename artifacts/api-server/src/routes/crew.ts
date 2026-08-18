@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { completeJsonWithImage } from "../lib/ai";
 import {
   ensurePortalBearer,
@@ -26,6 +26,7 @@ import {
   propertiesTable,
   calendarEventsTable,
   crewRoutePlansTable,
+  crewPortalBearersTable,
 } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import {
@@ -80,9 +81,15 @@ import {
   SaveCrewDayPlanBody,
   SaveCrewDayPlanResponse,
   BuildCrewLinkBoardResponse,
+  ListCrewPortalClaimsResponse,
+  DecideCrewPortalClaimParams,
+  DecideCrewPortalClaimBody,
+  DecideCrewPortalClaimResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { getBusinessSettings } from "../lib/businessSettings";
+import { getOrCreateRosterCode } from "../lib/rosterCode";
+import { ensureCrewRosterSchema } from "../lib/ensureCrewRosterSchema";
 import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
 import {
   ARCHANGEL_GOLD,
@@ -182,11 +189,14 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
  * nothing is worse than no QR at all.
  */
 router.post("/crews/links", async (_req, res): Promise<void> => {
-  const [rows, companyName] = await Promise.all([
+  const [rows, companyName, rosterCode] = await Promise.all([
     db.select().from(crewsTable),
     getBusinessSettings()
       .then((s) => s.companyName ?? null)
       .catch(() => null),
+    // The one code everybody scans. Minted on first view so the office never
+    // has to go set it up somewhere else first.
+    getOrCreateRosterCode().catch(() => null),
   ]);
   const active = rows.filter((c) => c.active !== false);
   const colors = buildCrewPinColors(active);
@@ -251,6 +261,7 @@ router.post("/crews/links", async (_req, res): Promise<void> => {
     BuildCrewLinkBoardResponse.parse({
       staffColor: ARCHANGEL_GOLD,
       companyName,
+      rosterPath: rosterCode ? `/roster/${rosterCode}` : null,
       teams,
     }),
   );
@@ -260,6 +271,118 @@ router.post("/crews/links", async (_req, res): Promise<void> => {
 // New crews get a token at creation (POST /crews). This endpoint is a
 // Bearer is returned once. Hashed rows cannot be reconstructed — mint a new
 // URL token. Legacy plaintext is reused so existing SMS bookmarks still work.
+/**
+ * Crew link approvals.
+ *
+ * Anyone holding the shared roster code can pick a name, but the link they get
+ * is dead until the office approves it here. That approval is the only thing
+ * tying a phone to a person, and pay, invoices and payment details all hang off
+ * that identity — so this list is the gate, not a formality.
+ */
+router.get("/crews/portal-claims", async (_req, res): Promise<void> => {
+  await ensureCrewRosterSchema();
+  const rows = await db
+    .select({
+      id: crewPortalBearersTable.id,
+      crewId: crewPortalBearersTable.crewId,
+      status: crewPortalBearersTable.status,
+      requestedName: crewPortalBearersTable.requestedName,
+      createdAt: crewPortalBearersTable.createdAt,
+      approvedAt: crewPortalBearersTable.approvedAt,
+      deniedAt: crewPortalBearersTable.deniedAt,
+      crewName: crewsTable.name,
+      trade: crewsTable.trade,
+      leaderId: crewsTable.leaderId,
+    })
+    .from(crewPortalBearersTable)
+    .leftJoin(crewsTable, eq(crewsTable.id, crewPortalBearersTable.crewId))
+    .orderBy(desc(crewPortalBearersTable.createdAt))
+    .limit(100);
+
+  const leaderNames = new Map(
+    (await db.select({ id: crewsTable.id, name: crewsTable.name }).from(crewsTable)).map((c) => [
+      c.id,
+      c.name,
+    ]),
+  );
+
+  res.json(
+    ListCrewPortalClaimsResponse.parse(
+      rows.map((r) => ({
+        id: r.id,
+        crewId: r.crewId,
+        crewName: r.crewName ?? r.requestedName ?? "Unknown",
+        requestedName: r.requestedName ?? null,
+        trade: r.trade ?? null,
+        foremanName: r.leaderId ? (leaderNames.get(r.leaderId) ?? null) : null,
+        status: r.status,
+        createdAt: r.createdAt.toISOString(),
+        decidedAt: (r.approvedAt ?? r.deniedAt)?.toISOString() ?? null,
+      })),
+    ),
+  );
+});
+
+router.post("/crews/portal-claims/:id/decide", async (req, res): Promise<void> => {
+  await ensureCrewRosterSchema();
+  const { id } = DecideCrewPortalClaimParams.parse(req.params);
+  const body = DecideCrewPortalClaimBody.parse(req.body);
+  const approve = body.decision === "approve";
+
+  // Guarded update: a claim only ever moves out of pending once, so a
+  // double-tap (or an approve racing a deny) can't flip an already-decided
+  // link back on. Approving also insists the crew is still active in the same
+  // statement — otherwise the office gets a green tick for a link that either
+  // can never work or quietly lets a removed crew back in.
+  const [row] = await db
+    .update(crewPortalBearersTable)
+    .set(
+      approve
+        ? { status: "approved", approvedAt: new Date() }
+        : { status: "denied", deniedAt: new Date() },
+    )
+    .where(
+      and(
+        eq(crewPortalBearersTable.id, id),
+        eq(crewPortalBearersTable.status, "pending"),
+        approve
+          ? sql`EXISTS (SELECT 1 FROM ${crewsTable} c WHERE c.id = ${crewPortalBearersTable.crewId} AND c.active IS NOT false)`
+          : sql`true`,
+      ),
+    )
+    .returning();
+
+  if (!row) {
+    const [claim] = await db
+      .select({ status: crewPortalBearersTable.status })
+      .from(crewPortalBearersTable)
+      .where(eq(crewPortalBearersTable.id, id))
+      .limit(1);
+    res.status(409).json({
+      error: !claim
+        ? "That request no longer exists"
+        : claim.status !== "pending"
+          ? "That request was already decided"
+          : "That person is no longer on the roster — add them back first",
+    });
+    return;
+  }
+
+  // Clear the office's nudge for this crew once someone has acted on it.
+  await db
+    .update(notificationsTable)
+    .set({ resolvedAt: new Date() })
+    .where(
+      and(
+        eq(notificationsTable.kind, "crew_portal_claim"),
+        eq(notificationsTable.entityId, row.crewId),
+        isNull(notificationsTable.resolvedAt),
+      ),
+    );
+
+  res.json(DecideCrewPortalClaimResponse.parse({ id: row.id, status: row.status }));
+});
+
 router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {
   const { id } = GenerateCrewPortalLinkParams.parse(req.params);
   const [row] = await db.select().from(crewsTable).where(eq(crewsTable.id, id));

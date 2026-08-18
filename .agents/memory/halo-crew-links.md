@@ -25,6 +25,34 @@ any base-pathed artifact (e.g. the desktop app at `/desktop/`).
 - Any new public token surface must also be added to the office-auth public
   prefixes or it 401s.
 
+# One shared roster code, gated by office approval
+
+The office hands out a single company-wide code (stored on the settings
+singleton) behind a public pick-your-name page. The code has no passcode, so it
+identifies nobody: **the office's approval is the identity check.** A claim
+mints an extra portal bearer that starts `pending` and is inert; only an
+approved bearer authenticates.
+
+**Why:** crews kept losing individual links and the office wanted one printed
+QR — but a bare shared code would have let anyone holding it open a co-worker's
+portal, and pay, invoices and payment details all hang off portal identity.
+
+**How to apply:**
+- Portal token lookup must filter on approved status, not mere existence. Any
+  new resolver that skips that check re-opens the whole gate.
+- Handing the device its token before approval is fine (it's dead until the
+  office acts) — what must never be returned is a crew's *existing* link.
+- Approval is a guarded `pending → decided` update that also re-checks the crew
+  is active, so double-taps 409 and a removed person can't be waved back in.
+- Adding a status column to an already-shipped bearer table must backfill old
+  rows to approved (add the column with that default, then flip the default),
+  or every link issued before the gate dies on deploy.
+- The public roster response is names, trades and team colours only. No phones,
+  no pay, no roles, no tokens. Anything richer leaks to whoever has the QR.
+- The self-add path matches an existing person by literal lowercased name under
+  the same foreman, inside a transaction behind an advisory lock. Never `ILIKE`
+  (its `%`/`_` match other people) and never an unlocked read-then-insert (twins).
+
 # Never mint a portal token from a read/list surface
 
 Portal bearers are hashed at rest, so an already-issued link cannot be read

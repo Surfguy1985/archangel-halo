@@ -42,7 +42,7 @@ import "./index.css";
   // board + devportal belong to sibling artifacts: if we're rendering there, a
   // stale service worker hijacked the URL and the self-heal above is reloading —
   // never bounce those to /desktop.
-  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard|board|devportal|join|checkin)(\/|$)/.test(path)) return;
+  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard|board|devportal|join|checkin|roster)(\/|$)/.test(path)) return;
   // Only redirect paths that exist in the desktop app; everything else lands on its home.
   const known =
     /^\/(properties|jobs|invoices|money|calendar|crews|wings|pipeline|catalog|supply|vendors|import|jobboard)(\/|$)|^\/$/;

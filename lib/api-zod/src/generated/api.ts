@@ -6581,6 +6581,7 @@ export const GetCrewDetailResponse = zod.object({
 export const BuildCrewLinkBoardResponse = zod.object({
   "staffColor": zod.string().describe('The gold every Archangel owner and employee wears'),
   "companyName": zod.string().nullish(),
+  "rosterPath": zod.string().nullish().describe('The one shared \/roster\/<code> path everybody can scan to pick their own name'),
   "teams": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -6600,6 +6601,129 @@ export const BuildCrewLinkBoardResponse = zod.object({
   "selfiePath": zod.string().nullish()
 }))
 }))
+})
+
+
+/**
+ * One code, one page, everybody. Returns names and team colours only — no phones, no pay, no tokens. The code itself is the access: anyone holding it can see and claim any name, which is why it is unguessable and rotatable.
+ * @summary Public: the crew picks their own name behind the shared roster code
+ */
+export const GetCrewRosterParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const GetCrewRosterResponse = zod.object({
+  "companyName": zod.string().nullish(),
+  "staffColor": zod.string(),
+  "groups": zod.array(zod.object({
+  "key": zod.string().describe('staff | foreman crew id | independents'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "color": zod.string(),
+  "leaderId": zod.string().nullish().describe('Set for a foreman\'s team — the foreman a new joiner would report to'),
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "trade": zod.string().nullish().describe('Shown so a crew can tell apart two people with the same name'),
+  "isForeman": zod.boolean().nullish()
+}))
+}))
+})
+
+
+/**
+ * @summary Public: take the portal link for the name I picked
+ */
+export const ClaimCrewRosterSpotParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const ClaimCrewRosterSpotBody = zod.object({
+  "crewId": zod.string()
+})
+
+export const ClaimCrewRosterSpotResponse = zod.object({
+  "claimId": zod.string().describe('Poll this to find out whether the office approved'),
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "status": zod.string().describe('Always pending — the office has to approve first'),
+  "portalPath": zod.string().describe('\/portal\/<token> — this device\'s own key, inert until the office approves'),
+  "color": zod.string()
+})
+
+
+/**
+ * @summary Public: I'm not on the list — add me under my foreman
+ */
+export const JoinCrewRosterParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const JoinCrewRosterBody = zod.object({
+  "name": zod.string(),
+  "leaderId": zod.string().nullish().describe('The foreman this person reports to — drives their pin colour'),
+  "phone": zod.string().nullish()
+})
+
+export const JoinCrewRosterResponse = zod.object({
+  "claimId": zod.string().describe('Poll this to find out whether the office approved'),
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "status": zod.string().describe('Always pending — the office has to approve first'),
+  "portalPath": zod.string().describe('\/portal\/<token> — this device\'s own key, inert until the office approves'),
+  "color": zod.string()
+})
+
+
+/**
+ * Anyone with the shared roster code can pick a name, but the link stays dead until someone here approves it. Newest first, decided ones included so the office can see who was let in.
+ * @summary Crew link requests waiting on the office
+ */
+export const ListCrewPortalClaimsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "requestedName": zod.string().nullish(),
+  "trade": zod.string().nullish(),
+  "foremanName": zod.string().nullish(),
+  "status": zod.string().describe('pending | approved | denied'),
+  "createdAt": zod.string(),
+  "decidedAt": zod.string().nullish()
+})
+export const ListCrewPortalClaimsResponse = zod.array(ListCrewPortalClaimsResponseItem)
+
+
+/**
+ * @summary Approve or deny a crew's link request
+ */
+export const DecideCrewPortalClaimParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DecideCrewPortalClaimBody = zod.object({
+  "decision": zod.enum(['approve', 'deny'])
+})
+
+export const DecideCrewPortalClaimResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Public: has the office approved my link yet?
+ */
+export const GetCrewRosterClaimParams = zod.object({
+  "code": zod.coerce.string(),
+  "claimId": zod.coerce.string()
+})
+
+export const GetCrewRosterClaimResponse = zod.object({
+  "claimId": zod.string(),
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "status": zod.string().describe('pending | approved | denied')
 })
 
 

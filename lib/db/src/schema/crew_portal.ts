@@ -198,6 +198,39 @@ export const crewLinkAcksTable = pgTable(
   (t) => [index("crew_link_acks_crew_agreed_idx").on(t.crewId, t.agreedAt)],
 );
 
+/**
+ * Extra portal bearers for one crew — one row per device that claimed the
+ * person from the shared roster code. crews.portal_token still holds the
+ * original link; these are additional keys to the same portal so a second
+ * phone never has to rotate (and break) the first one.
+ */
+export const crewPortalBearersTable = pgTable(
+  "crew_portal_bearers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crewId: uuid("crew_id").notNull(),
+    // sha256 of the URL bearer. The bearer itself is shown once and never stored.
+    tokenHash: text("token_hash").notNull().unique(),
+    source: text("source").notNull().default("roster"),
+    // pending | approved | denied. A bearer is INERT until the office approves
+    // it — that approval is the only thing standing between a shared code and
+    // somebody else's pay, so authentication must check status, not existence.
+    status: text("status").notNull().default("pending"),
+    // The name the person picked or typed, kept for the office's approval card
+    // even if the crew row is later renamed.
+    requestedName: text("requested_name"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    deniedAt: timestamp("denied_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("crew_portal_bearers_crew_idx").on(t.crewId)],
+);
+
+export type CrewPortalBearer = typeof crewPortalBearersTable.$inferSelect;
+
 export type CrewLinkAck = typeof crewLinkAcksTable.$inferSelect;
 
 export type CrewPhoto = typeof crewPhotosTable.$inferSelect;

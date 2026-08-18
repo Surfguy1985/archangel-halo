@@ -12,5 +12,10 @@ export interface CrewLinkBoard {
   staffColor: string;
   /** @nullable */
   companyName?: string | null;
+  /**
+     * The one shared /roster/<code> path everybody can scan to pick their own name
+     * @nullable
+     */
+  rosterPath?: string | null;
   teams: CrewLinkTeam[];
 }

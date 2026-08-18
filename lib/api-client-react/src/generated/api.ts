@@ -182,7 +182,15 @@ import type {
   CrewPayoutView,
   CrewPhoto,
   CrewPhotoInput,
+  CrewPortalClaim,
+  CrewPortalClaimDecision,
+  CrewPortalClaimOutcome,
   CrewPortalLink,
+  CrewRoster,
+  CrewRosterClaim,
+  CrewRosterClaimInput,
+  CrewRosterClaimStatus,
+  CrewRosterJoinInput,
   CrewToday,
   CrewUpdate,
   CrewWorkHistory,
@@ -14819,6 +14827,460 @@ export const useBuildCrewLinkBoard = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getBuildCrewLinkBoardMutationOptions(options));
     }
+
+export const getGetCrewRosterUrl = (code: string,) => {
+
+
+
+
+  return `/api/roster/${code}`
+}
+
+/**
+ * One code, one page, everybody. Returns names and team colours only — no phones, no pay, no tokens. The code itself is the access: anyone holding it can see and claim any name, which is why it is unguessable and rotatable.
+ * @summary Public: the crew picks their own name behind the shared roster code
+ */
+export const getCrewRoster = async (code: string, options?: RequestInit): Promise<CrewRoster> => {
+
+  return customFetch<CrewRoster>(getGetCrewRosterUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewRosterQueryKey = (code: string,) => {
+    return [
+    `/api/roster/${code}`
+    ] as const;
+    }
+
+
+export const getGetCrewRosterQueryOptions = <TData = Awaited<ReturnType<typeof getCrewRoster>>, TError = ErrorType<Error>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewRoster>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewRosterQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewRoster>>> = ({ signal }) => getCrewRoster(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewRoster>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewRosterQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewRoster>>>
+export type GetCrewRosterQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public: the crew picks their own name behind the shared roster code
+ */
+
+export function useGetCrewRoster<TData = Awaited<ReturnType<typeof getCrewRoster>>, TError = ErrorType<Error>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewRoster>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewRosterQueryOptions(code,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimCrewRosterSpotUrl = (code: string,) => {
+
+
+
+
+  return `/api/roster/${code}/claim`
+}
+
+/**
+ * @summary Public: take the portal link for the name I picked
+ */
+export const claimCrewRosterSpot = async (code: string,
+    crewRosterClaimInput: CrewRosterClaimInput, options?: RequestInit): Promise<CrewRosterClaim> => {
+
+  return customFetch<CrewRosterClaim>(getClaimCrewRosterSpotUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewRosterClaimInput)
+  }
+);}
+
+
+
+
+
+export const getClaimCrewRosterSpotMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCrewRosterSpot>>, TError,{code: string;data: BodyType<CrewRosterClaimInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimCrewRosterSpot>>, TError,{code: string;data: BodyType<CrewRosterClaimInput>}, TContext> => {
+
+const mutationKey = ['claimCrewRosterSpot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimCrewRosterSpot>>, {code: string;data: BodyType<CrewRosterClaimInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  claimCrewRosterSpot(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimCrewRosterSpotMutationResult = NonNullable<Awaited<ReturnType<typeof claimCrewRosterSpot>>>
+    export type ClaimCrewRosterSpotMutationBody = BodyType<CrewRosterClaimInput>
+    export type ClaimCrewRosterSpotMutationError = ErrorType<Error>
+
+    /**
+ * @summary Public: take the portal link for the name I picked
+ */
+export const useClaimCrewRosterSpot = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCrewRosterSpot>>, TError,{code: string;data: BodyType<CrewRosterClaimInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimCrewRosterSpot>>,
+        TError,
+        {code: string;data: BodyType<CrewRosterClaimInput>},
+        TContext
+      > => {
+      return useMutation(getClaimCrewRosterSpotMutationOptions(options));
+    }
+
+export const getJoinCrewRosterUrl = (code: string,) => {
+
+
+
+
+  return `/api/roster/${code}/join`
+}
+
+/**
+ * @summary Public: I'm not on the list — add me under my foreman
+ */
+export const joinCrewRoster = async (code: string,
+    crewRosterJoinInput: CrewRosterJoinInput, options?: RequestInit): Promise<CrewRosterClaim> => {
+
+  return customFetch<CrewRosterClaim>(getJoinCrewRosterUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewRosterJoinInput)
+  }
+);}
+
+
+
+
+
+export const getJoinCrewRosterMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinCrewRoster>>, TError,{code: string;data: BodyType<CrewRosterJoinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinCrewRoster>>, TError,{code: string;data: BodyType<CrewRosterJoinInput>}, TContext> => {
+
+const mutationKey = ['joinCrewRoster'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinCrewRoster>>, {code: string;data: BodyType<CrewRosterJoinInput>}> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  joinCrewRoster(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinCrewRosterMutationResult = NonNullable<Awaited<ReturnType<typeof joinCrewRoster>>>
+    export type JoinCrewRosterMutationBody = BodyType<CrewRosterJoinInput>
+    export type JoinCrewRosterMutationError = ErrorType<Error>
+
+    /**
+ * @summary Public: I'm not on the list — add me under my foreman
+ */
+export const useJoinCrewRoster = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinCrewRoster>>, TError,{code: string;data: BodyType<CrewRosterJoinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinCrewRoster>>,
+        TError,
+        {code: string;data: BodyType<CrewRosterJoinInput>},
+        TContext
+      > => {
+      return useMutation(getJoinCrewRosterMutationOptions(options));
+    }
+
+export const getListCrewPortalClaimsUrl = () => {
+
+
+
+
+  return `/api/crews/portal-claims`
+}
+
+/**
+ * Anyone with the shared roster code can pick a name, but the link stays dead until someone here approves it. Newest first, decided ones included so the office can see who was let in.
+ * @summary Crew link requests waiting on the office
+ */
+export const listCrewPortalClaims = async ( options?: RequestInit): Promise<CrewPortalClaim[]> => {
+
+  return customFetch<CrewPortalClaim[]>(getListCrewPortalClaimsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewPortalClaimsQueryKey = () => {
+    return [
+    `/api/crews/portal-claims`
+    ] as const;
+    }
+
+
+export const getListCrewPortalClaimsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewPortalClaims>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPortalClaims>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewPortalClaimsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewPortalClaims>>> = ({ signal }) => listCrewPortalClaims({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewPortalClaims>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewPortalClaimsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewPortalClaims>>>
+export type ListCrewPortalClaimsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Crew link requests waiting on the office
+ */
+
+export function useListCrewPortalClaims<TData = Awaited<ReturnType<typeof listCrewPortalClaims>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPortalClaims>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewPortalClaimsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDecideCrewPortalClaimUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/portal-claims/${id}/decide`
+}
+
+/**
+ * @summary Approve or deny a crew's link request
+ */
+export const decideCrewPortalClaim = async (id: string,
+    crewPortalClaimDecision: CrewPortalClaimDecision, options?: RequestInit): Promise<CrewPortalClaimOutcome> => {
+
+  return customFetch<CrewPortalClaimOutcome>(getDecideCrewPortalClaimUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPortalClaimDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideCrewPortalClaimMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideCrewPortalClaim>>, TError,{id: string;data: BodyType<CrewPortalClaimDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideCrewPortalClaim>>, TError,{id: string;data: BodyType<CrewPortalClaimDecision>}, TContext> => {
+
+const mutationKey = ['decideCrewPortalClaim'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideCrewPortalClaim>>, {id: string;data: BodyType<CrewPortalClaimDecision>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideCrewPortalClaim(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideCrewPortalClaimMutationResult = NonNullable<Awaited<ReturnType<typeof decideCrewPortalClaim>>>
+    export type DecideCrewPortalClaimMutationBody = BodyType<CrewPortalClaimDecision>
+    export type DecideCrewPortalClaimMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve or deny a crew's link request
+ */
+export const useDecideCrewPortalClaim = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideCrewPortalClaim>>, TError,{id: string;data: BodyType<CrewPortalClaimDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideCrewPortalClaim>>,
+        TError,
+        {id: string;data: BodyType<CrewPortalClaimDecision>},
+        TContext
+      > => {
+      return useMutation(getDecideCrewPortalClaimMutationOptions(options));
+    }
+
+export const getGetCrewRosterClaimUrl = (code: string,
+    claimId: string,) => {
+
+
+
+
+  return `/api/roster/${code}/claim/${claimId}`
+}
+
+/**
+ * @summary Public: has the office approved my link yet?
+ */
+export const getCrewRosterClaim = async (code: string,
+    claimId: string, options?: RequestInit): Promise<CrewRosterClaimStatus> => {
+
+  return customFetch<CrewRosterClaimStatus>(getGetCrewRosterClaimUrl(code,claimId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewRosterClaimQueryKey = (code: string,
+    claimId: string,) => {
+    return [
+    `/api/roster/${code}/claim/${claimId}`
+    ] as const;
+    }
+
+
+export const getGetCrewRosterClaimQueryOptions = <TData = Awaited<ReturnType<typeof getCrewRosterClaim>>, TError = ErrorType<Error>>(code: string,
+    claimId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewRosterClaim>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewRosterClaimQueryKey(code,claimId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewRosterClaim>>> = ({ signal }) => getCrewRosterClaim(code,claimId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined && claimId !== null && claimId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewRosterClaim>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewRosterClaimQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewRosterClaim>>>
+export type GetCrewRosterClaimQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public: has the office approved my link yet?
+ */
+
+export function useGetCrewRosterClaim<TData = Awaited<ReturnType<typeof getCrewRosterClaim>>, TError = ErrorType<Error>>(
+ code: string,
+    claimId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewRosterClaim>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewRosterClaimQueryOptions(code,claimId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGenerateCrewPortalLinkUrl = (id: string,) => {
 

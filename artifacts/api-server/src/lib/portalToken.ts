@@ -3,8 +3,8 @@
  * Hash-at-rest with legacy plaintext fallback for existing rows/tests.
  */
 
-import { eq, or } from "drizzle-orm";
-import { db, crewsTable } from "@workspace/db";
+import { and, eq, or } from "drizzle-orm";
+import { db, crewsTable, crewPortalBearersTable } from "@workspace/db";
 import {
   classifyPortalTokenShape,
   hashPortalToken,
@@ -35,7 +35,32 @@ export async function findCrewByPortalBearer(token: string): Promise<CrewRow | n
   const hashed = rows.find((r) => r.portalTokenHash === tokenHash);
   if (hashed) return hashed;
   const legacy = rows.find((r) => r.portalToken === token && !isHashedPortalStorage(r.portalToken));
-  return legacy ?? null;
+  if (legacy) return legacy;
+
+  // Extra device keys minted by the shared roster code. They open the same
+  // portal, which is what lets a second phone claim a person without rotating
+  // (and killing) the link already on the first one.
+  //
+  // Only an APPROVED key authenticates. The shared code proves nothing about
+  // who is holding it, so the office's approval is what ties a device to a
+  // person — and pay, invoices and payment details all hang off that identity.
+  const [device] = await db
+    .select()
+    .from(crewPortalBearersTable)
+    .where(
+      and(
+        eq(crewPortalBearersTable.tokenHash, tokenHash),
+        eq(crewPortalBearersTable.status, "approved"),
+      ),
+    )
+    .limit(1);
+  if (!device) return null;
+  const [crew] = await db
+    .select()
+    .from(crewsTable)
+    .where(eq(crewsTable.id, device.crewId))
+    .limit(1);
+  return crew ?? null;
 }
 
 export async function mintAndPersistPortalToken(crewId: string): Promise<string> {

@@ -12,13 +12,28 @@
  */
 
 import { useEffect } from "react";
-import { useBuildCrewLinkBoard } from "@workspace/api-client-react";
+import {
+  useBuildCrewLinkBoard,
+  useListCrewPortalClaims,
+  useDecideCrewPortalClaim,
+} from "@workspace/api-client-react";
 import { CrewQrCode, normalizeCrewPortalLink } from "@workspace/board-ui";
-import { Loader2, Printer, Link2, Check, ArrowLeft } from "lucide-react";
+import { Loader2, Printer, Link2, Check, ArrowLeft, X } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
+type Claim = {
+  id: string;
+  crewId: string;
+  crewName: string;
+  requestedName?: string | null;
+  trade?: string | null;
+  foremanName?: string | null;
+  status: string;
+  createdAt: string;
+  decidedAt?: string | null;
+};
 type Member = { id: string; name: string; role?: string | null; trade?: string | null };
 type Team = {
   id: string;
@@ -157,6 +172,166 @@ function TeamCard({ team }: { team: Team }) {
   );
 }
 
+/**
+ * Requests waiting on the office.
+ *
+ * The shared code lets anyone pick a name, so the office decides who actually
+ * gets in. Nothing behind the portal — pay, invoices, payment details — opens
+ * until a request here is approved.
+ */
+function ClaimsPanel() {
+  const claims = useListCrewPortalClaims();
+  const decide = useDecideCrewPortalClaim();
+  const { toast } = useToast();
+
+  const rows = (claims.data ?? []) as Claim[];
+  const pending = rows.filter((c) => c.status === "pending");
+  const recent = rows.filter((c) => c.status !== "pending").slice(0, 5);
+
+  const act = (claim: Claim, decision: "approve" | "deny") => {
+    decide.mutate(
+      { id: claim.id, data: { decision } },
+      {
+        onSuccess: () => {
+          claims.refetch();
+          toast({
+            title:
+              decision === "approve"
+                ? `${claim.crewName}'s phone is in`
+                : `Turned down ${claim.crewName}'s request`,
+          });
+        },
+        onError: () => toast({ title: "That request was already decided", variant: "destructive" }),
+      },
+    );
+  };
+
+  if (!pending.length && !recent.length) return null;
+
+  return (
+    <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 print:hidden">
+      <h2 className="text-[15px] font-semibold text-slate-900">
+        Waiting on you{pending.length ? ` (${pending.length})` : ""}
+      </h2>
+      <p className="text-[12px] text-amber-800">
+        Anyone with the code can pick a name — nobody sees their pay until you approve them here.
+      </p>
+
+      {pending.length ? (
+        <div className="mt-3 space-y-2">
+          {pending.map((claim) => (
+            <div
+              key={claim.id}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-white p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14px] font-semibold text-slate-900">
+                  {claim.crewName}
+                </div>
+                <div className="truncate text-[12px] text-slate-500">
+                  {[
+                    claim.foremanName ? `Reports to ${claim.foremanName}` : null,
+                    claim.trade,
+                    new Date(claim.createdAt).toLocaleString(),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={decide.isPending}
+                  onClick={() => act(claim, "deny")}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-600 disabled:opacity-60"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Deny
+                </button>
+                <button
+                  type="button"
+                  disabled={decide.isPending}
+                  onClick={() => act(claim, "approve")}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-[13px] text-slate-600">Nothing waiting right now.</p>
+      )}
+
+      {recent.length ? (
+        <div className="mt-3 border-t border-amber-200 pt-2 text-[12px] text-amber-900">
+          {recent.map((c) => (
+            <div key={c.id} className="truncate">
+              {c.status === "approved" ? "Approved" : "Denied"} · {c.crewName} ·{" "}
+              {new Date(c.decidedAt ?? c.createdAt).toLocaleDateString()}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * The one code for everybody. Scanning it opens a pick-your-name page; whoever
+ * taps a name asks the office for that person's portal link. There is no
+ * passcode on the code itself — the approval step above is the gate.
+ */
+function RosterCard({ path }: { path: string | null }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  const url = path ? `${window.location.origin}${path}` : "";
+
+  const copy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast({ title: "Couldn't copy — long-press the link instead", variant: "destructive" });
+    }
+  };
+
+  if (!url) return null;
+
+  return (
+    <section className="rounded-2xl border-2 border-slate-900 bg-white p-4 print:break-inside-avoid">
+      <h2 className="text-[15px] font-semibold text-slate-900">One code for everyone</h2>
+      <p className="text-[12px] text-slate-500">
+        Print this once. Anyone scans it, taps their own name, and gets their own permanent link.
+        Not on the list? They add themselves and pick their foreman.
+      </p>
+      <div className="mt-3 flex items-center gap-4">
+        <CrewQrCode url={url} size={150} dark="#0F1B2D" label="Crew roster QR" />
+        <div className="min-w-0 flex-1">
+          <div className="break-all rounded-lg bg-slate-50 p-2 font-mono text-[10px] text-slate-500">
+            {url}
+          </div>
+          <button
+            type="button"
+            onClick={copy}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 print:hidden"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy link"}
+          </button>
+          <p className="mt-2 text-[11px] leading-snug text-amber-700">
+            No password on it — whoever holds this code can open any crew member's portal.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function CrewLinks() {
   const [, navigate] = useLocation();
   const board = useBuildCrewLinkBoard();
@@ -213,6 +388,8 @@ export default function CrewLinks() {
         </div>
       ) : (
         <div className="space-y-6 px-4 py-5">
+          <ClaimsPanel />
+          <RosterCard path={board.data?.rosterPath ?? null} />
           {SECTIONS.map((section) => {
             const rows = teams.filter((t) => t.kind === section.kind);
             if (!rows.length) return null;

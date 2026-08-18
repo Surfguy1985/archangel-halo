@@ -4538,6 +4538,178 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CrewLinkBoard"
+  /roster/{code}:
+    get:
+      operationId: getCrewRoster
+      tags: [crew-portal]
+      summary: "Public: the crew picks their own name behind the shared roster code"
+      description: >
+        One code, one page, everybody. Returns names and team colours only —
+        no phones, no pay, no tokens. The code itself is the access: anyone
+        holding it can see and claim any name, which is why it is unguessable
+        and rotatable.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Roster to pick from
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewRoster"
+        "404":
+          description: Unknown or retired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /roster/{code}/claim:
+    post:
+      operationId: claimCrewRosterSpot
+      tags: [crew-portal]
+      summary: "Public: take the portal link for the name I picked"
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewRosterClaimInput"
+      responses:
+        "200":
+          description: This person's portal link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewRosterClaim"
+        "400":
+          description: No name picked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown code or crew
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /roster/{code}/join:
+    post:
+      operationId: joinCrewRoster
+      tags: [crew-portal]
+      summary: "Public: I'm not on the list — add me under my foreman"
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewRosterJoinInput"
+      responses:
+        "200":
+          description: The new crew member's portal link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewRosterClaim"
+        "400":
+          description: Invalid name or foreman
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown or retired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /crews/portal-claims:
+    get:
+      operationId: listCrewPortalClaims
+      tags: [crew-portal]
+      summary: Crew link requests waiting on the office
+      description: >
+        Anyone with the shared roster code can pick a name, but the link stays
+        dead until someone here approves it. Newest first, decided ones included
+        so the office can see who was let in.
+      responses:
+        "200":
+          description: Claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPortalClaim"
+  /crews/portal-claims/{id}/decide:
+    post:
+      operationId: decideCrewPortalClaim
+      tags: [crew-portal]
+      summary: Approve or deny a crew's link request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPortalClaimDecision"
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPortalClaimOutcome"
+        "409":
+          description: Already decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /roster/{code}/claim/{claimId}:
+    get:
+      operationId: getCrewRosterClaim
+      tags: [crew-portal]
+      summary: "Public: has the office approved my link yet?"
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+        - name: claimId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Where the request stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewRosterClaimStatus"
+        "404":
+          description: Unknown code or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /crews/{id}/portal-link:
     post:
       operationId: generateCrewPortalLink
@@ -15845,10 +16017,107 @@ components:
       properties:
         staffColor: { type: string, description: "The gold every Archangel owner and employee wears" }
         companyName: { type: ["string", "null"] }
+        rosterPath:
+          type: ["string", "null"]
+          description: "The one shared /roster/<code> path everybody can scan to pick their own name"
         teams:
           type: array
           items:
             $ref: "#/components/schemas/CrewLinkTeam"
+    CrewRoster:
+      type: object
+      required: [groups, staffColor]
+      properties:
+        companyName: { type: ["string", "null"] }
+        staffColor: { type: string }
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewRosterGroup"
+    CrewRosterGroup:
+      type: object
+      required: [key, title, color, people]
+      properties:
+        key: { type: string, description: "staff | foreman crew id | independents" }
+        title: { type: string }
+        subtitle: { type: ["string", "null"] }
+        color: { type: string }
+        leaderId:
+          type: ["string", "null"]
+          description: "Set for a foreman's team — the foreman a new joiner would report to"
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewRosterPerson"
+    CrewRosterPerson:
+      type: object
+      required: [id, name, color]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color: { type: string }
+        trade:
+          type: ["string", "null"]
+          description: "Shown so a crew can tell apart two people with the same name"
+        isForeman: { type: ["boolean", "null"] }
+    CrewPortalClaim:
+      type: object
+      required: [id, crewId, crewName, status, createdAt]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string }
+        requestedName: { type: ["string", "null"] }
+        trade: { type: ["string", "null"] }
+        foremanName: { type: ["string", "null"] }
+        status: { type: string, description: "pending | approved | denied" }
+        createdAt: { type: string }
+        decidedAt: { type: ["string", "null"] }
+    CrewPortalClaimDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, deny] }
+    CrewPortalClaimOutcome:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        status: { type: string }
+    CrewRosterClaimStatus:
+      type: object
+      required: [claimId, crewId, name, status]
+      properties:
+        claimId: { type: string }
+        crewId: { type: string }
+        name: { type: string }
+        status: { type: string, description: "pending | approved | denied" }
+    CrewRosterClaimInput:
+      type: object
+      required: [crewId]
+      properties:
+        crewId: { type: string }
+    CrewRosterJoinInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        leaderId:
+          type: ["string", "null"]
+          description: "The foreman this person reports to — drives their pin colour"
+        phone: { type: ["string", "null"] }
+    CrewRosterClaim:
+      type: object
+      required: [claimId, crewId, name, status, portalPath, color]
+      properties:
+        claimId: { type: string, description: "Poll this to find out whether the office approved" }
+        crewId: { type: string }
+        name: { type: string }
+        status: { type: string, description: "Always pending — the office has to approve first" }
+        portalPath:
+          type: string
+          description: "/portal/<token> — this device's own key, inert until the office approves"
+        color: { type: string }
     CrewMapPin:
       type: object
       required: [id, name]
