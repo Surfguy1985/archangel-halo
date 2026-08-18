@@ -29,7 +29,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  useActivatePresentationDemo,
   useGetBusinessSettings,
   useGetCrewMapPins,
   useGetPhotoReel,
@@ -64,6 +63,7 @@ import {
   HaloLevelBar,
   HaloProofReel,
   HaloReportsCard,
+  HaloExecutiveBriefing,
   HaloVendorsCard,
   HaloWaitingCard,
   HaloCrewPaycards,
@@ -688,7 +688,9 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
   const { data: catalog } = useListCatalogItems({
     query: { enabled: level === "pulse", queryKey: getListCatalogItemsQueryKey() },
   });
-  const activateDemo = useActivatePresentationDemo();
+  // Present opens the boardroom deck. Seeding the investor demo lives in the
+  // Showcase section of the sidebar More menu, which is where it belongs.
+  const [briefingOpen, setBriefingOpen] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Live before/after reel for Overview — one slide per unit, newest work
@@ -1326,19 +1328,7 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
       title: "Reports",
       kicker: "Board pack",
       body: (
-        <HaloReportsCard
-          pulse={pulseDoc}
-          presenting={activateDemo.isPending}
-          onPresent={() => {
-            activateDemo.mutate(undefined, {
-              onSuccess: () => {
-                toast({ title: "Presentation is live", description: "The map now carries the demo sites and crews." });
-                void queryClient.invalidateQueries();
-              },
-              onError: () => toast({ title: "Couldn't start the presentation", variant: "destructive" }),
-            });
-          }}
-        />
+        <HaloReportsCard pulse={pulseDoc} onPresent={() => setBriefingOpen(true)} />
       ),
     },
 
@@ -1713,6 +1703,14 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
           <MessageCircle size={28} />
           Ask HALO
         </button>
+      )}
+      {/* Boardroom deck over the whole desk — live figures, one per slide. */}
+      {briefingOpen && (
+        <HaloExecutiveBriefing
+          portfolioId={portfolioId}
+          companyName={biz?.companyName ?? undefined}
+          onClose={() => setBriefingOpen(false)}
+        />
       )}
     </div>
   );

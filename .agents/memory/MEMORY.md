@@ -144,5 +144,7 @@
 - [HALO crew link shapes](halo-crew-links.md) — portal/checkin/join are always `<origin>/<kind>/<token>`; never BASE_URL, never /halo-crew/ (Expo path dies in prod).
 - [HALO crew instructions gate](halo-crew-instructions-gate.md) — every crew link opens on the agree gate; server owns the wording, crew comes from the token, per-visit not per-crew, check-in refuses with 428.
 - [HALO structured answers](halo-structured-answers.md) — Command answers are headline+capped bullets+separate speech field; caps are enforced server-side, not just requested in the prompt.
+- [HALO job lifecycle values](halo-job-lifecycle-values.md) — crew-working is boardStatus "filled", not status "in_progress"; off-board is clearedAt/"removed"; money marginPct 0 means unmeasured.
+- [HALO executive briefing deck](halo-executive-briefing.md) — Pulse "Present" opens the live boardroom deck; never show a pending query as 0, hold place by slide id.
 - [HALO job priority ordering](halo-job-priority-ordering.md) — job ordering is ascending/lower-first per the client-board precedent; today's feed applies it within a tier, never across tiers.
 - [Schema changes without drizzle push](halo-drizzle-push-bigint.md) — push is broken repo-wide; ship column adds as boot-time ensure DDL, awaited before listen when the column gates reads.

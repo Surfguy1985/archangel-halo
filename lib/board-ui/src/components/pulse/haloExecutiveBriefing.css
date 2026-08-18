@@ -1,0 +1,313 @@
+/* Executive Briefing — the boardroom read of everything HALO is holding.
+   Deliberately a stage, not a panel: one number per slide, read from the back
+   of the room, over the same navy/lime the rest of HALO uses. */
+.halo-brief {
+  position: fixed;
+  inset: 0;
+  /* Pulse HUD panels sit above Leaflet in the 1000s; the briefing takes the
+     whole room and must clear them. */
+  z-index: 5000;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(180, 255, 68, 0.1), transparent 55%),
+    radial-gradient(90% 80% at 100% 100%, rgba(64, 120, 255, 0.12), transparent 60%),
+    #070d1a;
+  color: #f4f4f0;
+  font-family: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* ---- header ---------------------------------------------------------- */
+.halo-brief-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 32px 10px;
+  border-bottom: 1px solid rgba(170, 200, 255, 0.12);
+}
+.halo-brief-mark {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #b4ff44;
+  white-space: nowrap;
+}
+.halo-brief-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 244, 240, 0.66);
+}
+.halo-brief-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b4ff44;
+  box-shadow: 0 0 0 4px rgba(180, 255, 68, 0.16);
+  animation: halo-brief-pulse 2.4s ease-in-out infinite;
+}
+@keyframes halo-brief-pulse {
+  50% { opacity: 0.35; }
+}
+.halo-brief-spacer { flex: 1 1 auto; }
+.halo-brief-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: rgba(244, 244, 240, 0.55);
+}
+.halo-brief-icon {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(170, 200, 255, 0.2);
+  background: rgba(8, 18, 40, 0.6);
+  color: rgba(244, 244, 240, 0.85);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.halo-brief-icon:hover { border-color: rgba(180, 255, 68, 0.5); color: #f4f4f0; }
+
+/* ---- slide ----------------------------------------------------------- */
+.halo-brief-stage {
+  position: relative;
+  overflow: auto;
+  padding: 28px 48px 12px;
+}
+.halo-brief-slide {
+  max-width: 1180px;
+  margin: 0 auto;
+  animation: halo-brief-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes halo-brief-in {
+  from { opacity: 0; transform: translateY(14px); }
+}
+.halo-brief-kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(180, 255, 68, 0.86);
+  margin: 0 0 6px;
+}
+.halo-brief-title {
+  font-size: clamp(28px, 4.2vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+.halo-brief-sub {
+  font-size: clamp(14px, 1.4vw, 18px);
+  line-height: 1.45;
+  color: rgba(244, 244, 240, 0.7);
+  margin: 0 0 22px;
+  max-width: 62ch;
+}
+
+/* the one number the room should leave with */
+.halo-brief-hero {
+  font-size: clamp(44px, 9vw, 116px);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #b4ff44;
+  margin: 0 0 8px;
+}
+.halo-brief-hero.muted { color: rgba(244, 244, 240, 0.42); font-size: clamp(28px, 4vw, 52px); }
+.halo-brief-heronote {
+  font-size: clamp(13px, 1.3vw, 17px);
+  color: rgba(244, 244, 240, 0.72);
+  margin: 0 0 26px;
+}
+.halo-brief-delta.up { color: #ff8f6b; }
+.halo-brief-delta.down { color: #b4ff44; }
+
+/* stat strip */
+.halo-brief-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin: 0 0 22px;
+}
+.halo-brief-stat {
+  border: 1px solid rgba(170, 200, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(9, 20, 42, 0.62);
+  padding: 16px 18px;
+}
+.halo-brief-stat b {
+  display: block;
+  font-size: clamp(24px, 2.8vw, 38px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.halo-brief-stat b.nodata {
+  font-size: clamp(15px, 1.5vw, 20px);
+  color: rgba(244, 244, 240, 0.42);
+  letter-spacing: -0.01em;
+}
+.halo-brief-stat span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 244, 240, 0.55);
+}
+.halo-brief-stat em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 12px;
+  color: rgba(244, 244, 240, 0.5);
+}
+.halo-brief-stat[data-tone="lime"] b { color: #b4ff44; }
+.halo-brief-stat[data-tone="warn"] b { color: #ffcf5c; }
+.halo-brief-stat[data-tone="danger"] b { color: #ff8f6b; }
+
+/* rows (communities, vendors, crews) */
+.halo-brief-rows { display: grid; gap: 8px; }
+.halo-brief-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 1.1fr);
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(170, 200, 255, 0.12);
+  background: rgba(9, 20, 42, 0.5);
+}
+.halo-brief-row strong {
+  font-size: clamp(15px, 1.5vw, 20px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.halo-brief-row em {
+  font-style: normal;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(15px, 1.5vw, 20px);
+  color: #b4ff44;
+}
+.halo-brief-row em.nodata { color: rgba(244, 244, 240, 0.4); font-weight: 600; font-size: 14px; }
+.halo-brief-row span {
+  font-size: 13px;
+  color: rgba(244, 244, 240, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.halo-brief-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.halo-brief-chip[data-tone="on_target"] { background: rgba(180, 255, 68, 0.16); color: #cdff8a; }
+.halo-brief-chip[data-tone="drifting"] { background: rgba(255, 207, 92, 0.16); color: #ffcf5c; }
+.halo-brief-chip[data-tone="at_risk"] { background: rgba(255, 143, 107, 0.18); color: #ff8f6b; }
+
+/* aging bars */
+.halo-brief-bars { display: grid; gap: 10px; max-width: 760px; }
+.halo-brief-bar { display: grid; grid-template-columns: 92px 1fr auto; gap: 12px; align-items: center; }
+.halo-brief-bar > b { font-size: 13px; font-weight: 700; color: rgba(244, 244, 240, 0.66); }
+.halo-brief-bar > i {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(170, 200, 255, 0.12);
+  overflow: hidden;
+}
+.halo-brief-bar > i > u {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #b4ff44;
+  text-decoration: none;
+}
+.halo-brief-bar[data-tone="warn"] > i > u { background: #ffcf5c; }
+.halo-brief-bar[data-tone="danger"] > i > u { background: #ff8f6b; }
+.halo-brief-bar > span { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
+
+.halo-brief-empty {
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px dashed rgba(170, 200, 255, 0.22);
+  color: rgba(244, 244, 240, 0.5);
+  font-size: 15px;
+}
+
+/* ---- footer / agenda -------------------------------------------------- */
+.halo-brief-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 32px 18px;
+  border-top: 1px solid rgba(170, 200, 255, 0.12);
+  overflow-x: auto;
+}
+.halo-brief-step {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(170, 200, 255, 0.16);
+  background: transparent;
+  color: rgba(244, 244, 240, 0.55);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.halo-brief-step[data-on="true"] {
+  border-color: rgba(180, 255, 68, 0.5);
+  background: rgba(180, 255, 68, 0.12);
+  color: #f4f4f0;
+}
+.halo-brief-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(180, 255, 68, 0.9);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+/* Shows the room how long is left on the slide; frozen while paused. */
+@keyframes halo-brief-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (max-width: 820px) {
+  .halo-brief-top { padding: 12px 16px 8px; gap: 10px; }
+  .halo-brief-mark { font-size: 11px; letter-spacing: 0.16em; }
+  .halo-brief-live { display: none; }
+  .halo-brief-stage { padding: 18px 16px 8px; }
+  .halo-brief-sub { margin-bottom: 16px; }
+  .halo-brief-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .halo-brief-row span { grid-column: 1 / -1; }
+  .halo-brief-foot { padding: 10px 12px 14px; }
+}
