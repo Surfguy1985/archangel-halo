@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   useListVendors,
   useListPurchaseOrders,
+  listVendorRates,
   type Vendor,
 } from "@workspace/api-client-react";
 import {
@@ -279,6 +280,82 @@ export default function Vendors() {
     );
   };
 
+  const [exportingRates, setExportingRates] = useState(false);
+
+  const [ratesExportError, setRatesExportError] = useState<string | null>(null);
+
+  const doExportRates = async () => {
+    if (!visible.length) return;
+    setExportingRates(true);
+    setRatesExportError(null);
+    try {
+      const results = await Promise.allSettled(
+        visible.map((v) => listVendorRates(v.id).then((rates) => ({ vendor: v, rates }))),
+      );
+
+      const failed = results
+        .map((r, i) => (r.status === "rejected" ? visible[i]!.name : null))
+        .filter((n): n is string => n !== null);
+
+      if (failed.length > 0) {
+        setRatesExportError(
+          `Couldn't load rates for: ${failed.join(", ")}. Check your connection and try again.`,
+        );
+        return;
+      }
+
+      const rows: Record<string, unknown>[] = [];
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { vendor: v, rates } = result.value;
+        if (rates.length === 0) {
+          // Vendor has no rates — one row with empty service/rate columns so
+          // the vendor still appears in the export.
+          rows.push({
+            vendor: v.name,
+            trade: v.trade ?? "",
+            service: "",
+            detail: "",
+            unit: "",
+            category: "",
+            vendorRate: "",
+            masterRate: "",
+          });
+        } else {
+          for (const r of rates) {
+            rows.push({
+              vendor: v.name,
+              trade: v.trade ?? "",
+              service: r.service,
+              detail: r.detail ?? "",
+              unit: r.unit ?? "",
+              category: r.category ?? "",
+              vendorRate: r.rate,
+              masterRate: r.masterRate ?? "",
+            });
+          }
+        }
+      }
+
+      exportCsv(
+        `vendor-rates-${todayLocal()}.csv`,
+        [
+          { key: "vendor", label: "Vendor" },
+          { key: "trade", label: "Trade" },
+          { key: "service", label: "Service" },
+          { key: "detail", label: "Detail" },
+          { key: "unit", label: "Unit" },
+          { key: "category", label: "Category" },
+          { key: "vendorRate", label: "Vendor rate" },
+          { key: "masterRate", label: "Master rate" },
+        ],
+        rows,
+      );
+    } finally {
+      setExportingRates(false);
+    }
+  };
+
   const contractFilters: { key: ContractFilter; label: string; count: number }[] = [
     { key: "contracted", label: "Contracted", count: counts.contracted },
     { key: "inactive", label: "Inactive", count: counts.inactive },
@@ -319,6 +396,14 @@ export default function Vendors() {
             <Download className="w-4 h-4" /> Export CSV
           </button>
           <button
+            onClick={doExportRates}
+            disabled={!visible.length || exportingRates}
+            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors disabled:opacity-50"
+          >
+            <Receipt className="w-4 h-4" />
+            {exportingRates ? "Exporting…" : "Export rates"}
+          </button>
+          <button
             onClick={openAdd}
             className="btn-gold inline-flex items-center gap-1.5 px-4 h-9 text-sm"
             data-testid="button-add-vendor"
@@ -327,6 +412,19 @@ export default function Vendors() {
           </button>
         </div>
       </header>
+
+      {ratesExportError && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+          <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+          <span>{ratesExportError}</span>
+          <button
+            onClick={() => setRatesExportError(null)}
+            className="ml-auto text-red-500 hover:text-red-700 transition-colors font-semibold text-xs shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
