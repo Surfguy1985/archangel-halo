@@ -4755,6 +4755,11 @@ export interface VendorRate {
   /** @nullable */
   masterRate?: number | null;
 }
+
+export interface VendorRateInput {
+  rate: number;
+}
+
 export interface PurchaseOrder {
   id: string;
   poNo: string;
@@ -9598,6 +9603,7 @@ export type DeleteVendorRate200 = {
   vendorId: string;
   catalogItemId: string;
 };
+
 export type ListPurchaseOrdersParams = {
 status?: string;
 };
@@ -9860,7 +9866,3 @@ export const ExportClientTurnInvoiceFormat = {
   json: 'json',
 } as const;
 
-
-export interface VendorRateInput {
-  rate: number;
-}
