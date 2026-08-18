@@ -1,5 +1,4 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { OfficeGate } from "./components/OfficeGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
@@ -64,10 +63,10 @@ const queryClient = new QueryClient({
 
 function BoardPage({ children }: { children: React.ReactNode }) {
   return (
-    <OfficeGate>
+    <>
       <SplashScreen />
       <Suspense fallback={<BoardRouteFallback />}>{children}</Suspense>
-    </OfficeGate>
+    </>
   );
 }
 
@@ -107,10 +106,8 @@ function App() {
             {/* ── Home — Property Portfolio desk (corporate). Same full-bleed
                 map HUD as Pulse and Punchlist; only the desk profile changes. */}
             <Route path="/">
-              <OfficeGate>
-                <SplashScreen />
-                <PropertyPulse level="portfolio" />
-              </OfficeGate>
+              <SplashScreen />
+              <PropertyPulse level="portfolio" />
             </Route>
 
             {/* ── HALO Command — full-screen dark chat OS, no sidebar ───────
@@ -119,12 +116,10 @@ function App() {
                 so it renders without the hub sidebar; the div supplies the
                 full-viewport height HaloCommand's h-full layout expects.   */}
             <Route path="/chat">
-              <OfficeGate>
-                <SplashScreen />
-                <div style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
-                  <HaloCommand />
-                </div>
-              </OfficeGate>
+              <SplashScreen />
+              <div style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
+                <HaloCommand />
+              </div>
             </Route>
 
             {/* ── /today → full HALO Command chat (legacy alias) ─────────── */}
@@ -134,18 +129,14 @@ function App() {
 
             {/* Property Pulse — property-manager desk */}
             <Route path="/pulse">
-              <OfficeGate>
-                <SplashScreen />
-                <PropertyPulse level="pulse" />
-              </OfficeGate>
+              <SplashScreen />
+              <PropertyPulse level="pulse" />
             </Route>
 
             {/* Property Punchlist — Archangel Contractors / vendor desk */}
             <Route path="/punchlist">
-              <OfficeGate>
-                <SplashScreen />
-                <PropertyPulse level="punchlist" />
-              </OfficeGate>
+              <SplashScreen />
+              <PropertyPulse level="punchlist" />
             </Route>
 
             <Route path="/portfolio">
@@ -192,7 +183,7 @@ function App() {
 
             {/* ── All other routes — hub layout with sidebar ────────────── */}
             <Route>
-              <OfficeGate>
+              <>
                 <SplashScreen />
                 <DesktopLayout>
                   <Switch>
@@ -230,7 +221,7 @@ function App() {
                     <Route component={NotFound} />
                   </Switch>
                 </DesktopLayout>
-              </OfficeGate>
+              </>
             </Route>
           </Switch>
         </WouterRouter>

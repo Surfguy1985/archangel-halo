@@ -21,7 +21,6 @@ import {
 import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2, Sparkles, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TrainingCenter } from "@/components/TrainingCenter";
-import { OfficePasscodeCard } from "@/components/OfficePasscodeCard";
 import { onsiteStorage, ArrivalSheet } from "@/components/ArrivalSheet";
 import {
   useCheckArrival,
@@ -397,8 +396,6 @@ export default function Settings() {
       </div>
 
       <ArrivalSheet open={testOpen} onOpenChange={setTestOpen} result={testResult} />
-
-      <OfficePasscodeCard />
 
       <div className="rounded-[16px] border border-destructive/30 bg-[rgba(220,38,38,0.05)] p-[16px]">
         <div className="font-display font-bold text-[15px] text-destructive">Start fresh</div>

@@ -148,24 +148,6 @@ async function pickUnit204(): Promise<void> {
   }
 }
 
-/**
- * If a sign-in dialog popped (guest tried a gated action), close it so no
- * orphan dialog is left over the presentation. Best-effort, never throws.
- */
-async function dismissLoginDialog(): Promise<void> {
-  const loginMarker = document.querySelector('[data-testid="link-login-team"]');
-  if (!loginMarker) return;
-  // Click the login dialog's own Cancel button — never dispatch Escape on the
-  // document, because PresentationMode listens for Escape and would close the
-  // entire presentation.
-  const dialog = loginMarker.closest('[role="dialog"]');
-  const cancel = Array.from(dialog?.querySelectorAll("button") ?? []).find(
-    (b) => (b.textContent ?? "").trim().toLowerCase() === "cancel",
-  ) as HTMLButtonElement | undefined;
-  cancel?.click();
-  await sleep(250);
-}
-
 /** Set a controlled input's value so React's onChange fires (native setter + input event). */
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const proto = Object.getPrototypeOf(input);
@@ -477,9 +459,6 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
         (await waitFor("invoice-pay-options", 1200));
       payBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
       await sleep(3000);
-      // Safety net: if any gated click ever surfaced a sign-in prompt, close it
-      // via its own Cancel button (never Escape — that would close the demo).
-      await dismissLoginDialog();
       if (!ctx.alive()) { ctx.closeCard(); return; }
       ctx.closeCard();
     },

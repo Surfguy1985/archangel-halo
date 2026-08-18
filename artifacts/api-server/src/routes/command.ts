@@ -144,7 +144,7 @@ void _assertAllConsequentialActionsMapped;
 //   <scope>.<expiry>.<nonce>.<hmac>
 // The nonce (index 2) is 9 random bytes (base64url), unique per login event.
 // We use it as an opaque actor token to scope conversations — no crypto needed
-// here; the officeGuard middleware has already verified the HMAC.
+// here; the caller is the operator's own app — HALO has no passcode.
 
 const OFFICE_COOKIE = "halo_office_session";
 

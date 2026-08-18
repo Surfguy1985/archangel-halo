@@ -1,6 +1,6 @@
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter, type Response } from "express";
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   db,
@@ -29,7 +29,6 @@ import {
   walksTable,
   walkCapturesTable,
   clientPortfolioPropertiesTable,
-  type ClientUser,
   type Job,
 } from "@workspace/db";
 import { resolveClientBoardLink } from "../lib/clientBoardLink";
@@ -37,8 +36,6 @@ import { getBusinessSettings } from "../lib/businessSettings";
 import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
 import { buildCrewPinColors } from "../lib/crewPinColor";
 import {
-  ClientBoardLoginBody,
-  ClientBoardLoginResponse,
   GetClientBoardResponse,
   CreateClientBoardCardBody,
   CreateClientBoardCardResponse,
@@ -57,7 +54,7 @@ import {
   RestoreClientBoardCardResponse,
   GetClientBoardHistoryResponse,
 } from "@workspace/api-zod";
-import { effectivePermissions } from "./clientAccess";
+import { ROLE_DEFAULTS } from "./clientAccess";
 import { completeJson } from "../lib/ai";
 import { raiseClientCard } from "../lib/clientBoard";
 import { getPresentationDemoState } from "../lib/presentationDemo";
@@ -120,48 +117,25 @@ const PM_LANE_KEYS = new Set(PM_LANES.map((l) => l.key as string));
 const ANY_LANE_KEYS = new Set([...LANE_KEYS, ...PM_LANE_KEYS]);
 
 // ---------------------------------------------------------------------------
-// Session tokens — HMAC-signed, stateless. `userId.expiresMs.sig` (base64url
-// pieces). Sent by the dashboard as `Authorization: Bearer <token>`.
+// Link-holder identity — there are no passwords or sessions any more. Whoever
+// holds the board link IS the board admin. Every property gets one stable,
+// deterministic synthetic identity derived from its propertyId, so anything
+// that needs a per-viewer key (concierge history, confirm chips) stays scoped
+// to the property and can never collide with or claim another board's data.
 // ---------------------------------------------------------------------------
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
-
-function sessionSecret(): string {
-  const s = process.env.SESSION_SECRET;
-  if (!s) throw new Error("SESSION_SECRET is not configured");
-  return s;
-}
-
-function sign(payload: string): string {
-  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
-}
-
-export function issueSessionToken(userId: string): string {
-  const exp = Date.now() + SESSION_TTL_MS;
-  const payload = `${userId}.${exp}`;
-  return `${payload}.${sign(payload)}`;
-}
-
-function verifySessionToken(token: string): string | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [userId, expStr, sig] = parts as [string, string, string];
-  const payload = `${userId}.${expStr}`;
-  const expected = sign(payload);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp) || exp < Date.now()) return null;
-  return userId;
-}
-
-function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const candidate = scryptSync(password, salt, 64).toString("hex");
-  const a = Buffer.from(candidate);
-  const b = Buffer.from(hash);
-  return a.length === b.length && timingSafeEqual(a, b);
+function linkHolderId(propertyId: string): string {
+  // Deterministic UUID (v5-shaped) derived from the propertyId. Same property
+  // → same id forever; different properties → different ids.
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET is not configured");
+  const h = createHmac("sha256", secret).update(`link-holder.${propertyId}`).digest("hex");
+  return [
+    h.slice(0, 8),
+    h.slice(8, 12),
+    `5${h.slice(13, 16)}`,
+    ((parseInt(h.slice(16, 17), 16) & 0x3) | 0x8).toString(16) + h.slice(17, 20),
+    h.slice(20, 32),
+  ].join("-");
 }
 
 async function accountByToken(token: string, preferPropertyId?: string | null) {
@@ -212,45 +186,28 @@ export type Viewer = {
   role: string;
   permissions: string[];
   readOnly: boolean;
-  user?: ClientUser;
+  // Stable per-property link-holder identity. Present for real property
+  // viewers; only routes that mint synthetic office viewers leave it unset.
+  user?: { id: string };
 };
 
-const GUEST_VIEWER: Viewer = {
-  authenticated: false,
-  name: null,
-  email: null,
-  role: "guest",
-  permissions: ["overview", "live_jobs", "photos", "unit_map", "hub"],
-  readOnly: true,
-};
-
+// The board link is now the ONLY credential. Whoever holds it gets full board
+// rights: authenticated, admin role, the complete catalog of permissions, and
+// write access. The identity is a deterministic per-property id so per-viewer
+// state (concierge history, confirm chips) stays scoped to this one board.
 export async function resolveViewer(
-  req: { headers: Record<string, unknown> },
+  _req: { headers: Record<string, unknown> },
   propertyId: string,
 ): Promise<Viewer> {
-  const header = String(req.headers["authorization"] ?? "");
-  const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!bearer) return GUEST_VIEWER;
-  const userId = verifySessionToken(bearer);
-  if (!userId) return GUEST_VIEWER;
-  const [user] = await db
-    .select()
-    .from(clientUsersTable)
-    .where(
-      and(eq(clientUsersTable.id, userId), eq(clientUsersTable.propertyId, propertyId)),
-    )
-    .limit(1);
-  if (!user || !user.active) return GUEST_VIEWER;
-  const permissions = effectivePermissions(user);
   return {
     authenticated: true,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    permissions,
-    // Guests are seated read-only viewers; admins and members can write.
-    readOnly: user.role === "guest",
-    user,
+    name: null,
+    email: null,
+    role: "admin",
+    // Same catalog source clientAccess.ts uses, so permissions can't drift.
+    permissions: ROLE_DEFAULTS.admin!,
+    readOnly: false,
+    user: { id: linkHolderId(propertyId) },
   };
 }
 
@@ -262,73 +219,22 @@ function viewerDto(v: Viewer) {
     role: v.role,
     permissions: v.permissions,
     readOnly: v.readOnly,
-    // Authenticated users carry a server-side "tour seen" flag so the auto
-    // tour only offers once across devices. Guests fall back to localStorage.
-    tourSeen: v.authenticated ? v.user?.tourSeenAt != null : false,
+    // No server-side per-user tour flag any more; the tour offer falls back to
+    // the browser-local behavior for everyone.
+    tourSeen: false,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Login
-// ---------------------------------------------------------------------------
-router.post("/client/:token/board/login", limits.login, async (req, res): Promise<void> => {
-  const parsed = ClientBoardLoginBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(401).json({ error: "Email and password are required" });
-    return;
-  }
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const email = parsed.data.email.trim().toLowerCase();
-  const users = await db
-    .select()
-    .from(clientUsersTable)
-    .where(eq(clientUsersTable.propertyId, account.propertyId));
-  const user = users.find((u) => u.email.trim().toLowerCase() === email);
-  if (!user || !user.active || !verifyPassword(parsed.data.password, user.passwordHash)) {
-    res.status(401).json({ error: "That email and password don't match" });
-    return;
-  }
-  const permissions = effectivePermissions(user);
-  res.json(
-    ClientBoardLoginResponse.parse({
-      sessionToken: issueSessionToken(user.id),
-      viewer: {
-        authenticated: true,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        permissions,
-        readOnly: user.role === "guest",
-        tourSeen: user.tourSeenAt != null,
-      },
-    }),
-  );
-});
-
-// ---------------------------------------------------------------------------
-// Guided tour — persist "seen" per signed-in user so the auto-offer holds
-// across devices. Guests keep the browser-local behavior.
+// Guided tour — there's no per-user server flag any more, so the auto-offer is
+// governed entirely by the browser (localStorage). This endpoint is kept as a
+// harmless no-op so existing clients that ping it still succeed.
 // ---------------------------------------------------------------------------
 router.post("/client/:token/board/tour-seen", async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account) {
     res.status(404).json({ error: "Invalid link" });
     return;
-  }
-  const viewer = await resolveViewer(req, account.propertyId);
-  if (!viewer.authenticated || !viewer.user) {
-    res.status(401).json({ error: "Sign in required" });
-    return;
-  }
-  if (!viewer.user.tourSeenAt) {
-    await db
-      .update(clientUsersTable)
-      .set({ tourSeenAt: new Date() })
-      .where(eq(clientUsersTable.id, viewer.user.id));
   }
   res.json({ ok: true });
 });

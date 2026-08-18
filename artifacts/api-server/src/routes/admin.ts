@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { createHash, randomBytes, scryptSync } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import {
@@ -37,8 +37,6 @@ import {
   CreateClientUserResponse,
   UpdateClientUserBody,
   UpdateClientUserResponse,
-  ResetClientUserPasswordBody,
-  ResetClientUserPasswordResponse,
   DeleteClientUserResponse,
   RegenerateDashboardTokenResponse,
   SendClientOnboardingBody,
@@ -86,21 +84,6 @@ function escHtml(s: string): string {
 
 function newToken(): string {
   return randomBytes(18).toString("base64url");
-}
-
-export function newTempPassword(): string {
-  // Readable, no ambiguous chars, 10 chars.
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(10);
-  let out = "";
-  for (const b of bytes) out += alphabet[b % alphabet.length];
-  return out;
-}
-
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
 }
 
 function publicBaseUrl(): string {
@@ -366,7 +349,6 @@ router.post(
       return;
     }
     const account = await ensureAccount(property.id);
-    const tempPassword = newTempPassword();
     let user: ClientUser;
     try {
       user = await db.transaction(async (tx) => {
@@ -377,7 +359,7 @@ router.post(
           .where(eq(clientUsersTable.propertyId, propertyId))
           .for("update");
         if (users.some((u) => u.email.toLowerCase() === email)) {
-          throw new SeatError("A login with that email already exists");
+          throw new SeatError("Someone with that email is already on this board");
         }
         const activeSeated = users.filter((u) => u.active && u.role !== "guest").length;
         const activeGuests = users.filter((u) => u.active && u.role === "guest").length;
@@ -398,7 +380,9 @@ router.post(
             name: body.name.trim(),
             email,
             role,
-            passwordHash: hashPassword(tempPassword),
+            // Client users do not sign in — the board link is the credential —
+            // but the column is NOT NULL, so it holds an unusable empty value.
+            passwordHash: "",
           })
           .returning();
         return created;
@@ -409,30 +393,28 @@ router.post(
         return;
       }
       if (isUniqueViolation(e)) {
-        res.status(400).json({ error: "A login with that email already exists" });
+        res.status(400).json({ error: "Someone with that email is already on this board" });
         return;
       }
       throw e;
     }
     let emailed = false;
     if (body.sendEmail) {
-      emailed = await emailCredentials(user, tempPassword, account);
+      emailed = await emailBoardInvite(user, account);
     }
     res
       .status(201)
       .json(
         CreateClientUserResponse.parse({
           user: serUser(user),
-          tempPassword,
           emailed,
         }),
       );
   },
 );
 
-export async function emailCredentials(
+export async function emailBoardInvite(
   user: ClientUser,
-  tempPassword: string,
   account: ClientAccount,
 ): Promise<boolean> {
   const settings = await getBusinessSettings();
@@ -440,18 +422,14 @@ export async function emailCredentials(
   const link = dashboardUrl(account.dashboardToken);
   const result = await sendEmail({
     to: user.email,
-    subject: `Your ${company} dashboard login`,
+    subject: `Your ${company} property dashboard`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#101318">
-        <h2 style="margin-bottom:4px">Your dashboard login</h2>
+        <h2 style="margin-bottom:4px">Your property dashboard</h2>
         <p>Hi ${escHtml(user.name)},</p>
-        <p>Here are your login details for the ${escHtml(company)} property dashboard:</p>
-        <p style="background:#f4f5f7;border-radius:8px;padding:14px 16px">
-          <b>Email:</b> ${escHtml(user.email)}<br/>
-          <b>Temporary password:</b> <code>${tempPassword}</code>
-        </p>
+        <p>Here is your board for the ${escHtml(company)} property dashboard. There is nothing to sign in to — the link below is all you need.</p>
         <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:10px;display:inline-block">Open your board</a></p>
-        <p style="color:#667085;font-size:13px">Keep this password safe — you can ask us for a reset any time.</p>
+        <p style="color:#667085;font-size:13px">Keep this link private — anyone who has it can open your board.</p>
       </div>`,
   });
   return result.ok;
@@ -523,7 +501,7 @@ router.patch("/admin/client-users/:id", async (req, res): Promise<void> => {
       return;
     }
     if (isUniqueViolation(e)) {
-      res.status(400).json({ error: "A login with that email already exists" });
+      res.status(400).json({ error: "Someone with that email is already on this board" });
       return;
     }
     throw e;
@@ -541,42 +519,6 @@ router.delete("/admin/client-users/:id", async (req, res): Promise<void> => {
   }
   res.json(DeleteClientUserResponse.parse({ ok: true }));
 });
-
-router.post(
-  "/admin/client-users/:id/reset-password",
-  async (req, res): Promise<void> => {
-    const body = ResetClientUserPasswordBody.parse(req.body);
-    const [user] = await db
-      .select()
-      .from(clientUsersTable)
-      .where(eq(clientUsersTable.id, req.params.id));
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-    const tempPassword = newTempPassword();
-    const [updated] = await db
-      .update(clientUsersTable)
-      .set({
-        passwordHash: hashPassword(tempPassword),
-        lastPasswordResetAt: new Date(),
-      })
-      .where(eq(clientUsersTable.id, user.id))
-      .returning();
-    let emailed = false;
-    if (body.sendEmail) {
-      const account = await ensureAccount(user.propertyId);
-      emailed = await emailCredentials(updated, tempPassword, account);
-    }
-    res.json(
-      ResetClientUserPasswordResponse.parse({
-        user: serUser(updated),
-        tempPassword,
-        emailed,
-      }),
-    );
-  },
-);
 
 router.post(
   "/admin/accounts/:propertyId/token/regenerate",

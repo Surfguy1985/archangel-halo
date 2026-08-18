@@ -9,10 +9,5 @@ import type { ClientAccessUser } from './clientAccessUser';
 
 export interface ClientAccessInviteResult {
   user: ClientAccessUser;
-  /**
-     * Only set when the password was auto-generated — shown once
-     * @nullable
-     */
-  tempPassword: string | null;
   emailed: boolean;
 }

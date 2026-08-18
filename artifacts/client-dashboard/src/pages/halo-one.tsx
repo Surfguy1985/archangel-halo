@@ -549,14 +549,10 @@ export default function HaloOne() {
   // Conversation history hydration from server (once per token per session)
   useEffect(() => {
     if (!token || _hydratedFor.has(token)) return;
-    const sessionToken = typeof localStorage !== 'undefined'
-      ? localStorage.getItem(`halo_client_session_${token}`) : null;
-    if (!sessionToken) return; // guest sessions skip hydration
     _hydratedFor.add(token);
 
     fetch(`/api/client/${token}/concierge/history`, {
       credentials: 'include',
-      headers: { Authorization: `Bearer ${sessionToken}` },
     })
       .then(r => r.ok ? r.json() : null)
       .catch(() => null)
@@ -668,14 +664,11 @@ export default function HaloOne() {
       setMessages(prev => prev.map(m => (m.id === aid ? fn(m) : m)));
 
     try {
-      const sessionToken = typeof localStorage !== 'undefined'
-        ? localStorage.getItem(`halo_client_session_${token}`) : null;
       const resp = await fetch(`/api/client/${token}/concierge`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
         body: JSON.stringify({ message: msg }),
       });
@@ -740,13 +733,10 @@ export default function HaloOne() {
   // Confirm chip
   const handleConfirmChip = async (chip: Chip) => {
     try {
-      const sessionToken = typeof localStorage !== 'undefined'
-        ? localStorage.getItem(`halo_client_session_${token}`) : null;
       const resp = await fetch(`/api/client/${token}/concierge/confirm`, {
         method: 'POST', credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
         body: JSON.stringify({ confirmToken: chip.confirmToken }),
       });

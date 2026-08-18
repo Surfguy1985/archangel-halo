@@ -83,13 +83,10 @@ export function UnitBlockerCard({ unitLabel, cards, token, permissions, onAsk }:
   const handleRequestUpdate = async () => {
     setRequesting(true);
     try {
-      const sessionToken = typeof localStorage !== 'undefined'
-        ? localStorage.getItem(`halo_client_session_${token}`) : null;
       const resp = await fetch(`/api/client/${token}/concierge`, {
         method: 'POST', credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
         body: JSON.stringify({ message: `Please provide an update on Unit ${unitLabel} — when will it be ready?` }),
       });

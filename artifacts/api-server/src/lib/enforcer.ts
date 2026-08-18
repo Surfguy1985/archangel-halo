@@ -14,10 +14,8 @@ import {
   type VerifiedClaims,
 } from "./enforcerCore";
 import { verifyRs256Jwt, type Jwk } from "./jwtVerify";
-import { isIdentityExemptPath, verifyOfficeSession } from "./officeAuth";
+import { isIdentityExemptPath } from "./publicPaths";
 import { logger } from "./logger";
-
-const OFFICE_COOKIE = "halo_office_session";
 
 let jwksCache: { fetchedAt: number; keys: Jwk[] } | null = null;
 const JWKS_TTL_MS = 5 * 60_000;
@@ -97,7 +95,13 @@ export async function authenticateEnforcer(
   const env = envFromProcess(deps.env);
   const fetchFn = deps.fetchFn ?? fetch;
   const bearer = bearerFrom(req);
-  const officeSessionValid = verifyOfficeSession(req.cookies?.[OFFICE_COOKIE]);
+  // The office passcode is gone — the owner asked for every password and login
+  // in HALO to be removed — so there is no session cookie left to check and any
+  // caller reaching a non-exempt route IS the local operator. This flag is what
+  // enforcerCore calls the "office session": keep it true or the enforcer would
+  // 401 the whole app now that nothing can ever present that cookie. External
+  // JWT identity is unaffected; verified claims still win when configured.
+  const officeSessionValid = true;
   const clientTenant =
     (typeof req.headers["x-tenant-id"] === "string" ? req.headers["x-tenant-id"] : null) ??
     (typeof req.body?.tenantId === "string" ? req.body.tenantId : null);

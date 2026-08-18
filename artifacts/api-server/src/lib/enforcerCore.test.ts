@@ -194,16 +194,31 @@ describe("Enforcer JWT identity", () => {
     ).toMatchObject({ ok: false, status: 401, code: "unauthenticated" });
   });
 
-  it("does not accept office session as Enforcer identity in production", () => {
+  it("accepts the local operator in production even when Enforcer is required", () => {
+    // There is no human login in HALO, so an office/Walk request can never
+    // carry a JWT. Required mode still governs machine callers: a Bearer token
+    // that fails verification is rejected before this point.
+    const r = resolveIdentityFromInputs({
+      env: prod,
+      bearerPresent: false,
+      officeSessionValid: true,
+      verifiedClaims: null,
+      verifyError: null,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.identity.source).toBe("office_session");
+  });
+
+  it("still rejects a bad Bearer token in production", () => {
     expect(
       resolveIdentityFromInputs({
         env: prod,
-        bearerPresent: false,
+        bearerPresent: true,
         officeSessionValid: true,
         verifiedClaims: null,
-        verifyError: null,
+        verifyError: "token_invalid",
       }),
-    ).toMatchObject({ ok: false, status: 401, code: "unauthenticated" });
+    ).toMatchObject({ ok: false, status: 401, code: "token_invalid" });
   });
 });
 

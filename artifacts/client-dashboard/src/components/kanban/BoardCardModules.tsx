@@ -446,9 +446,8 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
   const handleAction = (e: React.MouseEvent, action: string, data: any = {}, openUrl?: string | null) => {
     e.stopPropagation();
     if (readOnly) {
-      // Guests get a sign-in prompt instead of a silently dead button.
       if (onReadOnlyClick) onReadOnlyClick();
-      else toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      else toast({ title: 'View only', description: 'This board is in view-only mode.', variant: 'destructive' });
       return;
     }
     // Open synchronously so mobile popup blockers allow it; the event is

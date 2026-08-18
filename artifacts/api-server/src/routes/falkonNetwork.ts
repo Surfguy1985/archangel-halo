@@ -4,7 +4,7 @@
  * PUBLIC (in PUBLIC_PREFIXES — no passcode):
  *   GET  /falkon/network/capabilities   — HALO's published Phase-1 capability catalog
  *
- * OFFICE-GATED (behind officeGuard):
+ * OFFICE-SIDE (no gate — HALO has no passcode; see lib/publicPaths.ts):
  *   GET  /falkon/network/identity       — HALO's network business identity
  *   GET  /falkon/network/health         — real-time network health
  *
@@ -223,7 +223,7 @@ falkonNetworkRouter.get("/falkon/network/capabilities", async (_req, res) => {
 });
 
 // ===========================================================================
-// OFFICE-GATED — all routes below require officeGuard cookie
+// OFFICE-SIDE — all routes below are the operator's own surface (no passcode)
 // ===========================================================================
 
 // ---------------------------------------------------------------------------

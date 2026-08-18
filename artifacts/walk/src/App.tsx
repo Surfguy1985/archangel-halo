@@ -7,21 +7,14 @@ import { Route, Switch, Router as WouterRouter } from 'wouter';
 import StartScreen from '@/pages/start';
 import CaptureScreen from '@/pages/capture';
 import ReviewScreen from '@/pages/review';
-import WalkGate from '@/components/WalkGate';
 import { CheckCircle2 } from 'lucide-react';
-
-const is401 = (error: any) =>
-  error?.status === 401 || error?.response?.status === 401 || error?.message?.includes('401');
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({}),
   mutationCache: new MutationCache({}),
   defaultOptions: {
     queries: {
-      retry: (failureCount, error: any) => {
-        if (is401(error)) return false;
-        return failureCount < 2;
-      },
+      retry: (failureCount) => failureCount < 2,
     },
   },
 });
@@ -60,9 +53,7 @@ function App() {
               
               {/* Main content - mobile constrained, no side borders, relying on background color difference if needed */}
               <main className="flex-1 w-full max-w-md mx-auto relative flex flex-col overflow-hidden">
-                <WalkGate>
-                  <Router />
-                </WalkGate>
+                <Router />
               </main>
             </div>
           </WouterRouter>

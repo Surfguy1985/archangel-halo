@@ -28,7 +28,6 @@ const MAX_TOOL_ROUNDS = 6;
 const MAX_OUTPUT_TOKENS = 1024;
 const DAILY_MESSAGE_CAP = 80;
 const CONFIRM_TTL_MS = 10 * 60 * 1000;
-const guestDailyCount = new Map<string, number>();
 
 async function accountByToken(token: string) {
   const [account] = await db
@@ -317,8 +316,8 @@ async function runReadTool(
   return { error: `Unknown tool ${name}` };
 }
 
-function systemPrompt(propertyName: string, viewer: Viewer): string {
-  return `You are the concierge on the ${propertyName} client board for HALO (ArchAngel Contractors' operations platform). The person chatting is ${viewer.name ?? "a guest"} (${viewer.role}).
+function systemPrompt(propertyName: string, _viewer: Viewer): string {
+  return `You are the concierge on the ${propertyName} client board for HALO (ArchAngel Contractors' operations platform). The person chatting holds the board link, which gives them full board rights.
 
 You answer questions about their property's work using the tools, and you can take actions on their behalf.
 
@@ -329,7 +328,7 @@ Rules:
 - When you reference a specific card, embed a link EXACTLY like [[card:CARDKEY|SHORT LABEL]] using the card's cardKey. The board turns these into tappable buttons.
 - Live crew location: share the card's trackerUrl as a [[card:...]] link and offer crew.locate_requested to ping them.
 - Mutating tools NEVER run immediately: the client sees a confirm button first. After calling one, tell them to tap the confirmation below. Never claim an action is done.
-- ${viewer.authenticated && !viewer.readOnly ? "This person can take actions." : "This person is browsing as a guest/read-only — they must sign in before any action. Answer read-only questions normally, and mention signing in when they ask for an action."}
+- This person can take actions.
 - Today's date is ${localToday()}.`;
 }
 
@@ -350,23 +349,7 @@ router.post("/client/:token/concierge", limits.cardAction, async (req, res): Pro
   }
   const viewer = await resolveViewer(req, account.propertyId);
 
-  // Guest messages are never persisted, so they'd bypass the DB-backed daily
-  // cap — count them in memory per property/day instead.
-  if (!viewer.authenticated) {
-    const day = localToday();
-    const key = `${account.propertyId}:${day}`;
-    const used = guestDailyCount.get(key) ?? 0;
-    if (used >= DAILY_MESSAGE_CAP) {
-      res.status(429).json({ error: "The concierge is taking a breather — try again tomorrow" });
-      return;
-    }
-    guestDailyCount.set(key, used + 1);
-    if (guestDailyCount.size > 500) {
-      for (const k of guestDailyCount.keys()) if (!k.endsWith(day)) guestDailyCount.delete(k);
-    }
-  }
-
-  // Daily spend guard per property (all signed-in users share the bucket).
+  // Daily spend guard per property (all link holders share the bucket).
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const [{ n }] = await db
@@ -391,20 +374,18 @@ router.post("/client/:token/concierge", limits.cardAction, async (req, res): Pro
     .limit(1);
   const propertyName = prop?.name ?? "your property";
 
-  // Prior conversation (signed-in users only).
-  const history = viewer.authenticated && viewer.user
-    ? await db
-        .select()
-        .from(clientConciergeMessagesTable)
-        .where(
-          and(
-            eq(clientConciergeMessagesTable.propertyId, account.propertyId),
-            eq(clientConciergeMessagesTable.clientUserId, viewer.user.id),
-          ),
-        )
-        .orderBy(asc(clientConciergeMessagesTable.createdAt))
-        .then((rows) => rows.slice(-16))
-    : [];
+  // Prior conversation — scoped to this board's link-holder identity.
+  const history = await db
+    .select()
+    .from(clientConciergeMessagesTable)
+    .where(
+      and(
+        eq(clientConciergeMessagesTable.propertyId, account.propertyId),
+        eq(clientConciergeMessagesTable.clientUserId, viewer.user!.id),
+      ),
+    )
+    .orderBy(asc(clientConciergeMessagesTable.createdAt))
+    .then((rows) => rows.slice(-16));
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -523,20 +504,18 @@ router.post("/client/:token/concierge", limits.cardAction, async (req, res): Pro
   send("done", {});
   res.end();
 
-  // Persist after responding (signed-in users only).
-  if (viewer.authenticated && viewer.user) {
-    const uid = viewer.user.id;
-    await db.insert(clientConciergeMessagesTable).values([
-      { propertyId: account.propertyId, clientUserId: uid, role: "user", content: message },
-      {
-        propertyId: account.propertyId,
-        clientUserId: uid,
-        role: "assistant",
-        content: finalText,
-        meta: chips.length ? { chips } : null,
-      },
-    ]);
-  }
+  // Persist after responding, scoped to this board's link-holder identity.
+  const uid = viewer.user!.id;
+  await db.insert(clientConciergeMessagesTable).values([
+    { propertyId: account.propertyId, clientUserId: uid, role: "user", content: message },
+    {
+      propertyId: account.propertyId,
+      clientUserId: uid,
+      role: "assistant",
+      content: finalText,
+      meta: chips.length ? { chips } : null,
+    },
+  ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -549,17 +528,13 @@ router.get("/client/:token/concierge/history", async (req, res): Promise<void> =
     return;
   }
   const viewer = await resolveViewer(req, account.propertyId);
-  if (!viewer.authenticated || !viewer.user) {
-    res.json(GetConciergeHistoryResponse.parse({ messages: [] }));
-    return;
-  }
   const rows = await db
     .select()
     .from(clientConciergeMessagesTable)
     .where(
       and(
         eq(clientConciergeMessagesTable.propertyId, account.propertyId),
-        eq(clientConciergeMessagesTable.clientUserId, viewer.user.id),
+        eq(clientConciergeMessagesTable.clientUserId, viewer.user!.id),
       ),
     )
     .orderBy(asc(clientConciergeMessagesTable.createdAt));
@@ -595,13 +570,9 @@ router.post(
       return;
     }
     const viewer = await resolveViewer(req, account.propertyId);
-    if (!viewer.authenticated || viewer.readOnly || !viewer.user) {
-      res.status(403).json({ error: "Sign in to take actions" });
-      return;
-    }
     const parsed = ConfirmConciergeActionBody.safeParse(req.body);
     const action = parsed.success ? verifyConfirmToken(parsed.data.confirmToken) : null;
-    if (!action || action.p !== account.propertyId || action.u !== viewer.user.id) {
+    if (!action || action.p !== account.propertyId || action.u !== viewer.user!.id) {
       res.status(400).json({ error: "This confirmation has expired — ask the concierge again" });
       return;
     }

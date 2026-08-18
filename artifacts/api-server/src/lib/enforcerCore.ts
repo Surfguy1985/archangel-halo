@@ -373,12 +373,14 @@ export function resolveIdentityFromInputs(input: {
     };
   }
 
-  if (required) {
-    return { ok: false, status: 401, code: "unauthenticated" };
-  }
-
+  // Local operator, checked BEFORE the required-mode rejection. HALO has no
+  // human login any more (see the passwordless posture): an office or Walk user
+  // has no credential they could possibly supply, so 401ing them in required
+  // mode would lock the product out of itself. Machine callers are unaffected —
+  // a Bearer token that fails verification is already rejected above, and
+  // verified claims are still tenant- and role-checked.
   if (input.officeSessionValid) {
-    // Local operator. Tenant only if explicitly configured — never a silent "halo" placeholder.
+    // Tenant only if explicitly configured — never a silent "halo" placeholder.
     const tenantId = (input.env.HALO_ENFORCER_TENANT_ID ?? "").trim() || null;
     return {
       ok: true,
@@ -394,6 +396,7 @@ export function resolveIdentityFromInputs(input: {
   if (input.bearerPresent) {
     return { ok: false, status: 401, code: "token_invalid" };
   }
+  void required;
   return { ok: false, status: 401, code: "unauthenticated" };
 }
 

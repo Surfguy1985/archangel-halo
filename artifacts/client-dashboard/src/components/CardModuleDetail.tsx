@@ -427,7 +427,7 @@ function InvoiceApprovePay({
   const guard = (fn: () => void) => {
     if (readOnly) {
       if (onReadOnlyClick) onReadOnlyClick();
-      else toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      else toast({ title: 'View only', description: 'This board is in view-only mode.', variant: 'destructive' });
       return;
     }
     fn();

@@ -27,7 +27,7 @@ async function requireDemoToken(
   return { propertyId: state.propertyId };
 }
 
-// PUBLIC (see officeGuard): never disclose the dashboardToken here — that
+// PUBLIC (see lib/publicPaths.ts): never disclose the dashboardToken here — that
 // token is the sole guard on the public step/office-board endpoints. Callers
 // that already hold a board token pass it as ?token= and get a `matches`
 // boolean back; the token itself is only ever returned by the office-gated

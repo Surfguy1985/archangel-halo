@@ -1,7 +1,7 @@
 /**
  * Falkon Ops integration routes — Phase 0.
  *
- * OFFICE-GATED (behind officeGuard):
+ * OFFICE-SIDE (no gate — HALO has no passcode; see lib/publicPaths.ts):
  *   GET  /falkon/connection            — current connection state
  *   POST /falkon/connect               — store partner key + webhook URL
  *   POST /falkon/verify                — run round-trip ping to verify webhook
@@ -14,7 +14,7 @@
  *   GET  /falkon/units/:propertyId     — list property units
  *   POST /falkon/units/bootstrap/:propertyId — seed units from distinct job unitNos
  *
- * PUBLIC (Falkon-key-gated, listed in officeAuth PUBLIC_PREFIXES):
+ * PUBLIC (Falkon-key-gated, listed in lib/publicPaths.ts PUBLIC_PREFIXES):
  *   POST /falkon/inbound/:eventType    — receive signed Falkon → HALO events
  *   GET  /falkon/jobs/:id/evidence     — evidence bundle for a job (Falkon reads)
  *   POST /falkon/ping                  — verify round-trip; called by /falkon/verify
@@ -515,7 +515,7 @@ router.post("/falkon/units/bootstrap/:propertyId", async (req, res) => {
 });
 
 // ===========================================================================
-// PUBLIC routes — listed in officeAuth PUBLIC_PREFIXES (/falkon/inbound, /falkon/ping)
+// PUBLIC routes — listed in lib/publicPaths.ts PUBLIC_PREFIXES (/falkon/inbound, /falkon/ping)
 // ===========================================================================
 
 // ---------------------------------------------------------------------------

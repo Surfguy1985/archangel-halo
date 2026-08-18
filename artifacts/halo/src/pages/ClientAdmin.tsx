@@ -547,7 +547,7 @@ export default function ClientAdmin() {
 
         {data.users.length === 0 ? (
           <div className="bg-card rounded-[16px] border border-dashed border-border p-[28px] text-center text-muted-foreground text-[13.5px]">
-            No team members yet — ask us to add your first logins and they'll appear here.
+            No team members yet — ask us to add the first people and they'll appear here.
           </div>
         ) : (
           data.users.map((u) => (

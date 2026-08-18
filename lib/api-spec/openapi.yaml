@@ -7598,7 +7598,7 @@ paths:
       security: [{ adminSession: [] }]
       operationId: createClientUser
       tags: [admin]
-      summary: Create a client login (returns the one-time temp password)
+      summary: Add a person to a property's board directory
       parameters:
         - name: propertyId
           in: path
@@ -7669,37 +7669,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OkResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /admin/client-users/{id}/reset-password:
-    post:
-      security: [{ adminSession: [] }]
-      operationId: resetClientUserPassword
-      tags: [admin]
-      summary: Issue a new temp password; optionally email it to the user
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ClientPasswordResetInput"
-      responses:
-        "200":
-          description: New credential
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ClientCredentialIssued"
         "404":
           description: Not found
           content:
@@ -8182,53 +8151,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /client/{token}/access/setup:
-    post:
-      operationId: setupClientAccess
-      tags: [admin]
-      summary: First-time board setup — claim the board by creating the initial admin login
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ClientAccessSetupInput"
-      responses:
-        "200":
-          description: Admin login created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ClientAccessUser"
-        "400":
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Invalid link
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "409":
-          description: Board already has logins
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
   /client/{token}/access/users:
     post:
       operationId: createClientAccessUser
       tags: [admin]
-      summary: Client admin invites a team member (email, role, optional password)
+      summary: Add a team member to the board directory
       parameters:
         - name: token
           in: path
@@ -8818,42 +8745,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-
-  /client/{token}/board/login:
-    post:
-      operationId: clientBoardLogin
-      tags: [admin]
-      summary: Client dashboard login — seated users sign in with their credentials
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ClientBoardLoginInput"
-      responses:
-        "200":
-          description: Signed in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ClientBoardSession"
-        "401":
-          description: Bad credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Invalid link
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /client/{token}/board/tour-seen:
     post:
@@ -13915,13 +13806,6 @@ components:
         guestSeats: { type: integer }
         usedSeats: { type: integer, description: Active admin+member logins }
         usedGuestSeats: { type: integer }
-    ClientAccessSetupInput:
-      type: object
-      required: [name, email, password]
-      properties:
-        name: { type: string }
-        email: { type: string }
-        password: { type: string, minLength: 8 }
     ClientAccessInviteInput:
       type: object
       required: [name, email, role]
@@ -13929,21 +13813,15 @@ components:
         name: { type: string }
         email: { type: string }
         role: { type: string, description: "admin | member | guest" }
-        password:
-          type: ["string", "null"]
-          description: Set a password now; omit to auto-generate a temporary one
         sendEmail:
           type: boolean
-          description: Email the login details to the new user
+          description: Email the board link to the new person
     ClientAccessInviteResult:
       type: object
-      required: [user, tempPassword, emailed]
+      required: [user, emailed]
       properties:
         user:
           $ref: "#/components/schemas/ClientAccessUser"
-        tempPassword:
-          type: ["string", "null"]
-          description: Only set when the password was auto-generated — shown once
         emailed: { type: boolean }
     ClientAccessView:
       type: object
@@ -13980,11 +13858,7 @@ components:
           description: Clear customizations and follow the role's defaults again
         active:
           type: boolean
-          description: Deactivate/reactivate the login (admin session required)
-        newPassword:
-          type: ["string", "null"]
-          minLength: 8
-          description: Reset the user's password (admin session required)
+          description: Deactivate/reactivate the person's directory entry
     ClientPlan:
       type: object
       required: [tier, label, pricePerMonth, userSeats, guestSeats, blurb]
@@ -14421,7 +14295,7 @@ components:
         name: { type: string }
         email: { type: string }
         role: { type: string, description: "admin | member | guest (default member)" }
-        sendEmail: { type: boolean, description: "Email the credentials to the user (default false)" }
+        sendEmail: { type: boolean, description: "Email the board link to the person (default false)" }
     ClientUserUpdate:
       type: object
       properties:
@@ -14429,17 +14303,12 @@ components:
         email: { type: string }
         role: { type: string }
         active: { type: boolean }
-    ClientPasswordResetInput:
-      type: object
-      properties:
-        sendEmail: { type: boolean, description: "Email the new temp password to the user (default false)" }
     ClientCredentialIssued:
       type: object
-      required: [user, tempPassword, emailed]
+      required: [user, emailed]
       properties:
         user:
           $ref: "#/components/schemas/ClientUserRec"
-        tempPassword: { type: string, description: "Shown once — not retrievable later" }
         emailed: { type: boolean }
     ClientCardPushInput:
       type: object
@@ -19564,13 +19433,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PayoutDistributionRow"
-    ClientBoardLoginInput:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string }
-        password: { type: string }
-
     ClientBoardViewer:
       type: object
       required: [authenticated, role, permissions, readOnly]
@@ -19584,14 +19446,6 @@ components:
           items: { type: string }
         readOnly: { type: boolean }
         tourSeen: { type: boolean }
-
-    ClientBoardSession:
-      type: object
-      required: [sessionToken, viewer]
-      properties:
-        sessionToken: { type: string }
-        viewer:
-          $ref: "#/components/schemas/ClientBoardViewer"
 
     ClientBoardLane:
       type: object

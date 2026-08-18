@@ -88,7 +88,6 @@ import type {
   CheckScanResult,
   ClientAccessInviteInput,
   ClientAccessInviteResult,
-  ClientAccessSetupInput,
   ClientAccessUpdateInput,
   ClientAccessUser,
   ClientAccessView,
@@ -111,9 +110,7 @@ import type {
   ClientBoardFeedCardUpdateInput,
   ClientBoardFeedView,
   ClientBoardKpis,
-  ClientBoardLoginInput,
   ClientBoardMapView,
-  ClientBoardSession,
   ClientBoardView,
   ClientBoardWebhookInput,
   ClientBoardWebhookView,
@@ -128,7 +125,6 @@ import type {
   ClientHubView,
   ClientInboxRespondInput,
   ClientInboxView,
-  ClientPasswordResetInput,
   ClientPaymentMethodInput,
   ClientPortfolioListDocument,
   ClientRequestOptions,
@@ -24017,7 +24013,7 @@ export const getCreateClientUserUrl = (propertyId: string,) => {
 }
 
 /**
- * @summary Create a client login (returns the one-time temp password)
+ * @summary Add a person to a property's board directory
  */
 export const createClientUser = async (propertyId: string,
     clientUserCreate: ClientUserCreate, options?: RequestInit): Promise<ClientCredentialIssued> => {
@@ -24067,7 +24063,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateClientUserMutationError = ErrorType<Error>
 
     /**
- * @summary Create a client login (returns the one-time temp password)
+ * @summary Add a person to a property's board directory
  */
 export const useCreateClientUser = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientUser>>, TError,{propertyId: string;data: BodyType<ClientUserCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -24209,78 +24205,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeleteClientUserMutationOptions(options));
-    }
-
-export const getResetClientUserPasswordUrl = (id: string,) => {
-
-
-
-
-  return `/api/admin/client-users/${id}/reset-password`
-}
-
-/**
- * @summary Issue a new temp password; optionally email it to the user
- */
-export const resetClientUserPassword = async (id: string,
-    clientPasswordResetInput: ClientPasswordResetInput, options?: RequestInit): Promise<ClientCredentialIssued> => {
-
-  return customFetch<ClientCredentialIssued>(getResetClientUserPasswordUrl(id),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(clientPasswordResetInput)
-  }
-);}
-
-
-
-
-
-export const getResetClientUserPasswordMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext> => {
-
-const mutationKey = ['resetClientUserPassword'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetClientUserPassword>>, {id: string;data: BodyType<ClientPasswordResetInput>}> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  resetClientUserPassword(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type ResetClientUserPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetClientUserPassword>>>
-    export type ResetClientUserPasswordMutationBody = BodyType<ClientPasswordResetInput>
-    export type ResetClientUserPasswordMutationError = ErrorType<Error>
-
-    /**
- * @summary Issue a new temp password; optionally email it to the user
- */
-export const useResetClientUserPassword = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof resetClientUserPassword>>,
-        TError,
-        {id: string;data: BodyType<ClientPasswordResetInput>},
-        TContext
-      > => {
-      return useMutation(getResetClientUserPasswordMutationOptions(options));
     }
 
 export const getRegenerateDashboardTokenUrl = (propertyId: string,) => {
@@ -25329,78 +25253,6 @@ export function useGetClientAccess<TData = Awaited<ReturnType<typeof getClientAc
 
 
 
-export const getSetupClientAccessUrl = (token: string,) => {
-
-
-
-
-  return `/api/client/${token}/access/setup`
-}
-
-/**
- * @summary First-time board setup — claim the board by creating the initial admin login
- */
-export const setupClientAccess = async (token: string,
-    clientAccessSetupInput: ClientAccessSetupInput, options?: RequestInit): Promise<ClientAccessUser> => {
-
-  return customFetch<ClientAccessUser>(getSetupClientAccessUrl(token),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(clientAccessSetupInput)
-  }
-);}
-
-
-
-
-
-export const getSetupClientAccessMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext> => {
-
-const mutationKey = ['setupClientAccess'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setupClientAccess>>, {token: string;data: BodyType<ClientAccessSetupInput>}> = (props) => {
-          const {token,data} = props ?? {};
-
-          return  setupClientAccess(token,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type SetupClientAccessMutationResult = NonNullable<Awaited<ReturnType<typeof setupClientAccess>>>
-    export type SetupClientAccessMutationBody = BodyType<ClientAccessSetupInput>
-    export type SetupClientAccessMutationError = ErrorType<Error>
-
-    /**
- * @summary First-time board setup — claim the board by creating the initial admin login
- */
-export const useSetupClientAccess = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof setupClientAccess>>,
-        TError,
-        {token: string;data: BodyType<ClientAccessSetupInput>},
-        TContext
-      > => {
-      return useMutation(getSetupClientAccessMutationOptions(options));
-    }
-
 export const getCreateClientAccessUserUrl = (token: string,) => {
 
 
@@ -25410,7 +25262,7 @@ export const getCreateClientAccessUserUrl = (token: string,) => {
 }
 
 /**
- * @summary Client admin invites a team member (email, role, optional password)
+ * @summary Add a team member to the board directory
  */
 export const createClientAccessUser = async (token: string,
     clientAccessInviteInput: ClientAccessInviteInput, options?: RequestInit): Promise<ClientAccessInviteResult> => {
@@ -25460,7 +25312,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateClientAccessUserMutationError = ErrorType<Error>
 
     /**
- * @summary Client admin invites a team member (email, role, optional password)
+ * @summary Add a team member to the board directory
  */
 export const useCreateClientAccessUser = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientAccessUser>>, TError,{token: string;data: BodyType<ClientAccessInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -26666,78 +26518,6 @@ export const useBuildInvoiceJobDraft = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getBuildInvoiceJobDraftMutationOptions(options));
-    }
-
-export const getClientBoardLoginUrl = (token: string,) => {
-
-
-
-
-  return `/api/client/${token}/board/login`
-}
-
-/**
- * @summary Client dashboard login — seated users sign in with their credentials
- */
-export const clientBoardLogin = async (token: string,
-    clientBoardLoginInput: ClientBoardLoginInput, options?: RequestInit): Promise<ClientBoardSession> => {
-
-  return customFetch<ClientBoardSession>(getClientBoardLoginUrl(token),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(clientBoardLoginInput)
-  }
-);}
-
-
-
-
-
-export const getClientBoardLoginMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientBoardLogin>>, TError,{token: string;data: BodyType<ClientBoardLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof clientBoardLogin>>, TError,{token: string;data: BodyType<ClientBoardLoginInput>}, TContext> => {
-
-const mutationKey = ['clientBoardLogin'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientBoardLogin>>, {token: string;data: BodyType<ClientBoardLoginInput>}> = (props) => {
-          const {token,data} = props ?? {};
-
-          return  clientBoardLogin(token,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type ClientBoardLoginMutationResult = NonNullable<Awaited<ReturnType<typeof clientBoardLogin>>>
-    export type ClientBoardLoginMutationBody = BodyType<ClientBoardLoginInput>
-    export type ClientBoardLoginMutationError = ErrorType<Error>
-
-    /**
- * @summary Client dashboard login — seated users sign in with their credentials
- */
-export const useClientBoardLogin = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientBoardLogin>>, TError,{token: string;data: BodyType<ClientBoardLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof clientBoardLogin>>,
-        TError,
-        {token: string;data: BodyType<ClientBoardLoginInput>},
-        TContext
-      > => {
-      return useMutation(getClientBoardLoginMutationOptions(options));
     }
 
 export const getMarkClientBoardTourSeenUrl = (token: string,) => {

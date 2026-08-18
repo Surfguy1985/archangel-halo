@@ -173,7 +173,7 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
   const handleAction = (e: React.MouseEvent, action: string) => {
     e.stopPropagation();
     if (readOnly) {
-      toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      toast({ title: 'View only', description: 'This board is in view-only mode.', variant: 'destructive' });
       return;
     }
     setIsDispatching(true);

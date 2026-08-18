@@ -13,7 +13,8 @@
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
 - [HALO composite lib refs](halo-composite-lib-refs.md) — shared libs used as TS project references must emit .d.ts (composite+declaration) & be built before consuming apps typecheck.
-- [HALO no-auth posture](halo-no-auth-posture.md) — client/crew portals are token-links by design, BUT office API is now passcode-gated — see halo-office-auth.md.
+- [HALO passwordless posture](halo-passwordless.md) — NOTHING asks a human for a password/passcode anywhere (owner's call); links are the credential; M2M auth stays.
+- [HALO no-auth posture](halo-no-auth-posture.md) — token-link portals + open storage are by design, not bugs; don't add auth to storage.
 - [HALO ingest pipeline](halo-ingest-pipeline.md) — AI file-import backend (/ingest/parse + /ingest/commit) already exists; reuse it, send extracted text not raw binary.
 - [HALO/Falkon palette](halo-brand-palette.md) — light theme, 5-color palette; --gold=dark lime for text, --gold-light=#B4FF44 for buttons w/ black text.
 - [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); floor is per-property marginMin (default 0.25) excluding complete/paid/cancelled; surfaces in Today feed + emails.
@@ -100,7 +101,7 @@
 - [HALO work-request PO gate](halo-work-request-po.md) — work requests require a PO unless emergency; new insert paths must enforce or explicitly exempt (flags-schedule rail is exempt).
 - [HALO client rails board](halo-client-rails.md) — five fixed rails ending in red Alerts; 24h billing SLA + client mark_paid ("payment on its way") are server-side; office board mirrors the same tiles.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
-- [HALO office passcode gate](halo-office-auth.md) — office API locked behind passcode+cookie; new public token surfaces must join PUBLIC_PREFIXES or they 401.
+- [HALO office passcode gate REMOVED](halo-office-auth.md) — the gate and officeAuth.ts are gone; only the path classifier survives, in lib/publicPaths.ts.
 - [HALO crew route plans](halo-crew-route-plans.md) — day-route stop keys (schedule id / event-<id>) shared by office API + portal feed; free-text times must never sort lexicographically.
 - [HALO crew GPS trail](halo-gps-trail.md) — 30s breadcrumb pings; jobId always from the open check-in; local-midnight day basis as SQL param; after-photos checkout gate.
 - [HALO dispatch board](halo-dispatch-board.md) — dispatch is board-neutral (never touches vendor board); crew-ownership guard lives in offer approve; portal feed spans the month.

@@ -11,11 +11,6 @@ export interface ClientAccessInviteInput {
   email: string;
   /** admin | member | guest */
   role: string;
-  /**
-     * Set a password now; omit to auto-generate a temporary one
-     * @nullable
-     */
-  password?: string | null;
-  /** Email the login details to the new user */
+  /** Email the board link to the new person */
   sendEmail?: boolean;
 }

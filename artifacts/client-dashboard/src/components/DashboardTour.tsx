@@ -48,12 +48,12 @@ export const DASHBOARD_TOUR_STEPS: DashboardTourStep[] = [
   },
   {
     title: "Request work in a tap",
-    body: "Signed in? Use the Request work button to send new work straight to the office — it lands in your Requested rail and on their board at the same moment. Guests can look around, but you'll need to sign in to make changes.",
+    body: "Use the Request work button to send new work straight to the office — it lands in your Requested rail and on their board at the same moment.",
     target: "button-rails-request",
   },
   {
-    title: "Maps, sign-in, and this tour",
-    body: "Map View shows your units and live crew locations on a real map. Sign in from the top right to unlock editing. And if you ever want this walkthrough again, tap the headphones icon in the header. That's it — your board runs itself.",
+    title: "Maps and this tour",
+    body: "Map View shows your units and live crew locations on a real map. And if you ever want this walkthrough again, tap the headphones icon in the header. That's it — your board runs itself.",
     target: "button-map-view",
   },
 ];

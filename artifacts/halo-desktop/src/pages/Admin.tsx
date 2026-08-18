@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { ShieldCheck, Users, Send, Building, LayoutGrid } from "lucide-react";
 import { useListClientAccounts } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OfficePasscodeCard } from "@/components/OfficePasscodeCard";
 
 const TIER_LABEL: Record<string, string> = {
   basic: "Basic",
@@ -106,7 +105,6 @@ export default function Admin() {
         )}
 
       </div>
-      <OfficePasscodeCard />
     </div>
   );
 }

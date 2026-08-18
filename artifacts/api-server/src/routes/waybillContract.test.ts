@@ -28,7 +28,6 @@ import {
   clientDashboardCardsTable,
 } from "@workspace/db";
 import app from "../app";
-import { issueSessionToken } from "./clientBoard";
 import { waybillCodeFor } from "../lib/waybill";
 
 const FLK_RE = /^FLK-[0-9A-HJKMNP-TV-Z]{5}$/;
@@ -188,7 +187,6 @@ describe("board waybill contract", () => {
     const res = await request(app)
       .post(`/api/client/${token}/board/cards/${cardId}/action`)
       .set("Cookie", sessionCookie)
-      .set("Authorization", `Bearer ${issueSessionToken(userId)}`)
       .send({ action: "acknowledge" });
     expect(res.status, `action failed: ${JSON.stringify(res.body)}`).toBe(200);
     // Module-less cards must stay module-less — a bare { acknowledgedAt }

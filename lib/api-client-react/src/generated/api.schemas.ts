@@ -399,34 +399,17 @@ export interface ClientSeatUsage {
   usedGuestSeats: number;
 }
 
-export interface ClientAccessSetupInput {
-  name: string;
-  email: string;
-  /** @minLength 8 */
-  password: string;
-}
-
 export interface ClientAccessInviteInput {
   name: string;
   email: string;
   /** admin | member | guest */
   role: string;
-  /**
-     * Set a password now; omit to auto-generate a temporary one
-     * @nullable
-     */
-  password?: string | null;
-  /** Email the login details to the new user */
+  /** Email the board link to the new person */
   sendEmail?: boolean;
 }
 
 export interface ClientAccessInviteResult {
   user: ClientAccessUser;
-  /**
-     * Only set when the password was auto-generated — shown once
-     * @nullable
-     */
-  tempPassword: string | null;
   emailed: boolean;
 }
 
@@ -453,14 +436,8 @@ export interface ClientAccessUpdateInput {
   permissions?: string[];
   /** Clear customizations and follow the role's defaults again */
   resetToRoleDefaults?: boolean;
-  /** Deactivate/reactivate the login (admin session required) */
+  /** Deactivate/reactivate the person's directory entry */
   active?: boolean;
-  /**
-     * Reset the user's password (admin session required)
-     * @minLength 8
-     * @nullable
-     */
-  newPassword?: string | null;
 }
 
 export interface ClientPlan {
@@ -1444,7 +1421,7 @@ export interface ClientUserCreate {
   email: string;
   /** admin | member | guest (default member) */
   role?: string;
-  /** Email the credentials to the user (default false) */
+  /** Email the board link to the person (default false) */
   sendEmail?: boolean;
 }
 
@@ -1455,15 +1432,8 @@ export interface ClientUserUpdate {
   active?: boolean;
 }
 
-export interface ClientPasswordResetInput {
-  /** Email the new temp password to the user (default false) */
-  sendEmail?: boolean;
-}
-
 export interface ClientCredentialIssued {
   user: ClientUserRec;
-  /** Shown once — not retrievable later */
-  tempPassword: string;
   emailed: boolean;
 }
 
@@ -7477,11 +7447,6 @@ export interface PayoutDistribution {
   rows: PayoutDistributionRow[];
 }
 
-export interface ClientBoardLoginInput {
-  email: string;
-  password: string;
-}
-
 export interface ClientBoardViewer {
   authenticated: boolean;
   /** @nullable */
@@ -7492,11 +7457,6 @@ export interface ClientBoardViewer {
   permissions: string[];
   readOnly: boolean;
   tourSeen?: boolean;
-}
-
-export interface ClientBoardSession {
-  sessionToken: string;
-  viewer: ClientBoardViewer;
 }
 
 export interface ClientBoardLane {

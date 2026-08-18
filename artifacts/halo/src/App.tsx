@@ -38,7 +38,6 @@ const BidBoardPage = lazy(() => import("./pages/BidBoard"));
 const TurnPipelinePage = lazy(() => import("./pages/TurnPipeline"));
 const AuditLogPage = lazy(() => import("./pages/AuditLog"));
 const ClientBoardViewsPage = lazy(() => import("./pages/ClientBoardViews"));
-import { OfficeGate } from "./components/OfficeGate";
 import { OpsLayout } from "./components/OpsLayout";
 import Today from "./pages/Today";
 import Properties from "./pages/Properties";
@@ -72,28 +71,24 @@ const queryClient = new QueryClient({
 /** Traditional CRM shell — summoned from the HALO HUD. */
 function GatedOps({ children }: { children: React.ReactNode }) {
   return (
-    <OfficeGate>
+    <>
       <SplashScreen />
       <OpsLayout>{children}</OpsLayout>
-    </OfficeGate>
+    </>
   );
 }
 
 /** Client-board routes: code-split with a navy skeleton matching final layout. */
 function BoardPage({ children }: { children: React.ReactNode }) {
-  return (
-    <OfficeGate>
-      <Suspense fallback={<BoardRouteFallback />}>{children}</Suspense>
-    </OfficeGate>
-  );
+  return <Suspense fallback={<BoardRouteFallback />}>{children}</Suspense>;
 }
 
 function GatedPage({ children }: { children: React.ReactNode }) {
   return (
-    <OfficeGate>
+    <>
       <SplashScreen />
       <Layout>{children}</Layout>
-    </OfficeGate>
+    </>
   );
 }
 
@@ -173,27 +168,19 @@ function App() {
 
             {/* ── HALO Command — the entire product surface ─────────────── */}
             <Route path="/">
-              <OfficeGate>
-                <HaloCommand />
-              </OfficeGate>
+              <HaloCommand />
             </Route>
 
             <Route path="/property-portfolio">
-              <OfficeGate>
-                <PropertyPulse level="portfolio" />
-              </OfficeGate>
+              <PropertyPulse level="portfolio" />
             </Route>
 
             <Route path="/pulse">
-              <OfficeGate>
-                <PropertyPulse level="pulse" />
-              </OfficeGate>
+              <PropertyPulse level="pulse" />
             </Route>
 
             <Route path="/punchlist">
-              <OfficeGate>
-                <PropertyPulse level="punchlist" />
-              </OfficeGate>
+              <PropertyPulse level="punchlist" />
             </Route>
 
             <Route path="/portfolio">

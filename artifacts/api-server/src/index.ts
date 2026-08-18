@@ -54,6 +54,11 @@ ensureVendorContractSchema()
   .then(() => ensureVendorRatesSchema())
   .then(() => ensureCrewPinColorSchema())
   .then(() => ensureCrewRosterSchema())
+  // jobs.priority is NOT NULL and drizzle enumerates it in every `select * from
+  // jobs`, so until the DDL lands the board, today's queues and the command
+  // snapshot all 500. It was written to be awaited before listen but was never
+  // actually chained here, which is why the column was still missing.
+  .then(() => ensureJobsSchema())
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);

@@ -2,8 +2,8 @@
  * FalkonControlCenter — admin-only overlay in HaloCommand.
  *
  * Provides a 6-section control plane accessible by clicking the Falkon mode
- * badge in the HaloCommand header. All office-session users are treated as
- * admins (the office API is already passcode-gated at the server layer).
+ * badge in the HaloCommand header. All office-app users are treated as
+ * admins (access to the office app is controlled by holding its URL).
  *
  * Sections:
  *   1. Connection Health — 7-gate status grid + Run Verify

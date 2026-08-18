@@ -1,11 +1,10 @@
 import { useLocation, useParams } from 'wouter';
-import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
+import { useGetClientBoard, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
 import { HistoryTab } from '@/components/HistoryTab';
-import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
-import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut, MonitorDown, Users, Sun, Moon, Monitor } from 'lucide-react';
+import { MapPin, Loader2, LayoutGrid, BookOpen, Headphones, Search, MonitorDown, Users, Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import { usePwaInstall } from '@/hooks/use-pwa-install';
 import { useQueryClient } from '@tanstack/react-query';
@@ -50,7 +49,6 @@ function Board() {
     setSearchParams(newParams);
   };
 
-  const [loginOpen, setLoginOpen] = useState(false);
   // Presentation Mode: ?present=1 launches the narrated investor walkthrough.
   const [presentationOpen, setPresentationOpen] = useState(
     () => searchParams.get('present') === '1',
@@ -143,14 +141,9 @@ function Board() {
     },
   });
 
-  const markTourSeen = useMarkClientBoardTourSeen();
   const clearCard = useClearClientBoardCard();
 
   const handleCardClear = (card: any) => {
-    if (!viewerAuthenticated) {
-      setLoginOpen(true);
-      return;
-    }
     clearCard.mutate(
       { token, cardKey: card.cardKey, data: { title: card.title ?? null } },
       {
@@ -172,27 +165,20 @@ function Board() {
   };
 
   const boardLoaded = !isLoading && !error && !!board;
-  const viewerAuthenticated = board?.viewer?.authenticated ?? false;
-  const viewerTourSeen = board?.viewer?.tourSeen ?? false;
-  
-  // One-shot guard: this effect's deps include the markTourSeen mutation
-  // object, which react-query recreates on every render — firing the mutation
-  // re-renders the page, which re-ran the effect, which fired again, spamming
-  // POST /tour-seen in a loop until React hit "maximum update depth" and the
-  // board crashed mid-walkthrough. The ref makes the decision exactly once
-  // per board load, no matter how many times the effect re-runs.
+
+  // One-shot guard so the tour decision runs exactly once per board load, no
+  // matter how many times the effect re-runs. The "seen" flag lives entirely
+  // in the browser now (no per-user server flag).
   const tourDecidedRef = useRef(false);
   useEffect(() => {
     if (!boardLoaded) return;
+    const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
     if (presentationOpen) {
-      // The presentation REPLACES the intro tour — decide once and mark it
-      // seen so the tour never auto-launches the moment the presentation
-      // closes (two overlapping tutorials).
+      // The presentation REPLACES the intro tour — mark it seen so the tour
+      // never auto-launches the moment the presentation closes.
       if (!tourDecidedRef.current) {
         tourDecidedRef.current = true;
-        const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
         try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
-        if (viewerAuthenticated && !viewerTourSeen) markTourSeen.mutate({ token });
       }
       return;
     }
@@ -201,15 +187,6 @@ function Board() {
     if (birdseyeOpen) return;
     if (tourDecidedRef.current) return;
     tourDecidedRef.current = true;
-    const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
-    if (viewerAuthenticated) {
-      if (!viewerTourSeen) {
-        markTourSeen.mutate({ token });
-        try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
-        setTourOpen(true);
-      }
-      return;
-    }
     let seen = true;
     try {
       seen = localStorage.getItem(tourSeenKey) === '1';
@@ -218,7 +195,7 @@ function Board() {
       try { localStorage.setItem(tourSeenKey, '1'); } catch {}
       setTourOpen(true);
     }
-  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen, presentationOpen, birdseyeOpen]);
+  }, [boardLoaded, token, presentationOpen, birdseyeOpen]);
 
   // Presentation Mode: the narrated interactive simulcast. Server steps are
   // fired inside PresentationMode against POST /api/presentation/demo/step
@@ -249,12 +226,6 @@ function Board() {
     if (presentationOpen && activeTab !== 'vendors') setActiveTab('vendors');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presentationOpen]);
-
-  const handleLogout = () => {
-    localStorage.removeItem(`halo_client_session_${token}`);
-    queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
-    toast({ title: "Signed out", description: "You are now viewing as a guest." });
-  };
 
   if (isLoading) {
     return (
@@ -485,17 +456,6 @@ function Board() {
             {theme === 'dark' ? <Moon className="h-4 w-4" /> : theme === 'light' ? <Sun className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
           </button>
 
-          <div className="h-6 w-px bg-black/[0.06] dark:bg-white/[0.06] hidden sm:block" />
-
-          {viewerAuthenticated ? (
-            <button onClick={handleLogout} className="cb-ios-orb flex items-center justify-center" title="Sign out">
-              <LogOut className="h-4 w-4" />
-            </button>
-          ) : (
-            <button onClick={() => setLoginOpen(true)} className="cb-ios-orb flex items-center justify-center" title="Sign in">
-              <User className="h-4 w-4" />
-            </button>
-          )}
         </div>
       </header>
 
@@ -528,7 +488,7 @@ function Board() {
       </div>
 
       {activeTab === 'history' ? (
-        <HistoryTab token={token} canRestore={viewerAuthenticated && !viewer.readOnly} />
+        <HistoryTab token={token} canRestore={true} />
       ) : activeTab === 'vendors' ? (
         /* Rails redesign: five fixed rails, Needs you first. Cards move
            themselves — no client drag; all actions live on the detail sheet. */
@@ -536,11 +496,8 @@ function Board() {
           cards={board?.cards}
           isLoading={isLoading}
           onOpenCard={handleCardClick}
-          onClearCard={viewerAuthenticated && !viewer.readOnly ? handleCardClear : undefined}
-          onRequestWork={() => {
-            if (!viewerAuthenticated) { setLoginOpen(true); return; }
-            setRequestOpen(true);
-          }}
+          onClearCard={handleCardClear}
+          onRequestWork={() => setRequestOpen(true)}
           onOpenMap={() => setBirdseyeOpen(true)}
         />
       ) : (
@@ -550,7 +507,7 @@ function Board() {
         isLoading={isLoadingActive}
         viewer={viewer as any}
         boardKey="pm"
-        onLoginRequired={() => setLoginOpen(true)}
+        onLoginRequired={() => {}}
         onCardClick={handleCardClick}
         onCardMove={handleCardMove}
         onCreateCard={handleCreateCard}
@@ -566,8 +523,6 @@ function Board() {
         lanes={board.lanes || []}
         onSelectCard={() => {}}
       />
-
-      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} token={token} />
 
       <RequestWorkDialog
         token={token}
@@ -612,19 +567,16 @@ function Board() {
         <NewCardSpotlight
           token={token}
           cards={board?.cards || []}
-          readOnly={viewer.readOnly}
+          readOnly={false}
           onOpenDetails={(card) => setDetailCard(card)}
-          onReadOnlyClick={() => {
-            if (!viewerAuthenticated) setLoginOpen(true);
-            else toast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
-          }}
+          onReadOnlyClick={() => {}}
         />
       )}
 
       {boardLoaded && !tourOpen && !presentationOpen && (
         <ConciergeChat
           token={token}
-          authenticated={viewerAuthenticated}
+          authenticated={true}
           onOpenCard={(cardKey) => {
             const card = (activeBoardData?.cards || []).find((c: any) => c.cardKey === cardKey);
             if (card) setDetailCard(card);
@@ -638,21 +590,13 @@ function Board() {
         elevated={presentationOpen}
         card={detailCard ? ((activeBoardData?.cards || []).find((c: any) => c.cardKey === detailCard.cardKey) ?? detailCard) : null}
         onClose={() => setDetailCard(null)}
-        readOnly={viewer.readOnly}
+        readOnly={false}
         onRequestChange={(card) => {
-          if (!viewerAuthenticated) { setLoginOpen(true); return; }
           setDetailCard(null);
           setChangeOrder({ jobId: card.cardKey.slice('job:'.length), title: card.title });
           setRequestOpen(true);
         }}
-        onReadOnlyClick={() => {
-          if (!viewerAuthenticated) {
-            setDetailCard(null);
-            setLoginOpen(true);
-          } else {
-            toast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
-          }
-        }}
+        onReadOnlyClick={() => {}}
       />
     </motion.div>
   );

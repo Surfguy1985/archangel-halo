@@ -95,13 +95,12 @@ router.use("/pay/:token", (req, res, next) => {
   limits.pay(req, res, next);
 });
 
-// --- Office lockdown: passcode + session cookie for everything that isn't a
-// token-authenticated client/crew/public-share surface or an inbound webhook.
-import officeAuthRouter, { officeGuard } from "../lib/officeAuth";
+// --- No office lockdown. The owner asked for every password and login in HALO
+// to be removed, so /api is open: there is no passcode, no session cookie and
+// no sign-in route. Token surfaces (client boards, crew links, signed webhooks)
+// still prove themselves per request — see lib/publicPaths.ts.
 import { enforcerGuard } from "../lib/enforcer";
 import { falkonMutationGuard } from "../lib/falkonMutationGuard";
-router.use(officeAuthRouter);
-router.use(officeGuard());
 router.use(enforcerGuard());
 router.use(falkonMutationGuard());
 
@@ -148,7 +147,7 @@ router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);
 router.use(walksRouter);
 // Mount the test helper ONLY when HALO_E2E_ENABLED=1 — never in production.
-// It sits inside officeGuard so the passcode/session cookie is still required.
+// There is no passcode gate any more, so the production hard-fail below is the
 // A startup hard-fail prevents the flag from accidentally reaching production.
 if (process.env.HALO_E2E_ENABLED === "1") {
   if (process.env.NODE_ENV === "production") {

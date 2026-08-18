@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   Users,
   Send,
-  KeyRound,
   Copy,
   RefreshCw,
   Upload,
@@ -24,7 +23,6 @@ import {
   useCreateClientUser,
   useUpdateClientUser,
   useDeleteClientUser,
-  useResetClientUserPassword,
   useRegenerateDashboardToken,
   useSendClientOnboarding,
 } from "@workspace/api-client-react";
@@ -65,7 +63,6 @@ export default function AdminAccount() {
   const createUser = useCreateClientUser();
   const updateUser = useUpdateClientUser();
   const deleteUser = useDeleteClientUser();
-  const resetPassword = useResetClientUserPassword();
   const regenToken = useRegenerateDashboardToken();
   const sendOnboarding = useSendClientOnboarding();
 
@@ -84,7 +81,6 @@ export default function AdminAccount() {
   } | null>(null);
   const [overviewDraft, setOverviewDraft] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "member", sendEmail: true });
-  const [issued, setIssued] = useState<{ email: string; tempPassword: string; emailed: boolean } | null>(null);
   const [sendTo, setSendTo] = useState("");
   const [sendNote, setSendNote] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -383,7 +379,7 @@ export default function AdminAccount() {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                <h3 className="text-sm font-bold text-white/80">Logins</h3>
+                <h3 className="text-sm font-bold text-white/80">People</h3>
                 <span className="text-xs font-bold text-white/40 flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" />
                   {users.filter(u => u.active && u.role !== 'guest').length}/{account.userSeats} users · {users.filter(u => u.active && u.role === 'guest').length}/{account.guestSeats} guests
@@ -401,31 +397,18 @@ export default function AdminAccount() {
                     <option value="member">Member</option>
                     <option value="guest">Guest</option>
                   </select>
-                  <button onClick={() => createUser.mutate({ propertyId, data: { name: newUser.name, email: newUser.email, role: newUser.role, sendEmail: newUser.sendEmail } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); setNewUser({ name: "", email: "", role: "member", sendEmail: true }); refresh(); }, onError })} disabled={createUser.isPending || !newUser.name.trim() || !newUser.email.trim()} className={`${btnPrimary} px-5`} data-testid="button-create-user">
+                  <button onClick={() => createUser.mutate({ propertyId, data: { name: newUser.name, email: newUser.email, role: newUser.role, sendEmail: newUser.sendEmail } }, { onSuccess: () => { setNewUser({ name: "", email: "", role: "member", sendEmail: true }); refresh(); }, onError })} disabled={createUser.isPending || !newUser.name.trim() || !newUser.email.trim()} className={`${btnPrimary} px-5`} data-testid="button-create-user">
                     <Plus className="w-4 h-4" /> Add
                   </button>
                 </div>
                 <label className="flex items-center gap-2 text-xs font-medium text-white/60 mt-1 cursor-pointer w-fit">
                   <input type="checkbox" checked={newUser.sendEmail} onChange={(e) => setNewUser({ ...newUser, sendEmail: e.target.checked })} className="accent-[var(--gold-light)]" />
-                  Email login details
+                  Email them the board link
                 </label>
               </div>
 
-              {issued && (
-                <div className="bg-[#EAFFC7] border border-[#B4FF44] text-[var(--ink)] rounded-xl p-4 flex items-center gap-4 shadow-sm">
-                  <KeyRound className="w-6 h-6 shrink-0 text-[#3D6B00]" />
-                  <div className="flex-1 min-w-0 text-xs">
-                    <b>{issued.email}</b><br/>Temp password: <code className="bg-[var(--secondary)] rounded px-1.5 py-0.5 mt-1 inline-block text-white font-mono">{issued.tempPassword}</code>
-                  </div>
-                  <button onClick={() => copy(issued.tempPassword, "Password")} className="p-2 bg-white/70 rounded-lg hover:bg-white transition-colors text-[var(--ink)]" aria-label="Copy">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setIssued(null)} className="px-3 py-2 text-[#3D6B00] hover:text-[var(--ink)] text-xs font-bold transition-colors">Done</button>
-                </div>
-              )}
-
               {users.length === 0 ? (
-                <p className="text-white/30 text-sm py-4">No logins yet.</p>
+                <p className="text-white/30 text-sm py-4">Nobody added yet.</p>
               ) : (
                 <div className="space-y-1">
                   {users.map(u => (
@@ -437,16 +420,13 @@ export default function AdminAccount() {
                       <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-[var(--muted)] text-[var(--ink2)] border border-[var(--hairline)] shrink-0">{u.role}</span>
                       
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => resetPassword.mutate({ id: u.id, data: { sendEmail: true } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); refresh(); }, onError })} disabled={resetPassword.isPending} className="text-[var(--hairline2)] hover:text-[var(--ink)] transition-colors p-1.5" title="Reset password" data-testid={`button-reset-password-${u.id}`}>
-                          <KeyRound className="w-4 h-4" />
-                        </button>
                         <button onClick={() => updateUser.mutate({ id: u.id, data: { active: !u.active } }, { onSuccess: refresh, onError })} disabled={updateUser.isPending} className="text-[var(--hairline2)] hover:text-[#3D6B00] transition-colors p-1.5" title={u.active ? "Deactivate" : "Activate"} data-testid={`button-toggle-active-${u.id}`}>
                           <RefreshCw className="w-4 h-4" />
                         </button>
                         {confirmDeleteId === u.id ? (
                           <button onClick={() => deleteUser.mutate({ id: u.id }, { onSuccess: () => { setConfirmDeleteId(null); refresh(); }, onError })} className="text-xs bg-[#EF4444] hover:bg-[#DC2626] transition-colors text-white px-3 py-1.5 rounded-lg font-bold ml-1">Confirm</button>
                         ) : (
-                          <button onClick={() => setConfirmDeleteId(u.id)} className="text-[var(--hairline2)] hover:text-[#B91C1C] transition-colors p-1.5" aria-label="Delete login">
+                          <button onClick={() => setConfirmDeleteId(u.id)} className="text-[var(--hairline2)] hover:text-[#B91C1C] transition-colors p-1.5" aria-label="Remove person">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}

@@ -20,7 +20,6 @@ const ClientAuditLogPage = lazy(() => import('@/pages/audit'));
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { UpdatePrompt } from '@/components/UpdatePrompt';
 import { BoardRouteFallback } from '@workspace/board-ui';
-import './auth-init';
 
 const queryClient = new QueryClient();
 

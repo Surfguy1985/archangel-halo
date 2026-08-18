@@ -11,6 +11,6 @@ export interface ClientUserCreate {
   email: string;
   /** admin | member | guest (default member) */
   role?: string;
-  /** Email the credentials to the user (default false) */
+  /** Email the board link to the person (default false) */
   sendEmail?: boolean;
 }

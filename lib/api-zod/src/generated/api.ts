@@ -10769,7 +10769,7 @@ export const UpsertClientAccountResponse = zod.object({
 
 
 /**
- * @summary Create a client login (returns the one-time temp password)
+ * @summary Add a person to a property's board directory
  */
 export const CreateClientUserParams = zod.object({
   "propertyId": zod.coerce.string()
@@ -10779,7 +10779,7 @@ export const CreateClientUserBody = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "role": zod.string().optional().describe('admin | member | guest (default member)'),
-  "sendEmail": zod.boolean().optional().describe('Email the credentials to the user (default false)')
+  "sendEmail": zod.boolean().optional().describe('Email the board link to the person (default false)')
 })
 
 export const CreateClientUserResponse = zod.object({
@@ -10793,7 +10793,6 @@ export const CreateClientUserResponse = zod.object({
   "lastPasswordResetAt": zod.string().nullish(),
   "createdAt": zod.string()
 }),
-  "tempPassword": zod.string().describe('Shown once — not retrievable later'),
   "emailed": zod.boolean()
 })
 
@@ -10827,33 +10826,6 @@ export const DeleteClientUserParams = zod.object({
 
 export const DeleteClientUserResponse = zod.object({
   "ok": zod.boolean()
-})
-
-
-/**
- * @summary Issue a new temp password; optionally email it to the user
- */
-export const ResetClientUserPasswordParams = zod.object({
-  "id": zod.coerce.string()
-})
-
-export const ResetClientUserPasswordBody = zod.object({
-  "sendEmail": zod.boolean().optional().describe('Email the new temp password to the user (default false)')
-})
-
-export const ResetClientUserPasswordResponse = zod.object({
-  "user": zod.object({
-  "id": zod.string(),
-  "propertyId": zod.string(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.string().describe('admin | member | guest'),
-  "active": zod.boolean(),
-  "lastPasswordResetAt": zod.string().nullish(),
-  "createdAt": zod.string()
-}),
-  "tempPassword": zod.string().describe('Shown once — not retrievable later'),
-  "emailed": zod.boolean()
 })
 
 
@@ -11769,35 +11741,7 @@ export const GetClientAccessResponse = zod.object({
 
 
 /**
- * @summary First-time board setup — claim the board by creating the initial admin login
- */
-export const SetupClientAccessParams = zod.object({
-  "token": zod.coerce.string()
-})
-
-export const setupClientAccessBodyPasswordMin = 8;
-
-
-
-export const SetupClientAccessBody = zod.object({
-  "name": zod.string(),
-  "email": zod.string(),
-  "password": zod.string().min(setupClientAccessBodyPasswordMin)
-})
-
-export const SetupClientAccessResponse = zod.object({
-  "id": zod.string(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.string().describe('admin | member | guest'),
-  "active": zod.boolean(),
-  "permissions": zod.array(zod.string()),
-  "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
-})
-
-
-/**
- * @summary Client admin invites a team member (email, role, optional password)
+ * @summary Add a team member to the board directory
  */
 export const CreateClientAccessUserParams = zod.object({
   "token": zod.coerce.string()
@@ -11807,8 +11751,7 @@ export const CreateClientAccessUserBody = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "role": zod.string().describe('admin | member | guest'),
-  "password": zod.string().nullish().describe('Set a password now; omit to auto-generate a temporary one'),
-  "sendEmail": zod.boolean().optional().describe('Email the login details to the new user')
+  "sendEmail": zod.boolean().optional().describe('Email the board link to the new person')
 })
 
 export const CreateClientAccessUserResponse = zod.object({
@@ -11821,7 +11764,6 @@ export const CreateClientAccessUserResponse = zod.object({
   "permissions": zod.array(zod.string()),
   "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
 }),
-  "tempPassword": zod.string().nullable().describe('Only set when the password was auto-generated — shown once'),
   "emailed": zod.boolean()
 })
 
@@ -11847,16 +11789,11 @@ export const UpdateClientAccessUserParams = zod.object({
   "userId": zod.coerce.string()
 })
 
-export const updateClientAccessUserBodyNewPasswordMin = 8;
-
-
-
 export const UpdateClientAccessUserBody = zod.object({
   "role": zod.string().optional().describe('admin | member | guest'),
   "permissions": zod.array(zod.string()).optional().describe('Full replacement set of feature keys; omit to keep current'),
   "resetToRoleDefaults": zod.boolean().optional().describe('Clear customizations and follow the role\'s defaults again'),
-  "active": zod.boolean().optional().describe('Deactivate\/reactivate the login (admin session required)'),
-  "newPassword": zod.string().min(updateClientAccessUserBodyNewPasswordMin).nullish().describe('Reset the user\'s password (admin session required)')
+  "active": zod.boolean().optional().describe('Deactivate\/reactivate the person\'s directory entry')
 })
 
 export const UpdateClientAccessUserResponse = zod.object({
@@ -12778,32 +12715,6 @@ export const BuildInvoiceJobDraftResponse = zod.object({
   "status": zod.string().describe('pass | fixed | warn'),
   "detail": zod.string()
 }))
-})
-
-
-/**
- * @summary Client dashboard login — seated users sign in with their credentials
- */
-export const ClientBoardLoginParams = zod.object({
-  "token": zod.coerce.string()
-})
-
-export const ClientBoardLoginBody = zod.object({
-  "email": zod.string(),
-  "password": zod.string()
-})
-
-export const ClientBoardLoginResponse = zod.object({
-  "sessionToken": zod.string(),
-  "viewer": zod.object({
-  "authenticated": zod.boolean(),
-  "name": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "role": zod.string(),
-  "permissions": zod.array(zod.string()),
-  "readOnly": zod.boolean(),
-  "tourSeen": zod.boolean().optional()
-})
 })
 
 

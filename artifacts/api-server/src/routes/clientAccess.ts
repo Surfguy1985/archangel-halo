@@ -21,8 +21,6 @@ import {
   GetClientAccessResponse,
   UpdateClientAccessUserBody,
   UpdateClientAccessUserResponse,
-  SetupClientAccessBody,
-  SetupClientAccessResponse,
   CreateClientAccessUserBody,
   CreateClientAccessUserResponse,
   DeleteClientAccessUserResponse,
@@ -57,7 +55,6 @@ import { startMakeReadyExecution } from "../lib/falkonMakeReady";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { pushToCrewId } from "../lib/pushNotification";
 import { resolveViewer, notifyClientBoard, threadKeysFor, threadMessageDto } from "./clientBoard";
-import { hashPassword, newTempPassword, emailCredentials } from "./admin";
 import {
   buildInvoiceModule,
   buildInvoiceBatchModule,
@@ -158,16 +155,8 @@ router.get("/client/:token/access", async (req, res): Promise<void> => {
     .select()
     .from(clientUsersTable)
     .where(eq(clientUsersTable.propertyId, account.propertyId));
-  // The roster (names, emails, roles) is admin-only once the board is claimed;
-  // an unclaimed board (zero logins) returns the empty roster so the client
-  // can run first-time setup from the raw link.
-  if (users.length > 0) {
-    const admin = await requireAdmin(req, account.propertyId);
-    if (!admin) {
-      res.status(403).json({ error: "Only a signed-in admin can view the team" });
-      return;
-    }
-  }
+  // The roster is just a directory now (names, emails, roles, preferences); it
+  // no longer grants or restricts access. Whoever holds the link is the admin.
   users.sort((a, b) => a.name.localeCompare(b.name));
   res.json(
     GetClientAccessResponse.parse({
@@ -196,78 +185,10 @@ function seatUsage(
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Team-management writes require a signed-in ADMIN of this board — the raw
-// dashboard link alone can't add or remove logins.
-async function requireAdmin(req: Parameters<typeof resolveViewer>[0], propertyId: string) {
-  const viewer = await resolveViewer(req, propertyId);
-  if (!viewer.authenticated || viewer.role !== "admin") return null;
-  return viewer;
-}
-
 // ---------------------------------------------------------------------------
-// First-time setup — an unclaimed board (zero logins) can be claimed by
-// whoever holds the dashboard link: they create the initial admin login.
-// ---------------------------------------------------------------------------
-router.post("/client/:token/access/setup", limits.login, async (req, res): Promise<void> => {
-  const parsed = SetupClientAccessBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Name, email, and a password (8+ characters) are required" });
-    return;
-  }
-  const account = await accountByToken(String(req.params.token));
-  if (!account || account.status !== "active") {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const name = parsed.data.name.trim();
-  const email = parsed.data.email.trim().toLowerCase();
-  if (!name || !EMAIL_RE.test(email)) {
-    res.status(400).json({ error: "A name and a valid email are required" });
-    return;
-  }
-  if (parsed.data.password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
-    return;
-  }
-  let created: typeof clientUsersTable.$inferSelect;
-  try {
-    created = await db.transaction(async (tx) => {
-      const existing = await tx
-        .select()
-        .from(clientUsersTable)
-        .where(eq(clientUsersTable.propertyId, account.propertyId))
-        .for("update");
-      if (existing.length > 0) throw new SeatError("This board is already set up — sign in instead");
-      const [row] = await tx
-        .insert(clientUsersTable)
-        .values({
-          propertyId: account.propertyId,
-          name,
-          email,
-          role: "admin",
-          passwordHash: hashPassword(parsed.data.password),
-        })
-        .returning();
-      return row!;
-    });
-  } catch (e) {
-    if (e instanceof SeatError) {
-      res.status(409).json({ error: e.message });
-      return;
-    }
-    throw e;
-  }
-  await db.insert(activitiesTable).values({
-    entityType: "property",
-    entityId: account.propertyId,
-    kind: "note",
-    body: `Client board claimed — first admin login created for ${created.name} (${created.email})`,
-  });
-  res.json(SetupClientAccessResponse.parse(serUser(created)));
-});
-
-// ---------------------------------------------------------------------------
-// Client admin invites a team member. Seat-guarded like the office route.
+// Add a team member to the directory. The link holder manages the roster; it's
+// a directory (names, emails, roles, notification prefs) — no logins, no
+// passwords. Still seat-guarded so plan limits hold.
 // ---------------------------------------------------------------------------
 router.post("/client/:token/access/users", limits.cardAction, async (req, res): Promise<void> => {
   const parsed = CreateClientAccessUserBody.safeParse(req.body);
@@ -278,11 +199,6 @@ router.post("/client/:token/access/users", limits.cardAction, async (req, res): 
   const account = await accountByToken(String(req.params.token));
   if (!account || account.status !== "active") {
     res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const admin = await requireAdmin(req, account.propertyId);
-  if (!admin) {
-    res.status(403).json({ error: "Only a signed-in admin can add team members" });
     return;
   }
   const name = parsed.data.name.trim();
@@ -296,12 +212,6 @@ router.post("/client/:token/access/users", limits.cardAction, async (req, res): 
     res.status(400).json({ error: "Role must be admin, member, or guest" });
     return;
   }
-  const customPassword = parsed.data.password?.trim() || null;
-  if (customPassword && customPassword.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
-    return;
-  }
-  const tempPassword = customPassword ?? newTempPassword();
   let created: typeof clientUsersTable.$inferSelect;
   try {
     created = await db.transaction(async (tx) => {
@@ -311,7 +221,7 @@ router.post("/client/:token/access/users", limits.cardAction, async (req, res): 
         .where(eq(clientUsersTable.propertyId, account.propertyId))
         .for("update");
       if (users.some((u) => u.email.toLowerCase() === email)) {
-        throw new SeatError("A login with that email already exists");
+        throw new SeatError("A team member with that email already exists");
       }
       const activeSeated = users.filter((u) => u.active && u.role !== "guest").length;
       const activeGuests = users.filter((u) => u.active && u.role === "guest").length;
@@ -332,7 +242,8 @@ router.post("/client/:token/access/users", limits.cardAction, async (req, res): 
           name,
           email,
           role,
-          passwordHash: hashPassword(tempPassword),
+          // Column is NOT NULL but no longer used for auth — store a placeholder.
+          passwordHash: "",
         })
         .returning();
       return row!;
@@ -344,22 +255,16 @@ router.post("/client/:token/access/users", limits.cardAction, async (req, res): 
     }
     throw e;
   }
-  let emailed = false;
-  if (parsed.data.sendEmail) {
-    emailed = await emailCredentials(created, tempPassword, account);
-  }
   await db.insert(activitiesTable).values({
     entityType: "property",
     entityId: account.propertyId,
     kind: "note",
-    body: `Client admin ${admin.name ?? "?"} added a ${role} login for ${name} (${email})`,
+    body: `Team directory: added a ${role} entry for ${name} (${email})`,
   });
   res.status(201).json(
     CreateClientAccessUserResponse.parse({
       user: serUser(created),
-      // Custom passwords are never echoed back; auto-generated ones are shown once.
-      tempPassword: customPassword ? null : tempPassword,
-      emailed,
+      emailed: false,
     }),
   );
 });
@@ -373,16 +278,7 @@ router.delete("/client/:token/access/:userId", async (req, res): Promise<void> =
     res.status(404).json({ error: "Invalid link" });
     return;
   }
-  const admin = await requireAdmin(req, account.propertyId);
-  if (!admin) {
-    res.status(403).json({ error: "Only a signed-in admin can remove team members" });
-    return;
-  }
   const userId = String(req.params.userId);
-  if (admin.user && admin.user.id === userId) {
-    res.status(400).json({ error: "You can't delete your own login" });
-    return;
-  }
   try {
     await db.transaction(async (tx) => {
       const users = await tx
@@ -392,12 +288,6 @@ router.delete("/client/:token/access/:userId", async (req, res): Promise<void> =
         .for("update");
       const target = users.find((u) => u.id === userId);
       if (!target) throw new SeatError("__notfound__");
-      const otherAdmins = users.filter(
-        (u) => u.id !== userId && u.active && u.role === "admin",
-      ).length;
-      if (target.role === "admin" && otherAdmins === 0) {
-        throw new SeatError("The board needs at least one admin — promote someone else first");
-      }
       await tx.delete(clientUsersTable).where(eq(clientUsersTable.id, userId));
     });
   } catch (e) {
@@ -412,7 +302,7 @@ router.delete("/client/:token/access/:userId", async (req, res): Promise<void> =
     entityType: "property",
     entityId: account.propertyId,
     kind: "note",
-    body: `Client admin ${admin.name ?? "?"} removed a dashboard login`,
+    body: `Team directory: removed a member entry`,
   });
   res.json(DeleteClientAccessUserResponse.parse({ ok: true }));
 });
@@ -457,21 +347,8 @@ router.patch(
         return;
       }
     }
-    // Every team edit — roles, permissions, active, passwords — requires a
-    // signed-in admin. The raw dashboard link alone can't change logins.
-    const actingAdmin = await requireAdmin(req, account.propertyId);
-    if (!actingAdmin) {
-      res.status(403).json({ error: "Only a signed-in admin can change logins" });
-      return;
-    }
-    if (body.active === false && actingAdmin.user?.id === user.id) {
-      res.status(400).json({ error: "You can't deactivate your own login" });
-      return;
-    }
-    if (body.newPassword && body.newPassword.length < 8) {
-      res.status(400).json({ error: "Password must be at least 8 characters" });
-      return;
-    }
+    // The team roster is a directory the link holder manages; there are no
+    // passwords or logins to guard any more.
     const nextActive = body.active ?? user.active;
     const nextRole = body.role ?? user.role;
     const nextPermissions = body.resetToRoleDefaults
@@ -528,7 +405,6 @@ router.patch(
             role: nextRole,
             permissions: nextPermissions,
             active: nextActive,
-            ...(body.newPassword ? { passwordHash: hashPassword(body.newPassword) } : {}),
           })
           .where(eq(clientUsersTable.id, user.id))
           .returning();

@@ -1414,7 +1414,7 @@ export default function HaloCommand() {
       const status = brainError instanceof ApiFetchError ? brainError.status : 0;
       const text =
         status === 401
-          ? "Your office session expired — sign in again and I'll pick this straight back up."
+          ? "The brain refused that request. Reload the page and ask again."
           : status === 429
             ? "That's a lot of questions at once. Give it a few seconds and ask again."
             : `I couldn't reach the HALO brain just now${status ? ` (${status})` : ""}. Send it again and I'll retry.`;

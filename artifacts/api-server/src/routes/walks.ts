@@ -90,8 +90,8 @@ async function propertyNames(): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-// The Walk app is gated by its own passcode (see /walk-auth in officeAuth.ts),
-// a single shared office field credential. Walks may target ANY active
+// The Walk app has no passcode — HALO asks for no password anywhere — so the
+// URL is the credential. Walks may target ANY active
 // property: the GPS locator on /walk-target picks the nearest one, and this
 // default (Thornbury) is only the fallback when no coordinates are available.
 // Every mutation below is rate-limited and validates that the walk's property

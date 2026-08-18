@@ -9,7 +9,5 @@ import type { ClientUserRec } from './clientUserRec';
 
 export interface ClientCredentialIssued {
   user: ClientUserRec;
-  /** Shown once — not retrievable later */
-  tempPassword: string;
   emailed: boolean;
 }

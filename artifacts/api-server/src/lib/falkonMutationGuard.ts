@@ -9,7 +9,7 @@ import { db, invoicesTable } from "@workspace/db";
 import { classifyMutation, httpStatusForDecision, targetIdFromPath, actorChannelFromRequest } from "./falkonPolicyCore";
 import { enforceFalkonMutation } from "./falkonPolicy";
 import { logger } from "./logger";
-import { isPublicApiPath, isVendorBidAuth } from "./officeAuth";
+import { isPublicApiPath, isVendorBidAuth } from "./publicPaths";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

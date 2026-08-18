@@ -59,7 +59,7 @@ export function FeaturedWalkCard() {
               <div className="mt-3 rounded-[12px] bg-[#f5f5f7] p-3.5 text-[13px] leading-[1.55] text-[#3c3c43]">
                 <p className="font-semibold text-[#1d1d1f] mb-1.5">How it works</p>
                 <ol className="list-decimal pl-4 space-y-1">
-                  <li>Open the link above on your phone and unlock it with the passcode from your Archangel contact.</li>
+                  <li>Open the link above on your phone — it opens straight to the walk, nothing to sign in to.</li>
                   <li>Pick your property, then walk it — tap a unit, choose the services it needs, add notes or photos.</li>
                   <li>Tap <span className="font-semibold">Finish walk</span>. Each flagged unit turns into a work order with pricing from your property's price book, and it shows up here on your board.</li>
                 </ol>
