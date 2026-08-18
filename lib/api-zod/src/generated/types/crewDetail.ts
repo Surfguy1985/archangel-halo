@@ -15,6 +15,8 @@ export interface CrewDetail {
   /** @nullable */
   trade?: string | null;
   /** @nullable */
+  company?: string | null;
+  /** @nullable */
   phone?: string | null;
   /** @nullable */
   email?: string | null;

@@ -6,6 +6,7 @@ import type { ClientBoardMapCrew } from '@workspace/api-client-react';
 import { Loader2, ArrowLeft, Map as MapIcon, User, ExternalLink, Activity, X, MapPin, CheckCircle2, Circle, Camera, Wrench, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MapContainer, TileLayer, Marker, Circle as LeafletCircle, Polyline } from 'react-leaflet';
+import { CrewMapMarker, crewPinFromClientCrew } from '@workspace/board-ui';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatDistanceToNow } from 'date-fns';
@@ -17,15 +18,6 @@ const propertyIcon = L.divIcon({
          </div>`,
   iconSize: [24, 24],
   iconAnchor: [12, 24],
-});
-
-const getCrewIcon = (onSite: boolean, selected: boolean) => L.divIcon({
-  className: 'bg-transparent',
-  html: `<div class="flex items-center justify-center" style="width:${selected ? 44 : 36}px;height:${selected ? 44 : 36}px;border-radius:50%;background:${onSite ? '#22c55e' : '#94a3b8'};border:3px solid ${selected ? '#b4ff44' : '#fff'};box-shadow:0 4px 12px rgba(0,0,0,0.25);overflow:hidden;transition:all .15s">
-           <svg xmlns="http://www.w3.org/2000/svg" width="${selected ? 18 : 14}" height="${selected ? 18 : 14}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-         </div>`,
-  iconSize: [selected ? 44 : 36, selected ? 44 : 36],
-  iconAnchor: [selected ? 22 : 18, selected ? 22 : 18],
 });
 
 function CrewDetailSheet({
@@ -432,18 +424,20 @@ export default function MapView() {
 
             {/* Crew Markers — clicking opens the detail sheet */}
             {crews.map((crew, idx) => {
-              if (crew.lat == null || crew.lng == null) return null;
+              const pin = crewPinFromClientCrew(crew);
+              if (!pin) return null;
               const isSelected = selectedCrew?.jobNo === crew.jobNo;
               return (
                 <React.Fragment key={crew.jobNo + idx}>
-                  <Marker
-                    position={[crew.lat, crew.lng]}
-                    icon={getCrewIcon(crew.onSite, isSelected)}
-                    eventHandlers={{ click: () => setSelectedCrew(crew) }}
+                  <CrewMapMarker
+                    pin={pin}
+                    selected={isSelected}
+                    popup={false}
+                    onSelect={() => setSelectedCrew(crew)}
                   />
                   {crew.accuracy != null && (
                     <LeafletCircle
-                      center={[crew.lat, crew.lng]}
+                      center={[pin.lat, pin.lng]}
                       radius={crew.accuracy}
                       pathOptions={{ color: 'hsl(var(--primary))', fillColor: 'hsl(var(--primary))', fillOpacity: 0.08, weight: 1 }}
                     />

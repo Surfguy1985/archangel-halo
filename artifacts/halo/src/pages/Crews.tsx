@@ -12,6 +12,7 @@ type CrewRow = {
   id: string;
   name: string;
   trade?: string | null;
+  company?: string | null;
   phone?: string | null;
   email?: string | null;
   isLeader?: boolean | null;
@@ -85,6 +86,7 @@ export default function Crews() {
       id: crew.id,
       name: crew.name,
       trade: crew.trade,
+      company: crew.company,
       phone: crew.phone,
       email: crew.email,
       isLeader: crew.isLeader,

@@ -302,6 +302,7 @@ export default function CrewDetail() {
           id: crew.id,
           name: crew.name,
           trade: crew.trade,
+          company: crew.company,
           phone: crew.phone,
           email: crew.email,
           isLeader: crew.isLeader,

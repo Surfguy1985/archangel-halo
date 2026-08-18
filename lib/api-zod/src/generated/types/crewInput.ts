@@ -13,6 +13,11 @@ export interface CrewInput {
   /** @minLength 1 */
   name: string;
   trade?: string;
+  /**
+     * Subcontractor company. Null/empty = in-house crew
+     * @nullable
+     */
+  company?: string | null;
   phone?: string;
   email?: string;
   isLeader?: boolean;

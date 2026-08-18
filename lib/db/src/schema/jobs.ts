@@ -15,6 +15,10 @@ export const crewsTable = pgTable("crews", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   trade: text("trade"),
+  // Who the crew actually works for, shown on every map pin. Null = in-house,
+  // which renders the business's own company name; a sub carries its own so a
+  // pin never puts our badge on somebody else's people.
+  company: text("company"),
   phone: text("phone"),
   email: text("email"),
   isLeader: boolean("is_leader").default(false),

@@ -77,6 +77,8 @@ import {
   SaveCrewDayPlanResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
+import { getBusinessSettings } from "../lib/businessSettings";
+import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
 import { jobLabelMap } from "../lib/jobLabels";
 import { gatherDayReport, buildDayReportPdf } from "../lib/dayReportPdf";
 import { sendExpoPush } from "../lib/pushNotification";
@@ -90,6 +92,9 @@ function crewDetail(row: CrewRow) {
     id: row.id,
     name: row.name,
     trade: row.trade,
+    // Null = in-house; the edit form must round-trip this or a sub's
+    // contractor identity is wiped by an unrelated edit.
+    company: row.company ?? null,
     phone: row.phone,
     email: row.email,
     isLeader: row.isLeader,
@@ -361,6 +366,9 @@ function localDayStart(): Date {
 }
 
 router.get("/crews/map", async (_req, res): Promise<void> => {
+  const inHouse = await getBusinessSettings()
+    .then((s) => s.companyName)
+    .catch(() => null);
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, "0");
@@ -457,10 +465,21 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
             (!last?.createdAt || new Date(tip.at).getTime() > new Date(last.createdAt).getTime());
           const jobPhotos = job ? (photosByJob.get(job.id) ?? []) : [];
           const jobServices = job ? (lineItemsByJob.get(job.id) ?? []) : [];
+          const services = jobServices.map((li) => ({
+            id: li.id,
+            service: li.service,
+            done: !!li.completedAt,
+          }));
           return {
             id: c.id,
             name: c.name,
             trade: c.trade ?? null,
+            contractor: contractorLabel(c.company, inHouse),
+            serviceLabel: serviceLabel({
+              services,
+              jobDescription: job?.description ?? null,
+              trade: c.trade ?? null,
+            }),
             phone: c.phone ?? null,
             selfiePath: c.selfiePath ?? null,
             todayStatus:
@@ -486,11 +505,7 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
               phase: p.phase ?? null,
               note: p.note ?? null,
             })),
-            services: jobServices.map((li) => ({
-              id: li.id,
-              service: li.service,
-              done: !!li.completedAt,
-            })),
+            services,
           };
         }),
     ),

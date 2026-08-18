@@ -26,6 +26,7 @@ type CrewLike = {
   id: string;
   name: string;
   trade?: string | null;
+  company?: string | null;
   phone?: string | null;
   email?: string | null;
   isLeader?: boolean | null;
@@ -47,6 +48,8 @@ export function EditCrewSheet({
   const queryClient = useQueryClient();
   const [name, setName] = useState(crew.name);
   const [trade, setTrade] = useState(crew.trade ?? "");
+  // Blank = in-house; a sub's company shows on their map pin instead of ours.
+  const [company, setCompany] = useState(crew.company ?? "");
   const [phone, setPhone] = useState(crew.phone ?? "");
   const [email, setEmail] = useState(crew.email ?? "");
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
@@ -63,6 +66,7 @@ export function EditCrewSheet({
     if (open) {
       setName(crew.name);
       setTrade(crew.trade ?? "");
+      setCompany(crew.company ?? "");
       setPhone(crew.phone ?? "");
       setEmail(crew.email ?? "");
       setIsLeader(!!crew.isLeader);
@@ -87,6 +91,7 @@ export function EditCrewSheet({
         data: {
           name: name.trim(),
           trade: trade.trim() || undefined,
+          company: company.trim() || null,
           phone: phone.trim() || undefined,
           email: email.trim() || null,
           isLeader,
@@ -162,6 +167,12 @@ export function EditCrewSheet({
                 placeholder="Trade (e.g. Plumbing, Turns, General)"
                 value={trade}
                 onChange={(e) => setTrade(e.target.value)}
+              />
+              <input
+                className={fieldCls}
+                placeholder="Company — leave blank for in-house"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
               />
               <input
                 className={fieldCls}

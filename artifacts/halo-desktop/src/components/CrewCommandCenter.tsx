@@ -11,6 +11,7 @@ import {
   getGetCrewMapPinsQueryKey,
 } from "@workspace/api-client-react";
 import type { CrewMapPin } from "@workspace/api-client-react";
+import { CrewMapMarker, crewPinFromMapPin } from "@workspace/board-ui";
 import { X, Navigation, MapPin, Send, Clock, ChevronLeft, CheckCircle2, Circle, Camera, Wrench, MessageSquare, ChevronDown, Loader2, PhoneOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/apiFetch";
@@ -47,33 +48,6 @@ function statusColor(status?: string | null) {
     case "idle":
     default: return "#94a3b8";
   }
-}
-
-function createCustomIcon(pin: CrewMapPin) {
-  const color = statusColor(pin.todayStatus);
-  const esc = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  const imgHtml = pin.selfiePath
-    ? `<img src="${esc(`/api/storage${pin.selfiePath}`)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#020617;color:#b4ff44;border-radius:50%;font-weight:bold;font-size:12px;">${esc(pin.name.substring(0, 1))}</div>`;
-
-  const html = `
-    <div style="
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 3px solid ${color};
-      background: white;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    ">
-      ${imgHtml}
-    </div>
-  `;
-  return L.divIcon({ html, className: "custom-crew-marker", iconSize: [36, 36], iconAnchor: [18, 18] });
 }
 
 function timeSince(iso?: string | null) {
@@ -537,14 +511,19 @@ export function CrewCommandCenter({ onClose }: { onClose: () => void }) {
                 />
               ) : null
             )}
-            {mapPins.map(pin => (
-              <Marker
-                key={pin.id}
-                position={[pin.lat!, pin.lng!]}
-                icon={createCustomIcon(pin)}
-                eventHandlers={{ click: () => setSelectedId(pin.id) }}
-              />
-            ))}
+            {mapPins.map(pin => {
+              const crewPin = crewPinFromMapPin(pin);
+              if (!crewPin) return null;
+              return (
+                <CrewMapMarker
+                  key={pin.id}
+                  pin={crewPin}
+                  selected={selectedId === pin.id}
+                  popup={false}
+                  onSelect={() => setSelectedId(pin.id)}
+                />
+              );
+            })}
           </MapContainer>
         </div>
       </div>

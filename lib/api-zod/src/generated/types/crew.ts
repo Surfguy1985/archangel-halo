@@ -14,6 +14,11 @@ export interface Crew {
   name: string;
   /** @nullable */
   trade?: string | null;
+  /**
+     * Subcontractor company. Null = in-house crew
+     * @nullable
+     */
+  company?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */

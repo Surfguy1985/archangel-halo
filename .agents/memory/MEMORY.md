@@ -139,4 +139,5 @@
 - [HALO crew paycard](halo-crew-paycard.md) — GeolocationPositionError isn't an Error; photo COUNTS (not truncated items) drive step state; checkout photo gate is server-owned.
 - [Bounded scan filters](halo-bounded-scan-filters.md) — row-budgeted feed scans must push EVERY filter axis into SQL; filtering after the scan lets a busy entity empty another's results.
 - [HALO field photos](halo-field-photos.md) — crew photos live in crew_photos AND mirrored photo_before/after activities; dedupe by storage_path, retries must be no-ops.
+- [HALO shared crew map pins](halo-crew-map-pins.md) — all six maps share one board-ui pin fed by per-surface adapters; contractor label resolved server-side, crews.company null = in-house.
 - [HALO crew link shapes](halo-crew-links.md) — portal/checkin/join are always `<origin>/<kind>/<token>`; never BASE_URL, never /halo-crew/ (Expo path dies in prod).

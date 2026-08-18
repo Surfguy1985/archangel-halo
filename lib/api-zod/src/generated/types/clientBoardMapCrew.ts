@@ -14,6 +14,16 @@ export interface ClientBoardMapCrew {
   crewName: string;
   /** @nullable */
   crewTrade?: string | null;
+  /**
+     * Company the crew works for — the business's own name for in-house crews, the sub's name otherwise
+     * @nullable
+     */
+  contractor?: string | null;
+  /**
+     * One short line naming the work this crew is on today
+     * @nullable
+     */
+  serviceLabel?: string | null;
   /** @nullable */
   selfieUrl?: string | null;
   jobId?: string;

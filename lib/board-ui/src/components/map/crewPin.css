@@ -1,0 +1,126 @@
+/* Crew map pin — avatar dot plus a name chip, readable on light and dark tiles. */
+
+.halo-crewpin-icon {
+  background: transparent;
+  border: 0;
+}
+
+.halo-crewpin {
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.halo-crewpin-dot {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.halo-crewpin.is-selected .halo-crewpin-dot {
+  box-shadow:
+    0 0 0 6px rgba(180, 255, 68, 0.25),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.halo-crewpin-dot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.halo-crewpin-initial {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f1b2d;
+}
+
+.halo-crewpin-chip {
+  max-width: 132px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 27, 45, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Popup body */
+.halo-crewpin-pop {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 168px;
+  max-width: 240px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.halo-crewpin-pop-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f1b2d;
+}
+
+.halo-crewpin-badge {
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #0f1b2d;
+  color: #b4ff44;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.halo-crewpin-service {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.halo-crewpin-place,
+.halo-crewpin-status {
+  color: #64748b;
+}
+
+.halo-crewpin-status::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: #e4c25a;
+}
+
+.halo-crewpin-pop.is-site .halo-crewpin-status::before {
+  background: #22c55e;
+}
+
+.halo-crewpin-extra {
+  margin-top: 4px;
+}

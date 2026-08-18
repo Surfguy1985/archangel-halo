@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, CircleMarker,
 import { divIcon, latLngBounds } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from "@workspace/api-client-react";
+import { CrewMapMarker, crewPinFromClientCrew } from "@workspace/board-ui";
 import { MapPin, X, Users, Activity, Clock, LogIn, LogOut, Loader2, ArrowRight, Share2, ChevronDown, ChevronUp, History } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,30 +55,6 @@ const escapeHtml = (text: string) => {
   div.innerText = text;
   return div.innerHTML;
 };
-
-// Render marker icon
-function crewIcon(crew: any) {
-  const onSite = crew.onSite;
-  const initial = crew.crewName ? escapeHtml(crew.crewName.charAt(0).toUpperCase()) : "?";
-  const avatarHtml = crew.selfieUrl 
-    ? `<img src="${escapeHtml(crew.selfieUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#374151;font-weight:700;font-size:16px;">${initial}</div>`;
-    
-  const pulseHtml = onSite 
-    ? `<div style="position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;background:#10b981;border-radius:50%;border:2px solid white;box-shadow:0 0 0 2px rgba(16, 185, 129, 0.4);"></div>`
-    : `<div style="position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;background:#9ca3af;border-radius:50%;border:2px solid white;"></div>`;
-    
-  return divIcon({
-    className: "",
-    html: `<div style="width:40px;height:40px;border-radius:50%;border:2px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.15);position:relative;background:white;overflow:visible;">
-      <div style="width:100%;height:100%;border-radius:50%;overflow:hidden;">${avatarHtml}</div>
-      ${pulseHtml}
-    </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20],
-  });
-}
 
 function propertyIcon() {
   return divIcon({
@@ -262,63 +239,32 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                 })}
 
                 {data?.crews?.map((c, i) => {
-                  if (c.lat == null || c.lng == null) return null;
+                  const pin = crewPinFromClientCrew(c);
+                  if (!pin) return null;
                   return (
-                    <Marker
+                    <CrewMapMarker
                       key={c.jobId || i}
-                      position={[c.lat, c.lng]}
-                      icon={crewIcon(c)}
-                      eventHandlers={{
-                        // Tapping a crew marker highlights that crew's trail.
-                        click: () => setSelectedTrail(c.jobId ?? null),
-                      }}
+                      pin={pin}
+                      selected={selectedTrail === (c.jobId ?? null)}
+                      // Tapping a crew marker highlights that crew's trail.
+                      onSelect={() => setSelectedTrail(c.jobId ?? null)}
                     >
-                      <Popup className="rounded-xl border-none shadow-xl min-w-[240px]">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Avatar className="w-10 h-10 border border-border">
-                            {c.selfieUrl ? <AvatarImage src={c.selfieUrl} /> : null}
-                            <AvatarFallback>{c.crewName?.charAt(0).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-bold text-[15px] leading-tight">{c.crewName}</div>
-                            {c.crewTrade && <div className="text-xs text-muted-foreground mt-0.5">{c.crewTrade}</div>}
-                          </div>
+                      {c.description ? (
+                        <div className="text-xs bg-muted p-2 rounded-lg mb-2 line-clamp-2">
+                          {c.description}
                         </div>
-                        
-                        {c.description && (
-                          <div className="text-sm bg-muted p-2 rounded-lg mb-3 line-clamp-2">
-                            {c.description}
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center justify-between text-xs font-medium bg-secondary/50 rounded-lg p-2 mb-3">
-                          <div className="flex items-center gap-1.5">
-                            {c.onSite ? (
-                              <><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> On site</>
-                            ) : (
-                              <><div className="w-2 h-2 rounded-full bg-muted-foreground" /> Off site</>
-                            )}
-                          </div>
-                          {c.lastCheckinAt && (
-                            <span className="text-muted-foreground">
-                              {c.lastCheckinKind === 'checkin' ? 'in ' : 'out '} 
-                              {formatDistanceToNow(parseISO(c.lastCheckinAt), { addSuffix: true })}
-                            </span>
-                          )}
-                        </div>
-
-                        {c.trackerUrl && (
-                          <a 
-                            href={c.trackerUrl} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
-                          >
-                            Live Tracker <ArrowRight className="w-4 h-4" />
-                          </a>
-                        )}
-                      </Popup>
-                    </Marker>
+                      ) : null}
+                      {c.trackerUrl && (
+                        <a
+                          href={c.trackerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+                        >
+                          Live Tracker <ArrowRight className="w-4 h-4" />
+                        </a>
+                      )}
+                    </CrewMapMarker>
                   );
                 })}
               </MapContainer>

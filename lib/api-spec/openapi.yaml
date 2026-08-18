@@ -15612,6 +15612,7 @@ components:
         id: { type: string }
         name: { type: string }
         trade: { type: ["string", "null"] }
+        company: { type: ["string", "null"], description: "Subcontractor company. Null = in-house crew" }
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
@@ -15670,6 +15671,12 @@ components:
         id: { type: string }
         name: { type: string }
         trade: { type: ["string", "null"] }
+        contractor:
+          type: ["string", "null"]
+          description: "Company the crew works for — the business's own name for in-house crews, the sub's name otherwise"
+        serviceLabel:
+          type: ["string", "null"]
+          description: "One short line naming the work this crew is on today"
         phone: { type: ["string", "null"] }
         selfiePath: { type: ["string", "null"] }
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
@@ -15938,6 +15945,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         trade: { type: string }
+        company: { type: ["string", "null"], description: "Subcontractor company. Null/empty = in-house crew" }
         phone: { type: string }
         email: { type: string }
         isLeader: { type: boolean }
@@ -15968,6 +15976,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         trade: { type: string }
+        company: { type: ["string", "null"], description: "Subcontractor company. Null/empty = in-house crew" }
         phone: { type: string }
         email: { type: ["string", "null"] }
         isLeader: { type: boolean }
@@ -17034,6 +17043,7 @@ components:
         id: { type: string }
         name: { type: string }
         trade: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
@@ -19426,6 +19436,12 @@ components:
       properties:
         crewName: { type: string }
         crewTrade: { type: ["string", "null"] }
+        contractor:
+          type: ["string", "null"]
+          description: "Company the crew works for — the business's own name for in-house crews, the sub's name otherwise"
+        serviceLabel:
+          type: ["string", "null"]
+          description: "One short line naming the work this crew is on today"
         selfieUrl: { type: ["string", "null"] }
         jobId: { type: string }
         jobNo: { type: string }

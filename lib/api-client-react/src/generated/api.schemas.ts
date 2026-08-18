@@ -3377,6 +3377,11 @@ export interface Crew {
   name: string;
   /** @nullable */
   trade?: string | null;
+  /**
+     * Subcontractor company. Null = in-house crew
+     * @nullable
+     */
+  company?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -3476,6 +3481,16 @@ export interface CrewMapPin {
   name: string;
   /** @nullable */
   trade?: string | null;
+  /**
+     * Company the crew works for — the business's own name for in-house crews, the sub's name otherwise
+     * @nullable
+     */
+  contractor?: string | null;
+  /**
+     * One short line naming the work this crew is on today
+     * @nullable
+     */
+  serviceLabel?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -3744,6 +3759,11 @@ export interface CrewInput {
   /** @minLength 1 */
   name: string;
   trade?: string;
+  /**
+     * Subcontractor company. Null/empty = in-house crew
+     * @nullable
+     */
+  company?: string | null;
   phone?: string;
   email?: string;
   isLeader?: boolean;
@@ -3783,6 +3803,11 @@ export interface CrewUpdate {
   /** @minLength 1 */
   name?: string;
   trade?: string;
+  /**
+     * Subcontractor company. Null/empty = in-house crew
+     * @nullable
+     */
+  company?: string | null;
   phone?: string;
   /** @nullable */
   email?: string | null;
@@ -4893,6 +4918,8 @@ export interface CrewDetail {
   name: string;
   /** @nullable */
   trade?: string | null;
+  /** @nullable */
+  company?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -7574,6 +7601,16 @@ export interface ClientBoardMapCrew {
   crewName: string;
   /** @nullable */
   crewTrade?: string | null;
+  /**
+     * Company the crew works for — the business's own name for in-house crews, the sub's name otherwise
+     * @nullable
+     */
+  contractor?: string | null;
+  /**
+     * One short line naming the work this crew is on today
+     * @nullable
+     */
+  serviceLabel?: string | null;
   /** @nullable */
   selfieUrl?: string | null;
   jobId?: string;

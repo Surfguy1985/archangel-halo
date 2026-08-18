@@ -11,6 +11,7 @@ import {
 } from '@workspace/api-client-react';
 import { MapPin, Users, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { CrewMapMarker, crewPinFromClientCrew } from '@workspace/board-ui';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -29,16 +30,6 @@ const propertyIcon = L.divIcon({
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
-
-function makeCrewIcon(firstName: string, onSite: boolean) {
-  const bg = onSite ? '#22c55e' : '#3B82F6';
-  return L.divIcon({
-    className: 'bg-transparent',
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${bg};border:2px solid #07101E;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:11px;font-weight:700;color:white;font-family:sans-serif">${firstName[0]?.toUpperCase() ?? '?'}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-  });
-}
 
 type Props = {
   token: string;
@@ -124,21 +115,11 @@ export function ClientMapCard({ token, permissions, onNavigateMap }: Props) {
             <Marker position={[lat, lng]} icon={propertyIcon}>
               <Popup>{data.propertyName}</Popup>
             </Marker>
-            {/* On-site crew dots — first name only, no trail, no contact */}
+            {/* On-site crew pins — identity and contractor only, no trail, no contact */}
             {onSiteCrew.map((crew, i) => {
-              const firstName = crew.crewName.split(' ')[0];
-              return (
-                <Marker
-                  key={i}
-                  position={[crew.lat!, crew.lng!]}
-                  icon={makeCrewIcon(firstName, crew.onSite)}
-                >
-                  <Popup>
-                    <span style={{ fontWeight: 600 }}>{firstName}</span>
-                    {crew.unitNo ? ` · Unit ${crew.unitNo}` : ''}
-                  </Popup>
-                </Marker>
-              );
+              const pin = crewPinFromClientCrew(crew);
+              if (!pin) return null;
+              return <CrewMapMarker key={pin.id || i} pin={pin} />;
             })}
           </MapContainer>
         ) : (

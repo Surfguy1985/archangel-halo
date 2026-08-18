@@ -29,6 +29,18 @@ export { HaloReportsCard, HaloVendorsCard, HaloWaitingCard } from './components/
 export { HaloPosCard } from './components/pulse/HaloPosCard';
 export { prepareFieldPhoto, describeUploadFailure, PhotoTooLargeError } from './lib/photoPrep';
 export type { PreparedPhoto } from './lib/photoPrep';
+export { CrewMapMarker, CrewPinPopupBody } from './components/map/CrewMapMarker';
+export type { CrewMapMarkerProps } from './components/map/CrewMapMarker';
+export {
+  crewPinIcon,
+  crewPinFromMapPin,
+  crewPinFromClientCrew,
+  crewPinFromHaloMapCrew,
+  crewPinShortName,
+  crewPinStatusLine,
+  crewPinPlaceLine,
+} from './components/map/crewPin';
+export type { CrewPin, CrewPinStatus } from './components/map/crewPin';
 export { CrewQrCode } from './components/crew/CrewQrCode';
 export type { CrewQrCodeProps } from './components/crew/CrewQrCode';
 export {

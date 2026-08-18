@@ -71,6 +71,8 @@ import {
   PulseWatchRings,
   callbackRate,
   formatUsdCents,
+  CrewMapMarker,
+  crewPinFromHaloMapCrew,
   haloDeskPanels,
   haloMapCrews,
   haloStoryTitle,
@@ -387,17 +389,6 @@ function pinIcon(hot: boolean, pulse = false) {
     iconSize: [28, 34],
     iconAnchor: [14, 34],
     html: `<div style="position:relative">${pulse ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-70%);width:36px;height:36px;border-radius:50%;background:${LIME}40;animation:pulse-dot 1.5s infinite"></div>` : ""}<svg width="28" height="34" viewBox="0 0 28 34" fill="none"><path d="M14 0C8.48 0 4 4.48 4 10c0 7.87 10 24 10 24S24 17.87 24 10C24 4.48 19.52 0 14 0z" fill="${fill}"/><circle cx="14" cy="10" r="4.5" fill="${inner}"/></svg></div>`,
-  });
-}
-
-function crewPinIcon(status: "site" | "route", mock: boolean) {
-  const fill = status === "site" ? LIME : "#E4C25A";
-  const ring = mock ? "4px dashed rgba(255,255,255,0.55)" : "2px solid #0F1B2D";
-  return divIcon({
-    className: "",
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:${fill};border:${ring};box-shadow:0 0 0 6px ${fill}33,0 6px 16px rgba(0,0,0,0.35)"></div>`,
   });
 }
 
@@ -1666,17 +1657,7 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
               );
             })}
             {mapCrews.map((c) => (
-              <Marker key={`crew-${c.id}`} position={[c.lat, c.lng]} icon={crewPinIcon(c.status, c.mock)}>
-                <Popup>
-                  <div className="pulse-popup">
-                    <strong>{c.name}</strong>
-                    <em>{c.mock ? "On the book" : "Live GPS"}</em>
-                    <span>
-                      {c.trade} · {c.propertyName}
-                    </span>
-                  </div>
-                </Popup>
-              </Marker>
+              <CrewMapMarker key={`crew-${c.id}`} pin={crewPinFromHaloMapCrew(c)} />
             ))}
           </MapContainer>
 

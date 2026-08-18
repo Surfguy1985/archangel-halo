@@ -67,6 +67,11 @@ export type HaloMapCrew = {
   propertyName: string;
   mock: boolean;
   selfiePath?: string | null;
+  /** Company the crew works for — null on demo pins, which belong to nobody. */
+  contractor?: string | null;
+  /** Today's work in one line, as resolved by the server. */
+  service?: string | null;
+  unitNo?: string | null;
 };
 
 const DEMO_CREW: Array<{ name: string; trade: string; status: "site" | "route" }> = [
@@ -100,6 +105,9 @@ export function haloMapCrews(args: {
       propertyName: c.todayProperty ?? "On the book",
       mock: false,
       selfiePath: c.selfiePath,
+      contractor: c.contractor ?? null,
+      service: c.serviceLabel ?? null,
+      unitNo: c.unitNo ?? null,
     });
   }
   const taken = new Set(live.map((c) => c.propertyName.toLowerCase()));

@@ -19,6 +19,8 @@ export function AddCrewSheet({
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");
+  // Blank = in-house; a sub's company shows on their map pin instead of ours.
+  const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(true);
@@ -32,6 +34,7 @@ export function AddCrewSheet({
   const reset = () => {
     setName("");
     setTrade("");
+    setCompany("");
     setPhone("");
     setEmail("");
     setIsLeader(true);
@@ -48,6 +51,7 @@ export function AddCrewSheet({
         data: {
           name: name.trim(),
           trade: trade.trim() || undefined,
+          company: company.trim() || null,
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           isLeader,
@@ -104,6 +108,12 @@ export function AddCrewSheet({
               placeholder="Trade (e.g. Plumbing, Turns, General)"
               value={trade}
               onChange={(e) => setTrade(e.target.value)}
+            />
+            <input
+              className={fieldCls}
+              placeholder="Company — leave blank for in-house"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
             />
             <input
               className={fieldCls}

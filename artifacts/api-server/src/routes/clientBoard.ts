@@ -33,6 +33,8 @@ import {
   type Job,
 } from "@workspace/db";
 import { resolveClientBoardLink } from "../lib/clientBoardLink";
+import { getBusinessSettings } from "../lib/businessSettings";
+import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
 import {
   ClientBoardLoginBody,
   ClientBoardLoginResponse,
@@ -3082,6 +3084,10 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
     if (c.jobId && !lastByJob.has(c.jobId)) lastByJob.set(c.jobId, c);
   }
 
+  const inHouse = await getBusinessSettings()
+    .then((s) => s.companyName)
+    .catch(() => null);
+
   const crewsOut = active
     .filter((j) => j.crewLeaderId)
     .map((j) => {
@@ -3095,9 +3101,20 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
         !!last &&
         last.kind !== "checkout" &&
         now - new Date(last.createdAt).getTime() < 4 * 3_600_000;
+      const services = (lineItemsByJobId.get(j.id) ?? []).map((li) => ({
+        id: li.id,
+        service: li.service,
+        done: !!li.completedAt,
+      }));
       return {
         crewName: crew?.name ?? "Crew",
         crewTrade: crew?.trade ?? null,
+        contractor: contractorLabel(crew?.company, inHouse),
+        serviceLabel: serviceLabel({
+          services,
+          jobDescription: j.description ?? null,
+          trade: crew?.trade ?? null,
+        }),
         selfieUrl: crew?.selfiePath ? storageUrl(crew.selfiePath) : null,
         jobId: j.id,
         jobNo: j.jobNo,
@@ -3121,11 +3138,7 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
           phase: p.phase ?? null,
           note: p.note ?? null,
         })),
-        services: (lineItemsByJobId.get(j.id) ?? []).map((li) => ({
-          id: li.id,
-          service: li.service,
-          done: !!li.completedAt,
-        })),
+        services,
       };
     });
 
