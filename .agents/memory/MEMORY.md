@@ -137,3 +137,4 @@
 - [Env-gated router gates](halo-env-gated-router-gates.md) — a bare router.use() retirement gate 410s every router mounted after it, in PROD ONLY; always scope the gate to its path prefix.
 - [HALO foreman QR onboarding](halo-foreman-qr-onboarding.md) — foreman = isLeader AND role written together; join bearers never persisted; demotion revokes open codes.
 - [HALO crew paycard](halo-crew-paycard.md) — GeolocationPositionError isn't an Error; photo COUNTS (not truncated items) drive step state; checkout photo gate is server-owned.
+- [Bounded scan filters](halo-bounded-scan-filters.md) — row-budgeted feed scans must push EVERY filter axis into SQL; filtering after the scan lets a busy entity empty another's results.

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -1342,75 +1342,120 @@ router.get("/photo-reel", async (req, res): Promise<void> => {
   const cap = Math.min(Math.max(limit ?? REEL_UNIT_DEFAULT, 1), REEL_UNIT_MAX);
 
   // Phase 1 — the photo rows, newest first and bounded.  A property filter is
-  // pushed into SQL through that property's job ids so one community's reel
-  // never drags the whole photo history through memory.
-  const scopedJobIds = propertyId
-    ? (
-        await db
-          .select({ id: jobsTable.id })
-          .from(jobsTable)
-          .where(eq(jobsTable.propertyId, propertyId))
-      ).map((j) => j.id)
-    : null;
-  // No jobs on the property means no field photo can be placed there, and
-  // Base44 evidence only reaches a slide once its property name resolves —
-  // an empty reel is the honest answer.
-  if (scopedJobIds && scopedJobIds.length === 0) {
-    res.json(GetPhotoReelResponse.parse([]));
-    return;
+  // pushed into SQL on BOTH axes: field photos through that property's job ids,
+  // Base44 evidence through its property *name*.  Filtering after the fact
+  // would let one busy community spend another's row budget and quietly empty
+  // its reel.
+  const normalizedName = sql<string>`lower(trim(${propertiesTable.name}))`;
+  let scopedJobIds: string[] | null = null;
+  // Normalized name to match Base44 evidence on; null means "no evidence can be
+  // placed on this property" (unknown id, or a name two communities share).
+  let scopedEvidenceName: string | null = null;
+  if (propertyId) {
+    const [target] = await db
+      .select({ id: propertiesTable.id, name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId));
+    if (!target) {
+      res.json(GetPhotoReelResponse.parse([]));
+      return;
+    }
+    const key = target.name.trim().toLowerCase();
+    const [twins, jobRows] = await Promise.all([
+      db
+        .select({ id: propertiesTable.id })
+        .from(propertiesTable)
+        .where(sql`${normalizedName} = ${key}`),
+      db.select({ id: jobsTable.id }).from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
+    ]);
+    // A name shared with another community is ambiguous: its evidence stays
+    // unplaced rather than being filed under whichever property was asked for.
+    scopedEvidenceName = twins.length === 1 ? key : null;
+    scopedJobIds = jobRows.map((j) => j.id);
   }
+  // A property with no jobs can still have Base44 evidence — that feed carries
+  // its own property and unit labels — so only the job-backed sources go quiet.
+  const noFieldPhotos = scopedJobIds !== null && scopedJobIds.length === 0;
+  const noEvidence = propertyId !== undefined && scopedEvidenceName === null;
 
   const [acts, vault, evidence] = await Promise.all([
-    db
-      .select({
-        entityId: activitiesTable.entityId,
-        kind: activitiesTable.kind,
-        storagePath: activitiesTable.storagePath,
-        createdAt: activitiesTable.createdAt,
-      })
-      .from(activitiesTable)
-      .where(
-        and(
-          eq(activitiesTable.entityType, "job"),
-          inArray(activitiesTable.kind, ["photo_before", "photo_after"]),
-          scopedJobIds ? inArray(activitiesTable.entityId, scopedJobIds) : undefined,
-        ),
-      )
-      .orderBy(desc(activitiesTable.createdAt))
-      .limit(REEL_SCAN_ROWS),
-    db
-      .select({
-        jobId: crewPhotosTable.jobId,
-        crewId: crewPhotosTable.crewId,
-        phase: crewPhotosTable.phase,
-        storagePath: crewPhotosTable.storagePath,
-        capturedAt: crewPhotosTable.capturedAt,
-        createdAt: crewPhotosTable.createdAt,
-      })
-      .from(crewPhotosTable)
-      .where(scopedJobIds ? inArray(crewPhotosTable.jobId, scopedJobIds) : undefined)
-      .orderBy(desc(crewPhotosTable.createdAt))
-      .limit(REEL_SCAN_ROWS),
-    db
-      .select({
-        mediaUrl: base44EvidenceTable.mediaUrl,
-        kind: base44EvidenceTable.kind,
-        unitLabel: base44EvidenceTable.unitLabel,
-        propertyName: base44EvidenceTable.propertyName,
-        occurredAt: base44EvidenceTable.occurredAt,
-        updatedAt: base44EvidenceTable.updatedAt,
-      })
-      .from(base44EvidenceTable)
-      .where(
-        and(
-          eq(base44EvidenceTable.stale, false),
-          inArray(base44EvidenceTable.kind, ["before", "after"]),
-          isNotNull(base44EvidenceTable.mediaUrl),
-          isNotNull(base44EvidenceTable.unitLabel),
-        ),
-      )
-      .orderBy(desc(base44EvidenceTable.occurredAt))
-      .limit(REEL_SCAN_ROWS),
+    noFieldPhotos
+      ? Promise.resolve([] as { entityId: string | null; kind: string; storagePath: string | null; createdAt: Date | null }[])
+      : db
+          .select({
+            entityId: activitiesTable.entityId,
+            kind: activitiesTable.kind,
+            storagePath: activitiesTable.storagePath,
+            createdAt: activitiesTable.createdAt,
+          })
+          .from(activitiesTable)
+          .where(
+            and(
+              eq(activitiesTable.entityType, "job"),
+              inArray(activitiesTable.kind, ["photo_before", "photo_after"]),
+              scopedJobIds ? inArray(activitiesTable.entityId, scopedJobIds) : undefined,
+            ),
+          )
+          .orderBy(desc(activitiesTable.createdAt))
+          .limit(REEL_SCAN_ROWS),
+    noFieldPhotos
+      ? Promise.resolve(
+          [] as {
+            jobId: string | null;
+            crewId: string;
+            phase: string | null;
+            storagePath: string;
+            capturedAt: Date | null;
+            createdAt: Date | null;
+          }[],
+        )
+      : db
+          .select({
+            jobId: crewPhotosTable.jobId,
+            crewId: crewPhotosTable.crewId,
+            phase: crewPhotosTable.phase,
+            storagePath: crewPhotosTable.storagePath,
+            capturedAt: crewPhotosTable.capturedAt,
+            createdAt: crewPhotosTable.createdAt,
+          })
+          .from(crewPhotosTable)
+          .where(scopedJobIds ? inArray(crewPhotosTable.jobId, scopedJobIds) : undefined)
+          .orderBy(desc(crewPhotosTable.createdAt))
+          .limit(REEL_SCAN_ROWS),
+    noEvidence
+      ? Promise.resolve(
+          [] as {
+            mediaUrl: string | null;
+            kind: string;
+            unitLabel: string | null;
+            propertyName: string | null;
+            occurredAt: Date | null;
+            updatedAt: Date | null;
+          }[],
+        )
+      : db
+          .select({
+            mediaUrl: base44EvidenceTable.mediaUrl,
+            kind: base44EvidenceTable.kind,
+            unitLabel: base44EvidenceTable.unitLabel,
+            propertyName: base44EvidenceTable.propertyName,
+            occurredAt: base44EvidenceTable.occurredAt,
+            updatedAt: base44EvidenceTable.updatedAt,
+          })
+          .from(base44EvidenceTable)
+          .where(
+            and(
+              eq(base44EvidenceTable.stale, false),
+              inArray(base44EvidenceTable.kind, ["before", "after"]),
+              isNotNull(base44EvidenceTable.mediaUrl),
+              isNotNull(base44EvidenceTable.unitLabel),
+              scopedEvidenceName
+                ? sql`lower(trim(${base44EvidenceTable.propertyName})) = ${scopedEvidenceName}`
+                : undefined,
+            ),
+          )
+          .orderBy(desc(base44EvidenceTable.occurredAt))
+          .limit(REEL_SCAN_ROWS),
   ]);
 
   // Phase 2 — only the jobs, properties and crews those photos actually name.
