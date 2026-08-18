@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useListVendors, type Vendor } from "@workspace/api-client-react";
-import { Plus, Search, ListOrdered, Home, ChevronRight } from "lucide-react";
+import { Plus, Search, ListOrdered, Home, ChevronRight, Receipt } from "lucide-react";
 import { AddVendorSheet } from "@/components/AddVendorSheet";
 import { PriceListSheet } from "@/components/PriceListSheet";
 
@@ -44,6 +44,7 @@ export default function Vendors() {
   const [addOpen, setAddOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
+  const [priceVendor, setPriceVendor] = useState<Vendor | null>(null);
   const [query, setQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
@@ -87,7 +88,7 @@ export default function Vendors() {
           <Plus className="w-[17px] h-[17px]" /> Add vendor
         </button>
         <button
-          onClick={() => setPriceOpen(true)}
+          onClick={() => { setPriceVendor(null); setPriceOpen(true); }}
           data-testid="button-price-list"
           className="flex-1 flex items-center justify-center gap-[7px] rounded-full py-[13px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
         >
@@ -133,11 +134,11 @@ export default function Vendors() {
       ) : (
         <div className="flex flex-col gap-[10px]">
           {visible.map((v) => (
-            <button
+            <div
               key={v.id}
               data-testid={`card-vendor-${v.id}`}
               onClick={() => setEditVendor(v)}
-              className={`w-full text-left rounded-[20px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] transition-transform active:scale-[0.98] ${
+              className={`rounded-[20px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] cursor-pointer active:scale-[0.98] transition-transform ${
                 isInHouse(v)
                   ? "bg-[var(--gold-light)]/15 border-[var(--gold-light)]"
                   : "bg-card border-[var(--hairline)]"
@@ -186,7 +187,7 @@ export default function Vendors() {
                   <ChevronRight className="w-[15px] h-[15px] text-muted-foreground mt-[3px]" />
                 </div>
               </div>
-              <div className="flex gap-[10px] mt-[12px] pt-[10px] border-t border-[var(--hairline)]">
+              <div className="flex items-center gap-[10px] mt-[12px] pt-[10px] border-t border-[var(--hairline)]">
                 <Metric
                   label="Avg turn"
                   days={v.avgTurnDays}
@@ -199,8 +200,20 @@ export default function Vendors() {
                   samples={v.avgPoSamples}
                   noun="PO"
                 />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPriceVendor(v);
+                    setPriceOpen(true);
+                  }}
+                  aria-label={`Rate sheet for ${v.name}`}
+                  className="ml-auto flex items-center gap-[5px] px-[10px] py-[5px] rounded-full text-[11.5px] font-semibold bg-[var(--paper)] border border-[var(--hairline)] text-muted-foreground active:opacity-70 transition-opacity"
+                >
+                  <Receipt className="w-[12px] h-[12px]" />
+                  Rates
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -211,7 +224,14 @@ export default function Vendors() {
         onOpenChange={(o) => { if (!o) setEditVendor(null); }}
         vendor={editVendor}
       />
-      <PriceListSheet open={priceOpen} onOpenChange={setPriceOpen} />
+      <PriceListSheet
+        open={priceOpen}
+        onOpenChange={(open) => {
+          setPriceOpen(open);
+          if (!open) setPriceVendor(null);
+        }}
+        vendor={priceVendor}
+      />
     </div>
   );
 }

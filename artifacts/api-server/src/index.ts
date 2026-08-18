@@ -18,6 +18,7 @@ import { ensureCrewCompanySchema } from "./lib/ensureCrewCompanySchema";
 import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
+import { ensureVendorRatesSchema } from "./lib/ensureVendorRatesSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -40,10 +41,15 @@ if (Number.isNaN(port) || port <= 0) {
  * 500s on a live database. Exiting on failure lets the workflow restart and
  * retry rather than serving a schema the code can't read.
  */
-ensureVendorContractSchema().then(startServer, (err) => {
-  logger.error({ err }, "vendor contract schema bootstrap failed");
-  process.exit(1);
-});
+// vendor_rates must exist before traffic is served: rate routes query it directly
+// and there is no per-request readiness guard. Chain it with the vendor schema
+// bootstrap so both complete (or fail loudly) before app.listen() is called.
+ensureVendorContractSchema()
+  .then(() => ensureVendorRatesSchema())
+  .then(startServer, (err) => {
+    logger.error({ err }, "vendor schema bootstrap failed");
+    process.exit(1);
+  });
 
 function startServer() {
 app.listen(port, (err) => {
@@ -96,6 +102,7 @@ app.listen(port, (err) => {
   ensureCrewCompanySchema().catch((err) =>
     logger.error({ err }, "crew company schema bootstrap failed"),
   );
+
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is
   // created, and these are ALTERs against it. On a fresh database the reverse
   // order fails and never retries, leaving the app querying columns that don't

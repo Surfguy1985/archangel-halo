@@ -5,6 +5,7 @@ import {
   doublePrecision,
   timestamp,
   date,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const inventoryItemsTable = pgTable("inventory_items", {
@@ -51,6 +52,24 @@ export const purchaseOrdersTable = pgTable("purchase_orders", {
     .defaultNow(),
 });
 
+export const vendorRatesTable = pgTable(
+  "vendor_rates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id").notNull(),
+    catalogItemId: uuid("catalog_item_id").notNull(),
+    rate: doublePrecision("rate").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique().on(t.vendorId, t.catalogItemId)],
+);
+
 export type InventoryItem = typeof inventoryItemsTable.$inferSelect;
 export type Vendor = typeof vendorsTable.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrdersTable.$inferSelect;
+export type VendorRate = typeof vendorRatesTable.$inferSelect;

@@ -19,6 +19,7 @@ import {
   Home,
   Timer,
   ListOrdered,
+  Receipt,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VendorDialog } from "@/components/VendorDialogs";
@@ -146,6 +147,7 @@ export default function Vendors() {
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [priceListOpen, setPriceListOpen] = useState(false);
+  const [priceListVendor, setPriceListVendor] = useState<Vendor | null>(null);
   const [editing, setEditing] = useState<Vendor | null>(null);
 
   const openPoCount = useMemo(() => {
@@ -234,6 +236,11 @@ export default function Vendors() {
     setEditing(v);
     setDialogOpen(true);
   };
+  const openRates = (v: Vendor, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPriceListVendor(v);
+    setPriceListOpen(true);
+  };
 
   const doExport = () => {
     exportCsv(
@@ -298,7 +305,7 @@ export default function Vendors() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setPriceListOpen(true)}
+            onClick={() => { setPriceListVendor(null); setPriceListOpen(true); }}
             data-testid="button-price-list"
             className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
           >
@@ -506,16 +513,26 @@ export default function Vendors() {
                     <StatusBadge vendor={v} />
                   </td>
                   <td className="px-3 py-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(v);
-                      }}
-                      aria-label={`Edit ${v.name}`}
-                      className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => openRates(v, e)}
+                        aria-label={`Rate sheet for ${v.name}`}
+                        title="Rate sheet"
+                        className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
+                      >
+                        <Receipt className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(v);
+                        }}
+                        aria-label={`Edit ${v.name}`}
+                        className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -531,7 +548,14 @@ export default function Vendors() {
       </p>
 
       <VendorDialog open={dialogOpen} onOpenChange={setDialogOpen} vendor={editing} />
-      <PriceListDialog open={priceListOpen} onOpenChange={setPriceListOpen} />
+      <PriceListDialog
+        open={priceListOpen}
+        onOpenChange={(open) => {
+          setPriceListOpen(open);
+          if (!open) setPriceListVendor(null);
+        }}
+        vendor={priceListVendor}
+      />
     </div>
   );
 }

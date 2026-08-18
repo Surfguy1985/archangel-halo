@@ -4740,6 +4740,21 @@ export interface VendorPatch {
   contractStatus?: VendorPatchContractStatus;
 }
 
+export interface VendorRate {
+  id: string;
+  vendorId: string;
+  catalogItemId: string;
+  service: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  category?: string | null;
+  rate: number;
+  /** @nullable */
+  masterRate?: number | null;
+}
 export interface PurchaseOrder {
   id: string;
   poNo: string;
@@ -9579,6 +9594,10 @@ export type DeleteVendor200 = {
   id: string;
 };
 
+export type DeleteVendorRate200 = {
+  vendorId: string;
+  catalogItemId: string;
+};
 export type ListPurchaseOrdersParams = {
 status?: string;
 };
@@ -9841,3 +9860,7 @@ export const ExportClientTurnInvoiceFormat = {
   json: 'json',
 } as const;
 
+
+export interface VendorRateInput {
+  rate: number;
+}

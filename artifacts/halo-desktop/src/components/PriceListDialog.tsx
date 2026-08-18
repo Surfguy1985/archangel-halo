@@ -1,13 +1,25 @@
 /**
- * Read-only view of the master price list, opened from the Vendors module.
+ * Price list dialog — two modes:
  *
- * This is the same master catalog the Price Book page edits — the vendors
- * module deliberately does not keep its own copy of pricing, so a rate
- * corrected in one place is corrected everywhere.
+ *  1. Master list (vendor = null/undefined): read-only view of catalog_items,
+ *     opened from the "Price list" button at the top of the Vendors page.
+ *
+ *  2. Vendor rate sheet (vendor provided): shows master rates alongside this
+ *     vendor's own rates, with inline editing. Opened via "Rates" on a row.
  */
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
-import { useListCatalogItems } from "@workspace/api-client-react";
+import { useMemo, useState, useRef } from "react";
+import { Search, X, Pencil } from "lucide-react";
+import {
+  useListCatalogItems,
+  useListVendorRates,
+  useUpsertVendorRate,
+  useDeleteVendorRate,
+  getListVendorRatesQueryKey,
+  type VendorRate,
+  type ListVendorRatesQueryResult,
+} from "@workspace/api-client-react";
+import type { UseQueryOptions } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -23,15 +35,127 @@ function rateLabel(rate: number | null | undefined, unit: string | null | undefi
   return unit ? `${money} / ${unit}` : money;
 }
 
+/** Inline editable rate cell for a vendor's rate sheet. */
+function VendorRateCell({
+  catalogItemId,
+  vendorId,
+  existing,
+  unit,
+}: {
+  catalogItemId: string;
+  vendorId: string;
+  existing: VendorRate | undefined;
+  unit: string | null | undefined;
+}) {
+  const qc = useQueryClient();
+  const upsert = useUpsertVendorRate();
+  const remove = useDeleteVendorRate();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: getListVendorRatesQueryKey(vendorId) });
+
+  const startEdit = () => {
+    setDraft(existing?.rate != null ? String(existing.rate) : "");
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const commit = () => {
+    const val = parseFloat(draft.replace(/[^0-9.]/g, ""));
+    if (!isNaN(val) && val >= 0) {
+      upsert.mutate(
+        { id: vendorId, catalogItemId, data: { rate: val } },
+        { onSuccess: () => { invalidate(); setEditing(false); } },
+      );
+    } else {
+      setEditing(false);
+    }
+  };
+
+  const clear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!existing) return;
+    remove.mutate(
+      { id: vendorId, catalogItemId },
+      { onSuccess: () => invalidate() },
+    );
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <span className="text-muted-foreground text-xs">$</span>
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-24 text-right bg-background border border-[var(--gold)]/50 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
+          autoFocus
+        />
+        {unit && <span className="text-xs text-muted-foreground">/ {unit}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1 group">
+      <span className={`font-semibold text-sm ${existing ? "text-[var(--ink)]" : "text-muted-foreground italic"}`}>
+        {existing ? rateLabel(existing.rate, unit) : "—"}
+      </span>
+      <button
+        onClick={startEdit}
+        aria-label="Edit vendor rate"
+        className="w-5 h-5 grid place-items-center rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+      {existing && (
+        <button
+          onClick={clear}
+          aria-label="Clear vendor rate"
+          className="w-5 h-5 grid place-items-center rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function PriceListDialog({
   open,
   onOpenChange,
+  vendor,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  vendor?: { id: string; name: string } | null;
 }) {
-  const { data: items, isLoading } = useListCatalogItems();
+  const { data: items, isLoading: catalogLoading } = useListCatalogItems();
+  const vendorId = vendor?.id ?? "";
+  const { data: vendorRates, isLoading: ratesLoading } = useListVendorRates(vendorId, {
+    query: {
+      queryKey: getListVendorRatesQueryKey(vendorId),
+      enabled: !!vendor?.id,
+    } as UseQueryOptions<ListVendorRatesQueryResult>,
+  });
   const [query, setQuery] = useState("");
+
+  const rateByItemId = useMemo(() => {
+    const map = new Map<string, VendorRate>();
+    for (const r of vendorRates ?? []) map.set(r.catalogItemId, r);
+    return map;
+  }, [vendorRates]);
+
+  const isLoading = catalogLoading || (!!vendor && ratesLoading);
 
   const visible = useMemo(() => {
     const list = items ?? [];
@@ -46,13 +170,19 @@ export function PriceListDialog({
     return [...matched].sort((a, b) => a.service.localeCompare(b.service));
   }, [items, query]);
 
+  const isVendorMode = !!vendor;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" data-testid="dialog-price-list">
         <DialogHeader>
-          <DialogTitle className="font-display">Master price list</DialogTitle>
+          <DialogTitle className="font-display">
+            {isVendorMode ? `${vendor!.name} — Rate sheet` : "Master price list"}
+          </DialogTitle>
           <DialogDescription>
-            The company's standard rates. Edit them in Purchasing → Price Book.
+            {isVendorMode
+              ? "Vendor's rates for each service alongside the master price. Hover a row to edit."
+              : "The company's standard rates. Edit them in Purchasing → Price Book."}
           </DialogDescription>
         </DialogHeader>
 
@@ -89,7 +219,14 @@ export function PriceListDialog({
                 <tr>
                   <th className="py-2 font-semibold">Service</th>
                   <th className="py-2 font-semibold">Category</th>
-                  <th className="py-2 font-semibold text-right">Rate</th>
+                  <th className="py-2 font-semibold text-right">
+                    {isVendorMode ? "Master rate" : "Rate"}
+                  </th>
+                  {isVendorMode && (
+                    <th className="py-2 font-semibold text-right pl-4">
+                      Vendor rate
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--hairline)]">
@@ -105,6 +242,16 @@ export function PriceListDialog({
                     <td className="py-2.5 text-right font-semibold whitespace-nowrap text-[var(--ink)]">
                       {rateLabel(i.rate, i.unit)}
                     </td>
+                    {isVendorMode && (
+                      <td className="py-2.5 pl-4 whitespace-nowrap">
+                        <VendorRateCell
+                          catalogItemId={i.id}
+                          vendorId={vendor!.id}
+                          existing={rateByItemId.get(i.id)}
+                          unit={i.unit}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

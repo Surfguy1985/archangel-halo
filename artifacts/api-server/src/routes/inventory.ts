@@ -1,11 +1,13 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, and } from "drizzle-orm";
 import {
   db,
   inventoryItemsTable,
   vendorsTable,
+  vendorRatesTable,
   purchaseOrdersTable,
   jobsTable,
+  catalogItemsTable,
 } from "@workspace/db";
 import {
   ListInventoryResponse,
@@ -22,6 +24,13 @@ import {
   UpdateVendorResponse,
   DeleteVendorParams,
   DeleteVendorResponse,
+  ListVendorRatesParams,
+  ListVendorRatesResponse,
+  UpsertVendorRateParams,
+  UpsertVendorRateBody,
+  UpsertVendorRateResponse,
+  DeleteVendorRateParams,
+  DeleteVendorRateResponse,
   ListPurchaseOrdersResponse,
   ListPurchaseOrdersQueryParams,
   CreatePurchaseOrderBody,
@@ -203,6 +212,96 @@ router.delete("/vendors/:id", async (req, res): Promise<void> => {
   }
   res.json(DeleteVendorResponse.parse({ id }));
 });
+
+/* ---------------------------------------------------------------- vendor rates */
+
+router.get("/vendors/:id/rates", async (req, res): Promise<void> => {
+  const { id } = ListVendorRatesParams.parse(req.params);
+  const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, id));
+  if (!vendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  const rates = await db.select().from(vendorRatesTable).where(eq(vendorRatesTable.vendorId, id));
+  const catalogItems = await db.select().from(catalogItemsTable);
+  const catalogById = new Map(catalogItems.map((c) => [c.id, c]));
+  const result = rates
+    .map((r) => {
+      const item = catalogById.get(r.catalogItemId);
+      if (!item) return null;
+      return {
+        id: r.id,
+        vendorId: r.vendorId,
+        catalogItemId: r.catalogItemId,
+        service: item.service,
+        detail: item.detail ?? null,
+        unit: item.unit ?? null,
+        category: item.category ?? null,
+        rate: r.rate,
+        masterRate: item.rate ?? null,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+  res.json(ListVendorRatesResponse.parse(result));
+});
+
+router.put("/vendors/:id/rates/:catalogItemId", async (req, res): Promise<void> => {
+  const { id, catalogItemId } = UpsertVendorRateParams.parse(req.params);
+  const { rate } = UpsertVendorRateBody.parse(req.body);
+
+  const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, id));
+  if (!vendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  const [item] = await db
+    .select()
+    .from(catalogItemsTable)
+    .where(eq(catalogItemsTable.id, catalogItemId));
+  if (!item) {
+    res.status(404).json({ error: "Catalog item not found" });
+    return;
+  }
+
+  // Upsert: insert or update the rate for this vendor+catalog pair.
+  const [row] = await db
+    .insert(vendorRatesTable)
+    .values({ vendorId: id, catalogItemId, rate })
+    .onConflictDoUpdate({
+      target: [vendorRatesTable.vendorId, vendorRatesTable.catalogItemId],
+      set: { rate, updatedAt: new Date() },
+    })
+    .returning();
+
+  res.json(
+    UpsertVendorRateResponse.parse({
+      id: row!.id,
+      vendorId: row!.vendorId,
+      catalogItemId: row!.catalogItemId,
+      service: item.service,
+      detail: item.detail ?? null,
+      unit: item.unit ?? null,
+      category: item.category ?? null,
+      rate: row!.rate,
+      masterRate: item.rate ?? null,
+    }),
+  );
+});
+
+router.delete("/vendors/:id/rates/:catalogItemId", async (req, res): Promise<void> => {
+  const { id, catalogItemId } = DeleteVendorRateParams.parse(req.params);
+  await db
+    .delete(vendorRatesTable)
+    .where(
+      and(
+        eq(vendorRatesTable.vendorId, id),
+        eq(vendorRatesTable.catalogItemId, catalogItemId),
+      ),
+    );
+  res.json(DeleteVendorRateResponse.parse({ vendorId: id, catalogItemId }));
+});
+
+/* --------------------------------------------------------------- purchase orders */
 
 async function nextPoNo(): Promise<string> {
   const rows = await db.select().from(purchaseOrdersTable);

@@ -4057,6 +4057,83 @@ paths:
                 properties:
                   id: { type: string }
 
+  /vendors/{id}/rates:
+    get:
+      operationId: listVendorRates
+      tags: [inventory]
+      summary: List this vendor's per-service rates alongside the master price
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vendor rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorRate"
+
+  /vendors/{id}/rates/{catalogItemId}:
+    put:
+      operationId: upsertVendorRate
+      tags: [inventory]
+      summary: Set this vendor's rate for a catalog service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: catalogItemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorRateInput"
+      responses:
+        "200":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorRate"
+    delete:
+      operationId: deleteVendorRate
+      tags: [inventory]
+      summary: Remove this vendor's rate for a catalog service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: catalogItemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vendorId, catalogItemId]
+                properties:
+                  vendorId: { type: string }
+                  catalogItemId: { type: string }
+
   /purchase-orders:
     get:
       operationId: listPurchaseOrders
@@ -16842,6 +16919,24 @@ components:
         coiExpiresOn: { type: ["string", "null"] }
         vendorType: { type: string, enum: ["in_house", "subcontractor"] }
         contractStatus: { type: string, enum: ["contracted", "inactive"] }
+    VendorRate:
+      type: object
+      required: [id, vendorId, catalogItemId, service, rate]
+      properties:
+        id: { type: string }
+        vendorId: { type: string }
+        catalogItemId: { type: string }
+        service: { type: string }
+        detail: { type: ["string", "null"] }
+        unit: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        rate: { type: number }
+        masterRate: { type: ["number", "null"] }
+    VendorRateInput:
+      type: object
+      required: [rate]
+      properties:
+        rate: { type: number }
 
     PurchaseOrder:
       type: object
