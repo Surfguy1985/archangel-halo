@@ -26,7 +26,7 @@ import {
   clientTurnMetricsMvTable,
   clientUnitsTable,
 } from "@workspace/db";
-import { eq, and, inArray, gte, isNull } from "drizzle-orm";
+import { eq, and, inArray, gte, isNull, isNotNull, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
@@ -45,6 +45,15 @@ import {
   type OpsNeed,
   type OpsCortex,
 } from "./opsCortex";
+import {
+  ANSWER_MAX_BULLETS,
+  ANSWER_MAX_BULLET_CHARS,
+  ANSWER_MAX_GROUP_ITEMS,
+  ANSWER_MAX_HEADLINE_CHARS,
+  normalizeAnswer,
+  structuredToPlainText,
+  type StructuredAnswer,
+} from "./answerFormat";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -117,18 +126,21 @@ export interface BusinessSnapshot {
       scheduledOn?: string | null;
     }>;
     overdueDetail?: Array<{
+      jobId?: string;
       jobNo?: string;
       unitNo: string | null;
       propertyName: string;
       daysLate: number;
     }>;
     uncrewedDetail?: Array<{
+      jobId?: string;
       jobNo?: string;
       unitNo: string | null;
       propertyName: string;
       scheduledOn?: string | null;
     }>;
     dueTomorrow?: Array<{
+      jobId?: string;
       jobNo?: string;
       unitNo: string | null;
       propertyName: string;
@@ -141,6 +153,8 @@ export interface BusinessSnapshot {
     sentCount: number;
     pendingCrewPay: number;
     overdueDetail?: Array<{
+      invoiceId?: string;
+      invoiceNo?: string;
       amount: number;
       propertyName?: string;
       daysLate: number;
@@ -153,7 +167,15 @@ export interface BusinessSnapshot {
     status: string;
     stalled: boolean;
     predictedReadyOn: string | null;
+    /** HALO job for this unit, when one is open — lets HALO propose re-ordering it. */
+    jobId?: string | null;
+    jobNo?: string | null;
   }>;
+  /**
+   * The operation's own rolling average turn time, from finished turns only.
+   * Drives every "running long" flag instead of a hardcoded day count.
+   */
+  turnBaseline?: { avgDays: number | null; sample: number };
   crews: {
     total: number;
     checkedInToday: number;
@@ -167,6 +189,25 @@ export interface BusinessSnapshot {
 }
 
 export type BrainResponseType = "answer" | "lens" | "voice_action" | "error";
+
+/**
+ * A prediction HALO volunteered, already persisted as a pending autopilot
+ * action. Approving it POSTs `approveUrl` — the existing approval gate is what
+ * authorizes execution, so nothing here runs on render.
+ */
+export interface AnswerProposal {
+  /** Autopilot action id. */
+  id: string;
+  kind: string;
+  /** The question put to the operator: "… move it to the top of the list?" */
+  decision: string;
+  title: string;
+  body: string;
+  entityType: string;
+  entityId: string;
+  approveUrl: string;
+  dismissUrl: string;
+}
 
 /** Risk classification for ASSISTED mode auto-execution */
 export type ActionRisk = "auto" | "review" | "block";
@@ -185,8 +226,21 @@ export interface ActionPlan {
 export interface BrainResponse {
   /** How the front-end should render this message */
   type: BrainResponseType;
-  /** Always present — the natural language response text */
+  /**
+   * Plain-text flattening of `answer` — persisted as the message body and fed
+   * back as conversation history. Never contains markdown syntax.
+   */
   text: string;
+  /**
+   * The structured answer the screen renders: one headline plus short
+   * fragment bullets, with long enumerations grouped and capped. Always set
+   * for type "answer"; caps are enforced server-side, not by the prompt.
+   */
+  answer?: StructuredAnswer;
+  /** Conversational rendering for voice / earpiece — sentences, never bullets. */
+  speech?: string;
+  /** Predictive suggestions the operator can approve or dismiss inline. */
+  proposals?: AnswerProposal[];
   /** Set when type === 'lens' — which lens to open */
   lensKind?: "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map" | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist";
   /** Set when type === 'lens' and lens is entity-scoped — the entity UUID for the API call */
@@ -223,9 +277,18 @@ function addCivilDays(date: string, days: number): string {
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
 }
 
+/** Unit labels come from two systems — compare them the same way everywhere. */
+function normalizeUnitLabel(unit: string | null | undefined): string {
+  return String(unit ?? "")
+    .toLowerCase()
+    .replace(/^(unit|apt|apartment|#)\s*/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 async function loadBoardTurns(
   propertyIds: string[],
   propName: Map<string, string>,
+  jobByUnit: Map<string, { id: string; jobNo: string }>,
 ): Promise<NonNullable<BusinessSnapshot["boardTurns"]>> {
   if (propertyIds.length === 0) return [];
   try {
@@ -243,18 +306,96 @@ async function loadBoardTurns(
       .leftJoin(clientTurnMetricsMvTable, eq(clientTurnMetricsMvTable.turnId, clientTurnsTable.id))
       .where(and(inArray(clientTurnsTable.propertyId, propertyIds), isNull(clientTurnsTable.readyAt)))
       .limit(80);
-    return rows.map((r) => ({
-      propertyName: propName.get(r.propertyId) ?? "",
-      unitNumber: r.unitNumber ?? "",
-      days: r.daysVacant ?? 0,
-      status: r.status,
-      stalled: Boolean(r.isStalled),
-      predictedReadyOn: r.predictedReadyAt ? r.predictedReadyAt.toISOString().slice(0, 10) : null,
-    }));
+    return rows.map((r) => {
+      const job = jobByUnit.get(`${r.propertyId}|${normalizeUnitLabel(r.unitNumber)}`);
+      return {
+        propertyName: propName.get(r.propertyId) ?? "",
+        unitNumber: r.unitNumber ?? "",
+        days: r.daysVacant ?? 0,
+        status: r.status,
+        stalled: Boolean(r.isStalled),
+        predictedReadyOn: r.predictedReadyAt ? r.predictedReadyAt.toISOString().slice(0, 10) : null,
+        jobId: job?.id ?? null,
+        jobNo: job?.jobNo ?? null,
+      };
+    });
   } catch (err) {
     logger.warn({ err }, "commandBrain: board turns layer unavailable");
     return [];
   }
+}
+
+/** How many days a turn has actually taken lately, in this operation. */
+const TURN_BASELINE_WINDOW_DAYS = 90;
+
+/**
+ * Rolling average of FINISHED turn lengths — the yardstick every "running
+ * long" flag is measured against. Prefers the client board's own days-vacant
+ * figure (the number the operator already sees) and falls back to how long
+ * HALO jobs took from creation to completion when the board has no history.
+ * Never derives a second days formula for a source that already has one.
+ */
+export async function loadTurnBaseline(
+  propertyIds: string[],
+  completedJobs: Array<{ createdAt: Date; completedAt: Date | null }>,
+): Promise<{ avgDays: number | null; sample: number }> {
+  const windowStart = new Date(Date.now() - TURN_BASELINE_WINDOW_DAYS * 86_400_000);
+  if (propertyIds.length > 0) {
+    try {
+      // Aggregate in SQL over the WHOLE 90-day cohort.  A bounded row fetch
+      // cannot do this job: without an ORDER BY, `limit(n)` hands back an
+      // arbitrary physical subset, so past n turns the average would drift
+      // with table layout rather than with the operation — and these numbers
+      // are quoted back to the operator and used to decide which units get
+      // flagged.  One avg()/count() pass is also cheaper than shipping rows.
+      // The CASE guard is load-bearing: GREATEST ignores NULL arguments in
+      // Postgres, so `greatest(0, <null interval>)` yields 0 rather than NULL.
+      // Without it, a finished turn that has neither a metrics row nor a
+      // recorded vacate date counts as a ZERO-day turn and quietly drags the
+      // whole baseline down, which would flag units that are not actually slow.
+      // An unknown duration must stay NULL so avg()/count() skip it entirely.
+      const days = sql<number>`coalesce(
+        ${clientTurnMetricsMvTable.daysVacant},
+        case when ${clientTurnsTable.actualVacateAt} is not null
+          then greatest(0, round(extract(epoch from (${clientTurnsTable.readyAt} - ${clientTurnsTable.actualVacateAt})) / 86400))
+        end
+      )`;
+      const [agg] = await db
+        .select({
+          // avg() is numeric; cast so the driver hands back a JS number.
+          avgDays: sql<number | null>`avg(${days})::float8`,
+          // count(expr) skips NULLs, so turns with neither source drop out.
+          sample: sql<number>`count(${days})::int`,
+        })
+        .from(clientTurnsTable)
+        .leftJoin(clientTurnMetricsMvTable, eq(clientTurnMetricsMvTable.turnId, clientTurnsTable.id))
+        .where(
+          and(
+            inArray(clientTurnsTable.propertyId, propertyIds),
+            isNotNull(clientTurnsTable.readyAt),
+            gte(clientTurnsTable.readyAt, windowStart),
+          ),
+        );
+      const sample = Number(agg?.sample ?? 0);
+      const avgDays = agg?.avgDays == null ? null : Number(agg.avgDays);
+      if (sample >= 3 && avgDays != null && Number.isFinite(avgDays)) {
+        return { avgDays, sample };
+      }
+    } catch (err) {
+      logger.warn({ err }, "commandBrain: turn baseline layer unavailable");
+    }
+  }
+
+  // Fallback: how long HALO's own jobs took, creation → completion.
+  const jobDays = completedJobs
+    .filter((j) => j.completedAt && j.completedAt >= windowStart)
+    .map((j) =>
+      Math.max(0, civilDaysBetween(j.createdAt.toISOString().slice(0, 10), j.completedAt!.toISOString().slice(0, 10))),
+    );
+  if (jobDays.length >= 3) {
+    return { avgDays: jobDays.reduce((s, d) => s + d, 0) / jobDays.length, sample: jobDays.length };
+  }
+  return { avgDays: null, sample: jobDays.length };
 }
 
 function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
@@ -275,6 +416,7 @@ function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
       unitNumber: j.unitNo,
       days: j.daysLate,
       label: j.jobNo,
+      entityId: j.jobId ?? null,
     });
   }
   for (const j of snapshot.jobs.uncrewedDetail ?? []) {
@@ -283,6 +425,7 @@ function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
       propertyName: j.propertyName,
       unitNumber: j.unitNo,
       label: j.jobNo,
+      entityId: j.jobId ?? null,
     });
   }
   for (const inv of snapshot.invoices.overdueDetail ?? []) {
@@ -290,12 +433,16 @@ function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
       kind: "overdue_invoice",
       propertyName: inv.propertyName ?? "Invoice",
       days: inv.daysLate,
+      label: inv.invoiceNo,
+      entityId: inv.invoiceId ?? null,
     });
   }
   return {
     date: snapshot.date,
     voice: "office",
     unitsInTurn: snapshot.boardTurns?.length,
+    turnBaselineDays: snapshot.turnBaseline?.avgDays ?? null,
+    turnBaselineSample: snapshot.turnBaseline?.sample ?? 0,
     needs,
     crewToday: (snapshot.onSiteToday ?? []).map((c) => ({
       crewName: c.crewName,
@@ -308,6 +455,8 @@ function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
       days: t.days,
       status: t.status,
       predictedReadyOn: t.predictedReadyOn,
+      jobId: t.jobId ?? null,
+      jobNo: t.jobNo ?? null,
     })),
     jobsOpen: snapshot.jobs.open,
     jobsOverdue: snapshot.jobs.overdue,
@@ -317,6 +466,8 @@ function snapshotToFacts(snapshot: BusinessSnapshot): OpsFacts {
       propertyName: j.propertyName,
       unitNumber: j.unitNo,
       crewName: j.crewName ?? null,
+      jobId: j.jobId ?? null,
+      jobNo: j.jobNo ?? null,
     })),
   };
 }
@@ -500,14 +651,31 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
   }
 
   const tomorrowStr = addCivilDays(todayStr, 1);
-  const boardTurns = await loadBoardTurns(props.map((p) => p.id), propName);
+  // Open jobs indexed by property + normalized unit, so a client-board turn can
+  // be tied back to the job the board actually orders.
+  const jobByUnit = new Map<string, { id: string; jobNo: string }>();
+  for (const j of openJobs) {
+    const key = `${j.propertyId}|${normalizeUnitLabel(j.unitNo)}`;
+    if (!jobByUnit.has(key)) jobByUnit.set(key, { id: j.id, jobNo: j.jobNo });
+  }
+  const [boardTurns, turnBaseline] = await Promise.all([
+    loadBoardTurns(props.map((p) => p.id), propName, jobByUnit),
+    loadTurnBaseline(
+      props.map((p) => p.id),
+      jobs
+        .filter((j) => j.completedAt)
+        .map((j) => ({ createdAt: j.createdAt, completedAt: j.completedAt })),
+    ),
+  ]);
   const overdueDetail = overdueJobs.slice(0, 12).map((j) => ({
+    jobId: j.id,
     jobNo: j.jobNo,
     unitNo: j.unitNo ?? null,
     propertyName: propName.get(j.propertyId) ?? "",
     daysLate: j.scheduledOn ? civilDaysBetween(j.scheduledOn, todayStr) : 0,
   }));
   const uncrewedDetail = uncrewedJobs.slice(0, 12).map((j) => ({
+    jobId: j.id,
     jobNo: j.jobNo,
     unitNo: j.unitNo ?? null,
     propertyName: propName.get(j.propertyId) ?? "",
@@ -517,6 +685,7 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
     .filter((j) => j.scheduledOn === tomorrowStr)
     .slice(0, 12)
     .map((j) => ({
+      jobId: j.id,
       jobNo: j.jobNo,
       unitNo: j.unitNo ?? null,
       propertyName: propName.get(j.propertyId) ?? "",
@@ -525,6 +694,8 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
   const overdueInvoiceDetail = overdueInvoices.slice(0, 8).map((i) => {
     const due = i.dueAt ? i.dueAt.toISOString().slice(0, 10) : todayStr;
     return {
+      invoiceId: i.id,
+      invoiceNo: i.invoiceNo,
       amount: i.amount ?? 0,
       propertyName: i.propertyId ? propName.get(i.propertyId) : undefined,
       daysLate: civilDaysBetween(due, todayStr),
@@ -607,6 +778,7 @@ export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSn
       overdueDetail: overdueInvoiceDetail,
     },
     boardTurns,
+    turnBaseline,
     crews: {
       total: scope.mode === "tenant" ? crews.length : uniqueCheckedIn,
       checkedInToday: uniqueCheckedIn,
@@ -714,11 +886,20 @@ ${shadowNote}${scopeNote}
 
 ## Reasoning protocol
 Think like Claude, not a search box.
-1. Answer the operator's actual question first in ONE or TWO short sentences. No novels. No recap of the whole board. Only what they asked.
+1. Answer the operator's actual question first. No novels. No recap of the whole board. Only what they asked.
 2. The CORTEX BRIEF is pre-ranked from live data. Do not contradict it. You may narrate it, tighten it, or go deeper into the snapshot evidence.
 3. Predict from facts only: a unit waiting on the operator will still be waiting tomorrow; an overdue job stays overdue; an uncrewed stop tomorrow morning is a miss unless you assign someone.
 4. Prefer one decisive recommendation over a laundry list. Cite 2–4 snapshot facts in sources.
-5. If the snapshot lacks the entity, say so. Never invent a unit, crew, vendor, phone, or dollar figure.
+5. If the snapshot lacks the entity, say so. Never invent a unit, crew, vendor, phone, or dollar figure. A short format is not a licence to invent an entity to fill a bullet — fewer bullets is always correct.
+
+## Answer format (hard rules — the server enforces these caps and will truncate you)
+- \`headline\`: ONE line, under ${ANSWER_MAX_HEADLINE_CHARS} characters. The count or the decision, not a preamble. "6 units are complete." not "Here is a summary of the units that are currently complete."
+- \`bullets\`: at most ${ANSWER_MAX_BULLETS} SHORT FRAGMENTS, under ${ANSWER_MAX_BULLET_CHARS} characters each. A fragment is one clause — "Unit 111 — 5 days, no crew". Never two sentences in a bullet. Never a paragraph.
+- \`bullets[].emphasis\`: the entity name inside that fragment (unit, property, crew, invoice number) so the screen can highlight it. It must appear verbatim in the fragment text.
+- NEVER write markdown. No \`**bold**\`, no \`#\` headings, no \`- \` list markers, no backticks. Emphasis is structural. Literal asterisks on screen are a bug.
+- LONG LISTS (more than ${ANSWER_MAX_GROUP_ITEMS} items — "what units are complete?", "show every overdue invoice"): do NOT enumerate them as bullets. Put the total in the headline and use \`groups\`, one group per property, \`items\` = the unit/entity labels. The server folds the tail into a "+N more" expander. Do not repeat the group contents in bullets.
+- \`speech\`: the SAME answer as one or two conversational sentences for voice. No bullet characters, no lists — this is what gets read aloud, so it must sound like a person talking.
+- Volunteer the thing the operator did not ask about. When the cortex Predictions block carries a DECISION, put that decision to them as your LAST bullet, phrased as a question, using its exact comparison numbers. Never invent a decision the cortex did not compute.
 
 ${renderCortexBlock(cortex)}
 
@@ -838,7 +1019,8 @@ HALO is the operational brain. Its database is populated from two authoritative 
   Typical drywall-style mission: note.log (auto) → reminder.set (auto) → supply.order (review) → crew.schedule (review) → comms.sms (review) → crew_checkin_link.generate (auto) if they asked for a crew link.
   Resolve names against the roster. Resolve "tomorrow" from snapshot.date. Resolve unit numbers against Open jobs. Never skip a stated action.
 - Always give 2–3 specific follow-up suggestions relevant to the current context.
-- Respond in JSON format exactly as specified. No markdown fences, no prose outside the JSON.`;
+- Respond in JSON format exactly as specified. No markdown fences, no prose outside the JSON.
+- Every reply MUST carry headline, bullets and speech. \`text\` is legacy — leave it out.`;
 }
 
 // ─── Suggested prompts ────────────────────────────────────────────────────────
@@ -895,7 +1077,10 @@ export function buildSuggestedPrompts(
 
 const BRAIN_RESPONSE_SCHEMA = `{
   "type": "answer" | "lens" | "voice_action" | "error",
-  "text": "string — your natural language response, always present",
+  "headline": "string — ONE line, ≤${ANSWER_MAX_HEADLINE_CHARS} chars. The count or the decision. Required.",
+  "bullets": [{ "text": "short fragment, ≤${ANSWER_MAX_BULLET_CHARS} chars, one clause, no trailing period", "emphasis": "the entity name inside text, verbatim, or omitted" }],
+  "groups": [{ "label": "property or category name", "items": ["short label", "short label"] }] | null,
+  "speech": "string — the same answer as 1–2 spoken sentences. Required. No bullets, no lists.",
   "lensKind": "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map" | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist" | null,
   "entityId": "string UUID or null — required when lensKind is entity-scoped",
   "shadowLabel": "string or null — set only for proposed actions in SHADOW mode",
@@ -911,7 +1096,11 @@ const BRAIN_RESPONSE_SCHEMA = `{
 }
 
 Rules:
-- type "answer" → text response to a data query or question
+- type "answer" → a headline + bullets response to a data query or question
+- headline/bullets/speech are REQUIRED on every response type. Do not emit a "text" field.
+- bullets are FRAGMENTS. Two sentences in one bullet, or a bullet over ${ANSWER_MAX_BULLET_CHARS} chars, will be truncated by the server.
+- more than ${ANSWER_MAX_GROUP_ITEMS} things to list → use "groups", never a long bullet list. The server caps each group at ${ANSWER_MAX_GROUP_ITEMS} and shows the rest behind "+N more".
+- never emit markdown syntax anywhere: no **, no #, no "- " prefixes, no backticks
 - type "lens" → user wants to see a visual data view; set lensKind to the most relevant lens
 - type "voice_action" → user wants to CREATE, SCHEDULE, SEND, APPROVE, NOTE, ORDER, or TEXT; always include actionPlan. For compound commands fill actionPlans with every step.
 - type "error" → only for missing data or genuine inability to answer
@@ -975,7 +1164,7 @@ export async function runCommandBrain(
     const firstBrace = jsonStr.search(/[{]/);
     if (firstBrace > 0) jsonStr = jsonStr.slice(firstBrace);
 
-    const parsed = JSON.parse(jsonStr) as BrainResponse;
+    const parsed = JSON.parse(jsonStr) as BrainResponse & Partial<StructuredAnswer>;
 
     if (opts?.readOnly && parsed.type === "voice_action") {
       parsed.type = "answer";
@@ -990,9 +1179,24 @@ export async function runCommandBrain(
         ? [parsed.actionPlan]
         : undefined;
 
+    // Structural enforcement: whatever the model returned — structured fields,
+    // a legacy prose blob, or markdown — comes out of here capped, bulleted
+    // and markdown-free. The prompt asks; this guarantees.
+    const answer = normalizeAnswer(
+      {
+        headline: parsed.headline,
+        bullets: parsed.bullets,
+        groups: parsed.groups,
+        speech: parsed.speech,
+      },
+      parsed.text ?? "I couldn't formulate a response. Please try rephrasing.",
+    );
+
     return {
       type: parsed.type ?? "answer",
-      text: parsed.text ?? "I couldn't formulate a response. Please try rephrasing.",
+      text: structuredToPlainText(answer),
+      answer,
+      speech: answer.speech,
       lensKind: parsed.lensKind ?? undefined,
       entityId: parsed.entityId ?? undefined,
       shadowLabel: parsed.shadowLabel ?? undefined,
@@ -1009,6 +1213,8 @@ export async function runCommandBrain(
     return {
       type: "answer",
       text: local.answer,
+      answer: local.structured,
+      speech: local.structured.speech,
       sources: [{ label: "cortex", value: "live snapshot (model unreachable)" }],
       suggestedFollowUps: local.followUps,
     };

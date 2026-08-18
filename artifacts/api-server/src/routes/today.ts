@@ -22,6 +22,7 @@ import {
 } from "@workspace/api-zod";
 import { computeQueues } from "../lib/queues";
 import { completeText } from "../lib/ai";
+import { plainTextToStructured, structuredToPlainText } from "../lib/answerFormat";
 
 const router: IRouter = Router();
 
@@ -314,11 +315,19 @@ router.post("/ask", async (req, res): Promise<void> => {
   };
   let answer: string;
   try {
-    answer = await completeText(
-      "You are HALO, a sharp operations assistant for a property-maintenance contractor. Answer the owner's question using ONLY the JSON business snapshot provided. Be concise and specific with numbers. If the snapshot lacks the data, say so plainly.",
+    // Same voice as HALO Command: a one-line headline plus short fragments,
+    // never a paragraph and never markdown. This endpoint's contract is a
+    // single string, so the structured answer is flattened before it goes out
+    // — but it goes through the same caps, so it cannot run long either.
+    const raw = await completeText(
+      "You are HALO, a sharp operations assistant for a property-maintenance contractor. Answer the owner's question using ONLY the JSON business snapshot provided. " +
+        "Format: ONE short headline line (the count or the decision), then at most 4 short bullet fragments on their own lines, each starting with '- ' and under 110 characters. " +
+        "A fragment is one clause, not two sentences. No paragraphs. Never use markdown emphasis (**, #, backticks). Be specific with numbers. " +
+        "If the snapshot lacks the data, say so plainly in the headline and give no bullets.",
       `Business snapshot:\n${JSON.stringify(snapshot, null, 2)}\n\nQuestion: ${question}`,
       1024,
     );
+    answer = structuredToPlainText(plainTextToStructured(raw));
   } catch {
     answer =
       "I couldn't reach the assistant just now. Please try again in a moment.";

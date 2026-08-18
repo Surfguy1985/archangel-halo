@@ -1,4 +1,4 @@
-import { and, eq, lt, isNull, inArray } from "drizzle-orm";
+import { and, eq, lt, isNull, inArray, min, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import {
   db,
@@ -224,7 +224,7 @@ async function raise(opts: {
  * executed action never re-fires for the same entity). Returns the created
  * row, or null when one already exists.
  */
-async function propose(opts: {
+export async function propose(opts: {
   kind: string;
   entityType: string;
   entityId: string;
@@ -373,6 +373,58 @@ async function executeRebroadcast(action: AutopilotAction): Promise<string> {
 }
 
 /**
+ * Move a job to the top of the job board and today's list.
+ *
+ * Ordering follows the client-board card precedent exactly: a double
+ * `priority`, ASCENDING, lower first — so "top" is one below the current
+ * minimum. Doing it in a transaction with the min() read keeps two
+ * simultaneous prioritisations from landing on the same slot.
+ */
+/**
+ * Advisory-lock name for the job-ordering set, hashed the same way as the other
+ * advisory locks in this codebase (journal numbering, pay-link minting). Any
+ * future code that allocates a job ordering slot must take THIS name, or it
+ * races the executor below.
+ */
+export const JOB_PRIORITY_LOCK = "job:priority";
+
+async function executePrioritizeJob(action: AutopilotAction): Promise<string> {
+  return db.transaction(async (tx) => {
+    // Serialize slot allocation across the whole ordering set. Row-locking the
+    // target job is not enough: two approvals for DIFFERENT jobs lock different
+    // rows, both read the same min(priority), and both write the same value —
+    // so neither ends up on top and the board order is arbitrary. The aggregate
+    // is over a set, so the lock has to be over the set too. Transaction-scoped,
+    // so it releases on commit or rollback without any unlock bookkeeping.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${JOB_PRIORITY_LOCK}))`,
+    );
+    const [job] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, action.entityId))
+      .for("update");
+    if (!job) throw new Error("Job no longer exists");
+    if (job.clearedAt || job.boardStatus === "removed") {
+      return `Job ${job.jobNo} has already left the board — nothing to prioritise.`;
+    }
+    const [{ top }] = await tx
+      .select({ top: min(jobsTable.priority) })
+      .from(jobsTable)
+      .where(isNull(jobsTable.clearedAt));
+    const next = Math.min(0, Number(top ?? 0)) - 1;
+    await tx.update(jobsTable).set({ priority: next }).where(eq(jobsTable.id, job.id));
+    await tx.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: job.id,
+      kind: "autopilot",
+      body: `Moved job ${job.jobNo}${job.unitNo ? ` (Unit ${job.unitNo})` : ""} to the top of the job board.`,
+    });
+    return `Job ${job.jobNo}${job.unitNo ? ` — Unit ${job.unitNo}` : ""} is now at the top of the job board and today's list.`;
+  });
+}
+
+/**
  * Execute a pending Autopilot action. Atomically claims the row first
  * (pending -> executing) so concurrent approvals can't double-fire the side
  * effects. Returns null if someone else already claimed/resolved the action.
@@ -394,6 +446,9 @@ export async function executeAutopilotAction(
   if (!claimed) return null;
   try {
     if (source === "worker") {
+      // Worker-initiated runs pass the Falkon gate. Re-ordering the board is a
+      // local scheduling decision, so it gates as job.assign like the other
+      // job-side actions rather than inventing a new consequential action.
       const gate = await enforceFalkonMutation({
         action: action.kind === "send_invoice_reminder" ? "send_invoice" : "job.assign",
         actorChannel: "worker",
@@ -419,6 +474,8 @@ export async function executeAutopilotAction(
       result = await executeInvoiceReminder(action);
     } else if (action.kind === "rebroadcast_job") {
       result = await executeRebroadcast(action);
+    } else if (action.kind === "prioritize_job") {
+      result = await executePrioritizeJob(action);
     } else {
       throw new Error(`Unknown autopilot action kind: ${action.kind}`);
     }

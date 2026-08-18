@@ -43,6 +43,8 @@ import { ReminderCard, type ReminderData } from "@/components/command/ReminderCa
 import { DispatchCard, type DispatchData } from "@/components/command/DispatchCard";
 import { LiveMapCard } from "@/components/command/LiveMapCard";
 import { LensCard, type LensType } from "@/components/command/LensCard";
+import { AnswerBody, type StructuredAnswer } from "@/components/command/AnswerBody";
+import { ProposalCard, type CommandProposal } from "@/components/command/ProposalCard";
 import { ClientBoardPicker } from "@/components/ClientBoardPicker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ type ExchangeMsgData =
 type TMsg =
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
-  | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[] }
+  | { id: string; kind: "halo-answer"; text: string; answer?: StructuredAnswer | null; proposals?: CommandProposal[]; sources?: Array<{ label: string; value: string }>; followUps?: string[] }
   | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
   | { id: string; kind: "confirmation"; logId: string; actions: VoiceAction[] }
   | { id: string; kind: "panel-opened"; panel: PanelType; label: string }
@@ -416,8 +418,10 @@ function ThinkingBubble() {
   );
 }
 
-function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
+function HaloAnswerBubble({ text, answer, proposals, sources, followUps, onFollowUp }: {
   text: string;
+  answer?: StructuredAnswer | null;
+  proposals?: CommandProposal[];
   sources?: Array<{ label: string; value: string }>;
   followUps?: string[];
   onFollowUp: (q: string) => void;
@@ -429,7 +433,7 @@ function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
           <HaloRing className="w-[11px] h-[11px] text-[#B4FF44]" />
         </div>
         <div className="max-w-[80%] bg-[#0C1B30] border border-white/6 rounded-[16px] rounded-bl-[4px] px-4 py-3">
-          <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-wrap">{text}</p>
+          <AnswerBody answer={answer} text={text} />
           {sources && sources.length > 0 && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-white/[0.05]">
               {sources.map((s, i) => (
@@ -441,6 +445,11 @@ function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
           )}
         </div>
       </div>
+      {/* Approve/dismiss is resolved server-side; the card renders its own
+          resolved state so it can never be acted on twice. */}
+      {(proposals ?? []).map((p) => (
+        <ProposalCard key={p.id} proposal={p} />
+      ))}
       {followUps && followUps.length > 0 && (
         <div className="flex gap-2 flex-wrap mt-2 ml-[34px]">
           {followUps.slice(0, 3).map((q, i) => (
@@ -681,6 +690,8 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
   }, []);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** Conversational rendering of the last answer, for voice read-back. */
+  const lastSpeechRef = useRef<string | null>(null);
   const scrollDown = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
@@ -713,7 +724,9 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
             if (cancelled) return;
             const restored: TMsg[] = (msgData.messages ?? []).flatMap((m: any) => {
               if (m.role === "user") return [{ id: `r-${m.id}`, kind: "user-msg" as const, text: m.content }];
-              if (m.role === "assistant" && m.content) return [{ id: `r-${m.id}`, kind: "halo-answer" as const, text: m.content }];
+              // meta.answer is the structured form; without it (older rows)
+              // AnswerBody normalizes the plain text so no markdown shows.
+              if (m.role === "assistant" && m.content) return [{ id: `r-${m.id}`, kind: "halo-answer" as const, text: m.content, answer: m.meta?.answer ?? null }];
               return [];
             });
             // Merge server history with persisted local thread.
@@ -759,6 +772,9 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
     const raw = (text ?? input).trim();
     if (!raw) return;
     setInput("");
+    // Cleared per turn; the answer branch fills it with the conversational
+    // rendering so the earpiece can read a sentence instead of the bullets.
+    lastSpeechRef.current = null;
 
     const userId = `u-${Date.now()}`;
     const thinkId = `t-${Date.now()}`;
@@ -980,7 +996,7 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
         const label = panel ? (PANEL_MAP.find(p => p.panel === panel)?.label ?? brainResult.lensKind) : brainResult.lensKind;
         setMessages(prev => [
           ...prev.map(m => m.id === thinkId
-            ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Here's the ${label} view.`, followUps: brainResult.suggestedFollowUps }
+            ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text || `Here's the ${label} view.`, answer: brainResult.answer, followUps: brainResult.suggestedFollowUps }
             : m),
           { id: `lens-${Date.now()}`, kind: "lens-card" as const, lensType, query: raw },
         ]);
@@ -1053,10 +1069,20 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
 
       setMessages(prev => prev.map(m =>
         m.id === thinkId
-          ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, sources: brainResult.sources, followUps: brainResult.suggestedFollowUps }
+          ? {
+              id: thinkId,
+              kind: "halo-answer" as const,
+              text: brainResult.text,
+              answer: brainResult.answer,
+              proposals: brainResult.proposals,
+              sources: brainResult.sources,
+              followUps: brainResult.suggestedFollowUps,
+            }
           : m
       ));
       scrollDown();
+      // Voice surfaces read this, never the on-screen bullets.
+      lastSpeechRef.current = (brainResult.speech as string | undefined) ?? null;
       return;
     }
 
@@ -1179,7 +1205,7 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
     switch (msg.kind) {
       case "user-msg": return <UserBubble text={msg.text} />;
       case "thinking": return <ThinkingBubble />;
-      case "halo-answer": return <HaloAnswerBubble text={msg.text} sources={msg.sources} followUps={msg.followUps} onFollowUp={handleSubmit} />;
+      case "halo-answer": return <HaloAnswerBubble text={msg.text} answer={msg.answer} proposals={msg.proposals} sources={msg.sources} followUps={msg.followUps} onFollowUp={handleSubmit} />;
       case "action-plan": {
         const planMsg = msg;
         return (
@@ -1417,7 +1443,7 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
 
         {/* Overlays */}
         <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} onHeard={(text) => { void handleSubmit(text); }} />
-        <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={(text) => { void handleSubmit(text); }} />
+        <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={async (text) => { await handleSubmit(text); return lastSpeechRef.current; }} />
         {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
         <ClientBoardPicker open={clientBoardOpen} onOpenChange={setClientBoardOpen} />
       </>
@@ -1584,7 +1610,7 @@ export default function HaloCommand({ compact = false }: { compact?: boolean } =
 
       {/* Overlays */}
       <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} onHeard={(text) => { void handleSubmit(text); }} />
-      <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={(text) => { void handleSubmit(text); }} />
+      <EarpieceMode open={earpieceOpen} onClose={() => setEarpieceOpen(false)} onCommand={async (text) => { await handleSubmit(text); return lastSpeechRef.current; }} />
       {controlOpen && <FalkonControlCenter onClose={() => setControlOpen(false)} />}
       <ClientBoardPicker open={clientBoardOpen} onOpenChange={setClientBoardOpen} />
     </>

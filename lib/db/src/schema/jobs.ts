@@ -118,6 +118,13 @@ export const jobsTable = pgTable("jobs", {
   marginPct: doublePrecision("margin_pct"),
   crewRate: doublePrecision("crew_rate"),
   boardStatus: text("board_status").notNull().default("active"),
+  // Operator-set ordering for the job board and today's feed. Follows the
+  // client-board card precedent exactly (client_dashboard_cards.position):
+  // a double so a card can always be slotted between two others, ASCENDING
+  // sort, and LOWER sorts FIRST — "move to the top" writes min(priority) - 1.
+  // Default 0 = untouched, so the board's createdAt ordering is unchanged
+  // until somebody actually prioritises something.
+  priority: doublePrecision("priority").notNull().default(0),
   scheduleType: text("schedule_type").notNull().default("scheduled"),
   flexDueBy: date("flex_due_by", { mode: "string" }),
   crewsNeeded: integer("crews_needed").notNull().default(1),

@@ -70,7 +70,12 @@ export function EarpieceMode({
 }: {
   open: boolean;
   onClose: () => void;
-  onCommand: (text: string) => void;
+  /**
+   * Dispatches the command into the thread. May resolve with a conversational
+   * reply to read back — the answer's `speech` field, never the on-screen
+   * bullets, which would be read out as a list of fragments.
+   */
+  onCommand: (text: string) => void | Promise<string | null | void>;
 }) {
   const [phase, setPhase] = useState<"boot" | "listen" | "think" | "speak">("boot");
   const [line, setLine] = useState("Keep HALO on screen. AirPods stay live until you lock the phone.");
@@ -280,7 +285,14 @@ export function EarpieceMode({
             setLine(j.ack);
             await speak(j.ack);
           }
-          if (payload) onCommand(payload);
+          if (payload) {
+            const reply = await onCommand(payload);
+            if (typeof reply === "string" && reply.trim() && running.current && gen === loopGen.current) {
+              setPhase("speak");
+              setLine(reply);
+              await speak(reply);
+            }
+          }
         } catch {
           setPhase("speak");
           await speak("Say again.");

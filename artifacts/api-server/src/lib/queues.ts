@@ -611,8 +611,18 @@ export async function computeQueues(): Promise<{
     color: queueMeta[key].color,
   }));
 
+  // Tier first, then the operator's own job priority (ascending, lower first —
+  // the same ordering the job board uses, so a unit moved to the top of the
+  // board is at the top of today's list too). Array#sort is stable, so
+  // everything else keeps the order it was pushed in.
+  const jobPriority = new Map(jobs.map((j) => [j.id, j.priority ?? 0]));
+  const priorityOf = (f: FeedItem) =>
+    f.entityType === "job" && f.entityId ? (jobPriority.get(f.entityId) ?? 0) : 0;
   const tierRank: Record<string, number> = { now: 0, today: 1, week: 2, handled: 3 };
-  feed.sort((a, b) => (tierRank[a.tier] ?? 9) - (tierRank[b.tier] ?? 9));
+  feed.sort(
+    (a, b) =>
+      (tierRank[a.tier] ?? 9) - (tierRank[b.tier] ?? 9) || priorityOf(a) - priorityOf(b),
+  );
 
   return { feed, queues };
 }

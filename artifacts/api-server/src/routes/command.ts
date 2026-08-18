@@ -49,9 +49,11 @@ import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary
 import {
   buildSnapshot,
   buildSuggestedPrompts,
+  cortexFromSnapshot,
   runCommandBrain,
   type ConversationMessage,
 } from "../lib/commandBrain";
+import { surfaceProposals } from "../lib/predictiveProposals";
 import { JOB_CHECKLIST_ITEMS_FLAT } from "../lib/jobChecklists";
 import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
@@ -309,6 +311,11 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
     // Run the brain
     const brainResponse = await runCommandBrain(message.trim(), role, history, snapshot, entityContext);
 
+    // Volunteer what the operator did not ask about, as things they can
+    // approve. These are pending autopilot actions — rendering one does not
+    // execute anything; the existing approval gate still authorizes the work.
+    brainResponse.proposals = await surfaceProposals(cortexFromSnapshot(snapshot));
+
     // Authoritatively enforce entity ID for entity-scoped conversations.
     // Compatible lens kinds per entity type — server validates and overrides.
     const ENTITY_TYPE_LENS_MAP: Record<string, string[]> = {
@@ -345,6 +352,9 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
           type: brainResponse.type,
           lensKind: brainResponse.lensKind,
           shadowLabel: brainResponse.shadowLabel,
+          // Persist the structured form so reloading a thread re-renders
+          // bullets rather than falling back to the flattened text.
+          answer: brainResponse.answer,
         },
       })
       .returning();

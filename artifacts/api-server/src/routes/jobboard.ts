@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -162,7 +162,9 @@ router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Prom
 router.get("/job-board", async (_req, res): Promise<void> => {
   const [jobs, props, priceItems, broadcasts, crews, invoices, lineItems, photoActs, payRequests, payReqJobs] =
     await Promise.all([
-      db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt)),
+      // Operator-set priority wins (ascending, lower first, default 0 —
+      // "move to top" writes a negative), then newest first as before.
+      db.select().from(jobsTable).orderBy(asc(jobsTable.priority), desc(jobsTable.createdAt)),
       db.select().from(propertiesTable),
       db.select().from(priceItemsTable),
       db.select().from(jobBroadcastsTable).orderBy(desc(jobBroadcastsTable.sentAt)),

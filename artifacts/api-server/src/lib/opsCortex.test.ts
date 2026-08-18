@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { answerFromCortex, buildOpsCortex, renderCortexBlock, type OpsFacts } from "./opsCortex";
+import {
+  answerFromCortex,
+  buildOpsCortex,
+  cortexProposals,
+  renderCortexBlock,
+  turnBaseline,
+  type OpsFacts,
+} from "./opsCortex";
 
 const facts: OpsFacts = {
   date: "2026-08-15",
@@ -50,5 +57,106 @@ describe("ops cortex", () => {
     expect(block).toContain("Cortex brief");
     expect(block).toContain("214");
     expect(block).toContain("Single next move");
+  });
+
+  it("returns a structured answer, not a prose blob", () => {
+    const c = buildOpsCortex(facts);
+    const a = answerFromCortex("what do you need from me", facts, c);
+    expect(a.structured.headline).toMatch(/waiting on you/i);
+    expect(a.structured.bullets.length).toBeGreaterThan(0);
+    expect(a.structured.speech).not.toMatch(/•/);
+    expect(JSON.stringify(a.structured)).not.toContain("**");
+  });
+});
+
+describe("turn-time baseline", () => {
+  it("falls back to the fixed 7/12 thresholds with no completed history", () => {
+    const b = turnBaseline({ turnBaselineDays: null, turnBaselineSample: 0 });
+    expect(b.measured).toBe(false);
+    expect(b.flagAt).toBe(7);
+    expect(b.urgentAt).toBe(12);
+  });
+
+  it("ignores an average drawn from too few turns", () => {
+    const b = turnBaseline({ turnBaselineDays: 3, turnBaselineSample: 2 });
+    expect(b.measured).toBe(false);
+    expect(b.flagAt).toBe(7);
+  });
+
+  it("flags a 5-day unit against a measured 3-day average", () => {
+    const b = turnBaseline({ turnBaselineDays: 3, turnBaselineSample: 8 });
+    expect(b.measured).toBe(true);
+    expect(b.days).toBe(3);
+    expect(b.flagAt).toBe(5);
+    expect(5).toBeGreaterThanOrEqual(b.flagAt);
+    expect(5).toBeLessThan(b.urgentAt);
+  });
+
+  it("moves the flag with a slower operation instead of a hardcoded day count", () => {
+    const fast = turnBaseline({ turnBaselineDays: 3, turnBaselineSample: 8 });
+    const slow = turnBaseline({ turnBaselineDays: 10, turnBaselineSample: 8 });
+    expect(slow.flagAt).toBeGreaterThan(fast.flagAt);
+    expect(slow.urgentAt).toBeGreaterThan(slow.flagAt);
+  });
+});
+
+describe("predictive proposals", () => {
+  const measured: OpsFacts = {
+    ...facts,
+    turnBaselineDays: 3,
+    turnBaselineSample: 9,
+    turns: [
+      { propertyName: "Paloma Creek", unitNumber: "111", days: 5, status: "in_progress", jobId: "job-111", jobNo: "J-111" },
+      { propertyName: "Paloma Creek", unitNumber: "112", days: 2, status: "in_progress", jobId: "job-112" },
+    ],
+  };
+
+  it("phrases a slow unit as a decision quoting the operation's own average", () => {
+    const c = buildOpsCortex(measured);
+    const flag = c.predictions.find((p) => p.headline.includes("111"));
+    expect(flag?.decision).toBe("Unit 111 is 5 days into a 3-day average turn — move it to the top of the priority list?");
+    expect(flag?.proposal?.kind).toBe("prioritize_job");
+    expect(flag?.proposal?.entityId).toBe("job-111");
+  });
+
+  it("does not flag a unit that is inside the operation's normal turn", () => {
+    const c = buildOpsCortex(measured);
+    expect(c.predictions.some((p) => p.headline.includes("112"))).toBe(false);
+  });
+
+  it("never offers a suggestion it cannot execute", () => {
+    const c = buildOpsCortex({
+      ...measured,
+      turns: [{ propertyName: "Paloma Creek", unitNumber: "111", days: 9, status: "in_progress" }],
+    });
+    const flag = c.predictions.find((p) => p.headline.includes("111"));
+    expect(flag).toBeDefined();
+    expect(flag?.proposal).toBeUndefined();
+    expect(flag?.decision).toBeUndefined();
+  });
+
+  it("proposes crew broadcast for an uncrewed job and a reminder for an overdue invoice", () => {
+    const c = buildOpsCortex({
+      ...measured,
+      needs: [
+        { kind: "uncrewed", propertyName: "Paloma Creek", unitNumber: "300", label: "J-300", entityId: "job-300" },
+        { kind: "overdue_invoice", propertyName: "Oak Park", days: 21, label: "INV-9", entityId: "inv-9" },
+      ],
+    });
+    const kinds = cortexProposals(c).map((p) => p.kind);
+    expect(kinds).toContain("rebroadcast_job");
+    expect(kinds).toContain("send_invoice_reminder");
+  });
+
+  it("deduplicates proposals so the same entity is only offered once", () => {
+    const c = buildOpsCortex({
+      ...measured,
+      needs: [
+        { kind: "uncrewed", propertyName: "Paloma Creek", unitNumber: "300", entityId: "job-300" },
+        { kind: "uncrewed", propertyName: "Paloma Creek", unitNumber: "300", entityId: "job-300" },
+      ],
+    });
+    const ids = cortexProposals(c).filter((p) => p.entityId === "job-300");
+    expect(ids).toHaveLength(1);
   });
 });
