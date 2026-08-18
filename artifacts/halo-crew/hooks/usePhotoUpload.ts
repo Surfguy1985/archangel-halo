@@ -19,6 +19,15 @@ type QueueItem = {
   capturedAt: string;
   status: 'pending' | 'uploading' | 'done' | 'error';
   errorMsg?: string;
+  /**
+   * Set the moment the bytes land in the bucket, and persisted with the queue.
+   * A retry MUST register this same path instead of uploading again: if the
+   * first registration committed and only its response was lost — the normal
+   * failure on site LTE — a fresh upload would mint a new object and the same
+   * shot would appear twice in the crew vault and the office feed. The server
+   * treats a repeated path as the same photo.
+   */
+  storagePath?: string;
 };
 
 function localDateStr(): string {
@@ -139,11 +148,25 @@ export function usePhotoUpload(
       );
 
       try {
-        const compressedUri = await compressImage(item.uri);
-        const storagePath = await uploadToStorage(
-          compressedUri,
-          process.env.EXPO_PUBLIC_DOMAIN!,
-        );
+        let storagePath = item.storagePath;
+        if (!storagePath) {
+          const compressedUri = await compressImage(item.uri);
+          storagePath = await uploadToStorage(
+            compressedUri,
+            process.env.EXPO_PUBLIC_DOMAIN!,
+          );
+          // Persist the path before registering: a crash or force-quit between
+          // here and the register call must not orphan the uploaded object into
+          // a re-upload on the next launch.
+          const uploaded = storagePath;
+          setQueue((prev) => {
+            const next = prev.map((i) =>
+              i.id === item.id ? { ...i, storagePath: uploaded } : i,
+            );
+            saveQueue(next.filter((i) => i.status !== 'done'));
+            return next;
+          });
+        }
 
         await registerPhoto({
           token,

@@ -30,6 +30,17 @@ type JobLike = {
  * crew who took it was scheduled on that exact job for the day the photo was
  * taken (via the schedules table, or the job's own crewLeaderId + scheduledOn).
  */
+/**
+ * Storage paths behind a set of crew photos. Field photos are mirrored into
+ * the activity feed on upload, so any reader that merges both sources must
+ * dedupe on these paths or every field photo counts twice.
+ */
+export function crewPhotoPaths(photos: CrewJobPhoto[]): Set<string> {
+  return new Set(
+    photos.map((p) => p.url.replace(/^\/api\/storage/, "")).filter(Boolean),
+  );
+}
+
 export async function crewPhotosForJobs(
   jobs: JobLike[],
 ): Promise<CrewJobPhoto[]> {

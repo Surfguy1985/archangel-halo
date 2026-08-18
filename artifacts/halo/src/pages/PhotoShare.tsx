@@ -47,14 +47,14 @@ function PhotoGrid({
       {photos.map((p) => (
         <a
           key={p.id}
-          href={`${base}/api/storage${p.storagePath}`}
+          href={`/api/storage${p.storagePath}`}
           target="_blank"
           rel="noreferrer"
           className="block rounded-[12px] overflow-hidden bg-card border border-border hover:border-primary transition-colors"
         >
           <div className="aspect-square">
             <img
-              src={`${base}/api/storage${p.storagePath}`}
+              src={`/api/storage${p.storagePath}`}
               alt={p.note || "Crew photo"}
               className="w-full h-full object-cover"
               loading="lazy"

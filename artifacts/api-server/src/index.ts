@@ -12,6 +12,7 @@ import { seedExchangeProducts } from "./lib/seedExchangeProducts";
 import { ensureClientBoardSchema } from "./lib/ensureClientBoardSchema";
 import { ensureClientPoSchema } from "./lib/ensureClientPoSchema";
 import { ensureRemindersSchema } from "./lib/ensureRemindersSchema";
+import { ensureFieldPhotoSchema } from "./lib/ensureFieldPhotoSchema";
 import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 
 const rawPort = process.env["PORT"];
@@ -68,6 +69,9 @@ app.listen(port, (err) => {
   );
   ensureRemindersSchema().catch((err) =>
     logger.error({ err }, "Failed to bootstrap reminders schema"),
+  );
+  ensureFieldPhotoSchema().catch((err) =>
+    logger.error({ err }, "Failed to bootstrap field photo schema"),
   );
   ensureCrewJoinSchema().catch((err) =>
     logger.error({ err }, "crew join schema bootstrap failed"),

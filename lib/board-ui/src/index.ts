@@ -27,6 +27,16 @@ export type { ProofReelUnit, ProofReelShot } from './components/pulse/HaloProofR
 export { HaloVacancyChip } from './components/pulse/HaloVacancyChip';
 export { HaloReportsCard, HaloVendorsCard, HaloWaitingCard } from './components/pulse/haloDeskCards';
 export { HaloPosCard } from './components/pulse/HaloPosCard';
+export { prepareFieldPhoto, describeUploadFailure, PhotoTooLargeError } from './lib/photoPrep';
+export type { PreparedPhoto } from './lib/photoPrep';
+export { CrewQrCode } from './components/crew/CrewQrCode';
+export type { CrewQrCodeProps } from './components/crew/CrewQrCode';
+export {
+  crewPortalUrl,
+  crewCheckinUrl,
+  crewJoinUrl,
+  normalizeCrewPortalLink,
+} from './lib/crewLinks';
 export { HaloCrewPaycards } from './components/pulse/HaloCrewPaycard';
 export { HaloCrewPaycardPage } from './components/pulse/HaloCrewPaycardPage';
 export { HaloCrewJoinPage } from './components/pulse/HaloCrewJoinPage';

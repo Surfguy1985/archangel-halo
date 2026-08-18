@@ -53,6 +53,7 @@ import {
   type CalendarEvent,
 } from "@workspace/api-client-react";
 import { useToast} from "@/hooks/use-toast";
+import { CrewQrCode, crewPortalUrl } from "@workspace/board-ui";
 
 const fieldCls =
   "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
@@ -147,7 +148,7 @@ export function EventDetailDialog({
 
   // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
   const portalUrl = event.crewPortalToken
-    ?`${window.location.origin}/portal/${event.crewPortalToken}`
+    ? crewPortalUrl(event.crewPortalToken)
     : null;
 
   const timeLabel = event.allDay
@@ -233,6 +234,10 @@ export function EventDetailDialog({
                 <div className="mt-3 pt-3 border-t border-border">
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1.5">
                     <Link2 className="w-3.5 h-3.5" /> Crew portal link
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 mb-2.5">
+                    <CrewQrCode url={portalUrl} size={150} label="Crew portal QR" />
+                    <div className="text-[11px] text-muted-foreground">Scan to open on the crew's phone</div>
                   </div>
                   <div className="text-xs text-muted-foreground break-all bg-card border border-border rounded-md px-2.5 py-2 mb-2.5">
                     {portalUrl}

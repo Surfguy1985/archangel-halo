@@ -47,6 +47,7 @@ import "leaflet/dist/leaflet.css";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useUpload } from "@workspace/object-storage-web";
+import { CrewQrCode, crewPortalUrl } from "@workspace/board-ui";
 import {
   ChevronLeft,
   FileDown,
@@ -958,11 +959,8 @@ export default function CrewDetail() {
   }
 
   const portalToken = crew.portalToken;
-  // Point to the crew portal web app (served at /halo-crew/).
-  // Crews open this on their phone — it auto-authenticates them on arrival.
-  const portalUrl = portalToken
-    ? `${window.location.origin}/halo-crew/portal/${portalToken}`
-    : null;
+  // One canonical shape for every crew link — see crewLinks in @workspace/board-ui.
+  const portalUrl = portalToken ? crewPortalUrl(portalToken) : null;
 
   const handleGenerate = () =>
     genLink.mutate(
@@ -1180,6 +1178,12 @@ export default function CrewDetail() {
             <div className={sectionTitle}><Link2 className="w-3.5 h-3.5" /> Portal Link</div>
             {portalUrl ? (
               <div className="space-y-3">
+                {/* Scan-to-open — a crew standing at the desk points a phone
+                    camera at the screen instead of retyping a token. */}
+                <div className="flex flex-col items-center gap-2">
+                  <CrewQrCode url={portalUrl} size={160} label={`Portal QR for ${crew.name}`} />
+                  <div className="text-[11px] text-muted-foreground">Scan to open the crew portal</div>
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 text-[10px] font-mono bg-[var(--paper)] border border-[var(--hairline)] rounded-lg px-2 py-1.5 truncate text-muted-foreground">{portalUrl}</div>
                   <button onClick={handleCopy} className="shrink-0 w-8 h-8 rounded-full bg-card border border-[var(--hairline)] hover:border-[var(--ink)] flex items-center justify-center transition-colors text-[var(--ink)]">

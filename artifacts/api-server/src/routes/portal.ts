@@ -148,6 +148,12 @@ const GetPortalServicesResponse = z.object({
 import { createHash } from "node:crypto";
 import { businessSettingsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
+import {
+  discardOrphanedUpload,
+  isMintedUploadPath,
+  mirrorFieldPhotoActivity,
+} from "../lib/fieldPhotos";
+import { jobBelongsToCrew } from "../lib/crewJobAccess";
 import { logger } from "../lib/logger";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { emergencySettledKeys, outstandingHoldAmount } from "../lib/emergencySettlement";
@@ -1677,46 +1683,6 @@ router.post("/portal/:token/documents", async (req, res): Promise<void> => {
   res.status(201).json(UploadPortalDocumentResponse.parse(ser(row)));
 });
 
-async function jobBelongsToCrew(
-  jobId: string,
-  crewId: string,
-): Promise<boolean> {
-  // 1. Direct assignment: this crew is the job leader.
-  const [direct] = await db
-    .select({ id: jobsTable.id })
-    .from(jobsTable)
-    .where(and(eq(jobsTable.id, jobId), eq(jobsTable.crewLeaderId, crewId)))
-    .limit(1);
-  if (direct) return true;
-  // 2. Schedule row: crew was dispatched via a schedule entry.
-  const [sched] = await db
-    .select({ id: schedulesTable.id })
-    .from(schedulesTable)
-    .where(
-      and(
-        eq(schedulesTable.jobId, jobId),
-        eq(schedulesTable.crewLeaderId, crewId),
-      ),
-    )
-    .limit(1);
-  if (sched) return true;
-  // 3. Member dispatch assignment for today. Excludes pending_move rows
-  //    because those members are leaving the job, not actively on it.
-  const [dispatch] = await db
-    .select({ id: crewDispatchAssignmentsTable.id })
-    .from(crewDispatchAssignmentsTable)
-    .where(
-      and(
-        eq(crewDispatchAssignmentsTable.jobId, jobId),
-        eq(crewDispatchAssignmentsTable.memberId, crewId),
-        eq(crewDispatchAssignmentsTable.day, localToday()),
-        ne(crewDispatchAssignmentsTable.status, "pending_move"),
-      ),
-    )
-    .limit(1);
-  return !!dispatch;
-}
-
 router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
   const { token } = ListPortalJobsParams.parse(req.params);
   const crew = await crewByToken(token);
@@ -1961,6 +1927,13 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
     return;
   }
   const body = UploadPortalPhotoBody.parse(req.body);
+  // The link is a bearer token, so the path in the body is untrusted input:
+  // only something our own presign minted can become evidence. Otherwise a
+  // crew could point a job's before/after feed at any object it can name.
+  if (!isMintedUploadPath(body.storagePath)) {
+    res.status(400).json({ error: "That photo isn't a valid upload" });
+    return;
+  }
   if (body.jobId) {
     const owned = await jobBelongsToCrew(body.jobId, crew.id);
     if (!owned) {
@@ -1981,31 +1954,126 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
   } catch (err) {
     logger.warn({ err }, "Could not fingerprint crew photo");
   }
-  const [row] = await db
-    .insert(crewPhotosTable)
-    .values({
-      crewId: crew.id,
-      jobId: body.jobId ?? null,
-      storagePath: body.storagePath,
-      takenOn: body.takenOn,
-      note: body.note ?? null,
-      phase: body.phase ?? null,
-      sha256,
-      sizeBytes,
-      lat: body.lat ?? null,
-      lng: body.lng ?? null,
-      accuracy: body.accuracy ?? null,
-      capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
-    })
-    .returning();
-  await db.insert(notificationsTable).values({
-    kind: "crew_photo",
-    priority: "normal",
-    entityType: "crew",
-    entityId: crew.id,
-    title: `${crew.name} sent a photo`,
-    body: body.note ?? `Daily activity photo for ${body.takenOn}`,
-  });
+  // A repeat POST for the same object is a retry (phones re-send when a
+  // response is lost), never a second capture — hand back the row we already
+  // have instead of duplicating the evidence.
+  const [already] = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.storagePath, body.storagePath))
+    .limit(1);
+  // A path another crew already registered is their evidence: don't hand it
+  // back, don't re-mirror it, and don't let this request's cleanup touch it.
+  if (already && already.crewId !== crew.id) {
+    res.status(403).json({ error: "That photo belongs to another crew" });
+    return;
+  }
+  if (already) {
+    // Mirror again from the STORED row, not the request: the first attempt's
+    // mirror is best-effort, so a retry is the only chance to repair it, and
+    // the row is the truth about which job and phase this photo belongs to.
+    try {
+      await mirrorFieldPhotoActivity({
+        jobId: already.jobId,
+        phase: already.phase,
+        storagePath: already.storagePath,
+        crewName: crew.name,
+        note: already.note,
+      });
+    } catch (err) {
+      logger.warn({ err }, "Could not mirror crew photo into the job feed");
+    }
+    res.status(201).json(UploadPortalPhotoResponse.parse(ser(already)));
+    return;
+  }
+  let row: typeof crewPhotosTable.$inferSelect | undefined;
+  try {
+    [row] = await db
+      .insert(crewPhotosTable)
+      .values({
+        crewId: crew.id,
+        jobId: body.jobId ?? null,
+        storagePath: body.storagePath,
+        takenOn: body.takenOn,
+        note: body.note ?? null,
+        phase: body.phase ?? null,
+        sha256,
+        sizeBytes,
+        lat: body.lat ?? null,
+        lng: body.lng ?? null,
+        accuracy: body.accuracy ?? null,
+        capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
+      })
+      .returning();
+  } catch (err) {
+    // Lost the race with the crew's own retry: the row exists, so serve it.
+    const [raced] = await db
+      .select()
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.storagePath, body.storagePath))
+      .limit(1);
+    if (raced) {
+      // Same repair as the retry branch: the winner's mirror is best-effort,
+      // so whoever arrives second must re-run it from the stored row or the
+      // photo can stay invisible to the office forever.
+      try {
+        await mirrorFieldPhotoActivity({
+          jobId: raced.jobId,
+          phase: raced.phase,
+          storagePath: raced.storagePath,
+          crewName: crew.name,
+          note: raced.note,
+        });
+      } catch (mirrorErr) {
+        logger.warn({ err: mirrorErr }, "Could not mirror crew photo into the job feed");
+      }
+      res.status(201).json(UploadPortalPhotoResponse.parse(ser(raced)));
+      return;
+    }
+    // The bytes are already in the bucket. If the row never lands, nothing will
+    // ever reference them again — drop the object instead of leaking it.
+    logger.error({ err }, "Crew photo registration failed");
+    await discardOrphanedUpload(body.storagePath);
+    res.status(500).json({
+      error: "The photo uploaded but we couldn't save it. Take it again.",
+      code: "photo_register_failed",
+    });
+    return;
+  }
+  if (!row) {
+    res.status(500).json({
+      error: "The photo uploaded but we couldn't save it. Take it again.",
+      code: "photo_register_failed",
+    });
+    return;
+  }
+  // Past this point the photo is committed. Nothing after it may fail the
+  // request — a 500 here would make the crew retry a capture we already have.
+  try {
+    // Mirror into the job activity feed so the office side (board tiles, recap,
+    // before/after compare) sees field photos, not just office-attached ones.
+    await mirrorFieldPhotoActivity({
+      jobId: row.jobId,
+      phase: row.phase,
+      storagePath: row.storagePath,
+      crewName: crew.name,
+      note: row.note,
+    });
+  } catch (err) {
+    logger.warn({ err }, "Could not mirror crew photo into the job feed");
+  }
+  try {
+    await db.insert(notificationsTable).values({
+      kind: "crew_photo",
+      priority: "normal",
+      entityType: "crew",
+      entityId: crew.id,
+      title: `${crew.name} sent a photo`,
+      body: body.note ?? `Daily activity photo for ${body.takenOn}`,
+    });
+  } catch (err) {
+    logger.warn({ err }, "Could not raise crew photo notification");
+  }
   res.status(201).json(UploadPortalPhotoResponse.parse(ser(row)));
 });
 

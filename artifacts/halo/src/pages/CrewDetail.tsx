@@ -28,6 +28,7 @@ import {
   type CrewInvoice,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
+import { CrewQrCode, crewPortalUrl } from "@workspace/board-ui";
 import {
   ChevronLeft,
   FileDown,
@@ -164,11 +165,8 @@ export default function CrewDetail() {
   }
 
   const portalToken = crew.portalToken;
-  // Point to the crew portal web app (served at /halo-crew/).
-  // Crews open this on their phone — it auto-authenticates them on arrival.
-  const portalUrl = portalToken
-    ? `${window.location.origin}/halo-crew/portal/${portalToken}`
-    : null;
+  // One canonical shape for every crew link — see crewLinks in @workspace/board-ui.
+  const portalUrl = portalToken ? crewPortalUrl(portalToken) : null;
 
   const handleGenerate = () => {
     genLink.mutate(
@@ -319,6 +317,14 @@ export default function CrewDetail() {
         </div>
         {portalUrl ? (
           <>
+            {/* Scan-to-open: the fastest path onto a crew's phone when they're
+                standing in the office — no typing, no texting. */}
+            <div className="flex flex-col items-center gap-[8px] mb-[10px]">
+              <CrewQrCode url={portalUrl} size={172} label={`Portal QR for ${crew.name}`} />
+              <div className="text-[11.5px] text-muted-foreground font-display">
+                Point a phone camera here to open the portal
+              </div>
+            </div>
             <div className="text-[12px] font-mono bg-[rgba(23,24,28,0.05)] rounded-[9px] px-[10px] py-[9px] break-all mb-[10px]">
               {portalUrl}
             </div>
@@ -444,7 +450,7 @@ export default function CrewDetail() {
                   </span>
                   {submitted && (
                     <a
-                      href={`${apiBase}/api/packets/${p.id}/pdf`}
+                      href={`/api/packets/${p.id}/pdf`}
                       download
                       className="shrink-0 w-[32px] h-[32px] grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground transition-transform active:scale-[0.94]"
                       aria-label="Download compiled packet PDF"
@@ -557,7 +563,7 @@ export default function CrewDetail() {
         ) : (
           <div className="flex flex-col">
             {documents.map((d, idx) => {
-              const url = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/storage${d.storagePath}`;
+              const url = `/api/storage${d.storagePath}`;
               return (
                 <div
                   key={d.id}
@@ -945,7 +951,7 @@ function DailyActivitySection({
                             {updateNotes.isPending ? "Saving…" : "Save notes"}
                           </button>
                           <a
-                            href={`${base}/api/photo-shares/${reportToken}/report`}
+                            href={`/api/photo-shares/${reportToken}/report`}
                             className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[var(--gold-light)] transition-transform active:scale-[0.96]"
                           >
                             <FileDown className="w-[12px] h-[12px]" /> Download PDF
@@ -957,13 +963,13 @@ function DailyActivitySection({
                       {dayPhotos.map((p) => (
                         <a
                           key={p.id}
-                          href={`${base}/api/storage${p.storagePath}`}
+                          href={`/api/storage${p.storagePath}`}
                           target="_blank"
                           rel="noreferrer"
                           className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
                         >
                           <img
-                            src={`${base}/api/storage${p.storagePath}`}
+                            src={`/api/storage${p.storagePath}`}
                             alt={p.note || "Crew photo"}
                             className="w-full h-full object-cover"
                             loading="lazy"

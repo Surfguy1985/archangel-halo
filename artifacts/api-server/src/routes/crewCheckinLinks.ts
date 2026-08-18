@@ -25,6 +25,12 @@ import {
   propertiesTable,
 } from "@workspace/db";
 import { recordFieldProvenance } from "../lib/fieldProvenance";
+import {
+  discardOrphanedUpload,
+  isMintedUploadPath,
+  mirrorFieldPhotoActivity,
+} from "../lib/fieldPhotos";
+import { isUuid, jobBelongsToCrew } from "../lib/crewJobAccess";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { eq, and, gte, desc, isNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -994,14 +1000,34 @@ router.post("/checkin/:token/photos", limits.checkinWrite, async (req, res): Pro
       return;
     }
 
+    // A photo is evidence, so the object path must look like something our own
+    // presign minted. Anything else is a caller naming a file it doesn't own —
+    // refuse before we touch storage, let alone delete anything.
+    if (!isMintedUploadPath(storagePath)) {
+      res.status(400).json({ error: "That photo isn't a valid upload.", code: "photo_required" });
+      return;
+    }
+
     const now = new Date();
     const { session } = await loadSession(crew.id);
     const dispatch = await loadDispatch(crew.id, now);
-    const jobId =
-      (typeof body.jobId === "string" && body.jobId) ||
-      session.openCheckin?.jobId ||
-      dispatch[0]?.id ||
-      null;
+    // A job id from the phone is untrusted: screen the shape (a non-uuid makes
+    // postgres throw mid-insert) and confirm the crew is actually on that job,
+    // so nobody can staple photos onto someone else's work.
+    let jobId: string | null = null;
+    if (typeof body.jobId === "string" && body.jobId.trim()) {
+      const claimed = body.jobId.trim();
+      if (!isUuid(claimed) || !(await jobBelongsToCrew(claimed, crew.id))) {
+        res.status(400).json({
+          error: "That job isn't assigned to you.",
+          code: "job_not_assigned",
+        });
+        return;
+      }
+      jobId = claimed;
+    } else {
+      jobId = session.openCheckin?.jobId || dispatch[0]?.id || null;
+    }
     const takenOn =
       typeof body.takenOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.takenOn)
         ? body.takenOn
@@ -1021,31 +1047,100 @@ router.post("/checkin/:token/photos", limits.checkinWrite, async (req, res): Pro
 
     const gps = evaluateGps(gpsBody(body), now);
     const coords = gpsColumns(gps);
-    const [photo] = await db
-      .insert(crewPhotosTable)
-      .values({
-        crewId: crew.id,
-        jobId,
-        storagePath,
-        takenOn,
-        note: typeof body.note === "string" ? body.note : null,
-        phase,
-        sha256,
-        sizeBytes,
-        lat: coords.lat,
-        lng: coords.lng,
-        accuracy: coords.accuracy,
-        capturedAt: now,
-      })
-      .returning();
+    // Same object twice = the phone retried a send whose response was lost.
+    // Serve the existing row rather than duplicating the crew's evidence.
+    const [already] = await db
+      .select()
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.storagePath, storagePath))
+      .limit(1);
+    // ...but only *this* crew's retry. A path already registered by someone
+    // else is not ours to return, re-mirror, or clean up.
+    if (already && already.crewId !== crew.id) {
+      res.status(403).json({ error: "That photo belongs to another crew.", code: "photo_conflict" });
+      return;
+    }
+    let photo: typeof crewPhotosTable.$inferSelect | undefined = already;
+    if (!already) {
+      try {
+        [photo] = await db
+          .insert(crewPhotosTable)
+          .values({
+            crewId: crew.id,
+            jobId,
+            storagePath,
+            takenOn,
+            note: typeof body.note === "string" ? body.note : null,
+            phase,
+            sha256,
+            sizeBytes,
+            lat: coords.lat,
+            lng: coords.lng,
+            accuracy: coords.accuracy,
+            capturedAt: now,
+          })
+          .returning();
+      } catch (err) {
+        // Lost the race with the phone's own retry: the row exists, use it.
+        const [raced] = await db
+          .select()
+          .from(crewPhotosTable)
+          .where(eq(crewPhotosTable.storagePath, storagePath))
+          .limit(1);
+        if (raced) {
+          photo = raced;
+        } else {
+          // Uploaded bytes with no row are unreachable forever — drop them.
+          logger.error({ err }, "crew-checkin: photo registration failed");
+          await discardOrphanedUpload(storagePath);
+          res.status(500).json({
+            error: "The photo uploaded but we couldn't save it. Take it again.",
+            code: "photo_register_failed",
+          });
+          return;
+        }
+      }
+    }
 
-    await audit(row.id, "photo", req, { phase, jobId });
-    const photos = await loadPaycardPhotos(crew.id, jobId, takenOn);
+    // The photo is committed. Nothing below may fail the request: a 500 here
+    // sends the crew back to retry a capture the server already accepted, and
+    // the retry is only cheap because registration is idempotent — don't lean
+    // on that when we can simply answer honestly.
+    try {
+      // Mirror into the job activity feed — the office reads before/after from
+      // activities, not from the crew vault. Always from the STORED row: on a
+      // retry the crew's dispatch may have moved on, and mirroring today's job
+      // onto yesterday's photo puts the wrong evidence on the wrong job.
+      await mirrorFieldPhotoActivity({
+        jobId: photo?.jobId ?? jobId,
+        phase: photo?.phase ?? phase,
+        storagePath: photo?.storagePath ?? storagePath,
+        crewName: crew.name,
+        note: photo?.note ?? (typeof body.note === "string" ? body.note : null),
+      });
+    } catch (err) {
+      logger.warn({ err }, "crew-checkin: photo activity mirror failed");
+    }
+
+    try {
+      await audit(row.id, "photo", req, { phase, jobId });
+    } catch (err) {
+      logger.warn({ err }, "crew-checkin: photo audit failed");
+    }
+
+    const savedPhoto = photo
+      ? { id: photo.id, phase: photo.phase, url: `/api/storage${photo.storagePath}` }
+      : null;
+    let photos: Awaited<ReturnType<typeof loadPaycardPhotos>> | null = null;
+    try {
+      photos = await loadPaycardPhotos(crew.id, jobId, takenOn);
+    } catch (err) {
+      // Only the summary is missing; the phone re-reads it on the next poll.
+      logger.warn({ err }, "crew-checkin: photo list reload failed");
+    }
     res.status(201).json({
       ok: true,
-      photo: photo
-        ? { id: photo.id, phase: photo.phase, url: `/api/storage${photo.storagePath}` }
-        : null,
+      photo: savedPhoto,
       photos,
     });
   } catch (err) {

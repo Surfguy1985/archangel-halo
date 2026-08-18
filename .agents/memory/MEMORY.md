@@ -138,3 +138,5 @@
 - [HALO foreman QR onboarding](halo-foreman-qr-onboarding.md) — foreman = isLeader AND role written together; join bearers never persisted; demotion revokes open codes.
 - [HALO crew paycard](halo-crew-paycard.md) — GeolocationPositionError isn't an Error; photo COUNTS (not truncated items) drive step state; checkout photo gate is server-owned.
 - [Bounded scan filters](halo-bounded-scan-filters.md) — row-budgeted feed scans must push EVERY filter axis into SQL; filtering after the scan lets a busy entity empty another's results.
+- [HALO field photos](halo-field-photos.md) — crew photos live in crew_photos AND mirrored photo_before/after activities; dedupe by storage_path, retries must be no-ops.
+- [HALO crew link shapes](halo-crew-links.md) — portal/checkin/join are always `<origin>/<kind>/<token>`; never BASE_URL, never /halo-crew/ (Expo path dies in prod).

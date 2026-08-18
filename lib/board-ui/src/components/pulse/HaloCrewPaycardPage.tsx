@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { prepareFieldPhoto } from "../../lib/photoPrep";
 import "./haloCrewPaycard.css";
 
 type PhotoItem = { id: string; phase: string | null; url: string; takenOn?: string };
@@ -98,23 +99,6 @@ function getGPS(): Promise<GeolocationPosition> {
   });
 }
 
-async function jpegFile(file: File): Promise<Blob> {
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bmp.width * scale));
-    canvas.height = Math.max(1, Math.round(bmp.height * scale));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    return blob ?? file;
-  } catch {
-    return file;
-  }
-}
-
 /**
  * Newest photo for a phase — a retake must replace what the crew sees.
  * The server returns photos ordered newest-first, so the first match wins.
@@ -162,6 +146,17 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
   const [data, setData] = useState<PayData | null>(null);
   const [unit, setUnit] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  /**
+   * A shot that uploaded (or tried to) and didn't register. `storagePath` is
+   * present once the bytes are in storage — the retry re-sends that path rather
+   * than uploading again, so a lost response can't duplicate the evidence.
+   */
+  const [photoFail, setPhotoFail] = useState<{
+    phase: Phase;
+    file: File;
+    storagePath?: string;
+    message: string;
+  } | null>(null);
   const [doneMsg, setDoneMsg] = useState("");
   const [pending, setPending] = useState<null | "checkin" | "checkout" | Phase>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -296,31 +291,40 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
     }
   };
 
-  const upload = async (file: File, phase: Phase) => {
+  const upload = async (file: File, phase: Phase, knownPath?: string) => {
     if (busy) return;
     setErrorMsg("");
     setPending(phase);
+    // Once the bytes are in the bucket this holds their path, so a failure
+    // below can be retried as a registration instead of a second upload.
+    let storagePath = knownPath;
     try {
-      const jpeg = await jpegFile(file);
-      const urlResp = await fetch("/api/storage/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `paycard-${phase}-${Date.now()}.jpg`, contentType: "image/jpeg" }),
-      });
-      const signed = (await urlResp.json().catch(() => ({}))) as {
-        uploadURL?: string;
-        objectPath?: string;
-        error?: string;
-      };
-      if (!urlResp.ok || !signed.uploadURL || !signed.objectPath) {
-        throw new Error(signed.error || "Could not start the photo upload.");
+      if (!storagePath) {
+        // Shared prep: downscale + re-encode when the browser can decode it,
+        // original bytes (HEIC on Android) when it can't, hard ceiling either way.
+        const prepared = await prepareFieldPhoto(file);
+        const contentType = prepared.file.type || "application/octet-stream";
+        const urlResp = await fetch("/api/storage/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: `paycard-${phase}-${Date.now()}.jpg`, contentType }),
+        });
+        const signed = (await urlResp.json().catch(() => ({}))) as {
+          uploadURL?: string;
+          objectPath?: string;
+          error?: string;
+        };
+        if (!urlResp.ok || !signed.uploadURL || !signed.objectPath) {
+          throw new Error(signed.error || "Could not start the photo upload.");
+        }
+        const put = await fetch(signed.uploadURL, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: prepared.file,
+        });
+        if (!put.ok) throw new Error("The photo didn't finish uploading. Try again.");
+        storagePath = signed.objectPath;
       }
-      const put = await fetch(signed.uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": "image/jpeg" },
-        body: jpeg,
-      });
-      if (!put.ok) throw new Error("The photo didn't finish uploading. Try again.");
       let gps: Record<string, unknown> = {};
       try {
         gps = await gpsBody();
@@ -330,11 +334,18 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
       await apiFetch(`/api/checkin/${token}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storagePath: signed.objectPath, phase, ...gps }),
+        body: JSON.stringify({ storagePath, phase, ...gps }),
       });
+      setPhotoFail(null);
       await reload();
     } catch (err: unknown) {
-      setErrorMsg(describeError(err, "That photo didn't save. Try again."));
+      const message = describeError(err, "That photo didn't save. Try again.");
+      setErrorMsg(message);
+      // Park the shot so Retry can finish it. Keeping storagePath is what stops
+      // a retry from registering the same capture as a second photo: if the
+      // first register committed and only its answer was lost, re-sending the
+      // same path is a no-op on the server.
+      setPhotoFail({ phase, file, storagePath, message });
     } finally {
       setPending(null);
     }
@@ -347,7 +358,10 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
   const onPick = (phase: Phase) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (f) void upload(f, phase);
+    if (f) {
+      setPhotoFail(null);
+      void upload(f, phase);
+    }
   };
 
   const shot = (
@@ -608,6 +622,25 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
               </span>
             ) : null}
           </p>
+
+          {photoFail ? (
+            <div className="halo-paypage-retry">
+              <span>
+                Your {photoFail.phase} photo is still on this phone
+                {photoFail.storagePath ? " and uploaded" : ""} — it didn't save.
+              </span>
+              <button
+                type="button"
+                className="halo-paypage-retry-btn"
+                disabled={busy}
+                onClick={() =>
+                  void upload(photoFail.file, photoFail.phase, photoFail.storagePath)
+                }
+              >
+                {pending === photoFail.phase ? "Sending…" : "Retry"}
+              </button>
+            </div>
+          ) : null}
 
           <div className="halo-paypage-actions">
             {!checkedIn ? (

@@ -2387,7 +2387,7 @@ function MessagesTab({ token }: { token: string }) {
                 <div>{m.body}</div>
                 {m.attachmentPath && (
                   <a
-                    href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/storage${m.attachmentPath}`}
+                    href={`/api/storage${m.attachmentPath}`}
                     target="_blank"
                     rel="noreferrer"
                     download={m.attachmentName ?? undefined}
@@ -3201,13 +3201,13 @@ function PhotosTab({ token }: { token: string }) {
                 ) =>
                   p ? (
                     <a
-                      href={`${base}/api/storage${p.storagePath}`}
+                      href={`/api/storage${p.storagePath}`}
                       target="_blank"
                       rel="noreferrer"
                       className="block relative aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
                     >
                       <img
-                        src={`${base}/api/storage${p.storagePath}`}
+                        src={`/api/storage${p.storagePath}`}
                         alt={label}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -3238,13 +3238,13 @@ function PhotosTab({ token }: { token: string }) {
                         {rest.map((p) => (
                           <a
                             key={p.id}
-                            href={`${base}/api/storage${p.storagePath}`}
+                            href={`/api/storage${p.storagePath}`}
                             target="_blank"
                             rel="noreferrer"
                             className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
                           >
                             <img
-                              src={`${base}/api/storage${p.storagePath}`}
+                              src={`/api/storage${p.storagePath}`}
                               alt={p.note || "Crew photo"}
                               className="w-full h-full object-cover"
                               loading="lazy"
@@ -3312,7 +3312,7 @@ function DocumentsTab({ token }: { token: string }) {
       ) : (
         <div className={card}>
           {documents.map((d, idx) => {
-            const url = `${base}/api/storage${d.storagePath}`;
+            const url = `/api/storage${d.storagePath}`;
             return (
               <div
                 key={d.id}

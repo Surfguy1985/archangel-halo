@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase, HardHat } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { normalizeCrewPortalLink } from "@workspace/board-ui";
 import { AddCrewSheet } from "@/components/AddCrewSheet";
 import { EditCrewSheet } from "@/components/EditCrewSheet";
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +62,7 @@ export default function Crews() {
       { id: crewId },
       {
         onSuccess: async (res) => {
-          const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}${res.path}`;
+          const url = normalizeCrewPortalLink(res.path) ?? "";
           try {
             await navigator.clipboard.writeText(url);
             setCopiedId(crewId);

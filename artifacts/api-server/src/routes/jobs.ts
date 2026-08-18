@@ -116,7 +116,7 @@ import { sendEmail, sendCrewThankYouEmail } from "../lib/email";
 import { getAutoEmails } from "../lib/emailPolicy";
 import { logger } from "../lib/logger";
 import { ser, serList } from "../lib/serialize";
-import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
+import { crewPhotoPaths, crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 import { gatherJobReport, buildJobReportPdf } from "../lib/jobReportPdf";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
@@ -1558,16 +1558,22 @@ async function gatherRecapContext(jobId: string) {
   const notes = activities
     .filter((a) => a.kind === "note" && a.body)
     .map((a) => `- ${a.body}`);
-  const photos = activities.filter(
-    (a) => a.kind === "photo_before" || a.kind === "photo_after",
-  );
-  const beforeCount = photos.filter((a) => a.kind === "photo_before").length;
-  const afterCount = photos.filter((a) => a.kind === "photo_after").length;
   const lineItems = await db
     .select()
     .from(jobLineItemsTable)
     .where(eq(jobLineItemsTable.jobId, jobId));
   const crewPhotos = await crewPhotosForJobs([job]);
+  // Field photos now live in BOTH the crew vault and the activity feed (they
+  // are mirrored on upload), so count each storage path once or the recap
+  // claims twice the photos it has.
+  const vaultPaths = crewPhotoPaths(crewPhotos);
+  const photos = activities.filter(
+    (a) =>
+      (a.kind === "photo_before" || a.kind === "photo_after") &&
+      !(a.storagePath && vaultPaths.has(a.storagePath)),
+  );
+  const beforeCount = photos.filter((a) => a.kind === "photo_before").length;
+  const afterCount = photos.filter((a) => a.kind === "photo_after").length;
   return { job, prop, notes, beforeCount, afterCount, lineItems, crewPhotos };
 }
 
@@ -1951,13 +1957,16 @@ async function gatherRecapPhotos(
     .from(activitiesTable)
     .where(eq(activitiesTable.entityId, jobId));
   const photos: { url: string; label: string }[] = [];
+  // Mirrored field photos appear in both lists — the vault copy carries the
+  // crew name, so it wins and the activity copy is skipped.
+  const vaultPaths = crewPhotoPaths(crewPhotos);
   for (const a of photoActs) {
-    if (!a.storagePath) continue;
+    if (!a.storagePath || vaultPaths.has(a.storagePath)) continue;
     if (a.kind === "photo_before")
       photos.push({ url: `/api/storage${a.storagePath}`, label: "Before" });
   }
   for (const a of photoActs) {
-    if (!a.storagePath) continue;
+    if (!a.storagePath || vaultPaths.has(a.storagePath)) continue;
     if (a.kind === "photo_after")
       photos.push({ url: `/api/storage${a.storagePath}`, label: "After" });
   }

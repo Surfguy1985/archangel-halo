@@ -14,6 +14,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { CalendarEvent } from "@workspace/api-client-react";
+import { CrewQrCode, crewPortalUrl } from "@workspace/board-ui";
 
 const COLOR_VAR: Record<string, string> = {
   gold: "--gold",
@@ -62,7 +63,7 @@ export function CalendarEventSheet({
   if (!event) return null;
 
   const portalUrl = event.crewPortalToken
-    ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${event.crewPortalToken}`
+    ? crewPortalUrl(event.crewPortalToken)
     : null;
 
   const timeLabel = event.allDay
@@ -155,6 +156,10 @@ export function CalendarEventSheet({
                   <div className="mt-[12px] pt-[12px] border-t border-[var(--hairline)]">
                     <div className="flex items-center gap-[7px] text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-[7px]">
                       <Link2 className="w-[13px] h-[13px]" /> Crew portal link
+                    </div>
+                    <div className="flex flex-col items-center gap-[7px] mb-[10px]">
+                      <CrewQrCode url={portalUrl} size={150} label="Crew portal QR" />
+                      <div className="text-[11px] text-muted-foreground">Scan to open on the crew's phone</div>
                     </div>
                     <div className="text-[12.5px] text-muted-foreground break-all bg-[var(--paper)] border border-[var(--hairline)] rounded-[10px] p-[9px_11px] mb-[10px]">
                       {portalUrl}

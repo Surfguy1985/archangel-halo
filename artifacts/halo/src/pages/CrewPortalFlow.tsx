@@ -39,6 +39,7 @@ import {
   type PortalScheduleItemDispatchChecklistItem,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
+import { prepareFieldPhoto, describeUploadFailure } from "@workspace/board-ui";
 import {
   Camera,
   Check,
@@ -618,6 +619,17 @@ interface Props {
   onInvoice: (jobId: string) => void;
 }
 
+/** A capture that didn't make it up, held in memory so it can be retried. */
+type FailedPhoto = {
+  id: string;
+  file: File;
+  /** Set once the bytes are in storage — a retry registers this path again. */
+  storagePath?: string;
+  jobId: string;
+  phase: "before" | "after";
+  message: string;
+};
+
 export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }: Props) {
   const [lang, setLang] = useState<Lang>("en");
   const [note, setNote] = useState("");
@@ -635,6 +647,9 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
   const [jobChecklists, setJobChecklists] = useState<Record<string, JobChecklistState>>({});
   // Jobs the crew has agreed to payout terms for in this session (supplements server state).
   const [locallyAgreedJobs, setLocallyAgreedJobs] = useState<Set<string>>(new Set());
+  // Photos that failed to send, kept with their bytes so a retry doesn't need
+  // the crew to walk back and re-shoot them.
+  const [photoFails, setPhotoFails] = useState<FailedPhoto[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const pendingPhoto = useRef<{ jobId: string; phase: "before" | "after" } | null>(null);
 
@@ -913,38 +928,107 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     fileRef.current?.click();
   };
 
+  /**
+   * One photo, all three hops: normalize → PUT to storage → register the row.
+   * Throws with a reason the crew can act on; the caller parks the file so it
+   * can be retried without walking back to re-shoot it.
+   */
+  /**
+   * Returns the storage path the bytes landed on. A retry MUST pass that path
+   * back in: re-uploading would mint a new object, and the same capture would
+   * show up twice on the office side. The server treats a repeated path as the
+   * same photo, so retrying the registration alone is safe.
+   */
+  const sendOnePhoto = async (
+    file: File,
+    jobId: string,
+    phase: "before" | "after",
+    pos: GeolocationPosition | null,
+    knownPath?: string,
+  ): Promise<string> => {
+    let storagePath = knownPath;
+    if (!storagePath) {
+      const prepared = await prepareFieldPhoto(file);
+      const res = await uploadFile(prepared.file);
+      if (!res) throw new Error("Couldn't reach photo storage. Check signal and retry.");
+      storagePath = res.objectPath;
+    }
+    try {
+      await sendPhoto.mutateAsync({
+        token,
+        data: {
+          storagePath,
+          takenOn: localDay(),
+          jobId,
+          phase,
+          lat: pos?.coords.latitude ?? null,
+          lng: pos?.coords.longitude ?? null,
+          accuracy: pos?.coords.accuracy ?? null,
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      // Carry the uploaded path out with the failure so the retry reuses it.
+      throw Object.assign(err instanceof Error ? err : new Error(String(err)), {
+        storagePath,
+      });
+    }
+    return storagePath;
+  };
+
   const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     const target = pendingPhoto.current;
+    pendingPhoto.current = null;
     if (!files.length || !target) return;
     setBusy(`photo:${target.jobId}:${target.phase}`);
     const pos = await getPosition();
-    try {
-      for (const file of files) {
-        const res = await uploadFile(file);
-        if (!res) continue;
-        await sendPhoto.mutateAsync({
-          token,
-          data: {
-            storagePath: res.objectPath,
-            takenOn: localDay(),
-            jobId: target.jobId,
-            phase: target.phase,
-            lat: pos?.coords.latitude ?? null,
-            lng: pos?.coords.longitude ?? null,
-            accuracy: pos?.coords.accuracy ?? null,
-            capturedAt: new Date().toISOString(),
-          },
+    let sent = 0;
+    const failed: FailedPhoto[] = [];
+    for (const file of files) {
+      try {
+        await sendOnePhoto(file, target.jobId, target.phase, pos);
+        sent += 1;
+      } catch (err) {
+        // A failure per photo, not per batch: three good shots must not be
+        // thrown away because the fourth timed out.
+        failed.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          storagePath: (err as { storagePath?: string })?.storagePath,
+          jobId: target.jobId,
+          phase: target.phase,
+          message: describeUploadFailure(err),
         });
       }
+    }
+    if (failed.length) setPhotoFails((prev) => [...prev, ...failed]);
+    if (sent > 0) {
       setNotice(t.photoSaved);
       refresh();
-    } catch {
-      setErr(t.photoErr);
+    }
+    setBusy(null);
+  };
+
+  const retryPhoto = async (item: FailedPhoto) => {
+    setBusy(`retry:${item.id}`);
+    const pos = await getPosition();
+    try {
+      // Reuse the already-uploaded object when there is one — re-uploading
+      // would register the same shot a second time.
+      await sendOnePhoto(item.file, item.jobId, item.phase, pos, item.storagePath);
+      setPhotoFails((prev) => prev.filter((f) => f.id !== item.id));
+      setNotice(t.photoSaved);
+      refresh();
+    } catch (err) {
+      const message = describeUploadFailure(err);
+      const storagePath = (err as { storagePath?: string })?.storagePath ?? item.storagePath;
+      setPhotoFails((prev) =>
+        prev.map((f) => (f.id === item.id ? { ...f, message, storagePath } : f)),
+      );
     } finally {
       setBusy(null);
-      pendingPhoto.current = null;
     }
   };
 
@@ -2307,6 +2391,46 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
           <button type="button" onClick={() => setErr(null)} className="ml-auto text-red-500/50 hover:text-red-400">
             <X className="w-[13px] h-[13px]" />
           </button>
+        </div>
+      )}
+
+      {/* Photos that didn't send — retryable, so nobody has to re-shoot. */}
+      {photoFails.length > 0 && (
+        <div className="mx-[20px] mt-[10px] rounded-[14px] bg-amber-900/25 border border-amber-500/30 px-[14px] py-[11px] space-y-[9px]">
+          <div className="flex items-center gap-[8px]">
+            <AlertCircle className="w-[14px] h-[14px] text-amber-300 shrink-0" />
+            <span className="text-[12.5px] text-amber-200 font-bold">
+              {photoFails.length === 1
+                ? "1 photo didn't send"
+                : `${photoFails.length} photos didn't send`}
+            </span>
+          </div>
+          {photoFails.map((item) => (
+            <div key={item.id} className="flex items-center gap-[8px]">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11.5px] text-amber-100/90 font-semibold uppercase tracking-[0.08em]">
+                  {item.phase}
+                </div>
+                <div className="text-[11.5px] text-amber-100/70 leading-snug">{item.message}</div>
+              </div>
+              <button
+                type="button"
+                disabled={busy === `retry:${item.id}`}
+                onClick={() => retryPhoto(item)}
+                className="shrink-0 rounded-[10px] px-[12px] py-[7px] text-[12px] font-bold text-[#0F1B2D] bg-[#B4FF44] disabled:opacity-50"
+              >
+                {busy === `retry:${item.id}` ? "Sending…" : "Retry"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhotoFails((prev) => prev.filter((f) => f.id !== item.id))}
+                className="shrink-0 text-amber-400/60 hover:text-amber-300"
+                aria-label="Discard this photo"
+              >
+                <X className="w-[13px] h-[13px]" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
