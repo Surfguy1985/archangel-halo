@@ -3,7 +3,7 @@
  * it ranked cheapest-first, with the master price as a reference column.
  */
 import { useState, useMemo } from "react";
-import { Search, ArrowLeft, BarChart2 } from "lucide-react";
+import { Search, ArrowLeft, BarChart2, Download } from "lucide-react";
 import {
   useListCatalogItems,
   useListCatalogItemVendorRates,
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { exportCsv } from "@/lib/exportCsv";
 
 function rateLabel(rate: number, unit: string | null | undefined) {
   const money = `$${rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -38,14 +39,56 @@ function CompareTable({
     [items, catalogItemId],
   );
 
+  function handleExport() {
+    if (!vendors?.length || !item) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const slug = (item.service ?? "service")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const filename = `vendor-compare-${slug}-${today}.csv`;
+    const rows = (vendors as Array<Record<string, any>>).map((v) => {
+      const pct =
+        v.masterRate != null && v.masterRate > 0
+          ? ((v.rate / v.masterRate - 1) * 100).toFixed(1) + "%"
+          : "";
+      return {
+        vendor: v.vendorName,
+        theirRate: v.rate.toFixed(2),
+        masterRate: v.masterRate != null ? v.masterRate.toFixed(2) : "",
+        vsMaster: pct,
+        unit: v.unit ?? "",
+      };
+    });
+    exportCsv(filename, [
+      { key: "vendor", label: "Vendor" },
+      { key: "theirRate", label: "Their rate" },
+      { key: "masterRate", label: "Master rate" },
+      { key: "vsMaster", label: "vs. master %" },
+      { key: "unit", label: "Unit" },
+    ], rows);
+  }
+
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back to services
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to services
+        </button>
+        {vendors && vendors.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExport}
+            data-testid="btn-export-csv"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        )}
+      </div>
 
       <div className="mb-3">
         <div className="font-display font-bold text-lg text-[var(--ink)]">

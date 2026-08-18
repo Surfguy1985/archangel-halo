@@ -3,7 +3,7 @@
  * catalog service. Step 1: pick a service. Step 2: ranked vendor list.
  */
 import { useState, useMemo } from "react";
-import { Search, ArrowLeft, BarChart2 } from "lucide-react";
+import { Search, ArrowLeft, BarChart2, Download } from "lucide-react";
 import {
   useListCatalogItems,
   useListCatalogItemVendorRates,
@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { exportCsv } from "@/lib/exportCsv";
 
 function rateLabel(rate: number, unit: string | null | undefined) {
   const money = `$${rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -33,14 +34,56 @@ function CompareTable({
 }) {
   const { data: vendors, isLoading } = useListCatalogItemVendorRates(catalogItemId);
 
+  function handleExport() {
+    if (!vendors?.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const slug = serviceName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const filename = `vendor-compare-${slug}-${today}.csv`;
+    const rows = (vendors as Array<Record<string, any>>).map((v) => {
+      const pct =
+        v.masterRate != null && v.masterRate > 0
+          ? ((v.rate / v.masterRate - 1) * 100).toFixed(1) + "%"
+          : "";
+      return {
+        vendor: v.vendorName,
+        theirRate: v.rate.toFixed(2),
+        masterRate: v.masterRate != null ? v.masterRate.toFixed(2) : "",
+        vsMaster: pct,
+        unit: v.unit ?? "",
+      };
+    });
+    exportCsv(filename, [
+      { key: "vendor", label: "Vendor" },
+      { key: "theirRate", label: "Their rate" },
+      { key: "masterRate", label: "Master rate" },
+      { key: "vsMaster", label: "vs. master %" },
+      { key: "unit", label: "Unit" },
+    ], rows);
+  }
+
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="flex items-center gap-[6px] text-[13px] text-muted-foreground mb-[14px]"
-      >
-        <ArrowLeft className="w-[14px] h-[14px]" /> Back to services
-      </button>
+      <div className="flex items-center justify-between mb-[14px]">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-[6px] text-[13px] text-muted-foreground"
+        >
+          <ArrowLeft className="w-[14px] h-[14px]" /> Back to services
+        </button>
+        {vendors && vendors.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExport}
+            data-testid="btn-export-csv"
+            className="flex items-center gap-[6px] text-[13px] text-muted-foreground active:opacity-60 transition-opacity"
+          >
+            <Download className="w-[14px] h-[14px]" /> Export CSV
+          </button>
+        )}
+      </div>
 
       <div className="font-display font-bold text-[17px] text-[var(--ink)] mb-[14px]">
         {serviceName}

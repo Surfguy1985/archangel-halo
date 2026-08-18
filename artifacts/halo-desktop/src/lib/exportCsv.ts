@@ -1,7 +1,11 @@
 function escapeCell(value: unknown): string {
   if (value == null) return "";
-  const s = String(value);
-  if (/[",\n]/.test(s)) return`"${s.replace(/"/g, '""')}"`;
+  let s = String(value);
+  // Neutralize spreadsheet formula injection: prefix any cell that starts with
+  // a formula-trigger character with a single quote so Excel/Sheets treats it
+  // as literal text rather than a formula.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
