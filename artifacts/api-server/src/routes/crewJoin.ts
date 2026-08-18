@@ -24,11 +24,15 @@ import {
   crewJoinLinksTable,
   crewCheckinLinksTable,
   crewCheckinAuditTable,
+  crewLinkAcksTable,
 } from "@workspace/db";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { limits } from "../lib/rateLimit";
 import { crewJoinSchemaReady } from "../lib/ensureCrewJoinSchema";
+import { crewInstructionsPayload, normalizeInstructionsLang } from "../lib/crewInstructions";
+import { NO_ACK, buildCrewAckValues, INSTRUCTIONS_REQUIRED } from "../lib/crewLinkAck";
+import { crewAckSchemaReady } from "../lib/ensureCrewAckSchema";
 import {
   classifyCrewTokenShape,
   crewLinkHttpStatus,
@@ -355,11 +359,33 @@ router.get("/join/:token", limits.checkinView, async (req, res): Promise<void> =
   }
 });
 
+/**
+ * Instructions copy for the join gate. There is no crew row yet — the record
+ * is written when the code is claimed (see POST below), attributed to the crew
+ * the claim creates.
+ */
+router.get("/join/:token/instructions", limits.checkinView, async (req, res): Promise<void> => {
+  try {
+    await crewJoinSchemaReady();
+    const found = await loadJoinLink(param(req.params.token));
+    if ("err" in found) {
+      const status = found.err === "claimed" ? 409 : found.err === "malformed" ? 400 : 410;
+      res.status(found.err === "not_found" ? 404 : status).json({ error: found.err, code: found.err });
+      return;
+    }
+    res.json({ ...crewInstructionsPayload(), linkKind: "join", crewName: null, ack: NO_ACK });
+  } catch (err) {
+    logger.error({ err }, "crew-join: instructions read failed");
+    res.status(500).json({ error: "Could not open this code." });
+  }
+});
+
 // ─── Scanner: claim it with my name ──────────────────────────────────────────
 
 router.post("/join/:token", limits.checkinWrite, async (req, res): Promise<void> => {
   try {
     await crewJoinSchemaReady();
+    await crewAckSchemaReady();
     const body = (req.body ?? {}) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim().replace(/\s+/g, " ") : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
@@ -367,6 +393,18 @@ router.post("/join/:token", limits.checkinWrite, async (req, res): Promise<void>
       res.status(400).json({ error: "Enter your full name.", code: "name_required" });
       return;
     }
+
+    // The join page shows the instructions gate before the name form, so a
+    // claim always carries the acceptance. Anything else is a client that
+    // skipped the gate — send it back to the instructions, not to a form error.
+    if (body.instructionsAgreed !== true) {
+      res.status(428).json({
+        ...INSTRUCTIONS_REQUIRED,
+        error: "Read and agree to the crew instructions before you join.",
+      });
+      return;
+    }
+    const instructionsLang = normalizeInstructionsLang(body.instructionsLang);
 
     const found = await loadJoinLink(param(req.params.token));
     if ("err" in found) {
@@ -461,6 +499,21 @@ router.post("/join/:token", limits.checkinWrite, async (req, res): Promise<void>
           label: `${crew.name} — paycard (joined ${foreman.name}'s crew)`,
         })
         .returning({ id: crewCheckinLinksTable.id });
+
+      // The crew row and the proof that this person agreed to the instructions
+      // are created in the same transaction — a member can never exist without
+      // the acceptance that let them join.
+      await tx.insert(crewLinkAcksTable).values(
+        buildCrewAckValues({
+          crewId: crew.id,
+          crewName: crew.name,
+          linkKind: "join",
+          lang: instructionsLang,
+          linkId: link.id,
+          tokenPrefix: minted.tokenPrefix,
+          req,
+        }),
+      );
 
       return { raced: false as const, revoked: false as const, crew, linkId: link.id };
     });

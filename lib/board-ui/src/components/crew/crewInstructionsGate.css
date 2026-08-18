@@ -1,0 +1,297 @@
+/* Crew link instructions gate — full-screen, phone-first, dark like the paycard. */
+
+.halo-cig {
+  --cig-lime: #b4ff44;
+  --cig-ink: #f4f4f0;
+  --cig-dim: rgba(210, 224, 255, 0.6);
+  --cig-faint: rgba(210, 224, 255, 0.36);
+  --cig-line: rgba(170, 200, 255, 0.14);
+  --cig-red: #ff6a4d;
+
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(20px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  font-family: Outfit, "Plus Jakarta Sans", system-ui, sans-serif;
+  color: var(--cig-ink);
+  background:
+    radial-gradient(900px 420px at 50% -8%, rgba(180, 255, 68, 0.14), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(60, 110, 190, 0.12), transparent 60%),
+    #070d1a;
+}
+
+.halo-cig-card {
+  width: min(100%, 440px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px;
+  border: 1px solid var(--cig-line);
+  background: linear-gradient(180deg, rgba(20, 34, 56, 0.72), rgba(9, 17, 32, 0.88));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 30px 70px -30px rgba(0, 0, 0, 0.85);
+}
+
+.halo-cig-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 8px;
+  text-align: center;
+  color: var(--cig-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+.halo-cig-loading svg {
+  width: 26px;
+  height: 26px;
+  color: var(--cig-lime);
+}
+.halo-cig-loading p {
+  margin: 0;
+}
+
+.halo-cig-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.halo-cig-headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.halo-cig-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cig-lime);
+}
+.halo-cig-kicker svg {
+  width: 14px;
+  height: 14px;
+}
+.halo-cig-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cig-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cig-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.halo-cig-lang svg {
+  width: 14px;
+  height: 14px;
+  color: var(--cig-lime);
+}
+.halo-cig-card h1 {
+  margin: 0;
+  font-size: clamp(24px, 6.2vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+.halo-cig-who {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cig-lime);
+}
+.halo-cig-intro {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--cig-dim);
+}
+
+.halo-cig-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.halo-cig-list li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--cig-line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.halo-cig-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(180, 255, 68, 0.16);
+  color: var(--cig-lime);
+  font-size: 13px;
+  font-weight: 800;
+}
+.halo-cig-list strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.halo-cig-list p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.42;
+  color: var(--cig-dim);
+}
+
+.halo-cig-warn {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 106, 77, 0.4);
+  background: rgba(255, 106, 77, 0.1);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.42;
+  color: #ffd9cf;
+}
+.halo-cig-warn svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--cig-red);
+}
+
+.halo-cig-check {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--cig-ink);
+  cursor: pointer;
+}
+.halo-cig-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.halo-cig-box {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(180, 255, 68, 0.55);
+  background: rgba(180, 255, 68, 0.08);
+}
+.halo-cig-check input:checked + .halo-cig-box {
+  background: var(--cig-lime);
+  border-color: var(--cig-lime);
+}
+.halo-cig-box svg {
+  width: 17px;
+  height: 17px;
+  color: #07101e;
+  stroke-width: 3.4;
+}
+.halo-cig-check input:focus-visible + .halo-cig-box {
+  outline: 2px solid var(--cig-lime);
+  outline-offset: 2px;
+}
+
+.halo-cig-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cig-red);
+}
+.halo-cig-error svg {
+  width: 15px;
+  height: 15px;
+}
+
+.halo-cig-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 58px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--cig-lime);
+  color: #07101e;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 14px 34px -14px rgba(180, 255, 68, 0.8);
+}
+.halo-cig-cta svg {
+  width: 19px;
+  height: 19px;
+}
+.halo-cig-cta:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.halo-cig-cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.halo-cig-foot {
+  margin: 0;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--cig-faint);
+}
+
+.halo-cig .halo-spin {
+  animation: halo-cig-spin 900ms linear infinite;
+}
+@keyframes halo-cig-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

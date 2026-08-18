@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, HardHat, Loader2, UserPlus } from "lucide-react";
+import {
+  CrewInstructionsGate,
+  carryCrewInstructionsAck,
+  useCrewInstructionsGate,
+} from "../crew/CrewInstructionsGate";
 import "./haloCrewPaycard.css";
 
 type JoinInfo = { foreman: { name: string; trade: string | null }; expiresAt: string };
@@ -32,6 +37,11 @@ export function HaloCrewJoinPage({
   const [phone, setPhone] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [deadReason, setDeadReason] = useState("");
+  // The instructions come BEFORE the name form: nobody joins this crew
+  // without having read what getting paid requires. There is no crew row yet,
+  // so the acceptance rides along with the claim and is written with it.
+  const gate = useCrewInstructionsGate(token);
+  const agreedLang = useRef<"en" | "es">("en");
 
   const load = useCallback(async () => {
     setState("loading");
@@ -69,7 +79,12 @@ export function HaloCrewJoinPage({
       const res = await fetch(`/api/join/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: clean, phone: phone.trim() || undefined }),
+        body: JSON.stringify({
+          name: clean,
+          phone: phone.trim() || undefined,
+          instructionsAgreed: true,
+          instructionsLang: agreedLang.current,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         paycardUrl?: string;
@@ -88,6 +103,10 @@ export function HaloCrewJoinPage({
         return;
       }
       setState("done");
+      // The claim already recorded this member's acceptance, and the paycard
+      // we're about to open is the same visit — carry the gate state onto the
+      // new token so it doesn't ask again (or record a second acceptance).
+      carryCrewInstructionsAck(json.token);
       // Let the success frame land before handing over to the paycard.
       window.setTimeout(() => onJoined(json.token!, json.paycardUrl ?? ""), 1400);
     } catch {
@@ -98,6 +117,18 @@ export function HaloCrewJoinPage({
 
   return (
     <div className="halo-paypage">
+      {!gate.agreed && state !== "dead" && (
+        <CrewInstructionsGate
+          token={token}
+          surface="join"
+          recordOnAgree={false}
+          onAgreed={(lang) => {
+            agreedLang.current = lang;
+            gate.accept();
+          }}
+        />
+      )}
+
       {state === "loading" && (
         <div className="halo-paypage-card halo-paypage-centered" role="status" aria-live="polite">
           <Loader2 className="halo-spin halo-paypage-bigspin" aria-hidden="true" />

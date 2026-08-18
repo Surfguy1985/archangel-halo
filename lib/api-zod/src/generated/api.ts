@@ -179,7 +179,6 @@ export const GetQueuesResponse = zod.array(GetQueuesResponseItem)
  */
 
 
-
 export const DismissFeedItemBody = zod.object({
   "itemId": zod.string().min(1)
 })
@@ -192,7 +191,6 @@ export const DismissFeedItemResponse = zod.object({
 /**
  * @summary Ask HALO a natural-language question about the business
  */
-
 
 
 export const AskHaloBody = zod.object({
@@ -244,7 +242,6 @@ export const createPropertyBodyLatitudeMax = 90;
 
 export const createPropertyBodyLongitudeMin = -180;
 export const createPropertyBodyLongitudeMax = 180;
-
 
 
 export const CreatePropertyBody = zod.object({
@@ -492,7 +489,6 @@ export const updatePropertyBodyMarginTargetMin = 0;
 export const updatePropertyBodyMarginTargetMax = 1;
 
 
-
 export const UpdatePropertyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "pmcName": zod.string().optional(),
@@ -642,9 +638,6 @@ export const UploadPropertySopDocumentParams = zod.object({
 })
 
 
-
-
-
 export const UploadPropertySopDocumentBody = zod.object({
   "fileName": zod.string().min(1),
   "mediaType": zod.enum(['application/pdf', 'text/csv', 'text/plain', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
@@ -710,9 +703,6 @@ export const ListCatalogItemsResponseItem = zod.object({
 export const ListCatalogItemsResponse = zod.array(ListCatalogItemsResponseItem)
 
 
-
-
-
 export const CreateCatalogItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -734,8 +724,6 @@ export const CreateCatalogItemResponse = zod.object({
 export const UpdateCatalogItemParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateCatalogItemBody = zod.object({
@@ -771,8 +759,6 @@ export const DeleteCatalogItemResponse = zod.object({
 export const ImportPriceItemsParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const ImportPriceItemsBody = zod.object({
@@ -832,8 +818,6 @@ export const SavePriceSheetItemsParams = zod.object({
 export const savePriceSheetItemsBodyItemsItemRateMin = 0;
 
 
-
-
 export const SavePriceSheetItemsBody = zod.object({
   "items": zod.array(zod.object({
   "service": zod.string().min(1),
@@ -872,8 +856,6 @@ export const CreatePriceItemParams = zod.object({
 })
 
 
-
-
 export const CreatePriceItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -893,9 +875,6 @@ export const CreatePriceItemResponse = zod.object({
   "marginFloor": zod.number().nullish(),
   "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })
-
-
-
 
 
 export const CreateContactBody = zod.object({
@@ -921,8 +900,6 @@ export const CreateContactResponse = zod.object({
 export const UpdateContactParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateContactBody = zod.object({
@@ -956,8 +933,6 @@ export const DeleteContactResponse = zod.object({
 export const UpdatePriceItemParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdatePriceItemBody = zod.object({
@@ -1008,9 +983,6 @@ export const ListLeadsResponseItem = zod.object({
   "createdAt": zod.string().nullish()
 })
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
-
-
-
 
 
 export const CreateLeadBody = zod.object({
@@ -1215,10 +1187,6 @@ export const ListBidsResponseItem = zod.object({
 export const ListBidsResponse = zod.array(ListBidsResponseItem)
 
 
-
-
-
-
 export const CreateBidBody = zod.object({
   "propertyId": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1292,8 +1260,6 @@ export const GetBidResponse = zod.object({
 export const UpdateBidParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateBidBody = zod.object({
@@ -1450,7 +1416,6 @@ export const GetStaffingContextResponse = zod.array(GetStaffingContextResponseIt
  */
 
 export const quickCreateJobBodyPriceMin = 0;
-
 
 
 export const QuickCreateJobBody = zod.object({
@@ -1788,10 +1753,6 @@ export const ListJobsResponseItem = zod.object({
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
 
 
-
-
-
-
 export const CreateJobBody = zod.object({
   "propertyId": zod.string(),
   "woNo": zod.string().optional(),
@@ -2023,7 +1984,6 @@ export const updateJobBodyMarginPctMin = 0;
 export const updateJobBodyMarginPctMax = 1;
 
 export const updateJobBodyCrewRateMin = 0;
-
 
 
 export const UpdateJobBody = zod.object({
@@ -2828,7 +2788,6 @@ export const AddJobLineItemParams = zod.object({
 export const addJobLineItemBodyQtyMin = 0;
 
 
-
 export const AddJobLineItemBody = zod.object({
   "priceItemId": zod.string(),
   "qty": zod.number().min(addJobLineItemBodyQtyMin).optional()
@@ -2858,7 +2817,6 @@ export const UpdateJobLineItemParams = zod.object({
 })
 
 export const updateJobLineItemBodyQtyMin = 0;
-
 
 
 export const UpdateJobLineItemBody = zod.object({
@@ -3024,8 +2982,6 @@ export const AssignPhotosToJobParams = zod.object({
 })
 
 
-
-
 export const AssignPhotosToJobBody = zod.object({
   "items": zod.array(zod.object({
   "storagePath": zod.string(),
@@ -3157,7 +3113,12 @@ export const ListJobEventsResponseItem = zod.object({
 })
 export const ListJobEventsResponse = zod.array(ListJobEventsResponseItem)
 
-
+/**
+ * @summary Per-crew check-in/check-out/photo compliance and instructions acknowledgement for a job
+ */
+export const GetJobComplianceParams = zod.object({
+  "id": zod.coerce.string()
+})
 /**
  * @summary Create a public live-link recap page for a job and stamp recapSentAt
  */
@@ -3554,8 +3515,6 @@ export const AddWalkCaptureResponse = zod.object({
 export const AddWalkCaptureBatchParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const AddWalkCaptureBatchBody = zod.object({
@@ -4466,7 +4425,6 @@ export const DeleteCalendarEventResponse = zod.object({
  */
 
 
-
 export const ListCrewsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -4500,10 +4458,6 @@ export const ListCrewsResponseItem = zod.object({
 export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 
 
-
-
-
-
 export const CreateCrewBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -4525,8 +4479,6 @@ export const CreateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).optional()
 })
-
-
 
 
 export const CreateCrewResponse = zod.object({
@@ -4671,9 +4623,6 @@ export const UpdateCrewParams = zod.object({
 })
 
 
-
-
-
 export const UpdateCrewBody = zod.object({
   "name": zod.string().min(1).optional(),
   "trade": zod.string().optional(),
@@ -4697,8 +4646,6 @@ export const UpdateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).nullish()
 })
-
-
 
 
 export const UpdateCrewResponse = zod.object({
@@ -5047,7 +4994,6 @@ export const listBankTransactionsQueryDaysDefault = 30;
 export const listBankTransactionsQueryDaysMax = 90;
 
 
-
 export const ListBankTransactionsQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(listBankTransactionsQueryDaysMax).default(listBankTransactionsQueryDaysDefault)
 })
@@ -5071,7 +5017,6 @@ export const ListBankTransactionsResponse = zod.array(ListBankTransactionsRespon
  */
 export const getBankAnalysisQueryDaysDefault = 30;
 export const getBankAnalysisQueryDaysMax = 90;
-
 
 
 export const GetBankAnalysisQueryParams = zod.object({
@@ -5154,7 +5099,6 @@ export const applyBankAnalysisQueryDaysDefault = 30;
 export const applyBankAnalysisQueryDaysMax = 90;
 
 
-
 export const ApplyBankAnalysisQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(applyBankAnalysisQueryDaysMax).default(applyBankAnalysisQueryDaysDefault)
 })
@@ -5173,7 +5117,6 @@ export const ApplyBankAnalysisResponse = zod.object({
  */
 export const categorizeBankTransactionQueryDaysDefault = 30;
 export const categorizeBankTransactionQueryDaysMax = 90;
-
 
 
 export const CategorizeBankTransactionQueryParams = zod.object({
@@ -5892,9 +5835,6 @@ export const ListInventoryResponseItem = zod.object({
 export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
 
 
-
-
-
 export const CreateInventoryItemBody = zod.object({
   "name": zod.string().min(1),
   "qty": zod.number().optional(),
@@ -5955,9 +5895,6 @@ export const ListVendorsResponseItem = zod.object({
 export const ListVendorsResponse = zod.array(ListVendorsResponseItem)
 
 
-
-
-
 export const CreateVendorBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -5991,8 +5928,6 @@ export const CreateVendorResponse = zod.object({
 export const UpdateVendorParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateVendorBody = zod.object({
@@ -6137,7 +6072,6 @@ export const DeleteNotificationResponse = zod.void()
 export const listActivitiesQueryLimitMax = 200;
 
 
-
 export const ListActivitiesQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
   "entityId": zod.coerce.string().optional(),
@@ -6177,7 +6111,6 @@ export const CreateActivityResponse = zod.object({
 /**
  * @summary Parse a spoken transcript into structured, confirmable actions
  */
-
 
 
 export const ParseVoiceBody = zod.object({
@@ -6337,18 +6270,11 @@ export const ListImportHistoryResponse = zod.object({
  */
 
 
-
-
-
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().min(1),
   "contentType": zod.string().min(1)
 })
-
-
-
-
 
 
 export const RequestUploadUrlResponse = zod.object({
@@ -6388,8 +6314,6 @@ export const GetStorageObjectResponse = zod.unknown()
 export const GetCrewDetailParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const GetCrewDetailResponse = zod.object({
@@ -6441,7 +6365,16 @@ export const GetCrewDetailResponse = zod.object({
   "signature": zod.string().nullish(),
   "signedDate": zod.string().nullish(),
   "certified": zod.boolean().nullish()
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "instructionsAck": zod.union([zod.object({
+  "accepted": zod.boolean().describe('True when a non-expired acceptance is on record'),
+  "agreedAt": zod.string().nullish(),
+  "linkKind": zod.string().nullish().describe('paycard | portal | join | app'),
+  "lang": zod.string().nullish(),
+  "version": zod.string().nullish(),
+  "termsText": zod.string().nullish().describe('Snapshot of the wording the crew agreed to'),
+  "expiresAt": zod.string().nullish()
+}).describe('Most recent acceptance of the crew-link instructions gate, with the exact wording that was shown, so pay disputes can cite it.'),zod.null()]).optional()
 })
 
 
@@ -6481,8 +6414,6 @@ export const ListCrewMessagesResponse = zod.array(ListCrewMessagesResponseItem)
 export const SendCrewMessageParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const SendCrewMessageBody = zod.object({
@@ -6544,9 +6475,6 @@ export const ListCrewDocumentsResponse = zod.array(ListCrewDocumentsResponseItem
 export const SendCrewDocumentParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
-
 
 
 export const SendCrewDocumentBody = zod.object({
@@ -6700,8 +6628,6 @@ export const UpdateCrewPaymentMethodBody = zod.object({
 })
 
 
-
-
 export const UpdateCrewPaymentMethodResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -6751,7 +6677,16 @@ export const UpdateCrewPaymentMethodResponse = zod.object({
   "signature": zod.string().nullish(),
   "signedDate": zod.string().nullish(),
   "certified": zod.boolean().nullish()
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "instructionsAck": zod.union([zod.object({
+  "accepted": zod.boolean().describe('True when a non-expired acceptance is on record'),
+  "agreedAt": zod.string().nullish(),
+  "linkKind": zod.string().nullish().describe('paycard | portal | join | app'),
+  "lang": zod.string().nullish(),
+  "version": zod.string().nullish(),
+  "termsText": zod.string().nullish().describe('Snapshot of the wording the crew agreed to'),
+  "expiresAt": zod.string().nullish()
+}).describe('Most recent acceptance of the crew-link instructions gate, with the exact wording that was shown, so pay disputes can cite it.'),zod.null()]).optional()
 })
 
 
@@ -6969,8 +6904,6 @@ export const SendPortalMessageParams = zod.object({
 })
 
 
-
-
 export const SendPortalMessageBody = zod.object({
   "body": zod.string().min(1)
 })
@@ -7111,8 +7044,6 @@ export const UpdateCrewAccessBody = zod.object({
   "jobScope": zod.enum(['all', 'selected']),
   "jobIds": zod.array(zod.string()).optional()
 })
-
-
 
 
 export const UpdateCrewAccessResponse = zod.object({
@@ -7276,9 +7207,6 @@ export const ListPortalDocumentsResponse = zod.array(ListPortalDocumentsResponse
 export const UploadPortalDocumentParams = zod.object({
   "token": zod.coerce.string()
 })
-
-
-
 
 
 export const UploadPortalDocumentBody = zod.object({
@@ -9420,7 +9348,6 @@ export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponse
  */
 
 
-
 export const CreatePaymentRequestBody = zod.object({
   "propertyId": zod.string(),
   "jobIds": zod.array(zod.string()),
@@ -9848,7 +9775,6 @@ export const ListCrewPayoutsResponse = zod.array(ListCrewPayoutsResponseItem)
 export const createCrewPayoutBodyAmountExclusiveMin = 0;
 
 
-
 export const CreateCrewPayoutBody = zod.object({
   "crewId": zod.string(),
   "jobId": zod.string(),
@@ -9898,8 +9824,6 @@ export const GetPayoutQueueResponse = zod.array(GetPayoutQueueResponseItem)
  * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
  */
 export const createCrewPayoutBatchBodyItemsItemAmountExclusiveMin = 0;
-
-
 
 
 export const CreateCrewPayoutBatchBody = zod.object({
@@ -10011,7 +9935,6 @@ export const submitPortalBankBodyRoutingNumberMin = 9;
 export const submitPortalBankBodyRoutingNumberMax = 9;
 
 export const submitPortalBankBodyAccountNumberMin = 4;
-
 
 
 export const SubmitPortalBankBody = zod.object({
@@ -10411,7 +10334,6 @@ export const UpsertClientAccountParams = zod.object({
 export const upsertClientAccountBodyBillingDayMax = 28;
 
 export const upsertClientAccountBodyPaymentMethodOneLast4Max = 4;
-
 
 
 export const UpsertClientAccountBody = zod.object({
@@ -11486,7 +11408,6 @@ export const SetupClientAccessParams = zod.object({
 export const setupClientAccessBodyPasswordMin = 8;
 
 
-
 export const SetupClientAccessBody = zod.object({
   "name": zod.string(),
   "email": zod.string(),
@@ -11556,7 +11477,6 @@ export const UpdateClientAccessUserParams = zod.object({
 })
 
 export const updateClientAccessUserBodyNewPasswordMin = 8;
-
 
 
 export const UpdateClientAccessUserBody = zod.object({
@@ -11842,7 +11762,6 @@ export const UpdateClientBillingParams = zod.object({
 })
 
 export const updateClientBillingBodyBillingDayMax = 28;
-
 
 
 export const UpdateClientBillingBody = zod.object({
@@ -12947,7 +12866,6 @@ export const CreateClientBoardAiCardParams = zod.object({
 })
 
 export const createClientBoardAiCardBodyPromptMax = 600;
-
 
 
 export const CreateClientBoardAiCardBody = zod.object({
@@ -14073,7 +13991,6 @@ export const ConciergeChatParams = zod.object({
 })
 
 export const conciergeChatBodyMessageMax = 2000;
-
 
 
 export const ConciergeChatBody = zod.object({
@@ -15853,8 +15770,6 @@ export const AddScopeLineHeader = zod.object({
 })
 
 
-
-
 export const AddScopeLineBody = zod.object({
   "description": zod.string(),
   "code": zod.string().nullish(),
@@ -16096,8 +16011,6 @@ export const CounterVarianceRequestHeader = zod.object({
 })
 
 
-
-
 export const CounterVarianceRequestBody = zod.object({
   "unitPriceCents": zod.string(),
   "qty": zod.number().min(1).optional(),
@@ -16188,8 +16101,6 @@ export const InviteBidVendorsHeader = zod.object({
 })
 
 
-
-
 export const InviteBidVendorsBody = zod.object({
   "vendorOrgIds": zod.array(zod.string()).min(1)
 })
@@ -16215,7 +16126,6 @@ export const SubmitVendorBidHeader = zod.object({
 })
 
 export const submitVendorBidBodyLinesItemUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
-
 
 
 export const SubmitVendorBidBody = zod.object({
@@ -16475,8 +16385,6 @@ export const AddClientScopeLineHeader = zod.object({
 })
 
 
-
-
 export const AddClientScopeLineBody = zod.object({
   "description": zod.string(),
   "code": zod.string().nullish(),
@@ -16723,8 +16631,6 @@ export const CounterClientVarianceRequestHeader = zod.object({
 })
 
 
-
-
 export const CounterClientVarianceRequestBody = zod.object({
   "unitPriceCents": zod.string(),
   "qty": zod.number().min(1).optional(),
@@ -16818,8 +16724,6 @@ export const InviteClientBidVendorsHeader = zod.object({
 })
 
 
-
-
 export const InviteClientBidVendorsBody = zod.object({
   "vendorOrgIds": zod.array(zod.string()).min(1)
 })
@@ -16846,7 +16750,6 @@ export const SubmitClientVendorBidHeader = zod.object({
 })
 
 export const submitClientVendorBidBodyLinesItemUnitPriceCentsRegExp = new RegExp('^-?[0-9]+$');
-
 
 
 export const SubmitClientVendorBidBody = zod.object({
@@ -17271,4 +17174,22 @@ export const SubmitClientTurnInvoiceToEntrataResponse = zod.object({
   "sidecarPath": zod.string()
 })
 
-
+export const GetJobComplianceResponse = zod.object({
+  "jobId": zod.string(),
+  "needsReview": zod.boolean(),
+  "crews": zod.array(zod.object({
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "checkedIn": zod.boolean(),
+  "checkedOut": zod.boolean(),
+  "checkedInAt": zod.string().nullish(),
+  "checkedOutAt": zod.string().nullish(),
+  "beforePhotos": zod.number(),
+  "afterPhotos": zod.number(),
+  "acknowledged": zod.boolean(),
+  "acknowledgedAt": zod.string().nullish(),
+  "acknowledgedVia": zod.string().nullish(),
+  "needsReview": zod.boolean(),
+  "missing": zod.array(zod.string()).describe('Human-readable list of what is missing, e.g. \'check-out\', \'after photos\'')
+}).describe('Whether a crew met the acknowledged requirements on a job — used by the office to decide whether pay needs supervisor review.'))
+})

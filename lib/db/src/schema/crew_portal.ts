@@ -164,6 +164,42 @@ export const crewInvoiceItemsTable = pgTable("crew_invoice_items", {
   sortOrder: doublePrecision("sort_order").notNull().default(0),
 });
 
+/**
+ * Append-only record of a crew member accepting the crew-link instructions
+ * gate (the umbrella "check in, check out, before/after photos or your pay may
+ * be delayed" requirement shown on every crew QR link).
+ *
+ * One row per acceptance — NOT one per crew. A supervisor reviewing pay needs
+ * to see who agreed, when, through which link, and the exact wording they were
+ * shown, so `termsText` is a snapshot: re-wording the gate later must never
+ * rewrite what an earlier crew agreed to.
+ *
+ * `linkKind` is 'paycard' | 'portal' | 'join' | 'app'. Acceptance is always
+ * attributed through the token's crew — a crew id from the client is never
+ * trusted, because crew links are unauthenticated bearer tokens.
+ */
+export const crewLinkAcksTable = pgTable(
+  "crew_link_acknowledgements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crewId: uuid("crew_id").notNull(),
+    linkKind: text("link_kind").notNull(),
+    // crew_checkin_links.id / crew_join_links.id when the surface has one.
+    linkId: uuid("link_id"),
+    tokenPrefix: text("token_prefix"),
+    lang: text("lang").notNull().default("en"),
+    version: text("version").notNull(),
+    termsText: text("terms_text").notNull(),
+    agreedAt: timestamp("agreed_at", { withTimezone: true }).notNull().defaultNow(),
+    agreedBy: text("agreed_by").notNull(),
+    ipHash: text("ip_hash"),
+    userAgent: text("user_agent"),
+  },
+  (t) => [index("crew_link_acks_crew_agreed_idx").on(t.crewId, t.agreedAt)],
+);
+
+export type CrewLinkAck = typeof crewLinkAcksTable.$inferSelect;
+
 export type CrewPhoto = typeof crewPhotosTable.$inferSelect;
 export type PhotoShare = typeof photoSharesTable.$inferSelect;
 export type CrewMessage = typeof crewMessagesTable.$inferSelect;

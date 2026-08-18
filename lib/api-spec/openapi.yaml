@@ -1864,6 +1864,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/compliance:
+    get:
+      operationId: getJobCompliance
+      tags: [jobs]
+      summary: Per-crew check-in/check-out/photo compliance and instructions acknowledgement for a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Compliance view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobComplianceView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/recap/share:
     post:
       operationId: createRecapShare
@@ -17084,6 +17108,57 @@ components:
           oneOf:
             - $ref: "#/components/schemas/W9Data"
             - type: "null"
+        instructionsAck:
+          oneOf:
+            - $ref: "#/components/schemas/CrewInstructionsAck"
+            - type: "null"
+    CrewInstructionsAck:
+      type: object
+      description: >-
+        Most recent acceptance of the crew-link instructions gate, with the exact
+        wording that was shown, so pay disputes can cite it.
+      required: [accepted]
+      properties:
+        accepted: { type: boolean, description: "True when a non-expired acceptance is on record" }
+        agreedAt: { type: ["string", "null"] }
+        linkKind: { type: ["string", "null"], description: "paycard | portal | join | app" }
+        lang: { type: ["string", "null"] }
+        version: { type: ["string", "null"] }
+        termsText: { type: ["string", "null"], description: "Snapshot of the wording the crew agreed to" }
+        expiresAt: { type: ["string", "null"] }
+    CrewJobCompliance:
+      type: object
+      description: >-
+        Whether a crew met the acknowledged requirements on a job — used by the
+        office to decide whether pay needs supervisor review.
+      required: [crewId, crewName, checkedIn, checkedOut, beforePhotos, afterPhotos, acknowledged, needsReview, missing]
+      properties:
+        crewId: { type: string }
+        crewName: { type: string }
+        checkedIn: { type: boolean }
+        checkedOut: { type: boolean }
+        checkedInAt: { type: ["string", "null"] }
+        checkedOutAt: { type: ["string", "null"] }
+        beforePhotos: { type: integer }
+        afterPhotos: { type: integer }
+        acknowledged: { type: boolean }
+        acknowledgedAt: { type: ["string", "null"] }
+        acknowledgedVia: { type: ["string", "null"] }
+        needsReview: { type: boolean }
+        missing:
+          type: array
+          items: { type: string }
+          description: "Human-readable list of what is missing, e.g. 'check-out', 'after photos'"
+    JobComplianceView:
+      type: object
+      required: [jobId, needsReview, crews]
+      properties:
+        jobId: { type: string }
+        needsReview: { type: boolean }
+        crews:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewJobCompliance"
     CrewPortalLink:
       type: object
       required: [token, path]
@@ -21528,6 +21603,3 @@ components:
           enum: [csv, api]
         pdfPath: { type: string }
         sidecarPath: { type: string }
-
-
-

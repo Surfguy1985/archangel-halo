@@ -55,6 +55,17 @@ import {
   getJobChecklistType,
   type JobChecklistType,
 } from "../lib/jobChecklists";
+import {
+  crewInstructionsPayload,
+  normalizeCrewLinkKind,
+  normalizeInstructionsLang,
+} from "../lib/crewInstructions";
+import {
+  crewAckState,
+  hasCurrentCrewAck,
+  recordCrewAck,
+  INSTRUCTIONS_REQUIRED,
+} from "../lib/crewLinkAck";
 import { seedChecklist, jobShortLabel } from "./dispatchBoard";
 import { isUniqueViolation } from "../lib/dbErrors";
 import { sendExpoPush } from "../lib/pushNotification";
@@ -1394,6 +1405,12 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
   }
   const body = CreatePortalCheckinBody.parse(req.body);
   const kind = body.kind === "checkout" ? "checkout" : "checkin";
+  // Instructions gate — check-in only. Checkout is never blocked: a crew who
+  // is already on the clock must always be able to close the session out.
+  if (kind === "checkin" && !(await hasCurrentCrewAck(crew.id))) {
+    res.status(428).json(INSTRUCTIONS_REQUIRED);
+    return;
+  }
   if (body.jobId) {
     const owned = await jobBelongsToCrew(body.jobId, crew.id);
     if (!owned) {
@@ -2142,6 +2159,49 @@ router.put("/portal/:token/w9", async (req, res): Promise<void> => {
       data: body,
     }),
   );
+});
+
+// ─── Crew instructions gate ──────────────────────────────────────────────────
+//
+// The umbrella requirement shown on EVERY crew link before the working
+// surface. Separate from (and in front of) the portal agreement, the per-job
+// payout agreement and the per-checklist agreements — none of those change.
+// Raw JSON, like the /checkin/ and /join/ instruction endpoints, so all three
+// crew surfaces can share one gate component.
+
+router.get("/portal/:token/instructions", async (req, res): Promise<void> => {
+  const token = String(req.params.token ?? "");
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  res.json({
+    ...crewInstructionsPayload(),
+    linkKind: "portal",
+    crewName: crew.name,
+    ack: await crewAckState(crew.id),
+  });
+});
+
+router.post("/portal/:token/instructions", async (req, res): Promise<void> => {
+  const token = String(req.params.token ?? "");
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const lang = normalizeInstructionsLang((req.body as { lang?: unknown } | undefined)?.lang);
+  // The crew comes from the token, never from the body — portal links are
+  // unauthenticated bearer tokens.
+  const ack = await recordCrewAck({
+    crewId: crew.id,
+    crewName: crew.name,
+    linkKind: normalizeCrewLinkKind((req.body as { linkKind?: unknown } | undefined)?.linkKind),
+    lang,
+    req,
+  });
+  res.status(201).json({ ok: true, agreedAt: ack.agreedAt.toISOString(), lang: ack.lang });
 });
 
 router.post("/portal/:token/agreement", async (req, res): Promise<void> => {

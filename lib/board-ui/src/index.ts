@@ -44,6 +44,18 @@ export type { CrewPin, CrewPinStatus } from './components/map/crewPin';
 export { CrewQrCode } from './components/crew/CrewQrCode';
 export type { CrewQrCodeProps } from './components/crew/CrewQrCode';
 export {
+  CrewInstructionsGate,
+  useCrewInstructionsGate,
+  carryCrewInstructionsAck,
+  requireCrewInstructions,
+  isInstructionsRequired,
+} from './components/crew/CrewInstructionsGate';
+export type {
+  CrewInstructionsGateProps,
+  CrewInstructionsCopy,
+  CrewLinkSurface,
+} from './components/crew/CrewInstructionsGate';
+export {
   crewPortalUrl,
   crewCheckinUrl,
   crewJoinUrl,

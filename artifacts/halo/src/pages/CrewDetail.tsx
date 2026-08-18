@@ -50,6 +50,7 @@ import {
   Share2,
   Receipt,
   Pencil,
+  ShieldCheck,
 } from "lucide-react";
 import { EditCrewSheet } from "@/components/EditCrewSheet";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +66,21 @@ function paymentTermsLabel(v?: string | null): string {
   }
 }
 
+/** Which crew link the instructions were agreed to on. */
+function linkKindLabel(kind?: string | null): string {
+  switch (kind) {
+    case "paycard":
+      return "paycard QR";
+    case "portal":
+      return "crew portal";
+    case "join":
+      return "foreman join link";
+    case "app":
+      return "crew app";
+    default:
+      return "crew link";
+  }
+}
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleString("en-US", {
@@ -708,6 +724,42 @@ export default function CrewDetail() {
         ) : (
           <div className="text-[12.5px] text-muted-foreground">
             Crew hasn't set a payment method yet.
+          </div>
+        )}
+      </div>
+
+      {/* Crew-link instructions acknowledgement — the proof cited when pay is questioned */}
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px]">
+        <div className={sectionTitle}>
+          <ShieldCheck className="w-[13px] h-[13px]" /> Crew Requirements
+        </div>
+        {crew.instructionsAck?.accepted ? (
+          <div className="text-[13px]">
+            <div className="flex items-center gap-[6px] text-[var(--green,#3c7a4e)]">
+              <Check className="w-[15px] h-[15px]" />
+              <span className="font-semibold">
+                Agreed {formatWhen(crew.instructionsAck.agreedAt)}
+              </span>
+            </div>
+            <div className="text-[12px] text-muted-foreground mt-[4px]">
+              Via {linkKindLabel(crew.instructionsAck.linkKind)}
+              {crew.instructionsAck.lang === "es" ? " · Spanish" : ""}
+              {crew.instructionsAck.version ? ` · ${crew.instructionsAck.version}` : ""}
+            </div>
+            {crew.instructionsAck.termsText && (
+              <details className="mt-[8px]">
+                <summary className="text-[12px] font-semibold cursor-pointer">
+                  What they agreed to
+                </summary>
+                <pre className="mt-[6px] whitespace-pre-wrap text-[11.5px] leading-[1.5] text-muted-foreground">
+                  {crew.instructionsAck.termsText}
+                </pre>
+              </details>
+            )}
+          </div>
+        ) : (
+          <div className="text-[12.5px] text-muted-foreground">
+            Hasn't agreed to the check-in, check-out and photo requirements yet.
           </div>
         )}
       </div>

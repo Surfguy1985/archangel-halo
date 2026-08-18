@@ -17,6 +17,7 @@ import { ensureCrewJoinSchema } from "./lib/ensureCrewJoinSchema";
 import { ensureCrewCompanySchema } from "./lib/ensureCrewCompanySchema";
 import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
+import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
 
 const rawPort = process.env["PORT"];
 

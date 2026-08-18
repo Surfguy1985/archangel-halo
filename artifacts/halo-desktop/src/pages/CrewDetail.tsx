@@ -96,6 +96,21 @@ function paymentTermsLabel(v?: string | null): string {
   }
 }
 
+/** Which crew link the instructions were agreed to on. */
+function linkKindLabel(kind?: string | null): string {
+  switch (kind) {
+    case "paycard":
+      return "paycard QR";
+    case "portal":
+      return "crew portal";
+    case "join":
+      return "foreman join link";
+    case "app":
+      return "crew app";
+    default:
+      return "crew link";
+  }
+}
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleString("en-US", {
@@ -1232,6 +1247,36 @@ export default function CrewDetail() {
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Terms</div>
                 <div className="text-sm font-bold text-[var(--ink)]">{paymentTermsLabel(crew.paymentTerms)}</div>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Crew Requirements</div>
+                {crew.instructionsAck?.accepted ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-semibold">
+                      <Check className="w-3.5 h-3.5" /> Agreed {formatWhen(crew.instructionsAck.agreedAt)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Via {linkKindLabel(crew.instructionsAck.linkKind)}
+                      {crew.instructionsAck.lang === "es" ? " · Spanish" : ""}
+                      {crew.instructionsAck.version ? ` · ${crew.instructionsAck.version}` : ""}
+                    </div>
+                    {crew.instructionsAck.termsText && (
+                      <details>
+                        <summary className="text-[11px] font-semibold cursor-pointer text-[var(--ink)]">
+                          What they agreed to
+                        </summary>
+                        <pre className="mt-1 whitespace-pre-wrap text-[10.5px] leading-[1.5] text-muted-foreground max-h-48 overflow-auto">
+                          {crew.instructionsAck.termsText}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">
+                    Check-in / photo requirements not acknowledged
+                  </div>
+                )}
               </div>
 
               <div>

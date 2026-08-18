@@ -142,6 +142,7 @@
 - [HALO shared crew map pins](halo-crew-map-pins.md) — all six maps share one board-ui pin fed by per-surface adapters; contractor label resolved server-side, crews.company null = in-house.
 - [HALO vendors module](halo-vendors-module.md) — vendors reach jobs only via POs; averages are null-means-no-data; exactly one in-house row (partial unique index, blocks startup).
 - [HALO crew link shapes](halo-crew-links.md) — portal/checkin/join are always `<origin>/<kind>/<token>`; never BASE_URL, never /halo-crew/ (Expo path dies in prod).
+- [HALO crew instructions gate](halo-crew-instructions-gate.md) — every crew link opens on the agree gate; server owns the wording, crew comes from the token, per-visit not per-crew, check-in refuses with 428.
 - [HALO structured answers](halo-structured-answers.md) — Command answers are headline+capped bullets+separate speech field; caps are enforced server-side, not just requested in the prompt.
 - [HALO job priority ordering](halo-job-priority-ordering.md) — job ordering is ascending/lower-first per the client-board precedent; today's feed applies it within a tier, never across tiers.
 - [Schema changes without drizzle push](halo-drizzle-push-bigint.md) — push is broken repo-wide; ship column adds as boot-time ensure DDL, awaited before listen when the column gates reads.

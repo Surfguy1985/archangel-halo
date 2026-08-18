@@ -260,6 +260,7 @@ import type {
   InvoiceStatusInput,
   Job,
   JobBoardCard,
+  JobComplianceView,
   JobDetail,
   JobEvent,
   JobInput,
@@ -6309,6 +6310,83 @@ export function useListJobEvents<TData = Awaited<ReturnType<typeof listJobEvents
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListJobEventsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetJobComplianceUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/compliance`
+}
+
+/**
+ * @summary Per-crew check-in/check-out/photo compliance and instructions acknowledgement for a job
+ */
+export const getJobCompliance = async (id: string, options?: RequestInit): Promise<JobComplianceView> => {
+
+  return customFetch<JobComplianceView>(getGetJobComplianceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobComplianceQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/compliance`
+    ] as const;
+    }
+
+
+export const getGetJobComplianceQueryOptions = <TData = Awaited<ReturnType<typeof getJobCompliance>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobCompliance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobComplianceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobCompliance>>> = ({ signal }) => getJobCompliance(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobCompliance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobComplianceQueryResult = NonNullable<Awaited<ReturnType<typeof getJobCompliance>>>
+export type GetJobComplianceQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Per-crew check-in/check-out/photo compliance and instructions acknowledgement for a job
+ */
+
+export function useGetJobCompliance<TData = Awaited<ReturnType<typeof getJobCompliance>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobCompliance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobComplianceQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

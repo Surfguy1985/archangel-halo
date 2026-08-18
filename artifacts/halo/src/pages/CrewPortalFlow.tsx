@@ -39,7 +39,12 @@ import {
   type PortalScheduleItemDispatchChecklistItem,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
-import { prepareFieldPhoto, describeUploadFailure } from "@workspace/board-ui";
+import {
+  prepareFieldPhoto,
+  describeUploadFailure,
+  isInstructionsRequired,
+  requireCrewInstructions,
+} from "@workspace/board-ui";
 import {
   Camera,
   Check,
@@ -869,6 +874,9 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
         },
         onError: (e) => {
           setBusy(null);
+          // Server says the instructions were never agreed to on this visit —
+          // put the gate back up instead of showing a save error.
+          if (isInstructionsRequired(e)) { requireCrewInstructions(token); return; }
           const data = (e as { data?: { code?: string; error?: string } | null })?.data;
           if (data?.code === "duplicate_punch") { setNotice(t.alreadyIn); refresh(); return; }
           setErr(data?.error ?? t.saveErr);

@@ -27,6 +27,7 @@ import {
   getListPortalPhotosQueryKey,
 } from '@workspace/api-client-react';
 import type { PortalJob } from '@workspace/api-client-react';
+import { clearInstructionsAck, isInstructionsRequired } from '@/constants/crewInstructions';
 
 // ─── GPS badge ────────────────────────────────────────────────────────────────
 
@@ -486,8 +487,14 @@ export default function JobScreen() {
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await refetchJobs();
-    } catch {
+    } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // The server refuses a check-in with no current acknowledgement on
+      // record — send the crew to the instructions, not a dead button.
+      if (isInstructionsRequired(err)) {
+        clearInstructionsAck();
+        router.push({ pathname: '/onboarding/instructions', params: { next: '/(tabs)' } });
+      }
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CrewAvailability } from './crewAvailability';
+import type { CrewInstructionsAck } from './crewInstructionsAck';
 import type { CrewService } from './crewService';
 import type { W9Data } from './w9Data';
 
@@ -51,4 +52,5 @@ export interface CrewDetail {
   /** @nullable */
   w9SubmittedAt?: string | null;
   w9?: W9Data | null;
+  instructionsAck?: CrewInstructionsAck | null;
 }

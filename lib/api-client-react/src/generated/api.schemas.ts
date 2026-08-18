@@ -4983,6 +4983,31 @@ export interface W9Response {
   data?: W9Data | null;
 }
 
+/**
+ * Most recent acceptance of the crew-link instructions gate, with the exact wording that was shown, so pay disputes can cite it.
+ */
+export interface CrewInstructionsAck {
+  /** True when a non-expired acceptance is on record */
+  accepted: boolean;
+  /** @nullable */
+  agreedAt?: string | null;
+  /**
+     * paycard | portal | join | app
+     * @nullable
+     */
+  linkKind?: string | null;
+  /** @nullable */
+  lang?: string | null;
+  /** @nullable */
+  version?: string | null;
+  /**
+     * Snapshot of the wording the crew agreed to
+     * @nullable
+     */
+  termsText?: string | null;
+  /** @nullable */
+  expiresAt?: string | null;
+}
 export interface CrewDetail {
   id: string;
   name: string;
@@ -5025,8 +5050,32 @@ export interface CrewDetail {
   /** @nullable */
   w9SubmittedAt?: string | null;
   w9?: W9Data | null;
+  instructionsAck?: CrewInstructionsAck | null;
 }
 
+/**
+ * Whether a crew met the acknowledged requirements on a job — used by the office to decide whether pay needs supervisor review.
+ */
+export interface CrewJobCompliance {
+  crewId: string;
+  crewName: string;
+  checkedIn: boolean;
+  checkedOut: boolean;
+  /** @nullable */
+  checkedInAt?: string | null;
+  /** @nullable */
+  checkedOutAt?: string | null;
+  beforePhotos: number;
+  afterPhotos: number;
+  acknowledged: boolean;
+  /** @nullable */
+  acknowledgedAt?: string | null;
+  /** @nullable */
+  acknowledgedVia?: string | null;
+  needsReview: boolean;
+  /** Human-readable list of what is missing, e.g. 'check-out', 'after photos' */
+  missing: string[];
+}
 export interface CrewPortalLink {
   token: string;
   /** Relative portal path, e.g. /portal/<token> */
@@ -9784,3 +9833,8 @@ export const ExportClientTurnInvoiceFormat = {
   json: 'json',
 } as const;
 
+export interface JobComplianceView {
+  jobId: string;
+  needsReview: boolean;
+  crews: CrewJobCompliance[];
+}

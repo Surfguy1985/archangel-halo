@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { prepareFieldPhoto } from "../../lib/photoPrep";
+import {
+  CrewInstructionsGate,
+  isInstructionsRequired,
+  requireCrewInstructions,
+  useCrewInstructionsGate,
+} from "../crew/CrewInstructionsGate";
 import "./haloCrewPaycard.css";
 
 type PhotoItem = { id: string; phase: string | null; url: string; takenOn?: string };
@@ -142,6 +148,9 @@ function payClock(
 }
 
 export function HaloCrewPaycardPage({ token }: { token: string }) {
+  // The printed QR opens here, so the instructions gate covers the card until
+  // it is agreed to on this visit.
+  const gate = useCrewInstructionsGate(token);
   const [state, setState] = useState<PageState>("loading");
   const [data, setData] = useState<PayData | null>(null);
   const [unit, setUnit] = useState("");
@@ -262,6 +271,12 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
       setDoneMsg("You're on the map. Take before and after photos, then check out to get paid.");
       await reload();
     } catch (err: unknown) {
+      // The server refuses a check-in without a current acceptance. Put the
+      // crew back on the instructions page instead of showing a raw failure.
+      if (isInstructionsRequired((err as { status?: number; body?: { code?: string } })?.body ?? err)) {
+        requireCrewInstructions(token);
+        return;
+      }
       setErrorMsg(describeError(err, "Check-in didn't go through. Try again."));
     } finally {
       setPending(null);
@@ -492,8 +507,15 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
   const openInvites = (team?.invites ?? []).filter((i) => !i.claimedAt && !i.expired);
   const joinedInvites = (team?.invites ?? []).filter((i) => i.claimedAt).slice(0, 6);
 
+  // A dead link shows its own copy — don't cover it with the gate.
+  const linkDead = state === "expired" || (state === "error" && !data);
+
   return (
     <div className="halo-paypage">
+      {!gate.agreed && !linkDead && (
+        <CrewInstructionsGate token={token} surface="paycard" onAgreed={() => gate.accept()} />
+      )}
+
       {state === "loading" && (
         <div className="halo-paypage-card halo-paypage-centered" role="status" aria-live="polite">
           <Loader2 className="halo-spin halo-paypage-bigspin" aria-hidden="true" />

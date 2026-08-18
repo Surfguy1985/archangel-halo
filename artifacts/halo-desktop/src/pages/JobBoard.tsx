@@ -13,6 +13,8 @@ import {
   usePayJobCrewMember,
   useCreateExpense,
   useClearJobCrewPay,
+  useGetJobCompliance,
+  getGetJobComplianceQueryKey,
   useRecordPayment,
   useRequestUploadUrl,
   useListCrews,
@@ -72,6 +74,7 @@ import {
   HelpCircle,
   X,
   FolderOpen,
+  AlertTriangle,
 } from "lucide-react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { ScanCheckDialog } from "@/components/ScanCheckDialog";
@@ -1565,6 +1568,12 @@ function PaymentFlowDialog({
   const requestUpload = useRequestUploadUrl();
   const payCrew = usePayJobCrewMember();
   const clearPay = useClearJobCrewPay();
+  // Did the crew do what the instructions gate told them pay depends on?
+  // This is where "payment may be delayed until reviewed by a supervisor"
+  // actually lands — it informs the office, it never blocks the payment.
+  const { data: compliance } = useGetJobCompliance(job.id, {
+    query: { queryKey: getGetJobComplianceQueryKey(job.id), enabled: open },
+  });
 
   const [amount, setAmount] = useState("");
   const [checkNumber, setCheckNumber] = useState("");
@@ -1745,6 +1754,44 @@ function PaymentFlowDialog({
           <p className="text-sm font-bold text-[var(--ink)] flex items-center gap-2">
             <Users className="w-4 h-4" /> Crew payments
           </p>
+          {compliance && compliance.crews.length === 0 && (
+            <div
+              className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900 flex items-center gap-2"
+              data-testid="job-compliance-panel"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Needs supervisor review before pay — nobody is on record as having worked this job.
+            </div>
+          )}
+          {compliance && compliance.crews.length > 0 && (
+            <div
+              className={`rounded-xl border p-3 text-xs space-y-1.5 ${
+                compliance.needsReview
+                  ? "bg-amber-50 border-amber-300 text-amber-900"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-800"
+              }`}
+              data-testid="job-compliance-panel"
+            >
+              <div className="flex items-center gap-2 font-bold">
+                {compliance.needsReview ? (
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                )}
+                {compliance.needsReview
+                  ? "Needs supervisor review before pay"
+                  : "Check-ins, check-outs and photos all on record"}
+              </div>
+              {compliance.crews.map((c) => (
+                <div key={c.crewId} className="flex items-start gap-2">
+                  <span className="font-semibold min-w-[90px] truncate">{c.crewName}</span>
+                  <span className="flex-1">
+                    {c.needsReview ? `Missing ${c.missing.join(", ")}` : "Complete"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {roster.length === 0 && (
             <p className="text-sm text-muted-foreground">No crew assigned to this job yet.</p>
           )}

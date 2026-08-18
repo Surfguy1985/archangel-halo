@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  CrewInstructionsGate,
+  isInstructionsRequired,
+  requireCrewInstructions,
+  useCrewInstructionsGate,
+} from "@workspace/board-ui";
+import {
   useGetPortal,
   useListPortalMessages,
   useSendPortalMessage,
@@ -222,6 +228,10 @@ export default function CrewPortal() {
   const [kitDone, setKitDone] = useState<boolean>(
     () => sessionStorage.getItem(`kitDone:${token}`) === "1",
   );
+  // Umbrella instructions gate — in FRONT of the first-run training/agreement/
+  // welcome-kit/selfie sequence, and on every fresh open of the link (not just
+  // the first time this crew ever used the portal).
+  const instructions = useCrewInstructionsGate(token);
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token, {
@@ -320,6 +330,15 @@ export default function CrewPortal() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* ── Instructions gate — first thing on every fresh open ───── */}
+      {!instructions.agreed && (
+        <CrewInstructionsGate
+          token={token}
+          surface="portal"
+          onAgreed={() => instructions.accept()}
+        />
+      )}
+
       {/* ── Card-flow portal (full screen) ────────────────────────── */}
       <CrewPortalFlow
         token={token}
@@ -2521,6 +2540,10 @@ function MyJobsTab({
         },
         onError: (e) => {
           setBusy(null);
+          if (isInstructionsRequired(e)) {
+            requireCrewInstructions(token);
+            return;
+          }
           const data = (e as { data?: { code?: string; error?: string } | null })?.data;
           setErr(
             data?.code === "after_photos_required"
@@ -2914,6 +2937,10 @@ function CheckinTab({ token }: { token: string }) {
         },
         onError: (err) => {
           setBusy(null);
+          if (isInstructionsRequired(err)) {
+            requireCrewInstructions(token);
+            return;
+          }
           const data = (err as { data?: { code?: string; error?: string } | null })?.data;
           if (data?.code === "after_photos_required") {
             setStatus("Before you can check out, add your AFTER photos in the Photos tab.");

@@ -61,6 +61,8 @@ import {
   ReopenJobChangeOrderResponse,
   ListJobEventsParams,
   ListJobEventsResponse,
+  GetJobComplianceParams,
+  GetJobComplianceResponse,
   DraftJobRecapParams,
   DraftJobRecapResponse,
   SendJobRecapParams,
@@ -124,6 +126,7 @@ import { EMERGENCY_PAY_NOTE_PREFIX } from "../lib/emergencySettlement";
 import { raiseClientCard } from "../lib/clientBoard";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { localToday } from "../lib/localDate";
+import { crewAckStates, NO_ACK } from "../lib/crewLinkAck";
 
 const router: IRouter = Router();
 
@@ -1694,6 +1697,106 @@ router.get("/jobs/:id/events", async (req, res): Promise<void> => {
 
   events.sort((x, y) => (x.at < y.at ? 1 : -1));
   res.json(ListJobEventsResponse.parse(events));
+});
+
+/**
+ * Did the crews on this job do what they agreed to?
+ *
+ * The instructions gate tells every crew that pay approval needs a check-in, a
+ * check-out, and before/after photos at each unit. This is where that promise
+ * lands on the office side: the pay flow shows what is missing and flags the
+ * job for supervisor review instead of the warning being an empty threat.
+ * Nothing here blocks a payment — the decision stays with the office.
+ */
+router.get("/jobs/:id/compliance", async (req, res): Promise<void> => {
+  const { id } = GetJobComplianceParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+
+  const [punches, photos, scheduled, dispatched] = await Promise.all([
+    db.select().from(crewCheckinsTable).where(eq(crewCheckinsTable.jobId, id)),
+    db.select().from(crewPhotosTable).where(eq(crewPhotosTable.jobId, id)),
+    db
+      .select({ crewId: schedulesTable.crewLeaderId })
+      .from(schedulesTable)
+      .where(eq(schedulesTable.jobId, id)),
+    db
+      .select({ crewId: crewDispatchAssignmentsTable.memberId })
+      .from(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.jobId, id)),
+  ]);
+
+  // Everyone who was SUPPOSED to work this job, not just who left a trace:
+  // the assigned leader, anyone scheduled or dispatched onto it, and anyone
+  // who punched or uploaded against it. A member who was assigned and then did
+  // nothing is exactly the case the pay review exists to catch, so they have
+  // to appear here even with zero punches and zero photos.
+  const crewIds = [
+    ...new Set(
+      [
+        job.crewLeaderId,
+        ...scheduled.map((s) => s.crewId),
+        ...dispatched.map((d) => d.crewId),
+        ...punches.map((p) => p.crewId),
+        ...photos.map((p) => p.crewId),
+      ].filter((v): v is string => !!v),
+    ),
+  ];
+
+  const [crewRows, ackStates] = await Promise.all([
+    crewIds.length
+      ? db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
+      : Promise.resolve([] as (typeof crewsTable.$inferSelect)[]),
+    crewAckStates(crewIds),
+  ]);
+
+  const crews = crewIds.map((crewId) => {
+    const mine = punches.filter((p) => p.crewId === crewId);
+    const ins = mine.filter((p) => p.kind === "checkin");
+    const outs = mine.filter((p) => p.kind === "checkout");
+    const firstIn = ins.sort((a, b) => +a.createdAt - +b.createdAt)[0];
+    const lastOut = outs.sort((a, b) => +b.createdAt - +a.createdAt)[0];
+    const mySnaps = photos.filter((p) => p.crewId === crewId);
+    const beforePhotos = mySnaps.filter((p) => p.phase === "before").length;
+    const afterPhotos = mySnaps.filter((p) => p.phase === "after").length;
+    const ack = ackStates.get(crewId) ?? NO_ACK;
+
+    const missing: string[] = [];
+    if (!firstIn) missing.push("check-in");
+    if (!lastOut) missing.push("check-out");
+    if (beforePhotos === 0) missing.push("before photos");
+    if (afterPhotos === 0) missing.push("after photos");
+    if (!ack.acknowledged) missing.push("instructions agreement");
+
+    return {
+      crewId,
+      crewName: crewRows.find((c) => c.id === crewId)?.name ?? "Crew",
+      checkedIn: !!firstIn,
+      checkedOut: !!lastOut,
+      checkedInAt: firstIn ? firstIn.createdAt.toISOString() : null,
+      checkedOutAt: lastOut ? lastOut.createdAt.toISOString() : null,
+      beforePhotos,
+      afterPhotos,
+      acknowledged: ack.acknowledged,
+      acknowledgedAt: ack.agreedAt,
+      acknowledgedVia: ack.linkKind,
+      needsReview: missing.length > 0,
+      missing,
+    };
+  });
+
+  res.json(
+    GetJobComplianceResponse.parse({
+      jobId: id,
+      // No crew on the job at all is itself something a supervisor should see
+      // before releasing pay.
+      needsReview: crews.length === 0 || crews.some((c) => c.needsReview),
+      crews,
+    }),
+  );
 });
 
 router.post("/jobs/:id/recap", async (req, res): Promise<void> => {

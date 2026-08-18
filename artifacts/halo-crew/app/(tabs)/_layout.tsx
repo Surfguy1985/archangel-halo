@@ -6,17 +6,29 @@ import { BlurView } from 'expo-blur';
 import { Tabs, router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { instructionsAcked } from '@/constants/crewInstructions';
 
 function AuthGuard() {
   const { isLoading, isAuthenticated, portal } = useAuth();
   const sentToOnboarding = useRef(false);
+  const sentToInstructions = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated) {
       sentToOnboarding.current = false;
+      sentToInstructions.current = false;
       router.replace('/link');
+      return;
+    }
+
+    // The umbrella instructions gate comes first and shows on every fresh
+    // launch, not once per crew — the same rule as the web crew links. The
+    // field agreement stays where it is, right behind it.
+    if (!sentToInstructions.current && portal && !instructionsAcked()) {
+      sentToInstructions.current = true;
+      router.replace('/onboarding/instructions');
       return;
     }
 

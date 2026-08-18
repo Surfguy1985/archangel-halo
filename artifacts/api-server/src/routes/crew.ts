@@ -79,6 +79,8 @@ import {
 import { ser } from "../lib/serialize";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { contractorLabel, serviceLabel } from "../lib/crewPinIdentity";
+import { latestCrewAck } from "../lib/crewLinkAck";
+import { CREW_ACK_TTL_MS } from "../lib/crewInstructions";
 import { jobLabelMap } from "../lib/jobLabels";
 import { gatherDayReport, buildDayReportPdf } from "../lib/dayReportPdf";
 import { sendExpoPush } from "../lib/pushNotification";
@@ -136,11 +138,25 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
     if (p.status === "completed") paidTotal += p.amount;
     else if (p.status !== "cancelled") outstandingTotal += p.amount;
   }
+  // Proof of what this crew agreed to, and when — the office cites this when
+  // pay is questioned, so the stored wording travels with it.
+  const ack = await latestCrewAck(id);
   res.json(
     GetCrewDetailResponse.parse({
       ...crewDetail(row),
       paidTotal,
       outstandingTotal,
+      instructionsAck: ack
+        ? {
+            accepted: true,
+            agreedAt: ack.agreedAt.toISOString(),
+            linkKind: ack.linkKind,
+            lang: ack.lang,
+            version: ack.version,
+            termsText: ack.termsText,
+            expiresAt: new Date(ack.agreedAt.getTime() + CREW_ACK_TTL_MS).toISOString(),
+          }
+        : { accepted: false },
     }),
   );
 });

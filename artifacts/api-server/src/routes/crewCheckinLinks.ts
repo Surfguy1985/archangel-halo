@@ -63,6 +63,13 @@ import {
 } from "../lib/crewCheckinCore";
 
 import { isForemanCrew, loadTeamView } from "./crewJoin";
+import { crewInstructionsPayload, normalizeInstructionsLang } from "../lib/crewInstructions";
+import {
+  crewAckState,
+  hasCurrentCrewAck,
+  recordCrewAck,
+  INSTRUCTIONS_REQUIRED,
+} from "../lib/crewLinkAck";
 
 const router = Router();
 
@@ -570,6 +577,75 @@ router.delete("/crew-checkin-links/:token", async (req, res): Promise<void> => {
   }
 });
 
+// ─── Public: instructions gate ───────────────────────────────────────────────
+//
+// Every crew QR link opens on the instructions page before the working
+// surface. The copy is served from here so the wording stored on an
+// acceptance is provably the wording the crew was shown.
+
+router.get("/checkin/:token/instructions", limits.checkinView, async (req, res): Promise<void> => {
+  try {
+    const resolved = await resolveLink(tokenParam(req.params.token));
+    if ("err" in resolved) {
+      sendLinkError(res, resolved.err);
+      return;
+    }
+    const [crew] = await db
+      .select({ id: crewsTable.id, name: crewsTable.name })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, resolved.row.crewId))
+      .limit(1);
+    if (!crew) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
+    res.json({
+      ...crewInstructionsPayload(),
+      linkKind: "paycard",
+      crewName: crew.name,
+      ack: await crewAckState(crew.id),
+    });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin: instructions read failed");
+    res.status(500).json({ error: "Failed to load the instructions" });
+  }
+});
+
+router.post("/checkin/:token/instructions", limits.checkinWrite, async (req, res): Promise<void> => {
+  try {
+    const resolved = await resolveLink(tokenParam(req.params.token));
+    if ("err" in resolved) {
+      sendLinkError(res, resolved.err);
+      return;
+    }
+    const { row } = resolved;
+    const [crew] = await db
+      .select({ id: crewsTable.id, name: crewsTable.name })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.crewId))
+      .limit(1);
+    if (!crew) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
+    const lang = normalizeInstructionsLang((req.body as { lang?: unknown } | undefined)?.lang);
+    const ack = await recordCrewAck({
+      crewId: crew.id,
+      crewName: crew.name,
+      linkKind: "paycard",
+      lang,
+      linkId: row.id,
+      tokenPrefix: row.tokenPrefix ?? null,
+      req,
+    });
+    await audit(row.id, "instructions_agreed", req, { lang, version: ack.version });
+    res.status(201).json({ ok: true, agreedAt: ack.agreedAt.toISOString(), lang: ack.lang });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin: instructions accept failed");
+    res.status(500).json({ error: "Could not record your agreement. Try again." });
+  }
+});
+
 // ─── Public: crew + today's assignment + session/map ─────────────────────────
 
 router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void> => {
@@ -682,6 +758,15 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
       .limit(1);
     if (!crew) {
       res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
+
+    // Instructions gate. A crew that reached this action without a current
+    // acceptance (stale tab, bookmarked POST, native app) is sent back to the
+    // instructions page — 428 with a code the apps translate, not a raw error.
+    if (!(await hasCurrentCrewAck(crew.id))) {
+      await audit(row.id, "denied", req, { code: INSTRUCTIONS_REQUIRED.code });
+      res.status(428).json(INSTRUCTIONS_REQUIRED);
       return;
     }
 
