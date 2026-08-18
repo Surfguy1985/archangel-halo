@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { crewPhotosForJobs } from "../lib/jobPhotos";
 import {
   db,
@@ -761,12 +761,19 @@ router.get("/catalog-items/:id/vendor-rates", async (req, res): Promise<void> =>
     vendorRows = await db
       .select()
       .from(vendorsTable)
-      .where(inArray(vendorsTable.id, rates.map((r) => r.vendorId)));
+      .where(
+        and(
+          inArray(vendorsTable.id, rates.map((r) => r.vendorId)),
+          ne(vendorsTable.contractStatus, "inactive"),
+        ),
+      );
   }
 
+  const activeVendorIds = new Set(vendorRows.map((v) => v.id));
   const vendorNameById = new Map(vendorRows.map((v) => [v.id, v.name]));
 
   const result = rates
+    .filter((r) => activeVendorIds.has(r.vendorId))
     .map((r) => ({
       vendorId: r.vendorId,
       vendorName: vendorNameById.get(r.vendorId) ?? "Unknown",
