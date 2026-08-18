@@ -9,7 +9,8 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "seed:demo": "pnpm --filter @workspace/api-server seed:demo",
     "seed:live": "pnpm --filter @workspace/api-server seed:live",
-    "seed:client-board": "pnpm --filter @workspace/api-server seed:client-board"
+    "seed:client-board": "pnpm --filter @workspace/api-server seed:client-board",
+    "codegen:check": "pnpm --filter @workspace/api-spec run codegen:check"
   },
   "private": true,
   "dependencies": {
