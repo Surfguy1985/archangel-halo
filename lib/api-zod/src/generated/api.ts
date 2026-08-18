@@ -6133,6 +6133,9 @@ export const ListPurchaseOrdersResponseItem = zod.object({
   "vendorName": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "catalogItemId": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "amount": zod.number().nullish(),
   "expectedOn": zod.string().nullish(),
   "receivedAt": zod.string().nullish(),
   "status": zod.string(),
@@ -6144,6 +6147,8 @@ export const ListPurchaseOrdersResponse = zod.array(ListPurchaseOrdersResponseIt
 export const CreatePurchaseOrderBody = zod.object({
   "vendorId": zod.string(),
   "jobId": zod.string().optional(),
+  "catalogItemId": zod.string().optional(),
+  "amount": zod.number().optional(),
   "expectedOn": zod.string().optional()
 })
 
@@ -6154,6 +6159,9 @@ export const CreatePurchaseOrderResponse = zod.object({
   "vendorName": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "catalogItemId": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "amount": zod.number().nullish(),
   "expectedOn": zod.string().nullish(),
   "receivedAt": zod.string().nullish(),
   "status": zod.string(),
@@ -6175,6 +6183,9 @@ export const ReceivePurchaseOrderResponse = zod.object({
   "vendorName": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "catalogItemId": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "amount": zod.number().nullish(),
   "expectedOn": zod.string().nullish(),
   "receivedAt": zod.string().nullish(),
   "status": zod.string(),

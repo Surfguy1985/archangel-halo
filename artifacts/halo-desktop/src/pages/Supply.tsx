@@ -1,12 +1,20 @@
-import { useState} from "react";
-import { useListInventory, useListPurchaseOrders} from "@workspace/api-client-react";
-import { Plus} from "lucide-react";
-import { Skeleton} from "@/components/ui/skeleton";
+import { useState } from "react";
+import { useListInventory, useListPurchaseOrders, useReceivePurchaseOrder, getListPurchaseOrdersQueryKey } from "@workspace/api-client-react";
+import { Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
+import { AddPurchaseOrderDialog } from "@/components/AddPurchaseOrderDialog";
 
 export default function Supply() {
   const [tab, setTab] = useState<"inventory" | "pos">("inventory");
+  const [addPoOpen, setAddPoOpen] = useState(false);
   const { data: inventory, isLoading: invLoading } = useListInventory();
   const { data: pos, isLoading: poLoading } = useListPurchaseOrders();
+  const queryClient = useQueryClient();
+  const receive = useReceivePurchaseOrder();
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListPurchaseOrdersQueryKey() });
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -21,7 +29,10 @@ export default function Supply() {
                <Plus className="w-4 h-4" strokeWidth={2.4} /> Add Item
              </button>
           ) : (
-             <button className="btn-gold inline-flex items-center gap-2 px-4 py-2 text-sm">
+             <button
+               className="btn-gold inline-flex items-center gap-2 px-4 py-2 text-sm"
+               onClick={() => setAddPoOpen(true)}
+             >
                <Plus className="w-4 h-4" strokeWidth={2.4} /> New PO
              </button>
           )}
@@ -87,8 +98,11 @@ export default function Supply() {
               <tr>
                 <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">PO Number</th>
                 <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Vendor</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Service</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Amount</th>
                 <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Expected</th>
                 <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Status</th>
+                <th className="px-6 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--hairline)]">
@@ -96,19 +110,38 @@ export default function Supply() {
                 <tr key={po.id} className="hover:bg-black/[0.02] transition-colors">
                   <td className="px-6 py-4 font-mono text-[var(--ink)]">{po.poNo}</td>
                   <td className="px-6 py-4 font-medium">{po.vendorName || '—'}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{po.service || '—'}</td>
+                  <td className="px-6 py-4 text-right font-mono font-semibold">
+                    {po.amount != null
+                      ? `$${po.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
+                  </td>
                   <td className="px-6 py-4 text-muted-foreground">{po.expectedOn ? new Date(po.expectedOn).toLocaleDateString() : '—'}</td>
                   <td className="px-6 py-4 text-right">
                     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${po.late ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
                       {po.late ? "Late" : po.status}
                     </span>
                   </td>
+                  <td className="px-4 py-4 text-right">
+                    {po.status !== "received" && (
+                      <button
+                        className="text-xs font-semibold text-[var(--gold)] hover:underline disabled:opacity-50"
+                        onClick={() => receive.mutate({ id: po.id }, { onSuccess: invalidate })}
+                        disabled={receive.isPending}
+                      >
+                        Receive
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
-              {(!pos || pos.length === 0) && <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">No purchase orders.</td></tr>}
+              {(!pos || pos.length === 0) && <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">No purchase orders.</td></tr>}
             </tbody>
           </table>
         </div>
       )}
+
+      <AddPurchaseOrderDialog open={addPoOpen} onOpenChange={setAddPoOpen} />
     </div>
   );
 }

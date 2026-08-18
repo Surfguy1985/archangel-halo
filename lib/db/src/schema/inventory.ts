@@ -44,6 +44,8 @@ export const purchaseOrdersTable = pgTable("purchase_orders", {
   poNo: text("po_no").notNull(),
   vendorId: uuid("vendor_id"),
   jobId: uuid("job_id"),
+  catalogItemId: uuid("catalog_item_id"),
+  amount: doublePrecision("amount"),
   expectedOn: date("expected_on", { mode: "string" }),
   receivedAt: timestamp("received_at", { withTimezone: true }),
   status: text("status").notNull().default("open"),

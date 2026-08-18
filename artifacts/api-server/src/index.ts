@@ -19,6 +19,7 @@ import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
 import { ensureVendorRatesSchema } from "./lib/ensureVendorRatesSchema";
+import { ensureInventorySchema } from "./lib/ensureInventorySchema";
 
 const rawPort = process.env["PORT"];
 
@@ -101,6 +102,9 @@ app.listen(port, (err) => {
   );
   ensureCrewCompanySchema().catch((err) =>
     logger.error({ err }, "crew company schema bootstrap failed"),
+  );
+  ensureInventorySchema().catch((err) =>
+    logger.error({ err }, "inventory schema bootstrap failed"),
   );
 
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is

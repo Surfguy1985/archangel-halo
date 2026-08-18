@@ -110,8 +110,13 @@ function PurchaseOrders() {
                   </div>
                   <div className="font-semibold text-[14.5px] truncate mt-[3px] text-[var(--ink)]">{po.vendorName || "—"}</div>
                   <div className="text-[12px] text-muted-foreground truncate">
-                    {[po.jobNo, po.expectedOn ? `expected ${new Date(po.expectedOn).toLocaleDateString()}` : null].filter(Boolean).join(" · ")}
+                    {[po.service, po.jobNo, po.expectedOn ? `expected ${new Date(po.expectedOn).toLocaleDateString()}` : null].filter(Boolean).join(" · ")}
                   </div>
+                  {po.amount != null && (
+                    <div className="font-mono font-bold text-[13px] text-[var(--ink)] mt-[2px]">
+                      ${po.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  )}
                 </div>
               </div>
               {po.status !== "received" && po.status !== "cancelled" && (

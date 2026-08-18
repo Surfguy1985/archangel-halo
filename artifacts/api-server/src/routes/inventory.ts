@@ -308,6 +308,24 @@ async function nextPoNo(): Promise<string> {
   return `PO-${String(700 + rows.length + 1)}`;
 }
 
+async function decoratePo(
+  po: typeof purchaseOrdersTable.$inferSelect,
+  opts: {
+    vendorName: Map<string, string>;
+    jobNo: Map<string, string>;
+    serviceLabel: Map<string, string>;
+    today: string;
+  },
+) {
+  return {
+    ...ser(po),
+    vendorName: po.vendorId ? (opts.vendorName.get(po.vendorId) ?? null) : null,
+    jobNo: po.jobId ? (opts.jobNo.get(po.jobId) ?? null) : null,
+    service: po.catalogItemId ? (opts.serviceLabel.get(po.catalogItemId) ?? null) : null,
+    late: !po.receivedAt && po.expectedOn ? po.expectedOn < opts.today : false,
+  };
+}
+
 router.get("/purchase-orders", async (req, res): Promise<void> => {
   const { status } = ListPurchaseOrdersQueryParams.parse(req.query);
   let rows = await db
@@ -315,22 +333,19 @@ router.get("/purchase-orders", async (req, res): Promise<void> => {
     .from(purchaseOrdersTable)
     .orderBy(desc(purchaseOrdersTable.createdAt));
   if (status) rows = rows.filter((r) => r.status === status);
-  const vendors = await db.select().from(vendorsTable);
-  const jobs = await db.select().from(jobsTable);
+  const [vendors, jobs, catalog] = await Promise.all([
+    db.select().from(vendorsTable),
+    db.select().from(jobsTable),
+    db.select().from(catalogItemsTable),
+  ]);
   const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
   const jobNo = new Map(jobs.map((j) => [j.id, j.jobNo]));
+  const serviceLabel = new Map(catalog.map((c) => [c.id, c.service]));
   const today = localToday();
-  res.json(
-    ListPurchaseOrdersResponse.parse(
-      rows.map((po) => ({
-        ...ser(po),
-        vendorName: po.vendorId ? (vendorName.get(po.vendorId) ?? null) : null,
-        jobNo: po.jobId ? (jobNo.get(po.jobId) ?? null) : null,
-        late:
-          !po.receivedAt && po.expectedOn ? po.expectedOn < today : false,
-      })),
-    ),
+  const decorated = await Promise.all(
+    rows.map((po) => decoratePo(po, { vendorName, jobNo, serviceLabel, today })),
   );
+  res.json(ListPurchaseOrdersResponse.parse(decorated));
 });
 
 router.post("/purchase-orders", async (req, res): Promise<void> => {
@@ -339,7 +354,23 @@ router.post("/purchase-orders", async (req, res): Promise<void> => {
     .insert(purchaseOrdersTable)
     .values({ ...body, poNo: await nextPoNo() })
     .returning();
-  res.status(201).json(CreatePurchaseOrderResponse.parse(ser(row)));
+
+  // Resolve display fields for the response
+  const [vendors, jobs, catalog] = await Promise.all([
+    db.select().from(vendorsTable),
+    db.select().from(jobsTable),
+    db.select().from(catalogItemsTable),
+  ]);
+  const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
+  const jobNo = new Map(jobs.map((j) => [j.id, j.jobNo]));
+  const serviceLabel = new Map(catalog.map((c) => [c.id, c.service]));
+  const decorated = await decoratePo(row, {
+    vendorName,
+    jobNo,
+    serviceLabel,
+    today: localToday(),
+  });
+  res.status(201).json(CreatePurchaseOrderResponse.parse(decorated));
 });
 
 router.post("/purchase-orders/:id/receive", async (req, res): Promise<void> => {
@@ -353,18 +384,21 @@ router.post("/purchase-orders/:id/receive", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Purchase order not found" });
     return;
   }
-  const vendors = await db.select().from(vendorsTable);
-  const jobs = await db.select().from(jobsTable);
+  const [vendors, jobs, catalog] = await Promise.all([
+    db.select().from(vendorsTable),
+    db.select().from(jobsTable),
+    db.select().from(catalogItemsTable),
+  ]);
   const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
   const jobNo = new Map(jobs.map((j) => [j.id, j.jobNo]));
-  res.json(
-    ReceivePurchaseOrderResponse.parse({
-      ...ser(row),
-      vendorName: row.vendorId ? (vendorName.get(row.vendorId) ?? null) : null,
-      jobNo: row.jobId ? (jobNo.get(row.jobId) ?? null) : null,
-      late: false,
-    }),
-  );
+  const serviceLabel = new Map(catalog.map((c) => [c.id, c.service]));
+  const decorated = await decoratePo(row, {
+    vendorName,
+    jobNo,
+    serviceLabel,
+    today: localToday(),
+  });
+  res.json(ReceivePurchaseOrderResponse.parse(decorated));
 });
 
 export default router;

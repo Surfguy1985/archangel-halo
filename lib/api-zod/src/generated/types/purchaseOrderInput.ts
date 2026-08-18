@@ -9,5 +9,7 @@
 export interface PurchaseOrderInput {
   vendorId: string;
   jobId?: string;
+  catalogItemId?: string;
+  amount?: number;
   expectedOn?: string;
 }

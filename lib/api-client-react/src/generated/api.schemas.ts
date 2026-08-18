@@ -4772,6 +4772,12 @@ export interface PurchaseOrder {
   /** @nullable */
   jobNo?: string | null;
   /** @nullable */
+  catalogItemId?: string | null;
+  /** @nullable */
+  service?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
   expectedOn?: string | null;
   /** @nullable */
   receivedAt?: string | null;
@@ -4783,6 +4789,8 @@ export interface PurchaseOrder {
 export interface PurchaseOrderInput {
   vendorId: string;
   jobId?: string;
+  catalogItemId?: string;
+  amount?: number;
   expectedOn?: string;
 }
 
