@@ -1,14 +1,30 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { logger } from "../lib/logger";
 export const workLoggedRouter = Router();
-function requireToken(req: Request, res: Response, next: NextFunction) {
+/**
+ * Fails CLOSED. This endpoint is mounted on the public deployment, so an
+ * unset token must mean "nobody can call it", never "everybody can call it" —
+ * otherwise any anonymous caller can drive reconciliation against arbitrary
+ * job ids. Set WORK_RECONCILIATION_TOKEN to enable the Base44 webhook.
+ */
+function requireToken(req: Request, res: Response, next: NextFunction): void {
   const expected = process.env.WORK_RECONCILIATION_TOKEN?.trim();
-  if (!expected) return next();
+  if (!expected) {
+    logger.warn("work-logged called but WORK_RECONCILIATION_TOKEN is not set — refusing");
+    res.status(503).json({ error: "Endpoint not configured" });
+    return;
+  }
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token || token !== expected) return res.status(401).json({ error: "Unauthorized" });
+  if (!token || token !== expected) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   next();
 }
+// NOTE: this router is mounted under /api, so the public webhook URL is
+// <origin>/api/internal/work-logged. Only /api/* is proxied to this server —
+// a bare /internal/... URL hits the web app and returns its HTML shell.
 workLoggedRouter.post("/internal/work-logged", requireToken, async (req: Request, res: Response) => {
   try {
     const body = req.body || {};

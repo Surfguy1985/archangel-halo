@@ -97,6 +97,13 @@ const CAPABILITY_GATE_MAP = {
   "crew.dispatch":              "dispatch_crew",
   "crew.reassign":              "reassign_crew",
   "invoice.approve":            "approve_invoice",
+  // Rewriting a line price or a crew payout changes what the client owes and
+  // what a crew gets paid, so both sit behind the same ASSISTED review as the
+  // rest of the money actions rather than executing straight from a sentence.
+  "invoice.line.adjust":        "approve_invoice",
+  "invoice.adjust":             "approve_invoice",
+  "crew.payout.adjust":         "pay_crew",
+  "payout.adjust":              "pay_crew",
   "invoice.send":               "send_invoice",
   "invoice.pay":                "pay_invoice",
   "payment.record":             "pay_invoice",

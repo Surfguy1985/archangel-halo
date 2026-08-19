@@ -23,6 +23,7 @@ import { ensureBoardWorkspaceSchema } from "./lib/ensureBoardWorkspaceSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
 import { ensureVendorRatesSchema } from "./lib/ensureVendorRatesSchema";
 import { ensureInventorySchema } from "./lib/ensureInventorySchema";
+import { ensureReconciliationSchema } from "./lib/ensureReconciliationSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -120,6 +121,12 @@ app.listen(port, (err) => {
   );
   ensureInventorySchema().catch((err) =>
     logger.error({ err }, "inventory schema bootstrap failed"),
+  );
+  // Reconciliation tables: the scheduler sweeps them every 5 minutes and the
+  // discrepancies routes read them directly, so a missing table turns into a
+  // recurring error loop rather than a one-off 500.
+  ensureReconciliationSchema().catch((err) =>
+    logger.error({ err }, "reconciliation schema bootstrap failed"),
   );
 
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is

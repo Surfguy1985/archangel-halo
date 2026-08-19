@@ -476,6 +476,13 @@ export async function executeInvoiceLineAdjust(params: Record<string, unknown>, 
   const all = await db.select().from(invoiceLineItemsTable).where(eq(invoiceLineItemsTable.invoiceId, invoice.id));
   const total = all.reduce((s, l) => s + (l.amount || 0), 0);
   await db.update(invoicesTable).set({ amount: total }).where(eq(invoicesTable.id, invoice.id));
+  // Stored job margins and the double-entry books are both derived, so an
+  // invoice edit that skips these leaves the Money screens and the ledger
+  // disagreeing with the invoice the client actually receives.
+  const { recomputeJobFinancials } = await import("./jobFinance");
+  const { syncInvoiceLedger } = await import("./ledger");
+  await recomputeJobFinancials(job.id);
+  await syncInvoiceLedger(invoice.id);
   return `Invoice on ${job.jobNo} updated → $${dollarsAmt.toFixed(2)}. Total $${total.toFixed(2)}.`;
 }
 
@@ -500,5 +507,11 @@ export async function executeCrewPayoutAdjust(params: Record<string, unknown>, d
   } else if (crewPay.length) crewPay[0] = { ...crewPay[0], amount: dollarsAmt };
   else crewPay.push({ name: crewName || "Crew", amount: dollarsAmt });
   await db.update(jobsTable).set({ crewPay }).where(eq(jobsTable.id, job.id));
+  // Crew pay feeds job margin and the labor side of the ledger; without these
+  // the job keeps reporting the old margin and the books miss the change.
+  const { recomputeJobFinancials: recomputeAfterPayout } = await import("./jobFinance");
+  const { syncJobLaborLedger } = await import("./ledger");
+  await recomputeAfterPayout(job.id);
+  await syncJobLaborLedger(job.id);
   return `Crew payout on ${job.jobNo} set to $${dollarsAmt.toFixed(2)}. ${reason}`;
 }
