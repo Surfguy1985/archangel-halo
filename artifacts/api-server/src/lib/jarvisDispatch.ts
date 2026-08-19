@@ -506,7 +506,10 @@ export async function executeCrewPayoutAdjust(params: Record<string, unknown>, d
     else crewPay.push({ name: crewName, amount: dollarsAmt });
   } else if (crewPay.length) crewPay[0] = { ...crewPay[0], amount: dollarsAmt };
   else crewPay.push({ name: crewName || "Crew", amount: dollarsAmt });
-  await db.update(jobsTable).set({ crewPay }).where(eq(jobsTable.id, job.id));
+  // crewRate — not crewPay — is what margin and the labor ledger read, so the
+  // payout has to land there too or the numbers never move.
+  const crewRateTotal = crewPay.reduce((s: number, c: any) => s + (Number(c?.amount) || 0), 0);
+  await db.update(jobsTable).set({ crewPay, crewRate: crewRateTotal }).where(eq(jobsTable.id, job.id));
   // Crew pay feeds job margin and the labor side of the ledger; without these
   // the job keeps reporting the old margin and the books miss the change.
   const { recomputeJobFinancials: recomputeAfterPayout } = await import("./jobFinance");

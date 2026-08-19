@@ -96,6 +96,7 @@
 - [HALO client team self-service](halo-client-team-selfservice.md) — /access surface is admin-session-gated (403 for raw link); unclaimed boards allow first-admin setup; seat/last-admin guards.
 - [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.
 - [HALO card messaging](halo-card-messaging.md) — card threads reuse client_card_comments with a push/source thread family; unread via readAt, digest claim must re-check readAt; attachments /objects/ only.
+- [HALO Command money actions](halo-command-money-actions.md) — a money capability needs ACTION_TO_CAPABILITY + gate map + executor; crewRate is truth, crewPay is display; chat prose ≠ execution.
 - [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
 - [HALO emergency crew ping](halo-emergency-ping.md) — first-wins commit via guarded ping flip; holds settle only on payout or "Emergency same-day pay" payment; neededBy is free text.
 - [HALO work-request PO gate](halo-work-request-po.md) — work requests require a PO unless emergency; new insert paths must enforce or explicitly exempt (flags-schedule rail is exempt).
