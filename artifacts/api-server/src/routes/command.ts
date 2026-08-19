@@ -64,6 +64,8 @@ import { mintPmToken } from "../lib/pmLiveCore";
 import { filterBySnapshotScope, snapshotPropertyScope } from "../lib/commandSnapshotCore";
 import {
   executeNoteLog,
+  executeInvoiceLineAdjust,
+  executeCrewPayoutAdjust,
   executeReminderSet,
   executeSupplyOrder,
   executeCrewSms,
@@ -1446,6 +1448,12 @@ async function dispatchAutoAction(
       return JSON.stringify({ type: "exchange_status", activationState: activationRow[0]?.state ?? "draft", prerequisitesAllMet: missing.length === 0, missing, prerequisites, hint: missing.length === 0 ? "All prerequisites met. POST /api/exchange/activate to begin activation." : `${missing.length} prerequisite(s) unmet — resolve before activating.` });
     }
 
+    case "invoice.line.adjust":
+    case "invoice.adjust":
+      return executeInvoiceLineAdjust(_params, description);
+    case "crew.payout.adjust":
+    case "payout.adjust":
+      return executeCrewPayoutAdjust(_params, description);
     default:
       // Generic safe acknowledgment for auto-risk actions not yet individually mapped.
       // Consequential operations (invoice.send, payment.release, etc.) are always

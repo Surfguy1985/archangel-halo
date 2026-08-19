@@ -44,6 +44,9 @@ import dispatchBoardRouter from "./dispatchBoard";
 import walksRouter from "./walks";
 import falkonRouter from "./falkon";
 import { falkonWebhookRouter } from "./falkonWebhook";
+import discrepanciesRouter from "./discrepancies";
+import agentsRouter from "./agents";
+import workLoggedRouter from "./workLogged";
 import { falkonAdminRouter } from "./falkonAdmin";
 import { falkonNetworkRouter } from "./falkonNetwork";
 import commandRouter from "./command";
@@ -163,6 +166,9 @@ if (process.env.HALO_E2E_ENABLED === "1") {
 }
 router.use(falkonRouter);
 router.use(falkonWebhookRouter);
+router.use(discrepanciesRouter);
+router.use(agentsRouter);
+router.use(workLoggedRouter);
 router.use(falkonAdminRouter);
 router.use(falkonNetworkRouter);
 router.use(commandRouter);

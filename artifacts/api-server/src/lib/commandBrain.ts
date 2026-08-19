@@ -28,6 +28,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray, gte, isNull, isNotNull, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { COMPLEX_MODEL } from "./ai";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
 import type { HaloIdentity } from "./enforcerCore";
@@ -1008,6 +1009,8 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "make a note / log a note / remind me" → capability "note.log", risk "auto", params.body = the note, params.unitNo if mentioned.
 - For "set a reminder / remind me to / calendar this" → capability "reminder.set", risk "auto", params.title, params.date (YYYY-MM-DD; resolve tomorrow/today from snapshot.date), params.notes.
 - For "order [material] / source supplies / buy drywall" → capability "supply.order", risk "review", params.material, params.unitNo, params.propertyName, params.neededBy. HALO will match catalog + inventory + nearby vendors and draft a PM order request.
+- For "set invoice to / fix the price / change the line amount / invoice should be $X / price paint at $X on JOB-..." → capability "invoice.line.adjust", risk "auto", params.jobNo, params.amount (number dollars), params.service if named, params.reason. Text: "Updating the invoice line to the amount you specified."
+- For "pay the crew $X / set payout to / crew should get $X on JOB-..." → capability "crew.payout.adjust", risk "auto", params.jobNo, params.amount, params.crewName if named, params.reason. Text: "Updating the crew payout on that job."
 - For "schedule [name] / install tomorrow / dispatch" → capability "crew.schedule", risk "review", params.crewName, params.unitNo, params.scheduledOn, params.propertyName.
 - For "send to the property manager / notify the PM / send the order to the PM" → capability "pm.notify", risk "review", params.propertyName, params.unitNo, params.message.
 - For CLIENT PO INTAKE — the office relaying that the PROPERTY sent over a purchase order, e.g. "here's PO 12345 for unit 204 at Maple Ridge, send to vendor" / "property sent PO 88 for unit 3B at Oak Grove" / "attach PO 9001 to unit 12 at Maplewood and send it out" → capability "client_po.receive", risk "auto", params.poNumber = the PO number exactly as stated, params.unitNo = the unit label, params.propertyName = the property name, params.poSource = "office chat", params.body = the full request text. HALO resolves property → unit → the unit's current live job, attaches the PO inside a guarded transaction, and (for "send to vendor") texts + push-notifies the assigned crew. If it can't land on exactly one job it will ask you to clarify and change nothing. Text: "Attaching PO [number] to Unit [unit] at [property] and sending it to the crew."
@@ -1089,7 +1092,7 @@ const BRAIN_RESPONSE_SCHEMA = `{
   "actionPlan": {
     "description": "string — one sentence describing exactly what will happen",
     "risk": "auto" | "review" | "block",
-    "capability": "string — HALO operation key e.g. invoice.send, job.create, crew.schedule, comms.sms, supply.order, reminder.set, note.log, pm.notify, crew_checkin_link.generate",
+    "capability": "string — HALO operation key e.g. invoice.send, invoice.line.adjust, crew.payout.adjust, job.create, crew.schedule, comms.sms, supply.order, reminder.set, note.log, pm.notify, crew_checkin_link.generate",
     "params": {}
   } | null,
   "actionPlans": [actionPlan, ...] | null
@@ -1145,7 +1148,7 @@ export async function runCommandBrain(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-5",
+      model: COMPLEX_MODEL,
       max_tokens: 8192,
       system: fullSystem,
       messages,

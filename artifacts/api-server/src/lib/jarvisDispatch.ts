@@ -3,7 +3,7 @@
  * Called from dispatchAutoAction after Falkon + identity gates.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import {
   db,
   activitiesTable,
@@ -444,4 +444,61 @@ export async function executeClientPoReceive(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+
+export async function executeInvoiceLineAdjust(params: Record<string, unknown>, description: string): Promise<string> {
+  const jobNo = typeof params.jobNo === "string" ? params.jobNo.trim() : "";
+  const jobId = typeof params.jobId === "string" ? params.jobId.trim() : "";
+  const service = typeof params.service === "string" ? params.service.trim() : "";
+  const reason = (typeof params.reason === "string" ? params.reason : description) || "HaloCommand adjustment";
+  const rawAmt = params.amount ?? params.dollars;
+  if (rawAmt == null || rawAmt === "") return "I need an amount.";
+  const n = typeof rawAmt === "number" ? rawAmt : parseFloat(String(rawAmt).replace(/[$,]/g, ""));
+  if (!Number.isFinite(n)) return "That amount does not look like a number.";
+  const cents = Math.abs(n) < 100000 ? Math.round(n * 100) : Math.round(n);
+  let job = jobId ? (await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1))[0] : null;
+  if (!job && jobNo) job = (await db.select().from(jobsTable).where(ilike(jobsTable.jobNo, jobNo)).limit(1))[0];
+  if (!job) return `Could not find job ${jobNo || jobId}. Nothing changed.`;
+  const { invoicesTable, invoiceLineItemsTable } = await import("@workspace/db");
+  const invoices = await db.select().from(invoicesTable).where(eq(invoicesTable.jobId, job.id));
+  const invoice = invoices[0];
+  if (!invoice) return `Job ${job.jobNo} has no invoice yet. Nothing changed.`;
+  const lines = await db.select().from(invoiceLineItemsTable).where(eq(invoiceLineItemsTable.invoiceId, invoice.id));
+  const norm = (s: string) => s.toLowerCase();
+  let target = (service && lines.find((l) => norm(l.typeOfWork || "").includes(norm(service)))) || lines.find((l) => !l.unitPrice || l.unitPrice === 0) || lines[0];
+  const dollarsAmt = cents / 100;
+  if (target) {
+    await db.update(invoiceLineItemsTable).set({ unitPrice: dollarsAmt, amount: dollarsAmt * (target.qty || 1) }).where(eq(invoiceLineItemsTable.id, target.id));
+  } else {
+    await db.insert(invoiceLineItemsTable).values({ invoiceId: invoice.id, typeOfWork: service || "Adjusted Service", description: reason, qty: 1, unitPrice: dollarsAmt, amount: dollarsAmt });
+  }
+  const all = await db.select().from(invoiceLineItemsTable).where(eq(invoiceLineItemsTable.invoiceId, invoice.id));
+  const total = all.reduce((s, l) => s + (l.amount || 0), 0);
+  await db.update(invoicesTable).set({ amount: total }).where(eq(invoicesTable.id, invoice.id));
+  return `Invoice on ${job.jobNo} updated → $${dollarsAmt.toFixed(2)}. Total $${total.toFixed(2)}.`;
+}
+
+export async function executeCrewPayoutAdjust(params: Record<string, unknown>, description: string): Promise<string> {
+  const jobNo = typeof params.jobNo === "string" ? params.jobNo.trim() : "";
+  const jobId = typeof params.jobId === "string" ? params.jobId.trim() : "";
+  const crewName = typeof params.crewName === "string" ? params.crewName.trim() : "";
+  const reason = (typeof params.reason === "string" ? params.reason : description) || "HaloCommand payout adjustment";
+  const rawAmt = params.amount ?? params.dollars;
+  if (rawAmt == null || rawAmt === "") return "I need a payout amount.";
+  const n = typeof rawAmt === "number" ? rawAmt : parseFloat(String(rawAmt).replace(/[$,]/g, ""));
+  if (!Number.isFinite(n)) return "That amount does not look like a number.";
+  const dollarsAmt = (Math.abs(n) < 100000 ? Math.round(n * 100) : Math.round(n)) / 100;
+  let job = jobId ? (await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1))[0] : null;
+  if (!job && jobNo) job = (await db.select().from(jobsTable).where(ilike(jobsTable.jobNo, jobNo)).limit(1))[0];
+  if (!job) return `Could not find job ${jobNo || jobId}. Nothing changed.`;
+  const crewPay = Array.isArray(job.crewPay) ? [...(job.crewPay as any[])] : [];
+  if (crewName && crewPay.length) {
+    const idx = crewPay.findIndex((c) => String(c.name || "").toLowerCase().includes(crewName.toLowerCase()));
+    if (idx >= 0) crewPay[idx] = { ...crewPay[idx], amount: dollarsAmt };
+    else crewPay.push({ name: crewName, amount: dollarsAmt });
+  } else if (crewPay.length) crewPay[0] = { ...crewPay[0], amount: dollarsAmt };
+  else crewPay.push({ name: crewName || "Crew", amount: dollarsAmt });
+  await db.update(jobsTable).set({ crewPay }).where(eq(jobsTable.id, job.id));
+  return `Crew payout on ${job.jobNo} set to $${dollarsAmt.toFixed(2)}. ${reason}`;
 }

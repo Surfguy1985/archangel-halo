@@ -77,6 +77,8 @@ import {
   propertyMapPoint,
   type HaloStoryLevel,
 } from "@workspace/board-ui";
+import { MapBoardToggle } from "@/components/MapBoardToggle";
+import { PortalProvider, usePortal } from "@/lib/portalContext";
 
 const LIME = "#B4FF44";
 const NAVY = "#0F1B2D";
@@ -504,9 +506,11 @@ function HudBox({
   );
 }
 
-export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
+function PropertyPulseInner(props: { level?: HaloStoryLevel } = {}) {
+  const portalCtx = usePortal();
   const level: HaloStoryLevel = props.level ?? "pulse";
   const vendorDesk = level === "punchlist";
+  const viewMode = portalCtx.viewMode;
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1013,6 +1017,7 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
             <strong>{timeStr}</strong>
             <span>{dateStr}</span>
           </div>
+          <MapBoardToggle />
           <label className="pulse-hud-search">
             <Search size={14} />
             <input
@@ -1361,5 +1366,14 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
         />
       )}
     </div>
+  );
+}
+
+
+export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
+  return (
+    <PortalProvider forcedPortal={props.level}>
+      <PropertyPulseInner {...props} />
+    </PortalProvider>
   );
 }

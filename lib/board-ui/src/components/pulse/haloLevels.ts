@@ -55,7 +55,7 @@ export function haloStoryTitle(level: HaloStoryLevel): string {
 }
 
 export function haloStoryHref(level: HaloStoryLevel): string {
-  if (level === "portfolio") return "/";
+  if (level === "portfolio") return "/property-portfolio";
   if (level === "punchlist") return "/punchlist";
   return "/pulse";
 }
