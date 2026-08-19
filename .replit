@@ -51,5 +51,6 @@ HALO_DASHBOARD_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w
 PUBLIC_APP_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/"
 ALLOWED_ORIGINS = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev"
 HALO_SMS_FROM_NUMBER = "+19724719091"
+HALO_PULSE_ALLOWLIST = "*"
 
 [userenv.development]
