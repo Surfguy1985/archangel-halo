@@ -21,7 +21,9 @@ discrepanciesRouter.post("/discrepancies/:id/resolve", async (req: Request, res:
       newInvoiceCents: body.adminOverrideCents != null ? Number(body.adminOverrideCents) : null,
       newPayoutCents: body.crewOverrideCents != null ? Number(body.crewOverrideCents) : null,
       reason: body.adminReason || body.reason || "",
-      resolvedBy: (req as any).userId || body.userId || "system", mode,
+      // Actor is server-side only — a body-supplied userId would be an
+      // unauthenticated caller naming themselves on a money change.
+      resolvedBy: "office", mode,
     });
     if (!result.ok) return res.status(400).json({ error: result.error });
     return res.json({ success: true });

@@ -63,6 +63,10 @@ ensureVendorContractSchema()
   .then(() => ensureJobsSchema())
   // jobs.custom_fields joins priority: drizzle selects it on every jobs read.
   .then(() => ensureBoardWorkspaceSchema())
+  // The reconciliation sweep fires on the scheduler's first tick and the
+  // discrepancies routes read these tables directly, so create them before
+  // serving instead of racing the first sweep.
+  .then(() => ensureReconciliationSchema())
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);
@@ -121,12 +125,6 @@ app.listen(port, (err) => {
   );
   ensureInventorySchema().catch((err) =>
     logger.error({ err }, "inventory schema bootstrap failed"),
-  );
-  // Reconciliation tables: the scheduler sweeps them every 5 minutes and the
-  // discrepancies routes read them directly, so a missing table turns into a
-  // recurring error loop rather than a one-off 500.
-  ensureReconciliationSchema().catch((err) =>
-    logger.error({ err }, "reconciliation schema bootstrap failed"),
   );
 
   // Must follow the Falkon bootstrap: that is where halo_sms_messages is

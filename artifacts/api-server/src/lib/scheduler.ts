@@ -8,7 +8,6 @@ import {
 } from "./notifications";
 import { campaignByKind } from "./leadTemplates";
 import { runAutopilot } from "./autopilot";
-import { runReconciliation } from "./financialReconciliation";
 import { runContinuousAgents } from "./haloCommandAgents";
 import { runBase44Sync } from "./base44Sync";
 import { sendClientCardDigests } from "./clientCardDigest";
@@ -35,7 +34,6 @@ const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
 const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
-const RECON_CHECK_MS = 5 * 60 * 1000;
 const AGENTS_CHECK_MS = 5 * 60 * 1000;
 const BASE44_SYNC_MS = 30 * 1000; // SoR projection pull (~30s). Not a HALO mutation; not ASSISTED-gated.
 
@@ -49,7 +47,6 @@ const TURN_PREDICT_MINUTE = 15;
 let lastUrgentSignature = "";
 let lastUrgentCheck = 0;
 let lastAutopilotCheck = 0;
-let lastReconCheck = 0;
 let lastAgentsCheck = 0;
 const WINGS_CHECK_MS = 15 * 60 * 1000;
 let lastWingsCheck = 0;
@@ -384,13 +381,8 @@ async function tick(): Promise<void> {
     await runAutopilot();
   }
 
-  if (stamp - lastReconCheck >= RECON_CHECK_MS) {
-    lastReconCheck = stamp;
-    try {
-      const result = await runReconciliation("scheduler");
-      if (result.discrepanciesFound > 0) logger.info({ ...result }, "Scheduled reconciliation found discrepancies");
-    } catch (err) { logger.warn({ err }, "Scheduled reconciliation failed"); }
-  }
+  // runContinuousAgents runs the reconciliation sweep itself, so there is no
+  // separate sweep here — having both meant two full N+1 scans every cycle.
   if (stamp - lastAgentsCheck >= AGENTS_CHECK_MS) {
     lastAgentsCheck = stamp;
     try { await runContinuousAgents("scheduler"); }
