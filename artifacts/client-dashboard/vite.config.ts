@@ -176,6 +176,14 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: process.env.HALO_API_ORIGIN
+      ? {
+          '/api': {
+            target: process.env.HALO_API_ORIGIN,
+            changeOrigin: true,
+          },
+        }
+      : undefined,
   },
   preview: {
     port,

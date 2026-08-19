@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { createReadStream, statSync } from "node:fs";
 import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
@@ -6,6 +7,7 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { resolveBundledObjectFile } from "../lib/bundledObjects";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -89,6 +91,15 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
+    const bundled = resolveBundledObjectFile(objectPath);
+    if (bundled) {
+      const st = statSync(bundled);
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Content-Length", String(st.size));
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      createReadStream(bundled).pipe(res);
+      return;
+    }
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     // --- Protected route example (uncomment when using replit-auth) ---

@@ -132,5 +132,19 @@ app.listen(port, (err) => {
     .catch((err) =>
       logger.error({ err }, "Failed to bootstrap SMS delivery-tracking schema"),
     );
+  void import("./lib/seedThornburyPulse")
+    .then(({ ensureThornburyPulse }) => ensureThornburyPulse())
+    .then((seeded) =>
+      logger.info(
+        {
+          property: seeded.propertyName,
+          tokenTail: seeded.dashboardToken.slice(-6),
+          photos: seeded.photos,
+          jobs: seeded.jobs,
+        },
+        "Thornbury Pulse workspace ready",
+      ),
+    )
+    .catch((err) => logger.error({ err }, "Failed to seed Thornbury Pulse"));
 });
 }

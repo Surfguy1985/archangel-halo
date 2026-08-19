@@ -286,6 +286,7 @@ const SAFE_PATHS: RegExp[] = [
   /^\/command\/conversations(\/|$)/,
   /^\/command\/briefing$/,
   /^\/settings\/sync-base44$/,
+  /^\/settings\/seed-thornbury-pulse$/,
   /^\/live\//,
   /^\/client\//,
   /^\/pay\//,

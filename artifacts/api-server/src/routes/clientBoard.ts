@@ -1,5 +1,5 @@
 import { limits } from "../lib/rateLimit";
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { createHmac } from "node:crypto";
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
@@ -55,6 +55,7 @@ import {
   GetClientBoardHistoryResponse,
 } from "@workspace/api-zod";
 import { ROLE_DEFAULTS } from "./clientAccess";
+import { isPulsePropertyAllowed, pulseSeatDenial } from "../lib/pulseSeat";
 import { completeJson } from "../lib/ai";
 import { raiseClientCard } from "../lib/clientBoard";
 import { getPresentationDemoState } from "../lib/presentationDemo";
@@ -177,6 +178,41 @@ async function accountByToken(token: string, preferPropertyId?: string | null) {
     .where(and(inArray(clientAccountsTable.propertyId, ids), eq(clientAccountsTable.status, "active")))
     .limit(1);
   return account;
+}
+
+async function propertyNameFor(propertyId: string): Promise<string> {
+  const [prop] = await db
+    .select({ name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  return prop?.name ?? "";
+}
+
+/** Auth + Thornbury allowlist for Pulse GETs. Login itself is not gated on auth. */
+export async function gatePulse(
+  req: Request,
+  res: Response,
+  token: string,
+): Promise<{
+  account: NonNullable<Awaited<ReturnType<typeof accountByToken>>>;
+  viewer: Viewer;
+  propertyName: string;
+} | null> {
+  const prefer = typeof req.query?.property === "string" ? req.query.property : null;
+  const account = await accountByToken(token, prefer);
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return null;
+  }
+  const propertyName = await propertyNameFor(account.propertyId);
+  const viewer = await resolveViewer(req, account.propertyId);
+  const denial = pulseSeatDenial(propertyName, viewer.authenticated);
+  if (denial) {
+    res.status(denial.status).json(denial.body);
+    return null;
+  }
+  return { account, viewer, propertyName };
 }
 
 export type Viewer = {
@@ -1237,13 +1273,10 @@ Use ONLY ids present in the data. Title ≤ 60 chars, client-friendly. Body: 1-2
 });
 
 router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res): Promise<void> => {
-  const prefer = typeof req.query.property === "string" ? req.query.property : null;
-  const account = await accountByToken(String(req.params.token), prefer);
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const viewer = await resolveViewer(req, account.propertyId);
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
+  const viewer = gated.viewer;
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -2666,11 +2699,9 @@ router.post(
 );
 
 router.get("/client/:token/board/history", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const rows = await db
     .select()
     .from(clientCardHistoryTable)
@@ -2730,11 +2761,9 @@ function sendHistoryCsv(
 }
 
 router.get("/client/:token/board/history.csv", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const rows = await db
     .select()
     .from(clientCardHistoryTable)
@@ -2863,11 +2892,9 @@ router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
 // Map view — property + live crew activity
 // ---------------------------------------------------------------------------
 router.get("/client/:token/board/map", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -3373,11 +3400,9 @@ router.post(
 );
 
 router.get("/client/:token/board/notifications", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const [rows, [unread]] = await Promise.all([
     db
       .select()
@@ -3438,17 +3463,11 @@ router.post("/client/:token/board/notifications/read", async (req, res): Promise
 
 // Property-management KPI strip (Open Property style) for the board header.
 router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
+  const viewer = gated.viewer;
   const propertyId = account.propertyId;
-
-  // Resolve viewer to enforce financial permission server-side.
-  // Guests and viewers without the 'invoices' permission receive
-  // zeroed invoice fields — the query is still run for unit/job KPIs.
-  const viewer = await resolveViewer(req, propertyId);
   const hasFinancialAccess = viewer.permissions.includes("invoices");
 
   const [jobs, requests, invoices, mappedUnits, { byUnit: unitStatuses }] = await Promise.all([
@@ -3528,11 +3547,9 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 router.get("/client/:token/briefing", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const propertyId = account.propertyId;
   const DAY = 86_400_000;
   const now = Date.now();

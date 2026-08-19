@@ -42,7 +42,7 @@ import {
   ContactMaintenanceResponse,
   RequestUnitChangeOrderBody,
 } from "@workspace/api-zod";
-import { resolveViewer, requireWriter, type Viewer } from "./clientBoard";
+import { resolveViewer, requireWriter, gatePulse, type Viewer } from "./clientBoard";
 import { completeText, completeJsonWithImage } from "../lib/ai";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { layoutUnitGrid } from "../lib/siteTwinCore";
@@ -77,12 +77,9 @@ async function resolveScope(
   res: Response,
 ): Promise<{ propertyId: string; viewer: Viewer } | undefined> {
   if (req.params.token) {
-    const account = await accountByToken(String(req.params.token));
-    if (!account) {
-      res.status(404).json({ error: "Invalid link" });
-      return undefined;
-    }
-    return { propertyId: account.propertyId, viewer: await resolveViewer(req, account.propertyId) };
+    const gated = await gatePulse(req, res, String(req.params.token));
+    if (!gated) return undefined;
+    return { propertyId: gated.account.propertyId, viewer: gated.viewer };
   }
   const propertyId = String(req.params.propertyId);
   if (!UUID_RE.test(propertyId)) {
