@@ -64,9 +64,16 @@ import type {
   BoardCardComment,
   BoardCardCommentInput,
   BoardCardCommentList,
+  BoardField,
+  BoardFieldCreate,
+  BoardFieldUpdate,
   BoardNotificationList,
   BoardSettingsInput,
   BoardStatusChangeInput,
+  BoardView,
+  BoardViewCreate,
+  BoardViewUpdate,
+  BoardWorkspace,
   Brief,
   BroadcastInput,
   BroadcastResult,
@@ -268,6 +275,8 @@ import type {
   Job,
   JobBoardCard,
   JobComplianceView,
+  JobCustomFieldsInput,
+  JobCustomFieldsResult,
   JobDetail,
   JobEvent,
   JobInput,
@@ -295,6 +304,7 @@ import type {
   ListActivitiesParams,
   ListBankTransactionsParams,
   ListBidsParams,
+  ListBoardWorkspaceParams,
   ListCrewPayoutsParams,
   ListExpensesParams,
   ListInvoicesParams,
@@ -37438,5 +37448,571 @@ export const useSubmitClientTurnInvoiceToEntrata = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSubmitClientTurnInvoiceToEntrataMutationOptions(options));
+    }
+
+export const getListBoardWorkspaceUrl = (params?: ListBoardWorkspaceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/board/workspace?${stringifiedParams}` : `/api/board/workspace`
+}
+
+/**
+ * @summary The office's custom job fields and saved views
+ */
+export const listBoardWorkspace = async (params?: ListBoardWorkspaceParams, options?: RequestInit): Promise<BoardWorkspace> => {
+
+  return customFetch<BoardWorkspace>(getListBoardWorkspaceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBoardWorkspaceQueryKey = (params?: ListBoardWorkspaceParams,) => {
+    return [
+    `/api/board/workspace`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBoardWorkspaceQueryOptions = <TData = Awaited<ReturnType<typeof listBoardWorkspace>>, TError = ErrorType<unknown>>(params?: ListBoardWorkspaceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBoardWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBoardWorkspaceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBoardWorkspace>>> = ({ signal }) => listBoardWorkspace(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBoardWorkspace>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBoardWorkspaceQueryResult = NonNullable<Awaited<ReturnType<typeof listBoardWorkspace>>>
+export type ListBoardWorkspaceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The office's custom job fields and saved views
+ */
+
+export function useListBoardWorkspace<TData = Awaited<ReturnType<typeof listBoardWorkspace>>, TError = ErrorType<unknown>>(
+ params?: ListBoardWorkspaceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBoardWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBoardWorkspaceQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateBoardFieldUrl = () => {
+
+
+
+
+  return `/api/board/fields`
+}
+
+/**
+ * @summary Add a custom column to the job board
+ */
+export const createBoardField = async (boardFieldCreate: BoardFieldCreate, options?: RequestInit): Promise<BoardField> => {
+
+  return customFetch<BoardField>(getCreateBoardFieldUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardFieldCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateBoardFieldMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBoardField>>, TError,{data: BodyType<BoardFieldCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBoardField>>, TError,{data: BodyType<BoardFieldCreate>}, TContext> => {
+
+const mutationKey = ['createBoardField'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBoardField>>, {data: BodyType<BoardFieldCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBoardField(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBoardFieldMutationResult = NonNullable<Awaited<ReturnType<typeof createBoardField>>>
+    export type CreateBoardFieldMutationBody = BodyType<BoardFieldCreate>
+    export type CreateBoardFieldMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a custom column to the job board
+ */
+export const useCreateBoardField = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBoardField>>, TError,{data: BodyType<BoardFieldCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBoardField>>,
+        TError,
+        {data: BodyType<BoardFieldCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateBoardFieldMutationOptions(options));
+    }
+
+export const getUpdateBoardFieldUrl = (id: string,) => {
+
+
+
+
+  return `/api/board/fields/${id}`
+}
+
+export const updateBoardField = async (id: string,
+    boardFieldUpdate: BoardFieldUpdate, options?: RequestInit): Promise<BoardField> => {
+
+  return customFetch<BoardField>(getUpdateBoardFieldUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardFieldUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateBoardFieldMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardField>>, TError,{id: string;data: BodyType<BoardFieldUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBoardField>>, TError,{id: string;data: BodyType<BoardFieldUpdate>}, TContext> => {
+
+const mutationKey = ['updateBoardField'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBoardField>>, {id: string;data: BodyType<BoardFieldUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateBoardField(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBoardFieldMutationResult = NonNullable<Awaited<ReturnType<typeof updateBoardField>>>
+    export type UpdateBoardFieldMutationBody = BodyType<BoardFieldUpdate>
+    export type UpdateBoardFieldMutationError = ErrorType<Error>
+
+    export const useUpdateBoardField = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardField>>, TError,{id: string;data: BodyType<BoardFieldUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBoardField>>,
+        TError,
+        {id: string;data: BodyType<BoardFieldUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateBoardFieldMutationOptions(options));
+    }
+
+export const getDeleteBoardFieldUrl = (id: string,) => {
+
+
+
+
+  return `/api/board/fields/${id}`
+}
+
+/**
+ * @summary Retire a custom column (values are kept)
+ */
+export const deleteBoardField = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteBoardFieldUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteBoardFieldMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBoardField>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBoardField>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteBoardField'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBoardField>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteBoardField(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBoardFieldMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBoardField>>>
+
+    export type DeleteBoardFieldMutationError = ErrorType<Error>
+
+    /**
+ * @summary Retire a custom column (values are kept)
+ */
+export const useDeleteBoardField = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBoardField>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBoardField>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteBoardFieldMutationOptions(options));
+    }
+
+export const getCreateBoardViewUrl = () => {
+
+
+
+
+  return `/api/board/views`
+}
+
+/**
+ * @summary Save a named view of the job board
+ */
+export const createBoardView = async (boardViewCreate: BoardViewCreate, options?: RequestInit): Promise<BoardView> => {
+
+  return customFetch<BoardView>(getCreateBoardViewUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardViewCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateBoardViewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBoardView>>, TError,{data: BodyType<BoardViewCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBoardView>>, TError,{data: BodyType<BoardViewCreate>}, TContext> => {
+
+const mutationKey = ['createBoardView'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBoardView>>, {data: BodyType<BoardViewCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBoardView(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBoardViewMutationResult = NonNullable<Awaited<ReturnType<typeof createBoardView>>>
+    export type CreateBoardViewMutationBody = BodyType<BoardViewCreate>
+    export type CreateBoardViewMutationError = ErrorType<Error>
+
+    /**
+ * @summary Save a named view of the job board
+ */
+export const useCreateBoardView = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBoardView>>, TError,{data: BodyType<BoardViewCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBoardView>>,
+        TError,
+        {data: BodyType<BoardViewCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateBoardViewMutationOptions(options));
+    }
+
+export const getUpdateBoardViewUrl = (id: string,) => {
+
+
+
+
+  return `/api/board/views/${id}`
+}
+
+export const updateBoardView = async (id: string,
+    boardViewUpdate: BoardViewUpdate, options?: RequestInit): Promise<BoardView> => {
+
+  return customFetch<BoardView>(getUpdateBoardViewUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardViewUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateBoardViewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardView>>, TError,{id: string;data: BodyType<BoardViewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBoardView>>, TError,{id: string;data: BodyType<BoardViewUpdate>}, TContext> => {
+
+const mutationKey = ['updateBoardView'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBoardView>>, {id: string;data: BodyType<BoardViewUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateBoardView(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBoardViewMutationResult = NonNullable<Awaited<ReturnType<typeof updateBoardView>>>
+    export type UpdateBoardViewMutationBody = BodyType<BoardViewUpdate>
+    export type UpdateBoardViewMutationError = ErrorType<Error>
+
+    export const useUpdateBoardView = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardView>>, TError,{id: string;data: BodyType<BoardViewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBoardView>>,
+        TError,
+        {id: string;data: BodyType<BoardViewUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateBoardViewMutationOptions(options));
+    }
+
+export const getDeleteBoardViewUrl = (id: string,) => {
+
+
+
+
+  return `/api/board/views/${id}`
+}
+
+export const deleteBoardView = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteBoardViewUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteBoardViewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBoardView>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBoardView>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteBoardView'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBoardView>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteBoardView(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBoardViewMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBoardView>>>
+
+    export type DeleteBoardViewMutationError = ErrorType<Error>
+
+    export const useDeleteBoardView = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBoardView>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBoardView>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteBoardViewMutationOptions(options));
+    }
+
+export const getSetJobCustomFieldsUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/custom-fields`
+}
+
+/**
+ * @summary Set custom field values on a job card
+ */
+export const setJobCustomFields = async (id: string,
+    jobCustomFieldsInput: JobCustomFieldsInput, options?: RequestInit): Promise<JobCustomFieldsResult> => {
+
+  return customFetch<JobCustomFieldsResult>(getSetJobCustomFieldsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobCustomFieldsInput)
+  }
+);}
+
+
+
+
+
+export const getSetJobCustomFieldsMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setJobCustomFields>>, TError,{id: string;data: BodyType<JobCustomFieldsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setJobCustomFields>>, TError,{id: string;data: BodyType<JobCustomFieldsInput>}, TContext> => {
+
+const mutationKey = ['setJobCustomFields'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setJobCustomFields>>, {id: string;data: BodyType<JobCustomFieldsInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setJobCustomFields(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetJobCustomFieldsMutationResult = NonNullable<Awaited<ReturnType<typeof setJobCustomFields>>>
+    export type SetJobCustomFieldsMutationBody = BodyType<JobCustomFieldsInput>
+    export type SetJobCustomFieldsMutationError = ErrorType<Error>
+
+    /**
+ * @summary Set custom field values on a job card
+ */
+export const useSetJobCustomFields = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setJobCustomFields>>, TError,{id: string;data: BodyType<JobCustomFieldsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setJobCustomFields>>,
+        TError,
+        {id: string;data: BodyType<JobCustomFieldsInput>},
+        TContext
+      > => {
+      return useMutation(getSetJobCustomFieldsMutationOptions(options));
     }
 

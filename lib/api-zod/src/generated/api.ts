@@ -324,6 +324,7 @@ export const GetPropertyResponse = zod.object({
   "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })),
   "jobs": zod.array(zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1481,6 +1482,7 @@ export const QuickCreateJobBody = zod.object({
 })
 
 export const QuickCreateJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1571,6 +1573,7 @@ export const PullCrewToJobBody = zod.object({
 
 export const PullCrewToJobResponse = zod.object({
   "job": zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1646,6 +1649,7 @@ export const PullCrewToJobResponse = zod.object({
   "lineTotal": zod.number().nullish()
 }),
   "vacatedJob": zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1729,6 +1733,7 @@ export const ListJobsQueryParams = zod.object({
 })
 
 export const ListJobsResponseItem = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1828,6 +1833,7 @@ export const CreateJobBody = zod.object({
 })
 
 export const CreateJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -1910,6 +1916,7 @@ export const GetJobParams = zod.object({
 
 export const GetJobResponse = zod.object({
   "job": zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2060,6 +2067,7 @@ export const UpdateJobBody = zod.object({
 })
 
 export const UpdateJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2160,6 +2168,7 @@ export const CompleteJobBody = zod.object({
 })
 
 export const CompleteJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2244,6 +2253,7 @@ export const ClearJobParams = zod.object({
 })
 
 export const ClearJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2328,6 +2338,7 @@ export const RestartJobParams = zod.object({
 })
 
 export const RestartJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2418,6 +2429,7 @@ export const ScheduleJobBody = zod.object({
 })
 
 export const ScheduleJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2508,6 +2520,7 @@ export const DispatchJobBody = zod.object({
 })
 
 export const DispatchJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -2760,6 +2773,7 @@ export const ReopenJobChangeOrderParams = zod.object({
 })
 
 export const ReopenJobChangeOrderResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -3084,6 +3098,7 @@ export const SendJobRecapBody = zod.object({
 })
 
 export const SendJobRecapResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -3717,6 +3732,7 @@ export const ParseWalkVoiceResponse = zod.object({
  */
 export const ListJobBoardResponseItem = zod.object({
   "job": zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -3921,6 +3937,7 @@ export const PayJobCrewMemberBody = zod.object({
 })
 
 export const PayJobCrewMemberResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -4009,6 +4026,7 @@ export const ClearJobCrewPayBody = zod.object({
 })
 
 export const ClearJobCrewPayResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -4127,6 +4145,7 @@ export const SetJobBoardStatusBody = zod.object({
 })
 
 export const SetJobBoardStatusResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -4217,6 +4236,7 @@ export const UpdateBoardSettingsBody = zod.object({
 })
 
 export const UpdateBoardSettingsResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -4301,6 +4321,7 @@ export const ReopenJobParams = zod.object({
 })
 
 export const ReopenJobResponse = zod.object({
+  "customFields": zod.record(zod.string(), zod.unknown()).nullish().describe('Office-defined field values, keyed by BoardField.key. Null until the job has any.'),
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
@@ -17473,6 +17494,255 @@ export const SubmitClientTurnInvoiceToEntrataResponse = zod.object({
   "adapter": zod.enum(['csv', 'api']),
   "pdfPath": zod.string(),
   "sidecarPath": zod.string()
+})
+
+
+/**
+ * @summary The office's custom job fields and saved views
+ */
+export const listBoardWorkspaceQueryScopeDefault = `job`;
+
+export const ListBoardWorkspaceQueryParams = zod.object({
+  "scope": zod.coerce.string().default(listBoardWorkspaceQueryScopeDefault)
+})
+
+export const ListBoardWorkspaceResponse = zod.object({
+  "fields": zod.array(zod.object({
+  "id": zod.string(),
+  "key": zod.string().describe('Permanent slug the job\'s values are stored under — never changes when the label is renamed'),
+  "label": zod.string(),
+  "type": zod.string().describe('text | number | money | select | date | checkbox'),
+  "options": zod.union([zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "color": zod.string().nullish()
+})),zod.null()]).optional(),
+  "showOnCard": zod.boolean().describe('Render the value on the board tile'),
+  "position": zod.number()
+})),
+  "views": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "viewType": zod.string().describe('board | list | table'),
+  "filters": zod.union([zod.object({
+  "search": zod.string().nullish(),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "rails": zod.array(zod.string()).optional(),
+  "crewIds": zod.array(zod.string()).optional(),
+  "services": zod.array(zod.string()).optional(),
+  "flags": zod.array(zod.string()).optional().describe('Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice'),
+  "custom": zod.record(zod.string(), zod.unknown()).optional().describe('Custom field key -> accepted values')
+}).describe('Every axis is optional; an absent axis means \"no restriction\"'),zod.null()]).optional(),
+  "sort": zod.union([zod.object({
+  "key": zod.string().describe('Built-in column key, or cf:<fieldKey> for a custom field'),
+  "dir": zod.string().describe('asc | desc')
+}),zod.null()]).optional(),
+  "groupBy": zod.string().describe('rail | property | crew | none'),
+  "visibleColumns": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "position": zod.number(),
+  "isDefault": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Add a custom column to the job board
+ */
+export const createBoardFieldBodyScopeDefault = `job`;
+
+export const CreateBoardFieldBody = zod.object({
+  "scope": zod.string().default(createBoardFieldBodyScopeDefault),
+  "label": zod.string(),
+  "type": zod.string().describe('text | number | money | select | date | checkbox'),
+  "options": zod.union([zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "color": zod.string().nullish()
+})),zod.null()]).optional(),
+  "showOnCard": zod.boolean().optional()
+})
+
+export const CreateBoardFieldResponse = zod.object({
+  "id": zod.string(),
+  "key": zod.string().describe('Permanent slug the job\'s values are stored under — never changes when the label is renamed'),
+  "label": zod.string(),
+  "type": zod.string().describe('text | number | money | select | date | checkbox'),
+  "options": zod.union([zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "color": zod.string().nullish()
+})),zod.null()]).optional(),
+  "showOnCard": zod.boolean().describe('Render the value on the board tile'),
+  "position": zod.number()
+})
+
+
+export const UpdateBoardFieldParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateBoardFieldBody = zod.object({
+  "label": zod.string().optional(),
+  "options": zod.union([zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "color": zod.string().nullish()
+})),zod.null()]).optional(),
+  "showOnCard": zod.boolean().optional(),
+  "position": zod.number().optional()
+})
+
+export const UpdateBoardFieldResponse = zod.object({
+  "id": zod.string(),
+  "key": zod.string().describe('Permanent slug the job\'s values are stored under — never changes when the label is renamed'),
+  "label": zod.string(),
+  "type": zod.string().describe('text | number | money | select | date | checkbox'),
+  "options": zod.union([zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "color": zod.string().nullish()
+})),zod.null()]).optional(),
+  "showOnCard": zod.boolean().describe('Render the value on the board tile'),
+  "position": zod.number()
+})
+
+
+/**
+ * @summary Retire a custom column (values are kept)
+ */
+export const DeleteBoardFieldParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteBoardFieldResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Save a named view of the job board
+ */
+export const createBoardViewBodyScopeDefault = `job`;
+
+export const CreateBoardViewBody = zod.object({
+  "scope": zod.string().default(createBoardViewBodyScopeDefault),
+  "name": zod.string(),
+  "viewType": zod.string(),
+  "filters": zod.union([zod.object({
+  "search": zod.string().nullish(),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "rails": zod.array(zod.string()).optional(),
+  "crewIds": zod.array(zod.string()).optional(),
+  "services": zod.array(zod.string()).optional(),
+  "flags": zod.array(zod.string()).optional().describe('Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice'),
+  "custom": zod.record(zod.string(), zod.unknown()).optional().describe('Custom field key -> accepted values')
+}).describe('Every axis is optional; an absent axis means \"no restriction\"'),zod.null()]).optional(),
+  "sort": zod.union([zod.object({
+  "key": zod.string().describe('Built-in column key, or cf:<fieldKey> for a custom field'),
+  "dir": zod.string().describe('asc | desc')
+}),zod.null()]).optional(),
+  "groupBy": zod.string().optional(),
+  "visibleColumns": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "isDefault": zod.boolean().optional()
+})
+
+export const CreateBoardViewResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "viewType": zod.string().describe('board | list | table'),
+  "filters": zod.union([zod.object({
+  "search": zod.string().nullish(),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "rails": zod.array(zod.string()).optional(),
+  "crewIds": zod.array(zod.string()).optional(),
+  "services": zod.array(zod.string()).optional(),
+  "flags": zod.array(zod.string()).optional().describe('Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice'),
+  "custom": zod.record(zod.string(), zod.unknown()).optional().describe('Custom field key -> accepted values')
+}).describe('Every axis is optional; an absent axis means \"no restriction\"'),zod.null()]).optional(),
+  "sort": zod.union([zod.object({
+  "key": zod.string().describe('Built-in column key, or cf:<fieldKey> for a custom field'),
+  "dir": zod.string().describe('asc | desc')
+}),zod.null()]).optional(),
+  "groupBy": zod.string().describe('rail | property | crew | none'),
+  "visibleColumns": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "position": zod.number(),
+  "isDefault": zod.boolean()
+})
+
+
+export const UpdateBoardViewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateBoardViewBody = zod.object({
+  "name": zod.string().optional(),
+  "viewType": zod.string().optional(),
+  "filters": zod.union([zod.object({
+  "search": zod.string().nullish(),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "rails": zod.array(zod.string()).optional(),
+  "crewIds": zod.array(zod.string()).optional(),
+  "services": zod.array(zod.string()).optional(),
+  "flags": zod.array(zod.string()).optional().describe('Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice'),
+  "custom": zod.record(zod.string(), zod.unknown()).optional().describe('Custom field key -> accepted values')
+}).describe('Every axis is optional; an absent axis means \"no restriction\"'),zod.null()]).optional(),
+  "sort": zod.union([zod.object({
+  "key": zod.string().describe('Built-in column key, or cf:<fieldKey> for a custom field'),
+  "dir": zod.string().describe('asc | desc')
+}),zod.null()]).optional(),
+  "groupBy": zod.string().optional(),
+  "visibleColumns": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "position": zod.number().optional(),
+  "isDefault": zod.boolean().optional()
+})
+
+export const UpdateBoardViewResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "viewType": zod.string().describe('board | list | table'),
+  "filters": zod.union([zod.object({
+  "search": zod.string().nullish(),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "rails": zod.array(zod.string()).optional(),
+  "crewIds": zod.array(zod.string()).optional(),
+  "services": zod.array(zod.string()).optional(),
+  "flags": zod.array(zod.string()).optional().describe('Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice'),
+  "custom": zod.record(zod.string(), zod.unknown()).optional().describe('Custom field key -> accepted values')
+}).describe('Every axis is optional; an absent axis means \"no restriction\"'),zod.null()]).optional(),
+  "sort": zod.union([zod.object({
+  "key": zod.string().describe('Built-in column key, or cf:<fieldKey> for a custom field'),
+  "dir": zod.string().describe('asc | desc')
+}),zod.null()]).optional(),
+  "groupBy": zod.string().describe('rail | property | crew | none'),
+  "visibleColumns": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "position": zod.number(),
+  "isDefault": zod.boolean()
+})
+
+
+export const DeleteBoardViewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteBoardViewResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Set custom field values on a job card
+ */
+export const SetJobCustomFieldsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SetJobCustomFieldsBody = zod.object({
+  "values": zod.record(zod.string(), zod.unknown()).describe('Field key -> value. Null or empty clears the value.')
+})
+
+export const SetJobCustomFieldsResponse = zod.object({
+  "id": zod.string(),
+  "customFields": zod.record(zod.string(), zod.unknown())
 })
 
 

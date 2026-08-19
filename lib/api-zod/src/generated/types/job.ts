@@ -6,9 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CrewPayEntry } from './crewPayEntry';
+import type { JobCustomFields } from './jobCustomFields';
 import type { JobLineItem } from './jobLineItem';
 
 export interface Job {
+  /**
+     * Office-defined field values, keyed by BoardField.key. Null until the job has any.
+     * @nullable
+     */
+  customFields?: JobCustomFields;
   id: string;
   jobNo: string;
   /** @nullable */

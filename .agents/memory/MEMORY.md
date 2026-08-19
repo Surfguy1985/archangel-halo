@@ -150,3 +150,4 @@
 - [HALO executive briefing deck](halo-executive-briefing.md) — Pulse "Present" opens the live boardroom deck; never show a pending query as 0, hold place by slide id.
 - [HALO job priority ordering](halo-job-priority-ordering.md) — job ordering is ascending/lower-first per the client-board precedent; today's feed applies it within a tier, never across tiers.
 - [Schema changes without drizzle push](halo-drizzle-push-bigint.md) — push is broken repo-wide; ship column adds as boot-time ensure DDL, awaited before listen when the column gates reads.
+- [HALO board workspace](halo-board-workspace.md) — one shared rail helper for board/list/table; drag must plan against the server's narrow transitions; jsonb custom fields merge in SQL.

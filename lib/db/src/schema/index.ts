@@ -18,6 +18,7 @@ export * from "./clients";
 export * from "./job_summaries";
 export * from "./work_requests";
 export * from "./client_board";
+export * from "./board_workspace";
 export * from "./falkon";
 export * from "./client_cms";
 export * from "./emergency";

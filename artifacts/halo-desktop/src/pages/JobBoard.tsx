@@ -27,11 +27,24 @@ import {
   useAssignPhotosToJob,
   type PhotoLibraryEntry,
   type JobBoardCard,
+  type BoardField,
   type Crew,
   type CrewToday,
   useSendCheckFollowup,
 } from "@workspace/api-client-react";
 import { StageArtPanel, type RailKey } from "@workspace/board-ui";
+import { useBoardWorkspace } from "@/hooks/useBoardWorkspace";
+import { BoardViewBar } from "@/components/jobboard/BoardViewBar";
+import { JobListView } from "@/components/jobboard/JobListView";
+import { JobTableView, EmptyResult } from "@/components/jobboard/JobTableView";
+import { FieldManagerDialog } from "@/components/jobboard/FieldManagerDialog";
+import { CustomFieldPill } from "@/components/jobboard/CustomFieldCell";
+import {
+  railOf,
+  planMove,
+  customValue,
+  type JobRailKey,
+} from "@/lib/boardWorkspace";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Card, CardContent} from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
@@ -115,32 +128,10 @@ function nextAction(card: JobBoardCard, rail: JobRailKey): string | null {
   }
 }
 
-type JobRailKey = "requested" | "in_progress" | "done" | "billing" | "alert";
 type JobTone = "lime" | "blue" | "emerald" | "stone" | "red";
 
-/** Same five rails as the client board: Requested → In progress → Done → Billing → Alerts (red, last). */
-function jobRail(card: JobBoardCard): JobRailKey {
-  // A pending client change order pulls the card back to Requested until the
-  // office reviews upcharges and reopens it — mirrored on the client board.
-  if (card.job.changeOrderStatus === "requested") return "requested";
-  const board = card.job.boardStatus || "active";
-  if (board === "manual_check") return "alert"; // failed AI check — needs a manual look
-  if (board === "pay_alert") return "alert"; // crew paid — clear each row to history
-  if (board === "reopened") return "alert"; // lost its crew — needs the office
-  // Client reported the check as sent but we haven't verified/received it yet:
-  // the card sits in Alerts until the physical check is scanned in.
-  if (
-    card.invoice?.clientPaidReportedAt &&
-    !card.invoice.paidAt &&
-    card.invoice.status !== "paid"
-  )
-    return "alert";
-  if (board === "billing") return "billing"; // client picked a payment route
-  if (card.job.status === "complete" || card.job.status === "paid") return "billing";
-  if (board === "completed") return "done";
-  if (board === "filled") return "in_progress";
-  return "requested";
-}
+/** Single source of truth for rails — shared with the list and table views. */
+const jobRail = railOf;
 
 const JOB_TONES: Record<JobTone, { chip: string; dot: string }> = {
   lime: { chip: "bg-[var(--gold-light)] text-black", dot: "bg-[var(--gold-light)]" },
@@ -192,26 +183,65 @@ export default function JobBoard() {
   })();
   // Chime once when a NEW unacknowledged PO first appears on the board.
   usePoReceivedChime(cards.filter((c) => hasUnacknowledgedPo(c.job)).map((c) => c.job.id));
-  // Property filter — "all" shows every card; any other value scopes to one property.
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  // Views, filters, columns and the office's custom fields.
+  const ws = useBoardWorkspace(cards);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const cardFields = ws.fields.filter((f) => f.showOnCard);
 
-  // Derive a sorted list of unique properties from the full (unfiltered) card list.
-  const propertyOptions = (() => {
-    const seen = new Map<string, string>();
-    for (const c of cards) {
-      if (c.job.propertyId && !seen.has(c.job.propertyId)) {
-        seen.set(c.job.propertyId, c.job.propertyName || "Unknown Property");
-      }
+  // Drag between rails. The rails are gated (a crew earns In progress, a PO
+  // earns Billing), so a drop that isn't a legal status flip explains itself
+  // instead of failing silently.
+  const setBoardStatus = useSetJobBoardStatus();
+  const completeJob = useCompleteJob();
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverRail, setDragOverRail] = useState<JobRailKey | null>(null);
+  // Cards with a move in flight: the board still shows them in the old rail
+  // until the refetch lands, and dropping twice would fire the mutation twice.
+  const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
+  const releaseCard = (jobId: string) =>
+    setMovingIds((cur) => {
+      const next = new Set(cur);
+      next.delete(jobId);
+      return next;
+    });
+  const refreshBoard = () =>
+    queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
+  const moveCard = (card: JobBoardCard, to: JobRailKey) => {
+    if (movingIds.has(card.job.id)) return;
+    const plan = planMove(card, to);
+    if (plan.kind === "blocked") {
+      if (plan.reason)
+        toast({ title: "Can't move it there", description: plan.reason });
+      return;
     }
-    return [...seen.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  })();
+    const jobId = card.job.id;
+    setMovingIds((cur) => new Set(cur).add(jobId));
+    const settle = {
+      onSuccess: () => {
+        refreshBoard();
+        releaseCard(jobId);
+      },
+      onError: (err: unknown) => {
+        releaseCard(jobId);
+        toast({
+          title: "Couldn't move the card",
+          description: (err as any)?.data?.error ?? (err as Error).message,
+          variant: "destructive",
+        });
+      },
+    };
+    if (plan.kind === "complete") {
+      completeJob.mutate({ id: jobId, data: {} }, settle);
+      return;
+    }
+    setBoardStatus.mutate({ id: jobId, data: { boardStatus: plan.boardStatus } }, settle);
+  };
 
-  const visibleCards =
-    selectedPropertyId === "all"
-      ? cards
-      : cards.filter((c) => c.job.propertyId === selectedPropertyId);
+  // Cards that survive the active view's filters — the rails, list and table
+  // all render from this one set.
+  const visibleCards = ws.filtered;
 
   const openCard = visibleCards.find((c) => c.job.id === openId) ?? null;
 
@@ -319,32 +349,33 @@ export default function JobBoard() {
         </DialogContent>
       </Dialog>
 
-      {/* Property filter — only shown once cards are loaded and more than one property exists */}
-      {!isLoading && propertyOptions.length > 1 && (
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Property</span>
-          <Select value={selectedPropertyId} onValueChange={(v) => { setSelectedPropertyId(v); setExpandedDecks(new Set()); }}>
-            <SelectTrigger className="h-8 w-56 text-sm rounded-full border-[var(--hairline)] bg-white shadow-none" data-testid="property-filter-trigger">
-              <SelectValue placeholder="All properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All properties</SelectItem>
-              {propertyOptions.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedPropertyId !== "all" && (
-            <button
-              type="button"
-              onClick={() => { setSelectedPropertyId("all"); setExpandedDecks(new Set()); }}
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-            >
-              Show all
-            </button>
-          )}
-        </div>
+      {!isLoading && cards.length > 0 && (
+        <BoardViewBar
+          cards={cards}
+          fields={ws.fields}
+          views={ws.views}
+          activeView={ws.activeView}
+          activeViewId={ws.activeViewId}
+          dirty={ws.dirty}
+          draft={ws.draft}
+          columns={ws.columns}
+          visibleColumns={ws.visibleColumns}
+          shown={visibleCards.length}
+          total={cards.length}
+          patch={ws.patch}
+          setFilters={ws.setFilters}
+          selectView={ws.selectView}
+          saveAs={ws.saveAs}
+          saveActive={ws.saveActive}
+          revert={ws.revert}
+          deleteView={ws.deleteView}
+          makeDefault={ws.makeDefault}
+          savingView={ws.savingView}
+          onManageFields={() => setFieldsOpen(true)}
+        />
       )}
+
+      <FieldManagerDialog open={fieldsOpen} onOpenChange={setFieldsOpen} fields={ws.fields} />
 
       <div className="flex-1 pb-12">
         {isLoading ? (
@@ -359,18 +390,56 @@ export default function JobBoard() {
             <p className="font-medium text-lg text-[var(--secondary)]">Nothing on the board yet</p>
             <p className="text-sm">Post a job from a property, or use + New → Job.</p>
           </div>
+        ) : ws.draft.viewType === "table" ? (
+          <JobTableView
+            groups={ws.groups}
+            columns={ws.columns}
+            visibleColumns={ws.visibleColumns}
+            fields={ws.fields}
+            sort={ws.draft.sort}
+            onSort={(sort) => ws.patch({ sort })}
+            onOpen={setOpenId}
+            showGroupHeaders={ws.draft.groupBy !== "none"}
+          />
+        ) : ws.draft.viewType === "list" ? (
+          <JobListView
+            groups={ws.groups}
+            fields={ws.fields}
+            onOpen={setOpenId}
+            showGroupHeaders={ws.draft.groupBy !== "none"}
+          />
         ) : visibleCards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[var(--hairline)] text-muted-foreground bg-card rounded-2xl">
-            <ClipboardList className="w-12 h-12 mb-4 text-border" />
-            <p className="font-medium text-lg text-[var(--secondary)]">No jobs for this property</p>
-            <button type="button" onClick={() => setSelectedPropertyId("all")} className="text-sm text-[var(--secondary)] underline underline-offset-2 mt-1">Show all properties</button>
-          </div>
+          <EmptyResult />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 items-start" data-testid="jobboard-rails">
             {JOB_RAILS.map((rail) => {
               const railCards = visibleCards.filter((c) => jobRail(c) === rail.key);
               return (
-                <section key={rail.key} className="min-w-0" data-testid={`jobrail-${rail.key}`}>
+                <section
+                  key={rail.key}
+                  className={`min-w-0 rounded-2xl transition-colors ${
+                    dragOverRail === rail.key ? "bg-[var(--gold-light)]/10 outline-2 outline-dashed outline-[var(--gold-light)]" : ""
+                  }`}
+                  data-testid={`jobrail-${rail.key}`}
+                  onDragOver={(e) => {
+                    if (!draggingId) return;
+                    e.preventDefault();
+                    if (dragOverRail !== rail.key) setDragOverRail(rail.key);
+                  }}
+                  onDragLeave={(e) => {
+                    // Only clear when the pointer actually leaves the rail, not
+                    // when it crosses a child card inside it.
+                    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                    setDragOverRail((cur) => (cur === rail.key ? null : cur));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverRail(null);
+                    const dragged = cards.find((c) => c.job.id === draggingId);
+                    setDraggingId(null);
+                    if (dragged) moveCard(dragged, rail.key);
+                  }}
+                >
                   <div className="mb-3 px-1">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${JOB_TONES[rail.tone].dot}`} />
@@ -453,6 +522,17 @@ export default function JobBoard() {
                                 crews={allCrews}
                                 flash={flashing.has(card.job.id)}
                                 onOpen={() => setOpenId(card.job.id)}
+                                fields={cardFields}
+                                dragging={draggingId === card.job.id || movingIds.has(card.job.id)}
+                                onDragStart={
+                                  movingIds.has(card.job.id)
+                                    ? undefined
+                                    : () => setDraggingId(card.job.id)
+                                }
+                                onDragEnd={() => {
+                                  setDraggingId(null);
+                                  setDragOverRail(null);
+                                }}
                               />
                             ))}
                           </div>
@@ -545,7 +625,27 @@ const CLIENT_LANE_LABELS: Record<string, string> = {
   done: "Done",
 };
 
-function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; flash?: boolean; onOpen: () => void }) {
+function JobTile({
+  card,
+  tone,
+  crews,
+  flash,
+  onOpen,
+  fields = [],
+  dragging,
+  onDragStart,
+  onDragEnd,
+}: {
+  card: JobBoardCard;
+  tone: JobTone;
+  crews?: Crew[];
+  flash?: boolean;
+  onOpen: () => void;
+  fields?: BoardField[];
+  dragging?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
   const { job, photos, broadcasts } = card;
   const clientLaneLabel = card.clientLane ? CLIENT_LANE_LABELS[card.clientLane] ?? null : null;
   const services = job.services ?? [];
@@ -561,7 +661,17 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
   const pendingOffers = broadcasts.filter((b) => b.status === "sent" || b.status === "pending").length;
 
   return (
-    <div>
+    <div
+      draggable={!!onDragStart}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        // Firefox refuses to start a drag without payload.
+        e.dataTransfer.setData("text/plain", job.id);
+        onDragStart?.();
+      }}
+      onDragEnd={() => onDragEnd?.()}
+      className={dragging ? "opacity-40" : undefined}
+    >
     {hasUnacknowledgedPo(job) && (
       <div className="mb-1.5">
         <PoReceivedBanner jobId={job.id} poReceivedAt={job.poReceivedAt} poNumber={job.poNumber} />
@@ -660,6 +770,14 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
             </p>
           ) : null;
         })()}
+        {/* Office-defined fields marked "show on card" */}
+        {fields.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1" data-testid={`job-custom-fields-${job.id}`}>
+            {fields.map((f) => (
+              <CustomFieldPill key={f.id} field={f} value={customValue(card, f.key)} />
+            ))}
+          </div>
+        )}
         {(leader || (crews && job.crewLeaderName)) && (
           <div className="mt-2 flex items-center gap-2 min-w-0" data-testid={`job-crew-${job.id}`}>
             {/* Overlapping circle photos: leader first (lime ring), then teammates */}

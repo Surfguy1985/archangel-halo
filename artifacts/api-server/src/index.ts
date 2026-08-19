@@ -19,6 +19,7 @@ import { ensureCrewPinColorSchema } from "./lib/ensureCrewPinColorSchema";
 import { ensureCrewRosterSchema } from "./lib/ensureCrewRosterSchema";
 import { ensureVendorContractSchema } from "./lib/ensureVendorContractSchema";
 import { ensureJobsSchema } from "./lib/ensureJobsSchema";
+import { ensureBoardWorkspaceSchema } from "./lib/ensureBoardWorkspaceSchema";
 import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
 import { ensureVendorRatesSchema } from "./lib/ensureVendorRatesSchema";
 import { ensureInventorySchema } from "./lib/ensureInventorySchema";
@@ -59,6 +60,8 @@ ensureVendorContractSchema()
   // snapshot all 500. It was written to be awaited before listen but was never
   // actually chained here, which is why the column was still missing.
   .then(() => ensureJobsSchema())
+  // jobs.custom_fields joins priority: drizzle selects it on every jobs read.
+  .then(() => ensureBoardWorkspaceSchema())
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);

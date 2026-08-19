@@ -161,6 +161,11 @@ export const jobsTable = pgTable("jobs", {
   // { crewId, name, amount, paidAt, clearedAt } — office pays each member,
   // then manually clears each row; all cleared → card leaves the board.
   crewPay: jsonb("crew_pay"),
+  // Office-defined extra columns, keyed by board_field_defs.key. Values are
+  // whatever the field's type implies (string | number | boolean | ISO date).
+  // A bag rather than real columns: the office adds and drops these at will,
+  // and drizzle-kit push is unusable in this repo.
+  customFields: jsonb("custom_fields"),
   // Falkon Ops job twin — external job reference assigned by Falkon on sync.
   // NULL until the job is registered in the Falkon twin model.
   falkonJobId: text("falkon_job_id"),

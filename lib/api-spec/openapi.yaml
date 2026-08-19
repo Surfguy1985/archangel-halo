@@ -13475,6 +13475,219 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /board/workspace:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: listBoardWorkspace
+      tags: [board]
+      summary: The office's custom job fields and saved views
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema: { type: string, default: job }
+      responses:
+        "200":
+          description: Workspace configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardWorkspace"
+
+  /board/fields:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createBoardField
+      tags: [board]
+      summary: Add a custom column to the job board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardFieldCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardField"
+        "400":
+          description: Invalid field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /board/fields/{id}:
+    patch:
+      security: [{ adminSession: [] }]
+      operationId: updateBoardField
+      tags: [board]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardFieldUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardField"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      security: [{ adminSession: [] }]
+      operationId: deleteBoardField
+      tags: [board]
+      summary: Retire a custom column (values are kept)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /board/views:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: createBoardView
+      tags: [board]
+      summary: Save a named view of the job board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardViewCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardView"
+        "400":
+          description: Invalid view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /board/views/{id}:
+    patch:
+      security: [{ adminSession: [] }]
+      operationId: updateBoardView
+      tags: [board]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardViewUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      security: [{ adminSession: [] }]
+      operationId: deleteBoardView
+      tags: [board]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /jobs/{id}/custom-fields:
+    patch:
+      security: [{ adminSession: [] }]
+      operationId: setJobCustomFields
+      tags: [board]
+      summary: Set custom field values on a job card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCustomFieldsInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCustomFieldsResult"
+        "400":
+          description: Value rejected by the field definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     adminSession:
@@ -13488,6 +13701,176 @@ components:
       name: halo_client_session
       description: "Client board session, minted by POST /client/{token}/session. During migration the path token is still honored; new surfaces should rely on the cookie."
   schemas:
+    BoardFieldOption:
+      type: object
+      required: [value, label]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        color: { type: ["string", "null"] }
+    BoardField:
+      type: object
+      required: [id, key, label, type, showOnCard, position]
+      properties:
+        id: { type: string }
+        key:
+          type: string
+          description: Permanent slug the job's values are stored under — never changes when the label is renamed
+        label: { type: string }
+        type:
+          type: string
+          description: "text | number | money | select | date | checkbox"
+        options:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/BoardFieldOption"
+            - type: "null"
+        showOnCard: { type: boolean, description: Render the value on the board tile, not just in table view }
+        position: { type: number }
+    BoardFieldCreate:
+      type: object
+      required: [label, type]
+      properties:
+        scope: { type: string, default: job }
+        label: { type: string }
+        type: { type: string, description: "text | number | money | select | date | checkbox" }
+        options:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/BoardFieldOption"
+            - type: "null"
+        showOnCard: { type: boolean }
+    BoardFieldUpdate:
+      type: object
+      properties:
+        label: { type: string }
+        options:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/BoardFieldOption"
+            - type: "null"
+        showOnCard: { type: boolean }
+        position: { type: number }
+    BoardViewSort:
+      type: object
+      required: [key, dir]
+      properties:
+        key: { type: string, description: "Built-in column key, or cf:<fieldKey> for a custom field" }
+        dir: { type: string, description: "asc | desc" }
+    BoardViewFilters:
+      type: object
+      description: Every axis is optional; an absent axis means "no restriction"
+      properties:
+        search: { type: ["string", "null"] }
+        propertyIds: { type: array, items: { type: string } }
+        rails: { type: array, items: { type: string } }
+        crewIds: { type: array, items: { type: string } }
+        services: { type: array, items: { type: string } }
+        flags:
+          type: array
+          description: "Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice"
+          items: { type: string }
+        custom:
+          type: object
+          description: Custom field key -> accepted values
+          additionalProperties: true
+    BoardView:
+      type: object
+      required: [id, name, viewType, groupBy, position, isDefault]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        viewType: { type: string, description: "board | list | table" }
+        filters:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewFilters"
+            - type: "null"
+        sort:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewSort"
+            - type: "null"
+        groupBy: { type: string, description: "rail | property | crew | none" }
+        visibleColumns:
+          oneOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+        position: { type: number }
+        isDefault: { type: boolean }
+    BoardViewCreate:
+      type: object
+      required: [name, viewType]
+      properties:
+        scope: { type: string, default: job }
+        name: { type: string }
+        viewType: { type: string }
+        filters:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewFilters"
+            - type: "null"
+        sort:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewSort"
+            - type: "null"
+        groupBy: { type: string }
+        visibleColumns:
+          oneOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+        isDefault: { type: boolean }
+    BoardViewUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        viewType: { type: string }
+        filters:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewFilters"
+            - type: "null"
+        sort:
+          oneOf:
+            - $ref: "#/components/schemas/BoardViewSort"
+            - type: "null"
+        groupBy: { type: string }
+        visibleColumns:
+          oneOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+        position: { type: number }
+        isDefault: { type: boolean }
+    BoardWorkspace:
+      type: object
+      required: [fields, views]
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardField"
+        views:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardView"
+    JobCustomFieldsInput:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: object
+          description: Field key -> value. Null or empty clears the value.
+          additionalProperties: true
+    JobCustomFieldsResult:
+      type: object
+      required: [id, customFields]
+      properties:
+        id: { type: string }
+        customFields:
+          type: object
+          additionalProperties: true
     ConciergeChatInput:
       type: object
       required: [message]
@@ -15036,6 +15419,10 @@ components:
       type: object
       required: [id, jobNo, status]
       properties:
+        customFields:
+          type: ["object", "null"]
+          description: Office-defined field values, keyed by BoardField.key. Null until the job has any.
+          additionalProperties: true
         id: { type: string }
         jobNo: { type: string }
         woNo: { type: ["string", "null"] }

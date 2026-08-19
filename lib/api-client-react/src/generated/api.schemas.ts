@@ -5,6 +5,128 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+export interface BoardFieldOption {
+  value: string;
+  label: string;
+  /** @nullable */
+  color?: string | null;
+}
+
+export interface BoardField {
+  id: string;
+  /** Permanent slug the job's values are stored under — never changes when the label is renamed */
+  key: string;
+  label: string;
+  /** text | number | money | select | date | checkbox */
+  type: string;
+  options?: BoardFieldOption[] | null;
+  /** Render the value on the board tile */
+  showOnCard: boolean;
+  position: number;
+}
+
+export interface BoardFieldCreate {
+  scope?: string;
+  label: string;
+  /** text | number | money | select | date | checkbox */
+  type: string;
+  options?: BoardFieldOption[] | null;
+  showOnCard?: boolean;
+}
+
+export interface BoardFieldUpdate {
+  label?: string;
+  options?: BoardFieldOption[] | null;
+  showOnCard?: boolean;
+  position?: number;
+}
+
+export interface BoardViewSort {
+  /** Built-in column key, or cf:<fieldKey> for a custom field */
+  key: string;
+  /** asc | desc */
+  dir: string;
+}
+
+/**
+ * Custom field key -> accepted values
+ */
+export type BoardViewFiltersCustom = { [key: string]: unknown };
+
+/**
+ * Every axis is optional; an absent axis means "no restriction"
+ */
+export interface BoardViewFilters {
+  /** @nullable */
+  search?: string | null;
+  propertyIds?: string[];
+  rails?: string[];
+  crewIds?: string[];
+  services?: string[];
+  /** Named conditions: needsPo, unassigned, overdue, hasChangeOrder, unpaidInvoice */
+  flags?: string[];
+  /** Custom field key -> accepted values */
+  custom?: BoardViewFiltersCustom;
+}
+
+export interface BoardView {
+  id: string;
+  name: string;
+  /** board | list | table */
+  viewType: string;
+  filters?: BoardViewFilters | null;
+  sort?: BoardViewSort | null;
+  /** rail | property | crew | none */
+  groupBy: string;
+  visibleColumns?: string[] | null;
+  position: number;
+  isDefault: boolean;
+}
+
+export interface BoardViewCreate {
+  scope?: string;
+  name: string;
+  viewType: string;
+  filters?: BoardViewFilters | null;
+  sort?: BoardViewSort | null;
+  groupBy?: string;
+  visibleColumns?: string[] | null;
+  isDefault?: boolean;
+}
+
+export interface BoardViewUpdate {
+  name?: string;
+  viewType?: string;
+  filters?: BoardViewFilters | null;
+  sort?: BoardViewSort | null;
+  groupBy?: string;
+  visibleColumns?: string[] | null;
+  position?: number;
+  isDefault?: boolean;
+}
+
+export interface BoardWorkspace {
+  fields: BoardField[];
+  views: BoardView[];
+}
+
+/**
+ * Field key -> value. Null or empty clears the value.
+ */
+export type JobCustomFieldsInputValues = { [key: string]: unknown };
+
+export interface JobCustomFieldsInput {
+  /** Field key -> value. Null or empty clears the value. */
+  values: JobCustomFieldsInputValues;
+}
+
+export type JobCustomFieldsResultCustomFields = { [key: string]: unknown };
+
+export interface JobCustomFieldsResult {
+  id: string;
+  customFields: JobCustomFieldsResultCustomFields;
+}
+
 export interface ConciergeChatInput {
   /** @maxLength 2000 */
   message: string;
@@ -1786,7 +1908,18 @@ export interface JobLineItem {
   completedAt?: string | null;
 }
 
+/**
+ * Office-defined field values, keyed by BoardField.key. Null until the job has any.
+ * @nullable
+ */
+export type JobCustomFields = { [key: string]: unknown } | null;
+
 export interface Job {
+  /**
+     * Office-defined field values, keyed by BoardField.key. Null until the job has any.
+     * @nullable
+     */
+  customFields?: JobCustomFields;
   id: string;
   jobNo: string;
   /** @nullable */
@@ -10015,4 +10148,8 @@ export const ExportClientTurnInvoiceFormat = {
   csv: 'csv',
   json: 'json',
 } as const;
+
+export type ListBoardWorkspaceParams = {
+scope?: string;
+};
 
