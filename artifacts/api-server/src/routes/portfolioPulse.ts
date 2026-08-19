@@ -37,6 +37,7 @@ import {
 import { officeActor, propertyIdsForActor, sendAccessError } from "../lib/clientBoardAccess";
 import { resolveClientBoardLink, regionalClientLink } from "../lib/clientBoardLink";
 import { isClientBoardSegmentEnabled } from "../lib/clientBoardFlags";
+import { gatePulse } from "./clientBoard";
 import { attachPortfolioStream } from "../lib/clientPortfolioEvents";
 import {
   computePortfolioAttention,
@@ -309,6 +310,17 @@ async function clientContext(token: string) {
   return resolveClientBoardLink(token);
 }
 
+/** Property Pulse links require PM login + Thornbury allowlist. Regional books stay open. */
+async function gatePropertyPulseLink(
+  req: Request,
+  res: Response,
+  token: string,
+  ctx: NonNullable<Awaited<ReturnType<typeof clientContext>>>,
+): Promise<boolean> {
+  if (ctx.kind !== "property") return true;
+  return Boolean(await gatePulse(req, res, token));
+}
+
 router.get("/client/:token/portfolio/pulse", async (req: Request, res: Response): Promise<void> => {
   if (!(await requirePulse())) {
     res.status(404).json(DARK);
@@ -325,6 +337,7 @@ router.get("/client/:token/portfolio/pulse", async (req: Request, res: Response)
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  if (!(await gatePropertyPulseLink(req, res, path.data.token, ctx))) return;
   try {
     const merged = await mergedQuery(
       `client:${ctx.kind}:${ctx.propertyId ?? ctx.portfolioId}`,
@@ -363,6 +376,7 @@ router.get("/client/:token/portfolio/attention", async (req: Request, res: Respo
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  if (!(await gatePropertyPulseLink(req, res, path.data.token, ctx))) return;
   try {
     const doc = await computePortfolioAttention({
       portfolioId: ctx.portfolioId,
@@ -392,6 +406,7 @@ router.post("/client/:token/portfolio/ask", async (req: Request, res: Response):
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  if (!(await gatePropertyPulseLink(req, res, String(req.params.token ?? ""), ctx))) return;
   try {
     const href = clientPropertyHref(String(req.params.token));
     const [pulse, attention] = await Promise.all([
@@ -451,6 +466,7 @@ router.get("/client/:token/portfolio/stream", async (req: Request, res: Response
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  if (!(await gatePropertyPulseLink(req, res, path.data.token, ctx))) return;
   attachPortfolioStream(ctx.portfolioId, res);
 });
 
@@ -470,6 +486,7 @@ router.put("/client/:token/portfolio/saved-view", async (req: Request, res: Resp
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  if (!(await gatePropertyPulseLink(req, res, path.data.token, ctx))) return;
   const saved = await savePulseView({
     userId: `client:${ctx.kind}:${ctx.propertyId ?? ctx.portfolioId}`,
     portfolioId: ctx.portfolioId,

@@ -163,9 +163,13 @@ export function clientAuth(
     }
 
     // Migration path: honor the raw token, but only outside strict mode for
-    // anything that changes state or moves money.
+    // anything that changes state or moves money. Pulse login is the bootstrap
+    // that mints the PM bearer token — it must work before a session cookie
+    // exists (the browser still POSTs /session first; API clients and tests
+    // may call login directly).
     const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
-    if (STRICT_MODE && mutating) {
+    const isPulseLogin = /\/board\/login\/?$/.test(req.path);
+    if (STRICT_MODE && mutating && !isPulseLogin) {
       res.status(401).json({ error: 'Session required — reopen your board link' });
       return;
     }

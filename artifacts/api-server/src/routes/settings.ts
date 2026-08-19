@@ -136,6 +136,7 @@ import {
   hydrateSyncHealthFromDb,
 } from "../lib/base44Sync";
 import { logger } from "../lib/logger";
+import { ensureThornburyPulse } from "../lib/seedThornburyPulse";
 
 const router: IRouter = Router();
 
@@ -523,6 +524,18 @@ router.post("/settings/sync-base44", async (_req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "base44 sync: endpoint failed");
     res.status(500).json({ error: "Base44 sync failed" });
+  }
+});
+
+/** POST /settings/seed-thornbury-pulse — idempotent Pulse demo seed (office only). */
+router.post("/settings/seed-thornbury-pulse", async (_req, res): Promise<void> => {
+  try {
+    const result = await ensureThornburyPulse();
+    const { loginPassword: _omit, ...safe } = result;
+    res.json({ ok: true, ...safe });
+  } catch (err) {
+    logger.error({ err }, "thornbury pulse seed failed");
+    res.status(500).json({ error: "Failed to seed Thornbury Pulse" });
   }
 });
 
