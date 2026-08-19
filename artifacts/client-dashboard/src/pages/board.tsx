@@ -2,6 +2,7 @@ import { useLocation, useParams } from 'wouter';
 import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
 import { HistoryTab } from '@/components/HistoryTab';
 import { LoginDialog } from '@/components/LoginDialog';
+import { PulseLogin, pulseErrorBody, pulseErrorStatus } from '@/components/PulseLogin';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
@@ -268,6 +269,17 @@ function Board() {
           <p className="text-[13px] font-semibold tracking-wide uppercase">Loading board</p>
         </motion.div>
       </div>
+    );
+  }
+
+  const pulseStatus = pulseErrorStatus(error);
+  if (pulseStatus === 401 || pulseErrorBody(error).needsLogin) {
+    return (
+      <PulseLogin
+        token={token}
+        propertyName={pulseErrorBody(error).propertyName}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) })}
+      />
     );
   }
 

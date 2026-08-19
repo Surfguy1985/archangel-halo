@@ -1,5 +1,5 @@
 import { limits } from "../lib/rateLimit";
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
@@ -55,6 +55,8 @@ import {
   GetClientBoardHistoryResponse,
 } from "@workspace/api-zod";
 import { effectivePermissions } from "./clientAccess";
+import { isPulsePropertyAllowed, pulseSeatDenial } from "../lib/pulseSeat";
+import { verifyOfficeSession } from "../lib/officeAuth";
 import { completeJson } from "../lib/ai";
 import { raiseClientCard } from "../lib/clientBoard";
 import { getPresentationDemoState } from "../lib/presentationDemo";
@@ -202,6 +204,41 @@ async function accountByToken(token: string, preferPropertyId?: string | null) {
   return account;
 }
 
+async function propertyNameFor(propertyId: string): Promise<string> {
+  const [prop] = await db
+    .select({ name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  return prop?.name ?? "";
+}
+
+/** Auth + Thornbury allowlist for Pulse GETs. Login itself is not gated on auth. */
+export async function gatePulse(
+  req: Request,
+  res: Response,
+  token: string,
+): Promise<{
+  account: NonNullable<Awaited<ReturnType<typeof accountByToken>>>;
+  viewer: Viewer;
+  propertyName: string;
+} | null> {
+  const prefer = typeof req.query?.property === "string" ? req.query.property : null;
+  const account = await accountByToken(token, prefer);
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return null;
+  }
+  const propertyName = await propertyNameFor(account.propertyId);
+  const viewer = await resolveViewer(req, account.propertyId);
+  const denial = pulseSeatDenial(propertyName, viewer.authenticated);
+  if (denial) {
+    res.status(denial.status).json(denial.body);
+    return null;
+  }
+  return { account, viewer, propertyName };
+}
+
 export type Viewer = {
   authenticated: boolean;
   name: string | null;
@@ -221,15 +258,53 @@ const GUEST_VIEWER: Viewer = {
   readOnly: true,
 };
 
+const OFFICE_PULSE_VIEWER: Viewer = {
+  authenticated: true,
+  name: "Archangel",
+  email: null,
+  role: "office",
+  permissions: [
+    "overview",
+    "live_jobs",
+    "unit_map",
+    "photos",
+    "summaries",
+    "invoices",
+    "payments",
+    "requests",
+    "documents",
+    "board",
+    "hub",
+    "team_admin",
+  ],
+  readOnly: false,
+};
+
+function cookieValue(
+  req: { headers: Record<string, unknown>; cookies?: Record<string, string> },
+  name: string,
+): string | undefined {
+  if (req.cookies?.[name]) return req.cookies[name];
+  const raw = String(req.headers.cookie ?? "");
+  const m = raw.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return m?.[1];
+}
+
 export async function resolveViewer(
-  req: { headers: Record<string, unknown> },
+  req: { headers: Record<string, unknown>; cookies?: Record<string, string> },
   propertyId: string,
 ): Promise<Viewer> {
   const header = String(req.headers["authorization"] ?? "");
   const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!bearer) return GUEST_VIEWER;
+  if (!bearer) {
+    if (verifyOfficeSession(cookieValue(req, "halo_office_session"))) return OFFICE_PULSE_VIEWER;
+    return GUEST_VIEWER;
+  }
   const userId = verifySessionToken(bearer);
-  if (!userId) return GUEST_VIEWER;
+  if (!userId) {
+    if (verifyOfficeSession(cookieValue(req, "halo_office_session"))) return OFFICE_PULSE_VIEWER;
+    return GUEST_VIEWER;
+  }
   const [user] = await db
     .select()
     .from(clientUsersTable)
@@ -277,6 +352,11 @@ router.post("/client/:token/board/login", limits.login, async (req, res): Promis
   const account = await accountByToken(String(req.params.token));
   if (!account) {
     res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const propertyName = await propertyNameFor(account.propertyId);
+  if (!isPulsePropertyAllowed(propertyName)) {
+    res.status(404).json({ error: "This Pulse workspace is not available" });
     return;
   }
   const email = parsed.data.email.trim().toLowerCase();
@@ -1328,13 +1408,10 @@ Use ONLY ids present in the data. Title ≤ 60 chars, client-friendly. Body: 1-2
 });
 
 router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res): Promise<void> => {
-  const prefer = typeof req.query.property === "string" ? req.query.property : null;
-  const account = await accountByToken(String(req.params.token), prefer);
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const viewer = await resolveViewer(req, account.propertyId);
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
+  const viewer = gated.viewer;
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -2757,11 +2834,9 @@ router.post(
 );
 
 router.get("/client/:token/board/history", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const rows = await db
     .select()
     .from(clientCardHistoryTable)
@@ -2821,11 +2896,9 @@ function sendHistoryCsv(
 }
 
 router.get("/client/:token/board/history.csv", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const rows = await db
     .select()
     .from(clientCardHistoryTable)
@@ -2954,11 +3027,9 @@ router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
 // Map view — property + live crew activity
 // ---------------------------------------------------------------------------
 router.get("/client/:token/board/map", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -3451,11 +3522,9 @@ router.post(
 );
 
 router.get("/client/:token/board/notifications", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const [rows, [unread]] = await Promise.all([
     db
       .select()
@@ -3516,17 +3585,11 @@ router.post("/client/:token/board/notifications/read", async (req, res): Promise
 
 // Property-management KPI strip (Open Property style) for the board header.
 router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
+  const viewer = gated.viewer;
   const propertyId = account.propertyId;
-
-  // Resolve viewer to enforce financial permission server-side.
-  // Guests and viewers without the 'invoices' permission receive
-  // zeroed invoice fields — the query is still run for unit/job KPIs.
-  const viewer = await resolveViewer(req, propertyId);
   const hasFinancialAccess = viewer.permissions.includes("invoices");
 
   const [jobs, requests, invoices, mappedUnits, { byUnit: unitStatuses }] = await Promise.all([
@@ -3606,11 +3669,9 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 router.get("/client/:token/briefing", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
+  const gated = await gatePulse(req, res, String(req.params.token));
+  if (!gated) return;
+  const account = gated.account;
   const propertyId = account.propertyId;
   const DAY = 86_400_000;
   const now = Date.now();

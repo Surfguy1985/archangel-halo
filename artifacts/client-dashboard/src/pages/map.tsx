@@ -4,6 +4,7 @@ import { useLocation, useParams } from 'wouter';
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from '@workspace/api-client-react';
 import type { ClientBoardMapCrew } from '@workspace/api-client-react';
 import { Loader2, ArrowLeft, Map as MapIcon, User, ExternalLink, Activity, X, MapPin, CheckCircle2, Circle, Camera, Wrench, Clock } from 'lucide-react';
+import { PulseLogin, pulseErrorBody, pulseErrorStatus } from '@/components/PulseLogin';
 import { Button } from '@/components/ui/button';
 import { MapContainer, TileLayer, Marker, Circle as LeafletCircle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -259,6 +260,16 @@ export default function MapView() {
           <p className="text-sm font-medium">Loading live map...</p>
         </div>
       </div>
+    );
+  }
+
+  if (pulseErrorStatus(error) === 401 || pulseErrorBody(error).needsLogin) {
+    return (
+      <PulseLogin
+        token={token}
+        propertyName={pulseErrorBody(error).propertyName}
+        onSuccess={() => setLocation(`/${token}/map`)}
+      />
     );
   }
 

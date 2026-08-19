@@ -135,6 +135,7 @@ describe("direct API classification (bypass surface)", () => {
   it("does not gate conversation asks or Base44 ingest", () => {
     expect(classifyMutation("POST", "/command/conversations/x/ask")).toEqual({ skip: true });
     expect(classifyMutation("POST", "/settings/sync-base44")).toEqual({ skip: true });
+    expect(classifyMutation("POST", "/settings/seed-thornbury-pulse")).toEqual({ skip: true });
     expect(classifyMutation("GET", "/jobs")).toEqual({ skip: true });
   });
 

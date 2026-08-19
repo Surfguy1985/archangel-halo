@@ -12,6 +12,7 @@ import {
   getGetUnitSummaryQueryKey,
   type UnitStatusRec,
 } from '@workspace/api-client-react';
+import { PulseLogin, pulseErrorBody, pulseErrorStatus } from '@/components/PulseLogin';
 import {
   Dialog,
   DialogContent,
@@ -527,6 +528,16 @@ export default function UnitsPage() {
           <p className="text-sm font-bold tracking-widest uppercase">Loading site map...</p>
         </div>
       </div>
+    );
+  }
+
+  if (pulseErrorStatus(error) === 401 || pulseErrorBody(error).needsLogin) {
+    return (
+      <PulseLogin
+        token={token}
+        propertyName={pulseErrorBody(error).propertyName}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: getGetUnitMapQueryKey(token) })}
+      />
     );
   }
 
