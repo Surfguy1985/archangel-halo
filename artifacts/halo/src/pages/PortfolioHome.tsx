@@ -8,6 +8,8 @@ import { Building2, ChevronRight, LayoutGrid, Map, RefreshCw } from "lucide-reac
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { SimpleOpsMap, type MapPin as OpsPin } from "@/components/SimpleOpsMap";
+import { PortalNav } from "@/components/PortalNav";
+import { PropertyPulseDrawer, type PropertyDrawerData } from "@/components/PropertyPulseDrawer";
 
 type PropCard = {
   propertyId: string;
@@ -47,6 +49,7 @@ export default function PortfolioHome() {
   const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<"all" | "attention" | "watch" | "good">("all");
   const [view, setView] = useState<"map" | "board">("map");
+  const [selected, setSelected] = useState<PropertyDrawerData | null>(null);
 
   const q = useQuery({
     queryKey: ["portfolio-home"],
@@ -76,7 +79,18 @@ export default function PortfolioHome() {
           label: p.name,
           sublabel: p.healthLabel,
           tone: p.health === "attention" ? "attention" : p.health === "watch" ? "watch" : "good",
-          onClick: () => setLocation(`/pulse?propertyId=${p.propertyId}`),
+          onClick: () =>
+            setSelected({
+              propertyId: p.propertyId,
+              name: p.name,
+              city: p.city,
+              healthLabel: p.healthLabel,
+              health: p.health,
+              turning: p.turning,
+              waiting: p.waiting,
+              done: p.done,
+              blocked: p.blocked,
+            }),
         })),
     [list, setLocation],
   );
@@ -150,7 +164,7 @@ export default function PortfolioHome() {
         </section>
       )}
 
-      <section className="mx-auto mt-10 max-w-2xl px-6 pb-24">
+      <section className="mx-auto mt-10 max-w-2xl px-6 pb-28">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-[12px] font-medium text-white/35">
             {data?.counts.properties ?? 0} properties
@@ -174,7 +188,19 @@ export default function PortfolioHome() {
             <li key={p.propertyId}>
               <button
                 type="button"
-                onClick={() => setLocation(`/pulse?propertyId=${p.propertyId}`)}
+                onClick={() =>
+                  setSelected({
+                    propertyId: p.propertyId,
+                    name: p.name,
+                    city: p.city,
+                    healthLabel: p.healthLabel,
+                    health: p.health,
+                    turning: p.turning,
+                    waiting: p.waiting,
+                    done: p.done,
+                    blocked: p.blocked,
+                  })
+                }
                 className="flex w-full items-center gap-3 rounded-[16px] border border-white/10 bg-white/[0.04] px-4 py-3.5 text-left transition active:scale-[0.99]"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-white/10">
@@ -199,6 +225,16 @@ export default function PortfolioHome() {
           Corporate view · Invoicing lives in Base44
         </p>
       </section>
+
+      <PropertyPulseDrawer
+        property={selected}
+        onClose={() => setSelected(null)}
+        onOpenPulse={(id) => {
+          setSelected(null);
+          setLocation(`/pulse?propertyId=${id}`);
+        }}
+      />
+      <PortalNav portal="portfolio" />
     </div>
   );
 }

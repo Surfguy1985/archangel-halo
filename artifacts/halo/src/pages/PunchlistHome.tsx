@@ -5,6 +5,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useLocation } from "wouter";
+import { PortalNav } from "@/components/PortalNav";
 
 export default function PunchlistHome() {
   const [, setLocation] = useLocation();
@@ -62,7 +63,7 @@ export default function PunchlistHome() {
         <Metric label="Draft review" value={d?.yellow ?? "—"} tone="yellow" />
       </section>
 
-      <section className="mx-auto mt-10 max-w-2xl space-y-2 px-6 pb-24">
+      <section className="mx-auto mt-10 max-w-2xl space-y-2 px-6 pb-28">
         <NavRow
           title="Invoice drafts"
           subtitle="Approve in Base44 · Halo brain"
@@ -87,6 +88,7 @@ export default function PunchlistHome() {
           Vendor tools · Invoicing UI preferred in Base44
         </p>
       </section>
+      <PortalNav portal="punchlist" />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Camera, LayoutGrid, Map, MapPin, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SimpleOpsMap, type MapPin as OpsPin } from "@/components/SimpleOpsMap";
 import { UnitPulseDrawer } from "@/components/UnitPulseDrawer";
+import { PortalNav } from "@/components/PortalNav";
 
 type PulseUnit = {
   jobId: string;
@@ -157,7 +158,7 @@ export default function PulseHome() {
 
       {/* Board / list */}
       {(view === "board" || view === "map") && (
-        <section className="mx-auto mt-8 max-w-2xl px-6 pb-24">
+        <section className="mx-auto mt-8 max-w-2xl px-6 pb-28">
           {view === "map" && (
             <p className="mb-3 text-[12px] font-medium text-white/35">Units</p>
           )}
@@ -202,6 +203,7 @@ export default function PulseHome() {
       )}
 
       <UnitPulseDrawer jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
+      <PortalNav portal="pulse" />
     </div>
   );
 }
