@@ -32,3 +32,20 @@ strand a printed QR silently.
   forwarding header, so it cannot be the real ceiling. Abuse of the claim flow
   is capped server-side per crew (a bounded number of pending claims), and the
   office bell gets one ping per crew while anything is still waiting.
+
+## Where an approved roster phone lands
+
+Approval sends the phone to the crew's **paycard** (`/checkin/<token>`), not the general
+portal: check in, before photos, after photos, check out is what they opened their phone
+to do. The claim-status poll carries the path back once the claim is approved, and only
+then — a pending or denied claim must never see it.
+
+**Why:** the office approving someone is the only thing that vouches for that device, and
+handing them the wider portal made them hunt for the work surface.
+
+**How to apply:** one crew has exactly one live paycard link — printed card, texted link
+and roster approval must all resolve to the same one. The plaintext token is unrecoverable
+after hashing, so the issued URL is kept on the link row's label and reused. Minting is a
+read-then-write called from a public 5s poll, so it runs under a per-crew advisory lock
+inside a transaction; without it two concurrent approvals mint two live cards for one
+person and the crew trusts whichever they scanned last.
