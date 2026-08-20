@@ -391,6 +391,16 @@ async function tick(): Promise<void> {
       const { runReviewAutopilot } = await import("./workReviewPipeline");
       await runReviewAutopilot();
     } catch (err) { logger.warn({ err }, "work review autopilot failed"); }
+    try {
+      const { runMoneyLock } = await import("./moneyLock");
+      const dayKey = new Date().toISOString().slice(0, 10);
+      const hour = new Date().getHours();
+      if (hour >= 18 && (global as any).__moneyLockDay !== dayKey) {
+        (global as any).__moneyLockDay = dayKey;
+        const result = await runMoneyLock({ limit: 80 });
+        logger.info({ autoApproved: result.autoApproved, exceptions: result.exceptions }, "Money Lock nightly run");
+      }
+    } catch (err) { logger.warn({ err }, "money lock tick failed"); }
   }
 
   if (stamp - lastBase44Sync >= BASE44_SYNC_MS) {

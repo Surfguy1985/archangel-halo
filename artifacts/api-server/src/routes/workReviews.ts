@@ -6,6 +6,10 @@ import {
   completeReviewToInvoice, listReviews, getReview, getOpenFieldReviewForJob,
   runReviewAutopilot, buildMarginReport, listReportCards, getReportCard,
 } from "../lib/workReviewPipeline";
+import {
+  runMoneyLock, listMoneyLockExceptions, listInvoiceQueueForTab,
+  reopenForCorrection, applyInvoiceCorrection, classifyJobForMoneyLock,
+} from "../lib/moneyLock";
 
 export const workReviewsRouter = Router();
 
@@ -87,6 +91,60 @@ workReviewsRouter.get("/work-reviews/job/:jobId/margin", async (req, res) => {
 workReviewsRouter.get("/work-reviews", async (req, res) => {
   try { return res.json({ reviews: await listReviews(typeof req.query.status === "string" ? req.query.status : undefined) }); }
   catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+
+
+// ── Money Lock
+workReviewsRouter.post("/work-reviews/money-lock/run", async (req, res) => {
+  try {
+    const dryRun = !!(req.body?.dryRun);
+    const limit = req.body?.limit ? Number(req.body.limit) : 80;
+    return res.json(await runMoneyLock({ limit, dryRun }));
+  } catch (err: any) {
+    logger.error({ err }, "money-lock run failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+workReviewsRouter.get("/work-reviews/money-lock/exceptions", async (_req, res) => {
+  try {
+    const exceptions = await listMoneyLockExceptions();
+    return res.json({ exceptions, count: exceptions.length });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+workReviewsRouter.get("/work-reviews/money-lock/summary", async (_req, res) => {
+  try {
+    const exceptions = await listMoneyLockExceptions();
+    const queue = await listInvoiceQueueForTab();
+    return res.json({
+      exceptions: exceptions.length, invoiceQueue: queue.length,
+      message: exceptions.length === 0 ? "All clear — no exceptions." : `${exceptions.length} need a look. Queue: ${queue.length}.`,
+    });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+workReviewsRouter.get("/work-reviews/money-lock/classify/:jobId", async (req, res) => {
+  try {
+    const jobId = String(req.params.jobId || "");
+    if (!isUuid(jobId)) return res.status(400).json({ error: "Invalid job id" });
+    return res.json({ item: await classifyJobForMoneyLock(jobId) });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+workReviewsRouter.post("/work-reviews/:id/reopen-for-correction", async (req, res) => {
+  try {
+    const reviewId = String(req.params.id || "");
+    if (!isUuid(reviewId)) return res.status(400).json({ error: "Invalid review id" });
+    const result = await reopenForCorrection({ reviewId, reason: req.body?.reason, actor: req.body?.actor || "office", toStatus: req.body?.toStatus });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    return res.json({ ...result, message: "Pulled back — fix then re-queue" });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+workReviewsRouter.post("/work-reviews/:id/apply-correction", async (req, res) => {
+  try {
+    const reviewId = String(req.params.id || "");
+    if (!isUuid(reviewId)) return res.status(400).json({ error: "Invalid review id" });
+    const result = await applyInvoiceCorrection({ reviewId, actor: req.body?.actor || "office", edits: req.body?.edits, requeue: req.body?.requeue !== false });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    return res.json({ ...result, message: result.status === "sent_to_invoice" ? "Corrected and re-queued" : "Correction applied" });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
 });
 
 // ── Param routes LAST ──────────────────────────────────────────────────────
