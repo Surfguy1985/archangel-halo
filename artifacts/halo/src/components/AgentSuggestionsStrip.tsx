@@ -13,7 +13,14 @@ export function AgentSuggestionsStrip({ enabled }: { enabled: boolean }) {
     queryFn: async () => {
       const res = await fetch("/api/command/suggestions", { credentials: "include" });
       if (!res.ok) return { suggestions: [] as Suggestion[] };
-      return res.json() as Promise<{ suggestions: Suggestion[] }>;
+      const data = await res.json() as { suggestions: Suggestion[] };
+      if ((data.suggestions || []).length === 0) {
+        try {
+          const run = await fetch("/api/command/agents/run", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" });
+          if (run.ok) return run.json() as Promise<{ suggestions: Suggestion[] }>;
+        } catch { /* non-fatal */ }
+      }
+      return data;
     },
     enabled,
     refetchInterval: enabled ? 60_000 : false,
