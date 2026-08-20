@@ -4,6 +4,19 @@ import { db, discrepanciesTable } from "@workspace/db";
 import { resolveDiscrepancy } from "../lib/financialReconciliation";
 import { logger } from "../lib/logger";
 export const discrepanciesRouter = Router();
+
+discrepanciesRouter.get("/work-verification/:jobId", async (req, res) => {
+  try {
+    const { buildWorkVerification } = await import("../lib/workVerification");
+    const verification = await buildWorkVerification(String(req.params.jobId));
+    if (!verification) return res.status(404).json({ error: "Job not found" });
+    return res.json({ showModal: true, verification });
+  } catch (err) {
+    logger.error({ err }, "GET work-verification failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
 discrepanciesRouter.get("/discrepancies/job/:jobId", async (req, res) => {
   try {
     const { listOpenDiscrepanciesForJob } = await import("../lib/financialReconciliation");

@@ -1246,27 +1246,30 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   const { propName, crewName } = await lookups();
 
   let pricingCards: unknown[] = [];
+  let verification: unknown = null;
   try {
-    const { reconcileJobAndCards } = await import("../lib/financialReconciliation");
+    const { verifyAfterLogWork } = await import("../lib/workVerification");
     const { pushPricingAlertToBase44 } = await import("../lib/base44Write");
-    const result = await reconcileJobAndCards(id);
+    const result = await verifyAfterLogWork(id);
     pricingCards = result.cards;
+    verification = result.verification;
     await pushPricingAlertToBase44({
       jobId: id,
       jobNo: row.jobNo,
       unitNo: (row as any).unitNo ?? (row as any).unit ?? null,
       propertyName: propName.get(row.propertyId) ?? null,
-      discrepancies: result.cards.map((c: any) => ({
+      discrepancies: (result.cards as any[]).map((c: any) => ({
         id: c.id, type: c.type, severity: c.severity, status: c.status, explanation: c.explanation,
         serviceCode: c.serviceCode, expectedCents: c.expectedCents, actualCents: c.actualCents, varianceCents: c.varianceCents,
       })),
+      verification: result.verification as any,
     });
   } catch (err) {
-    console.error("post-complete recon failed", err);
+    console.error("post-complete verify failed", err);
   }
 
   const payload = CompleteJobResponse.parse(decorateJob(row, propName, crewName));
-  res.json({ ...payload, pricingCards });
+  res.json({ ...payload, pricingCards, verification, showModal: true });
 });
 
 interface CloseOutBlocker {
