@@ -401,6 +401,10 @@ async function tick(): Promise<void> {
         logger.info({ autoApproved: result.autoApproved, exceptions: result.exceptions }, "Money Lock nightly run");
       }
     } catch (err) { logger.warn({ err }, "money lock tick failed"); }
+    try {
+      const { runHaloOperator } = await import("./haloOperator");
+      await runHaloOperator({ limit: 30, dryRun: false });
+    } catch (err) { logger.warn({ err }, "halo operator tick failed"); }
   }
 
   if (stamp - lastBase44Sync >= BASE44_SYNC_MS) {
