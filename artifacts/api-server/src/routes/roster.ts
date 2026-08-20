@@ -31,6 +31,7 @@ import {
   isForeman,
 } from "../lib/crewPinColor";
 import { hashPortalToken, mintPortalToken } from "../lib/portalToken";
+import { ensurePaycardPath } from "../lib/paycardLink";
 import { getBusinessSettings } from "../lib/businessSettings";
 
 const router = Router();
@@ -41,6 +42,15 @@ const router = Router();
  * they hit this as a single IP, and a limiter that trips reads to the crew as
  * a dead link.
  */
+function publicAppOrigin(req: { get: (h: string) => string | undefined; protocol: string }): string {
+  const fromEnv = process.env.PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  return `${proto}://${host}`;
+}
+
 const rosterView = rateLimit({ limit: 240, windowMs: 60_000 });
 const rosterWrite = rateLimit({ limit: 20, windowMs: 60_000 });
 
@@ -313,6 +323,20 @@ router.get("/roster/:code/claim/:claimId", rosterView, async (req, res): Promise
       .where(eq(crewsTable.id, row.crewId))
       .limit(1);
 
+    // Approved means "this phone is that person", so it also gets the work
+    // surface: the paycard they check in and out on. It's the same link that's
+    // printed on their card, not a second one — one person, one history.
+    let paycardPath: string | null = null;
+    if (row.status === "approved" && crew) {
+      try {
+        paycardPath = await ensurePaycardPath(crew, publicAppOrigin(req));
+      } catch (err) {
+        // The portal link below still works; losing the shortcut is not a
+        // reason to leave a crew stuck on the waiting screen.
+        logger.error({ err, crewId: crew.id }, "roster claim: paycard link failed");
+      }
+    }
+
     // Only the decision travels here. The device already holds its own bearer
     // from the claim call — it is simply dead until this says "approved", and
     // bearers are hashed at rest so the server couldn't resend it anyway.
@@ -321,6 +345,7 @@ router.get("/roster/:code/claim/:claimId", rosterView, async (req, res): Promise
       crewId: row.crewId,
       name: crew?.name ?? row.requestedName ?? "Crew",
       status: row.status,
+      paycardPath,
     });
   } catch (err) {
     logger.error({ err }, "roster claim status failed");

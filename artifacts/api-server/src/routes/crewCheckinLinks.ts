@@ -62,6 +62,7 @@ import {
   type PunchEvent,
 } from "../lib/crewCheckinCore";
 
+import { ensurePaycardUrl } from "../lib/paycardLink";
 import { isForemanCrew, loadTeamView } from "./crewJoin";
 import { crewInstructionsPayload, normalizeInstructionsLang } from "../lib/crewInstructions";
 import {
@@ -295,36 +296,6 @@ async function loadPaycardPhotos(crewId: string, jobId: string | null, takenOn: 
       takenOn: r.takenOn,
     })),
   };
-}
-
-async function ensurePaycardUrl(crew: { id: string; name: string }, origin: string): Promise<string> {
-  const now = new Date();
-  const links = await db
-    .select()
-    .from(crewCheckinLinksTable)
-    .where(
-      and(
-        eq(crewCheckinLinksTable.crewId, crew.id),
-        isNull(crewCheckinLinksTable.revokedAt),
-        gte(crewCheckinLinksTable.expiresAt, now),
-      ),
-    )
-    .orderBy(desc(crewCheckinLinksTable.createdAt));
-  for (const row of links) {
-    const url = decodePaycardUrl(row.label);
-    if (url) return url;
-  }
-  const minted = mintCrewToken();
-  const url = `${origin}/checkin/${minted.token}`;
-  await db.insert(crewCheckinLinksTable).values({
-    token: `h:${minted.tokenHash}`,
-    tokenHash: minted.tokenHash,
-    tokenPrefix: minted.tokenPrefix,
-    crewId: crew.id,
-    expiresAt: new Date(Date.now() + 365 * 86_400_000),
-    label: encodePaycardLabel(url),
-  });
-  return url;
 }
 
 // ─── Office: generate a link ──────────────────────────────────────────────────

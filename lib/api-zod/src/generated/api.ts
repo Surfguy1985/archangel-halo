@@ -6824,7 +6824,8 @@ export const GetCrewRosterClaimResponse = zod.object({
   "claimId": zod.string(),
   "crewId": zod.string(),
   "name": zod.string(),
-  "status": zod.string().describe('pending | approved | denied')
+  "status": zod.string().describe('pending | approved | denied'),
+  "paycardPath": zod.string().nullish().describe('Once approved, the crew\'s paycard path (\/checkin\/<token>) — where they check in, take before and after photos, and check out. Same link as the printed card, so a person only ever has one.')
 })
 
 

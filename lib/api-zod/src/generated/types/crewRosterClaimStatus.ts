@@ -12,4 +12,9 @@ export interface CrewRosterClaimStatus {
   name: string;
   /** pending | approved | denied */
   status: string;
+  /**
+     * Once approved, the crew's paycard path (/checkin/<token>) — where they check in, take before and after photos, and check out. Same link as the printed card, so a person only ever has one.
+     * @nullable
+     */
+  paycardPath?: string | null;
 }

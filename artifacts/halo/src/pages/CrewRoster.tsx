@@ -55,11 +55,26 @@ function readStored<T>(key: string, valid: (v: unknown) => v is T): T | null {
   }
 }
 
-const isApproved = (v: unknown): v is { name: string; portalPath: string } =>
+const isApproved = (v: unknown): v is { name: string; portalPath: string; openPath?: string } =>
   typeof v === "object" &&
   v !== null &&
   typeof (v as { portalPath?: unknown }).portalPath === "string" &&
   (v as { portalPath: string }).portalPath.startsWith("/portal/");
+
+/**
+ * Where an approved phone actually lands.
+ *
+ * The paycard is the work: check in, before photos, after photos, check out.
+ * That is what the crew opened their phone to do, so it's the destination —
+ * the wider portal is still theirs, one tap away from inside it. Anything the
+ * server didn't vouch for is ignored; only these two shapes are ours.
+ */
+const openPathOf = (v: { portalPath: string; openPath?: string }): string => {
+  const next = v.openPath;
+  return typeof next === "string" && (next.startsWith("/checkin/") || next.startsWith("/portal/"))
+    ? next
+    : v.portalPath;
+};
 
 const isPending = (v: unknown): v is Pending =>
   isApproved(v) && typeof (v as { claimId?: unknown }).claimId === "string";
@@ -155,13 +170,17 @@ export default function CrewRoster({ code }: { code: string }) {
   // A remembered, approved pick means this phone already belongs to someone —
   // send them straight in rather than making them find their name every morning.
   useEffect(() => {
-    if (approved) navigate(approved.portalPath, { replace: true });
+    if (approved) navigate(openPathOf(approved), { replace: true });
   }, [approved, navigate]);
 
   useEffect(() => {
     if (!pending || !status.data) return;
     if (status.data.status === "approved") {
-      const done = { name: pending.name, portalPath: pending.portalPath };
+      const done = {
+        name: pending.name,
+        portalPath: pending.portalPath,
+        openPath: status.data.paycardPath ?? pending.portalPath,
+      };
       write(APPROVED_KEY, done);
       localStorage.removeItem(PENDING_KEY);
       setPending(null);

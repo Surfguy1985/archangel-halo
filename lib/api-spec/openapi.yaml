@@ -16524,6 +16524,12 @@ components:
         crewId: { type: string }
         name: { type: string }
         status: { type: string, description: "pending | approved | denied" }
+        paycardPath:
+          type: ["string", "null"]
+          description: >-
+            Once approved, the crew's paycard path (/checkin/<token>) — where they
+            check in, take before and after photos, and check out. Same link as the
+            printed card, so a person only ever has one.
     CrewRosterClaimInput:
       type: object
       required: [crewId]
