@@ -88,6 +88,11 @@ export function DiscrepancyCardOverlay({ enabled }: { enabled: boolean }) {
             </p>
             <h2 className="mt-1 text-lg font-bold text-white">Pricing needs attention</h2>
             <p className="mt-2 text-sm leading-relaxed text-white/75">{current.explanation}</p>
+            {current.type === "missing_invoice" && (
+              <p className="mt-2 text-xs text-amber-200/80">
+                No invoice exists yet. Dismiss after creating the invoice on the job, or Save as Pending until billing is ready.
+              </p>
+            )}
           </div>
         </div>
         <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-center text-xs">

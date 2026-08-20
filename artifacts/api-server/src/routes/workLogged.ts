@@ -25,6 +25,8 @@ function requireToken(req: Request, res: Response, next: NextFunction): void {
 // NOTE: this router is mounted under /api, so the public webhook URL is
 // <origin>/api/internal/work-logged. Only /api/* is proxied to this server —
 // a bare /internal/... URL hits the web app and returns its HTML shell.
+// LIVE Base44 URL (must include /api — only /api/* proxies to this server):
+//   https://archangel-halo.replit.app/api/internal/work-logged
 workLoggedRouter.post("/internal/work-logged", requireToken, async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
