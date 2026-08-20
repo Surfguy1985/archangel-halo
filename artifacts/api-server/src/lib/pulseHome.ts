@@ -5,6 +5,7 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db, jobsTable, propertiesTable, crewPhotosTable } from "@workspace/db";
 import { logger } from "./logger";
+import { resolveCoords } from "./mapCoords";
 
 export type PulseUnitCard = {
   jobId: string;
@@ -147,8 +148,10 @@ export async function buildPulseHome(opts?: { propertyId?: string; limit?: numbe
       statusLabel: statusLabel(status),
       updatedAt: j.updatedAt ? new Date(j.updatedAt).toISOString() : null,
       hasPhotos: photoJobIds.has(j.id),
-      lat: coord?.lat ?? null,
-      lng: coord?.lng ?? null,
+      ...(() => {
+        const c = resolveCoords(coord?.lat, coord?.lng, j.propertyId || j.id);
+        return { lat: c.lat, lng: c.lng };
+      })(),
     };
   });
 

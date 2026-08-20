@@ -5,6 +5,7 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db, jobsTable, propertiesTable, crewPhotosTable } from "@workspace/db";
 import { logger } from "./logger";
+import { resolveCoords } from "./mapCoords";
 
 export type PortfolioPropertyCard = {
   propertyId: string;
@@ -104,8 +105,10 @@ export async function buildPortfolioHome(opts?: { limitJobs?: number }): Promise
       ...c,
       health,
       healthLabel,
-      lat: p.lat ?? null,
-      lng: p.lng ?? null,
+      ...(() => {
+        const c = resolveCoords(p.lat, p.lng, p.id);
+        return { lat: c.lat, lng: c.lng };
+      })(),
     });
   }
 

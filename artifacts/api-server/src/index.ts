@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { logBootEnvWarnings } from "./lib/opsStatus";
 import { startScheduler } from "./lib/scheduler";
 import { ensureChartOfAccounts } from "./lib/ledger";
 import { ensureFalkonSchema } from "./lib/ensureFalkonSchema";
