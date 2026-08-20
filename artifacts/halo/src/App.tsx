@@ -33,6 +33,7 @@ import HaloCommand from "./pages/HaloCommand";
 import PropertyPulse from "./pages/PropertyPulse";
 import PulseHome from "./pages/PulseHome";
 import PortfolioHome from "./pages/PortfolioHome";
+import PunchlistHome from "./pages/PunchlistHome";
 const ClientPortfolioPulse = lazy(() => import("./pages/ClientPortfolioPulse"));
 const PropertyTurnBoard = lazy(() => import("./pages/PropertyTurnBoard"));
 const EntrataImportPage = lazy(() => import("./pages/EntrataImport"));
@@ -186,7 +187,7 @@ function App() {
             </Route>
 
             <Route path="/punchlist">
-              <PropertyPulse level="punchlist" />
+              <PunchlistHome />
             </Route>
 
             <Route path="/portfolio">

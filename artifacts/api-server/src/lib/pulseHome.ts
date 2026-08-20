@@ -183,3 +183,80 @@ export async function buildPulseHome(opts?: { propertyId?: string; limit?: numbe
     recentPhotoPaths,
   };
 }
+
+/** Property-safe unit detail for drawer — no money. */
+export async function buildPulseUnitDetail(jobId: string) {
+  const [job] = await db
+    .select({
+      id: jobsTable.id,
+      jobNo: jobsTable.jobNo,
+      unitNo: jobsTable.unitNo,
+      boardStatus: jobsTable.boardStatus,
+      status: jobsTable.status,
+      propertyId: jobsTable.propertyId,
+      updatedAt: jobsTable.updatedAt,
+      createdAt: jobsTable.createdAt,
+      notes: (jobsTable as any).notes,
+    })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, jobId))
+    .limit(1);
+  if (!job) return null;
+
+  let propertyName: string | null = null;
+  let propertyCity: string | null = null;
+  if (job.propertyId) {
+    const [p] = await db
+      .select({
+        name: propertiesTable.name,
+        city: (propertiesTable as any).city,
+      })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, job.propertyId))
+      .limit(1);
+    propertyName = p?.name || null;
+    propertyCity = p?.city ?? null;
+  }
+
+  let photos: Array<{ id: string; path: string; phase: string | null; createdAt: string | null }> = [];
+  try {
+    const rows = await db
+      .select({
+        id: crewPhotosTable.id,
+        path: crewPhotosTable.storagePath,
+        phase: crewPhotosTable.phase,
+        createdAt: crewPhotosTable.createdAt,
+      })
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.jobId, jobId))
+      .orderBy(desc(crewPhotosTable.createdAt))
+      .limit(12);
+    photos = rows.map((r) => ({
+      id: r.id,
+      path: r.path,
+      phase: r.phase || null,
+      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+    }));
+  } catch {
+    /* photos optional */
+  }
+
+  const status = mapStatus(job.boardStatus, job.status);
+  return {
+    ok: true as const,
+    jobId: job.id,
+    jobNo: job.jobNo,
+    unitNo: job.unitNo,
+    propertyName,
+    propertyCity,
+    status,
+    statusLabel: statusLabel(status),
+    boardStatus: job.boardStatus,
+    updatedAt: job.updatedAt ? new Date(job.updatedAt).toISOString() : null,
+    createdAt: job.createdAt ? new Date(job.createdAt).toISOString() : null,
+    notes: typeof job.notes === "string" ? job.notes : null,
+    photos,
+    // Explicitly no money keys
+    money: false as const,
+  };
+}

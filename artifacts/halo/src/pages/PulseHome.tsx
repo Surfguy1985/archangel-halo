@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Camera, LayoutGrid, Map, MapPin, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SimpleOpsMap, type MapPin as OpsPin } from "@/components/SimpleOpsMap";
+import { UnitPulseDrawer } from "@/components/UnitPulseDrawer";
 
 type PulseUnit = {
   jobId: string;
@@ -38,6 +39,7 @@ const statusColor: Record<string, string> = {
 export default function PulseHome() {
   const [filter, setFilter] = useState<"all" | "blocked" | "turning" | "waiting" | "done">("all");
   const [view, setView] = useState<"map" | "board">("map");
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["pulse-home", typeof window !== "undefined" ? window.location.search : ""],
@@ -70,6 +72,7 @@ export default function PulseHome() {
           label: u.unitNo ? `Unit ${u.unitNo}` : u.jobNo || "Unit",
           sublabel: u.statusLabel,
           tone: u.status === "blocked" ? "attention" : u.status,
+          onClick: () => setSelectedJobId(u.jobId),
         })),
     [units],
   );
@@ -166,9 +169,11 @@ export default function PulseHome() {
           )}
           <ul className="space-y-2.5">
             {units.map((u) => (
-              <li
-                key={u.jobId}
-                className="flex items-center gap-3 rounded-[16px] border border-white/10 bg-white/[0.04] px-4 py-3.5"
+              <li key={u.jobId}>
+              <button
+                type="button"
+                onClick={() => setSelectedJobId(u.jobId)}
+                className="flex w-full items-center gap-3 rounded-[16px] border border-white/10 bg-white/[0.04] px-4 py-3.5 text-left transition active:scale-[0.99]"
               >
                 <div className={`h-2 w-2 shrink-0 rounded-full ${dotBg(u.status)}`} />
                 <div className="min-w-0 flex-1">
@@ -186,6 +191,7 @@ export default function PulseHome() {
                 <span className={`shrink-0 text-[13px] font-medium ${statusColor[u.status]}`}>
                   {u.statusLabel}
                 </span>
+              </button>
               </li>
             ))}
           </ul>
@@ -194,6 +200,8 @@ export default function PulseHome() {
           </p>
         </section>
       )}
+
+      <UnitPulseDrawer jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
     </div>
   );
 }
