@@ -4,9 +4,10 @@
  * ZERO invoicing / crew pay / vendor money.
  */
 import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronRight, RefreshCw } from "lucide-react";
+import { Building2, ChevronRight, LayoutGrid, Map, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { SimpleOpsMap, type MapPin as OpsPin } from "@/components/SimpleOpsMap";
 
 type PropCard = {
   propertyId: string;
@@ -19,6 +20,8 @@ type PropCard = {
   total: number;
   health: "good" | "watch" | "attention";
   healthLabel: string;
+  lat: number | null;
+  lng: number | null;
 };
 
 type PortfolioData = {
@@ -43,6 +46,7 @@ const healthColor = {
 export default function PortfolioHome() {
   const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<"all" | "attention" | "watch" | "good">("all");
+  const [view, setView] = useState<"map" | "board">("map");
 
   const q = useQuery({
     queryKey: ["portfolio-home"],
@@ -61,6 +65,22 @@ export default function PortfolioHome() {
     return props.filter((p) => p.health === filter);
   }, [data, filter]);
 
+  const pins: OpsPin[] = useMemo(
+    () =>
+      list
+        .filter((p) => p.lat != null && p.lng != null)
+        .map((p) => ({
+          id: p.propertyId,
+          lat: p.lat as number,
+          lng: p.lng as number,
+          label: p.name,
+          sublabel: p.healthLabel,
+          tone: p.health === "attention" ? "attention" : p.health === "watch" ? "watch" : "good",
+          onClick: () => setLocation(`/pulse?propertyId=${p.propertyId}`),
+        })),
+    [list, setLocation],
+  );
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <header className="mx-auto max-w-2xl px-6 pb-2 pt-12">
@@ -69,14 +89,24 @@ export default function PortfolioHome() {
             <p className="text-[13px] font-medium tracking-wide text-white/40">Portfolio</p>
             <h1 className="mt-1 text-[34px] font-semibold tracking-tight">Overview</h1>
           </div>
-          <button
-            type="button"
-            onClick={() => q.refetch()}
-            className="rounded-full bg-white/10 p-2.5 text-white/70"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-0.5">
+              <button type="button" onClick={() => setView("map")} className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold ${view === "map" ? "bg-white text-black" : "text-white/50"}`}>
+                <Map className="h-3 w-3" /> Map
+              </button>
+              <button type="button" onClick={() => setView("board")} className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold ${view === "board" ? "bg-white text-black" : "text-white/50"}`}>
+                <LayoutGrid className="h-3 w-3" /> Board
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => q.refetch()}
+              className="rounded-full bg-white/10 p-2.5 text-white/70"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
         <p className="mt-2 text-[17px] leading-snug text-white/55">
           {data?.headline || "Loading portfolio…"}
@@ -113,6 +143,12 @@ export default function PortfolioHome() {
           onClick={() => setFilter(filter === "good" ? "all" : "good")}
         />
       </section>
+
+      {view === "map" && (
+        <section className="mx-auto mt-6 max-w-2xl px-6">
+          <SimpleOpsMap pins={pins} height={320} />
+        </section>
+      )}
 
       <section className="mx-auto mt-10 max-w-2xl px-6 pb-24">
         <div className="mb-3 flex items-center justify-between">

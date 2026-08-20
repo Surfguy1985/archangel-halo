@@ -17,6 +17,8 @@ export type PortfolioPropertyCard = {
   total: number;
   health: "good" | "watch" | "attention";
   healthLabel: string;
+  lat: number | null;
+  lng: number | null;
 };
 
 export type PortfolioHomePayload = {
@@ -50,6 +52,8 @@ export async function buildPortfolioHome(opts?: { limitJobs?: number }): Promise
       id: propertiesTable.id,
       name: propertiesTable.name,
       city: (propertiesTable as any).city,
+      lat: propertiesTable.latitude,
+      lng: propertiesTable.longitude,
     })
     .from(propertiesTable)
     .orderBy(propertiesTable.name)
@@ -100,6 +104,8 @@ export async function buildPortfolioHome(opts?: { limitJobs?: number }): Promise
       ...c,
       health,
       healthLabel,
+      lat: p.lat ?? null,
+      lng: p.lng ?? null,
     });
   }
 

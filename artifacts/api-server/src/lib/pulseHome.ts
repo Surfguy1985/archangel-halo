@@ -15,6 +15,8 @@ export type PulseUnitCard = {
   statusLabel: string;
   updatedAt: string | null;
   hasPhotos: boolean;
+  lat: number | null;
+  lng: number | null;
 };
 
 export type PulseHomePayload = {
@@ -96,9 +98,18 @@ export async function buildPulseHome(opts?: { propertyId?: string; limit?: numbe
   const propIds = [...new Set(jobs.map((j) => j.propertyId).filter(Boolean))] as string[];
   const props =
     propIds.length > 0
-      ? await db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable).where(inArray(propertiesTable.id, propIds))
+      ? await db
+          .select({
+            id: propertiesTable.id,
+            name: propertiesTable.name,
+            lat: propertiesTable.latitude,
+            lng: propertiesTable.longitude,
+          })
+          .from(propertiesTable)
+          .where(inArray(propertiesTable.id, propIds))
       : [];
   const propName = new Map(props.map((p) => [p.id, p.name]));
+  const propCoord = new Map(props.map((p) => [p.id, { lat: p.lat, lng: p.lng }]));
 
   if (!property && props[0]) {
     property = { id: props[0].id, name: props[0].name || "Portfolio", city: null };
@@ -126,6 +137,7 @@ export async function buildPulseHome(opts?: { propertyId?: string; limit?: numbe
 
   const units: PulseUnitCard[] = jobs.slice(0, limit).map((j) => {
     const status = mapStatus(j.boardStatus, j.status);
+    const coord = j.propertyId ? propCoord.get(j.propertyId) : null;
     return {
       jobId: j.id,
       jobNo: j.jobNo,
@@ -135,6 +147,8 @@ export async function buildPulseHome(opts?: { propertyId?: string; limit?: numbe
       statusLabel: statusLabel(status),
       updatedAt: j.updatedAt ? new Date(j.updatedAt).toISOString() : null,
       hasPhotos: photoJobIds.has(j.id),
+      lat: coord?.lat ?? null,
+      lng: coord?.lng ?? null,
     };
   });
 
