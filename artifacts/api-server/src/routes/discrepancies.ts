@@ -17,6 +17,17 @@ discrepanciesRouter.get("/work-verification/:jobId", async (req, res) => {
   }
 });
 
+discrepanciesRouter.get("/discrepancies/verify/:jobId", async (req, res) => {
+  try {
+    const { buildWorkVerification } = await import("../lib/workVerification");
+    const verification = await buildWorkVerification(String(req.params.jobId));
+    if (!verification) return res.status(404).json({ error: "Job not found" });
+    return res.json({ showModal: true, verification });
+  } catch (err) {
+    logger.error({ err }, "GET discrepancies/verify failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
 discrepanciesRouter.get("/discrepancies/job/:jobId", async (req, res) => {
   try {
     const { listOpenDiscrepanciesForJob } = await import("../lib/financialReconciliation");
@@ -35,6 +46,38 @@ discrepanciesRouter.get("/discrepancies/job/:jobId", async (req, res) => {
     return res.status(500).json({ error: "Internal error" });
   }
 });
+
+discrepanciesRouter.post("/work-verification/:jobId/apply-suggestion", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const reason = String(body.adminReason || body.reason || "Applied suggested correction").trim();
+    if (!reason) return res.status(400).json({ error: "Reason is required" });
+    if (body.discrepancyId) {
+      const { resolveDiscrepancy } = await import("../lib/financialReconciliation");
+      const mode = body.status === "dismissed" ? "dismiss" : body.status === "pending_review" ? "pending" : "apply";
+      const result = await resolveDiscrepancy({
+        discrepancyId: String(body.discrepancyId),
+        newInvoiceCents: body.suggestedInvoiceCents != null ? Number(body.suggestedInvoiceCents) : body.adminOverrideCents != null ? Number(body.adminOverrideCents) : null,
+        newPayoutCents: body.suggestedCrewCents != null ? Number(body.suggestedCrewCents) : null,
+        reason, resolvedBy: "office", mode,
+      });
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      return res.json({ success: true, applied: mode });
+    }
+    return res.json({
+      success: true,
+      needsUi: true,
+      next: body.action || "open_punchlist",
+      suggestedInvoiceCents: body.suggestedInvoiceCents ?? null,
+      suggestedCrewCents: body.suggestedCrewCents ?? null,
+      serviceCode: body.serviceCode ?? null,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "apply-suggestion failed");
+    return res.status(500).json({ error: err.message || "Internal error" });
+  }
+});
+
 discrepanciesRouter.get("/discrepancies/open", async (_req, res) => {
   try {
     const rows = await db.select().from(discrepanciesTable).where(inArray(discrepanciesTable.status, ["open", "pending_review"])).orderBy(desc(discrepanciesTable.createdAt)).limit(50);

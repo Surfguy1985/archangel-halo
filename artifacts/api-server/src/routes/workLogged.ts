@@ -57,4 +57,19 @@ workLoggedRouter.post("/internal/work-logged", requireToken, async (req: Request
   }
 });
 
+
+// Same handler as discrepancies router — dual-mounted so deploy always has a path
+workLoggedRouter.get("/work-verification/:jobId", async (req: Request, res: Response) => {
+  try {
+    const { buildWorkVerification } = await import("../lib/workVerification");
+    const verification = await buildWorkVerification(String(req.params.jobId));
+    if (!verification) return res.status(404).json({ error: "Job not found" });
+    return res.json({ showModal: true, verification });
+  } catch (err) {
+    logger.error({ err }, "GET work-verification (workLogged) failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
 export default workLoggedRouter;
+
