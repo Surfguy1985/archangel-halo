@@ -4,6 +4,24 @@ import { db, discrepanciesTable } from "@workspace/db";
 import { resolveDiscrepancy } from "../lib/financialReconciliation";
 import { logger } from "../lib/logger";
 export const discrepanciesRouter = Router();
+discrepanciesRouter.get("/discrepancies/job/:jobId", async (req, res) => {
+  try {
+    const { listOpenDiscrepanciesForJob } = await import("../lib/financialReconciliation");
+    const rows = await listOpenDiscrepanciesForJob(String(req.params.jobId));
+    return res.json({
+      jobId: req.params.jobId,
+      discrepancies: rows,
+      cards: rows.map((c) => ({
+        id: c.id, type: c.type, severity: c.severity, status: c.status, explanation: c.explanation,
+        serviceCode: c.serviceCode, expectedCents: c.expectedCents, actualCents: c.actualCents, varianceCents: c.varianceCents,
+        title: c.type === "missing_invoice" ? "Missing invoice" : c.type === "zero_or_missing" ? "Price required ($0)" : c.type === "bid_needs_price" ? "Bid needs a price" : "Price variance",
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET discrepancies by job failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
 discrepanciesRouter.get("/discrepancies/open", async (_req, res) => {
   try {
     const rows = await db.select().from(discrepanciesTable).where(inArray(discrepanciesTable.status, ["open", "pending_review"])).orderBy(desc(discrepanciesTable.createdAt)).limit(50);

@@ -1244,7 +1244,29 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   await autoSendLiveLink(id, "completed");
   emitBoardEvent(row.propertyId);
   const { propName, crewName } = await lookups();
-  res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
+
+  let pricingCards: unknown[] = [];
+  try {
+    const { reconcileJobAndCards } = await import("../lib/financialReconciliation");
+    const { pushPricingAlertToBase44 } = await import("../lib/base44Write");
+    const result = await reconcileJobAndCards(id);
+    pricingCards = result.cards;
+    await pushPricingAlertToBase44({
+      jobId: id,
+      jobNo: row.jobNo,
+      unitNo: (row as any).unitNo ?? (row as any).unit ?? null,
+      propertyName: propName.get(row.propertyId) ?? null,
+      discrepancies: result.cards.map((c: any) => ({
+        id: c.id, type: c.type, severity: c.severity, status: c.status, explanation: c.explanation,
+        serviceCode: c.serviceCode, expectedCents: c.expectedCents, actualCents: c.actualCents, varianceCents: c.varianceCents,
+      })),
+    });
+  } catch (err) {
+    console.error("post-complete recon failed", err);
+  }
+
+  const payload = CompleteJobResponse.parse(decorateJob(row, propName, crewName));
+  res.json({ ...payload, pricingCards });
 });
 
 interface CloseOutBlocker {

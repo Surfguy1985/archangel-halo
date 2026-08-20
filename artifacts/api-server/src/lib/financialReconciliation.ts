@@ -54,6 +54,18 @@ export async function reconcileJob(jobId: string): Promise<number> {
   return written;
 }
 export async function runReconciliationForJob(jobId: string) { return reconcileJob(jobId); }
+
+export async function listOpenDiscrepanciesForJob(jobId: string) {
+  return db.select().from(discrepanciesTable)
+    .where(and(eq(discrepanciesTable.jobId, jobId), inArray(discrepanciesTable.status, ["open", "pending_review"])))
+    .orderBy(desc(discrepanciesTable.createdAt));
+}
+
+export async function reconcileJobAndCards(jobId: string) {
+  const found = await reconcileJob(jobId);
+  const cards = await listOpenDiscrepanciesForJob(jobId);
+  return { found, cards };
+}
 // A sweep is per-job N+1 work on a 5-minute timer; without this an overrunning
 // sweep would overlap the next tick and double-scan the same jobs.
 let sweepInFlight = false;
