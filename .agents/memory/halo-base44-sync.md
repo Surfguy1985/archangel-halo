@@ -80,3 +80,20 @@ When a crew_job's unit_id points at a unit gone from the upstream payload, syncC
 3. Otherwise noteSkip("crew_jobs", …, "unresolved_property") — visible via totalSkipped/unplaced, never guessed.
 **Why:** two paid Work App jobs were dropped every run even though their HALO job rows already existed — the unresolved_property guard ran before the own-mapping lookup.
 Also: a dead unit_id must not blank unitNo on update (unitNo only written when resolved or on insert).
+
+
+## Outbound write direction (haloWrite)
+
+Pull and push are two different Base44 backend functions, each with its own
+deployment and its own secret. Reads hit `haloRead` (GET); pushes hit
+`haloWrite` (POST) with an `x-halo-token` header. A healthy read proves
+nothing about the write path.
+
+**Why:** a working sync made a 404/401 on push look like a HALO bug for a
+while, when the write function simply wasn't deployed and later had no secret.
+
+**How to apply:** when a push fails, probe the write function directly and
+include a request with **no token header**. If a tokenless request is also
+rejected, the far side's secret is unset — comparing a header against an
+undefined env var rejects everything, and no token you send can ever pass.
+Distinguish that from a genuine mismatch, where only wrong values fail.

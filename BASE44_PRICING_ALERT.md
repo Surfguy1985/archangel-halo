@@ -71,3 +71,33 @@ Deno.serve(async (req) => {
 Set `HALO_TOKEN` in Base44's secrets to the same value as HALO's
 `HALO_READ_TOKEN`. Once it's deployed, re-send any job and `base44Push`
 turns to `{ ok: true }` — no HALO change needed.
+
+
+### Troubleshooting a 401 from haloWrite
+
+Read the status code before touching HALO — it says which side is at fault:
+
+| Response | Meaning |
+| --- | --- |
+| `404 ... not deployed` | The function doesn't exist in Base44 yet. |
+| `401` **only with a wrong token** | Correct. Auth is working. |
+| `401` **for every value, including no header at all** | Base44's `HALO_TOKEN` is unset or empty in the deployed function. `headers.get(...) !== undefined` never matches, so everything is rejected. Not a HALO problem — no token HALO sends can pass. |
+
+If it rejects everything, in Base44: confirm the secret is named exactly
+`HALO_TOKEN`, confirm it's scoped to the app running `haloWrite`, and
+**redeploy the function** — secret edits usually don't reach an already-running
+function.
+
+To see it directly, make the reject branch report whether the var is present
+(never the value):
+
+```javascript
+if (req.headers.get("x-halo-token") !== Deno.env.get("HALO_TOKEN")) {
+  return Response.json(
+    { error: "Unauthorized", token_configured: Boolean(Deno.env.get("HALO_TOKEN")) },
+    { status: 401 },
+  );
+}
+```
+
+`token_configured: false` confirms the secret isn't reaching the function.
