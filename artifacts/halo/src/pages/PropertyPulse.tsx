@@ -78,6 +78,9 @@ import {
   type HaloStoryLevel,
 } from "@workspace/board-ui";
 import { MapBoardToggle } from "@/components/MapBoardToggle";
+import { DiscrepancyCardOverlay } from "@/components/DiscrepancyCard";
+import { PortalBoardView } from "@/components/PortalBoardView";
+import { AgentSuggestionsStrip } from "@/components/AgentSuggestionsStrip";
 import { PortalProvider, usePortal } from "@/lib/portalContext";
 
 const LIME = "#B4FF44";
@@ -1053,6 +1056,24 @@ function PropertyPulseInner(props: { level?: HaloStoryLevel } = {}) {
       </header>
 
       <div className="pulse-hud-body">
+        {viewMode === "board" ? (
+          <div className="absolute inset-0 z-20 bg-[#0a0e0c]">
+            <PortalBoardView
+              jobs={(jobs ?? []).map((j: any) => ({
+                id: j.id,
+                jobNo: j.jobNo,
+                boardStatus: j.boardStatus,
+                status: j.status,
+                unit: j.unit,
+                address: j.address,
+                propertyName: j.propertyName || j.property?.name,
+              }))}
+              canEdit={vendorDesk}
+              onOpenJob={(id) => navigate(`/jobs/${id}`)}
+            />
+          </div>
+        ) : null}
+
         <nav className="pulse-hud-nav" aria-label="Pulse panels">
           {nav.map(({ id, label, Icon }) => (
             <button
@@ -1374,6 +1395,8 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
   return (
     <PortalProvider forcedPortal={props.level}>
       <PropertyPulseInner {...props} />
+      <DiscrepancyCardOverlay enabled={props.level === "punchlist"} />
+      <AgentSuggestionsStrip enabled={props.level === "punchlist"} />
     </PortalProvider>
   );
 }

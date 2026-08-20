@@ -24,6 +24,7 @@ import { ensureCrewAckSchema } from "./lib/ensureCrewAckSchema";
 import { ensureVendorRatesSchema } from "./lib/ensureVendorRatesSchema";
 import { ensureInventorySchema } from "./lib/ensureInventorySchema";
 import { ensureReconciliationSchema } from "./lib/ensureReconciliationSchema";
+import { seedMasterRates } from "./lib/seedMasterRates";
 
 const rawPort = process.env["PORT"];
 
@@ -67,6 +68,7 @@ ensureVendorContractSchema()
   // discrepancies routes read these tables directly, so create them before
   // serving instead of racing the first sweep.
   .then(() => ensureReconciliationSchema())
+  .then(() => seedMasterRates().catch((err) => logger.warn({ err }, "Master rate seed failed (non-fatal)")))
   .then(startServer, (err) => {
     logger.error({ err }, "vendor schema bootstrap failed");
     process.exit(1);
