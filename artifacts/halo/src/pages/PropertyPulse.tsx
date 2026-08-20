@@ -79,6 +79,7 @@ import {
 } from "@workspace/board-ui";
 import { MapBoardToggle } from "@/components/MapBoardToggle";
 import { DiscrepancyCardOverlay } from "@/components/DiscrepancyCard";
+import { FieldAccuracyCardOverlay } from "@/components/FieldAccuracyCard";
 import { PortalBoardView } from "@/components/PortalBoardView";
 import { AgentSuggestionsStrip } from "@/components/AgentSuggestionsStrip";
 import { PortalProvider, usePortal } from "@/lib/portalContext";
@@ -1396,6 +1397,7 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
     <PortalProvider forcedPortal={props.level}>
       <PropertyPulseInner {...props} />
       <DiscrepancyCardOverlay enabled={props.level === "punchlist"} />
+      <FieldAccuracyCardOverlay enabled={props.level === "punchlist"} />
       <AgentSuggestionsStrip enabled={props.level === "punchlist"} />
     </PortalProvider>
   );
