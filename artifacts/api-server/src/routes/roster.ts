@@ -22,7 +22,7 @@ import { db, crewsTable, crewPortalBearersTable, notificationsTable } from "@wor
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { rateLimit } from "../lib/rateLimit";
-import { isCurrentRosterCode } from "../lib/rosterCode";
+import { isActiveRosterCode } from "../lib/rosterCode";
 import { ensureCrewRosterSchema } from "../lib/ensureCrewRosterSchema";
 import {
   ARCHANGEL_GOLD,
@@ -35,9 +35,14 @@ import { getBusinessSettings } from "../lib/businessSettings";
 
 const router = Router();
 
-/** A crew scans once or twice; a script scraping names does not. */
-const rosterView = rateLimit({ limit: 40, windowMs: 60_000 });
-const rosterWrite = rateLimit({ limit: 10, windowMs: 60_000 });
+/**
+ * A crew scans once or twice; a script scraping names does not. Sized for a
+ * whole crew arriving together: phones on one job site share a carrier NAT, so
+ * they hit this as a single IP, and a limiter that trips reads to the crew as
+ * a dead link.
+ */
+const rosterView = rateLimit({ limit: 240, windowMs: 60_000 });
+const rosterWrite = rateLimit({ limit: 60, windowMs: 60_000 });
 
 const ClaimBody = z.object({ crewId: z.string().uuid() });
 const JoinBody = z.object({
@@ -104,7 +109,7 @@ async function loadActiveCrews() {
 }
 
 async function requireCode(code: string): Promise<boolean> {
-  return isCurrentRosterCode(code);
+  return isActiveRosterCode(code);
 }
 
 // ─── The list ────────────────────────────────────────────────────────────────

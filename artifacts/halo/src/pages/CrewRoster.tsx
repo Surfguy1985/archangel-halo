@@ -268,13 +268,39 @@ export default function CrewRoster({ code }: { code: string }) {
   }
 
   if (roster.isError) {
+    // Only a 404 means the code itself is dead, and codes are never retired on
+    // their own — everything else (offline in a stairwell, the server waking up,
+    // a limiter tripping while the whole crew scans at once) is temporary, and
+    // telling a crew their card is invalid over a dropped packet sends them
+    // hunting for a new QR that doesn't exist.
+    const status = (roster.error as { status?: number } | null)?.status;
+    if (status === 404) {
+      return (
+        <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
+          <div className="max-w-xs">
+            <h1 className="text-[17px] font-semibold text-slate-900">This code isn't active</h1>
+            <p className="mt-2 text-[13px] text-slate-500">
+              Ask the office for the current crew code and scan it again.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
         <div className="max-w-xs">
-          <h1 className="text-[17px] font-semibold text-slate-900">This code isn't active</h1>
+          <h1 className="text-[17px] font-semibold text-slate-900">Can't reach HALO right now</h1>
           <p className="mt-2 text-[13px] text-slate-500">
-            Ask the office for the current crew code and scan it again.
+            Your code is fine — this phone just can't get through. Check your signal and try again.
           </p>
+          <button
+            type="button"
+            className="mt-5 rounded-xl bg-slate-900 px-4 py-2.5 text-[14px] font-semibold text-white"
+            onClick={() => void roster.refetch()}
+            disabled={roster.isFetching}
+          >
+            {roster.isFetching ? "Trying…" : "Try again"}
+          </button>
         </div>
       </div>
     );

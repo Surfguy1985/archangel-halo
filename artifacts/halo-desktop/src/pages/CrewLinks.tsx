@@ -230,13 +230,74 @@ export function ClaimsPanel({ compact = false }: { compact?: boolean }) {
  * The roster page is served by the root app, so the URL is origin + path —
  * never prefixed with this app's /desktop/ base.
  */
+/**
+ * Is the printed code still opening the door?
+ *
+ * The office can't see what a crew sees, and a laminated card is only worth
+ * anything if it still works — so the page checks the code the same way a
+ * phone in a parking lot would, and says so out loud. A red line here means
+ * stop printing and come ask; anything else is a bad reason to reprint.
+ */
+function CodeHealth({ path }: { path: string }) {
+  const [state, setState] = useState<"checking" | "live" | "dead" | "unreachable">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`${window.location.origin}/api${path}`, {
+          headers: { accept: "application/json" },
+        });
+        if (cancelled) return;
+        setState(res.ok ? "live" : res.status === 404 ? "dead" : "unreachable");
+      } catch {
+        if (!cancelled) setState("unreachable");
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [path]);
+
+  if (state === "checking") return null;
+
+  const tone =
+    state === "live"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : state === "dead"
+        ? "border-rose-200 bg-rose-50 text-rose-800"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone}`}
+      data-testid="roster-code-health"
+    >
+      {state === "live" ? <Check className="h-3 w-3" /> : null}
+      {state === "live"
+        ? "Live — this code opens the roster right now"
+        : state === "dead"
+          ? "This code no longer works — don't hand it out"
+          : "Couldn't check just now"}
+    </span>
+  );
+}
+
 function RosterCard({ path }: { path: string | null }) {
   const url = path ? `${window.location.origin}${path}` : "";
-  if (!url) return null;
+  if (!path || !url) return null;
 
   return (
     <section className="rounded-2xl border-2 border-[var(--ink)] bg-white p-5 print:break-inside-avoid">
-      <h2 className="font-display text-[17px] font-bold text-[var(--ink)]">One code for everyone</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-display text-[17px] font-bold text-[var(--ink)]">
+          One code for everyone
+        </h2>
+        <CodeHealth path={path} />
+      </div>
       <p className="mt-0.5 text-[12px] text-muted-foreground">
         Print it once and hang it in the shop. Anyone scans it, taps their own name, and gets their
         own permanent link. Not on the list? They add themselves and pick their foreman.

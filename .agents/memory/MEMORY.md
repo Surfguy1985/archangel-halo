@@ -154,3 +154,4 @@
 - [HALO board workspace](halo-board-workspace.md) — one shared rail helper for board/list/table; drag must plan against the server's narrow transitions; jsonb custom fields merge in SQL.
 - [Pulse viewer payload gate](halo-pulse-unit-report.md) — Pulse desk surfaces are gated by the response, not the UI: no money, no internal ids; normalise unit labels in SQL; turn clock = current turn only.
 - [Mid-session tree resets](halo-tree-reset-midsession.md) — tracked edits can vanish to origin/main while new untracked files survive; a sudden route 404 means check git status/reflog first.
+- [HALO roster code permanence](halo-roster-code-permanence.md) — printed crew QR must never die on its own: every issued code stays valid until explicitly revoked; only a 404 may say "not active".

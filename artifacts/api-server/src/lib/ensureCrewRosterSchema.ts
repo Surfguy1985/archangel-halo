@@ -18,6 +18,24 @@ async function run(): Promise<void> {
     ALTER TABLE business_settings
     ADD COLUMN IF NOT EXISTS crew_roster_code text
   `);
+  // Every code ever handed out, so a printed QR keeps working. The settings
+  // singleton holds the code the office is currently giving out; this table is
+  // the acceptance list, and a code only stops working when someone revokes it
+  // on purpose. Without it, anything that clears the settings value (a restore,
+  // a wipe, a rotation) silently kills the QR hanging in the shop.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS crew_roster_codes (
+      code text PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      revoked_at timestamptz
+    )
+  `);
+  await db.execute(sql`
+    INSERT INTO crew_roster_codes (code)
+    SELECT crew_roster_code FROM business_settings
+    WHERE crew_roster_code IS NOT NULL
+    ON CONFLICT (code) DO NOTHING
+  `);
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS crew_portal_bearers (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
