@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { logger } from "../lib/logger";
+import { isUuid } from "../lib/crewJobAccess";
 import { pushPricingAlertToBase44 } from "../lib/base44Write";
 
 export const workLoggedRouter = Router();
@@ -65,7 +66,9 @@ workLoggedRouter.post("/internal/work-logged", requireToken, async (req: Request
 workLoggedRouter.get("/work-verification/:jobId", async (req: Request, res: Response) => {
   try {
     const { buildWorkVerification } = await import("../lib/workVerification");
-    const verification = await buildWorkVerification(String(req.params.jobId));
+    const jobId = String(req.params.jobId || "");
+    if (!isUuid(jobId)) return res.status(400).json({ error: "Invalid job id (expected UUID)" });
+    const verification = await buildWorkVerification(jobId);
     if (!verification) return res.status(404).json({ error: "Job not found" });
     return res.json({ showModal: true, verification });
   } catch (err) {

@@ -1,3 +1,4 @@
+import { isUuid } from "../lib/crewJobAccess";
 import { Router } from "express";
 import { logger } from "../lib/logger";
 import {
@@ -7,6 +8,10 @@ import {
 } from "../lib/workReviewPipeline";
 
 export const workReviewsRouter = Router();
+
+workReviewsRouter.get("/work-reviews/health", (_req, res) => {
+  res.json({ ok: true, service: "work-reviews", version: 1 });
+});
 
 workReviewsRouter.post("/work-reviews/scan-dispatch", async (_req, res) => {
   try { return res.json({ ok: true, ...(await scanDispatchForReview(80)) }); }

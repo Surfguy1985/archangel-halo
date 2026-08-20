@@ -3,12 +3,15 @@ import { desc, inArray } from "drizzle-orm";
 import { db, discrepanciesTable } from "@workspace/db";
 import { resolveDiscrepancy } from "../lib/financialReconciliation";
 import { logger } from "../lib/logger";
+import { isUuid } from "../lib/crewJobAccess";
 export const discrepanciesRouter = Router();
 
 discrepanciesRouter.get("/work-verification/:jobId", async (req, res) => {
   try {
+    const jobId = String(req.params.jobId || "");
+    if (!isUuid(jobId)) return res.status(400).json({ error: "Invalid job id (expected UUID)" });
     const { buildWorkVerification } = await import("../lib/workVerification");
-    const verification = await buildWorkVerification(String(req.params.jobId));
+    const verification = await buildWorkVerification(jobId);
     if (!verification) return res.status(404).json({ error: "Job not found" });
     return res.json({ showModal: true, verification });
   } catch (err) {
@@ -19,8 +22,10 @@ discrepanciesRouter.get("/work-verification/:jobId", async (req, res) => {
 
 discrepanciesRouter.get("/discrepancies/verify/:jobId", async (req, res) => {
   try {
+    const jobId = String(req.params.jobId || "");
+    if (!isUuid(jobId)) return res.status(400).json({ error: "Invalid job id (expected UUID)" });
     const { buildWorkVerification } = await import("../lib/workVerification");
-    const verification = await buildWorkVerification(String(req.params.jobId));
+    const verification = await buildWorkVerification(jobId);
     if (!verification) return res.status(404).json({ error: "Job not found" });
     return res.json({ showModal: true, verification });
   } catch (err) {
