@@ -34,6 +34,7 @@ import PropertyPulse from "./pages/PropertyPulse";
 import PulseHome from "./pages/PulseHome";
 import PortfolioHome from "./pages/PortfolioHome";
 import PunchlistHome from "./pages/PunchlistHome";
+import PortalLaunch from "./pages/PortalLaunch";
 const ClientPortfolioPulse = lazy(() => import("./pages/ClientPortfolioPulse"));
 const PropertyTurnBoard = lazy(() => import("./pages/PropertyTurnBoard"));
 const EntrataImportPage = lazy(() => import("./pages/EntrataImport"));
@@ -172,6 +173,9 @@ function App() {
 
             {/* ── HALO Command — the entire product surface ─────────────── */}
             <Route path="/">
+              <PortalLaunch />
+            </Route>
+            <Route path="/command">
               <HaloCommand />
             </Route>
 
@@ -190,11 +194,8 @@ function App() {
               <PunchlistHome />
             </Route>
 
-            <Route path="/portfolio">
-              <BoardPage>
-                <ClientPortfolioPulse />
-              </BoardPage>
-            </Route>
+            {/* legacy ClientPortfolioPulse retired — use PortfolioHome */}
+
 
             <Route path="/imports">
               <BoardPage>
