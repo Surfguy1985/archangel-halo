@@ -55,29 +55,34 @@ function readStored<T>(key: string, valid: (v: unknown) => v is T): T | null {
   }
 }
 
-const isApproved = (v: unknown): v is { name: string; portalPath: string; openPath?: string } =>
-  typeof v === "object" &&
-  v !== null &&
-  typeof (v as { portalPath?: unknown }).portalPath === "string" &&
-  (v as { portalPath: string }).portalPath.startsWith("/portal/");
+type Approved = { name: string; claimId?: string; portalPath?: string; openPath?: string };
 
-/**
- * Where an approved phone actually lands.
- *
- * The paycard is the work: check in, before photos, after photos, check out.
- * That is what the crew opened their phone to do, so it's the destination —
- * the wider portal is still theirs, one tap away from inside it. Anything the
- * server didn't vouch for is ignored; only these two shapes are ours.
- */
-const openPathOf = (v: { portalPath: string; openPath?: string }): string => {
-  const next = v.openPath;
-  return typeof next === "string" && (next.startsWith("/checkin/") || next.startsWith("/portal/"))
-    ? next
-    : v.portalPath;
+const isApproved = (v: unknown): v is Approved => {
+  if (typeof v !== "object" || v === null) return false;
+  const r = v as { name?: unknown; openPath?: unknown; portalPath?: unknown };
+  if (typeof r.name !== "string") return false;
+  const paycard = typeof r.openPath === "string" && r.openPath.startsWith("/checkin/");
+  // Written before this phone knew about paycards. Kept only so it can be
+  // traded in for one below — it is never somewhere to send anybody.
+  const legacy = typeof r.portalPath === "string" && r.portalPath.startsWith("/portal/");
+  return paycard || legacy;
 };
 
+/**
+ * The only place an approved phone is ever sent: that person's paycard —
+ * unit, check in, before and after photos, check out. That is what they opened
+ * their phone to do, and the published app has retired the wider crew portal
+ * outright, so a remembered portal path is a dead end, not a fallback.
+ */
+const paycardOf = (v: Approved): string | null =>
+  typeof v.openPath === "string" && v.openPath.startsWith("/checkin/") ? v.openPath : null;
+
 const isPending = (v: unknown): v is Pending =>
-  isApproved(v) && typeof (v as { claimId?: unknown }).claimId === "string";
+  typeof v === "object" &&
+  v !== null &&
+  typeof (v as { claimId?: unknown }).claimId === "string" &&
+  typeof (v as { name?: unknown }).name === "string" &&
+  typeof (v as { portalPath?: unknown }).portalPath === "string";
 
 function write(key: string, value: unknown) {
   try {
@@ -167,19 +172,59 @@ export default function CrewRoster({ code }: { code: string }) {
     };
   }, [groups]);
 
+  const paycard = approved ? paycardOf(approved) : null;
+
+  // An approved phone that only remembers the retired portal — approved before
+  // paycards, or mid-rollout. The office already said yes, so ask that same
+  // claim where this person's paycard is rather than making them queue again.
+  const stranded = approved && !paycard ? approved : null;
+  const recovery = useGetCrewRosterClaim(code, stranded?.claimId ?? "", {
+    query: {
+      queryKey: ["roster-claim-recover", code, stranded?.claimId ?? ""],
+      enabled: !!stranded?.claimId,
+      refetchInterval: 5000,
+    },
+  });
+
   // A remembered, approved pick means this phone already belongs to someone —
   // send them straight in rather than making them find their name every morning.
   useEffect(() => {
-    if (approved) navigate(openPathOf(approved), { replace: true });
-  }, [approved, navigate]);
+    if (paycard) navigate(paycard, { replace: true });
+  }, [paycard, navigate]);
+
+  useEffect(() => {
+    if (!stranded) return;
+    // Nothing left to trade in: forget it and let them tap their name again.
+    if (!stranded.claimId) {
+      localStorage.removeItem(APPROVED_KEY);
+      setApproved(null);
+      return;
+    }
+    const found = recovery.data?.paycardPath;
+    if (found) {
+      const next = { ...stranded, openPath: found };
+      write(APPROVED_KEY, next);
+      setApproved(next);
+      return;
+    }
+    if (recovery.isError) {
+      localStorage.removeItem(APPROVED_KEY);
+      setApproved(null);
+    }
+  }, [stranded, recovery.data, recovery.isError]);
 
   useEffect(() => {
     if (!pending || !status.data) return;
     if (status.data.status === "approved") {
+      // Approved but no paycard yet means the link is still being cut. Keep
+      // waiting: a phone parked on "the office is looking" recovers by itself,
+      // a phone dropped on the retired portal just reads as a broken link.
+      if (!status.data.paycardPath) return;
       const done = {
         name: pending.name,
+        claimId: pending.claimId,
         portalPath: pending.portalPath,
-        openPath: status.data.paycardPath ?? pending.portalPath,
+        openPath: status.data.paycardPath,
       };
       write(APPROVED_KEY, done);
       localStorage.removeItem(PENDING_KEY);
@@ -301,7 +346,7 @@ export default function CrewRoster({ code }: { code: string }) {
       <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
         <div>
           <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-          <p className="mt-3 text-[14px] text-slate-600">Opening {approved.name}'s portal…</p>
+          <p className="mt-3 text-[14px] text-slate-600">Opening {approved.name}'s paycard…</p>
           <button
             type="button"
             className="mt-4 text-[13px] font-medium text-slate-500 underline"

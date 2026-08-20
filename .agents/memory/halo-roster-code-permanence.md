@@ -49,3 +49,17 @@ after hashing, so the issued URL is kept on the link row's label and reused. Min
 read-then-write called from a public 5s poll, so it runs under a per-crew advisory lock
 inside a transaction; without it two concurrent approvals mint two live cards for one
 person and the crew trusts whichever they scanned last.
+
+## The crew portal is retired in production
+
+`GET /api/portal/:token` answers **410 "The crew portal is retired. Use your check-in
+link."** on the published app while dev still answers it normally. Any crew surface that
+routes to `/portal/<token>` therefore looks fine in dev and reads as a broken link to a
+real crew — which is exactly how an approved roster scan came back as "invalid link".
+
+**Why:** the retirement is env-gated, so dev is not evidence about this path.
+
+**How to apply:** send crews to their paycard, never the portal. A remembered `/portal/`
+path is a dead end, not a fallback: trade it in (the roster claim id re-resolves to a
+paycard) or forget it and make them pick their name again. And when a crew reports a bad
+link, probe **production** first — dev returning 200 proves nothing.
