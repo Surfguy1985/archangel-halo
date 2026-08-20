@@ -21,7 +21,8 @@ import {
   useClaimCrewRosterSpot,
   useJoinCrewRoster,
 } from "@workspace/api-client-react";
-import { Loader2, ArrowRight, UserPlus, Plus, ArrowLeft, Clock, ShieldX } from "lucide-react";
+import { Loader2, ArrowRight, UserPlus, Plus, ArrowLeft, Clock, ShieldX, MapPin } from "lucide-react";
+import { getPosition } from "@/hooks/useGpsTrail";
 
 type Person = {
   id: string;
@@ -90,6 +91,13 @@ export default function CrewRoster({ code }: { code: string }) {
   const [newName, setNewName] = useState("");
   const [newLeader, setNewLeader] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{
+    kind: "pick" | "join";
+    person?: Person;
+    label: string;
+  } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationOff, setLocationOff] = useState(false);
 
   const idle = !approved && !pending;
   const roster = useGetCrewRoster(code, {
@@ -166,15 +174,17 @@ export default function CrewRoster({ code }: { code: string }) {
     setPending(next);
   };
 
+  /**
+   * Tapping a name doesn't send anything yet — it asks about location first.
+   *
+   * The phone will only show its permission dialog inside a tap, and burying
+   * that behind a later screen means half the crew ends up invisible on the
+   * office map without ever knowing they were asked. So the choice is made
+   * here, in plain words, while the person is looking at their own name.
+   */
   const pick = (person: Person) => {
     setError(null);
-    claim.mutate(
-      { code, data: { crewId: person.id } },
-      {
-        onSuccess: sent,
-        onError: () => setError("Couldn't send that to the office. Try again."),
-      },
-    );
+    setAsking({ kind: "pick", person, label: person.name });
   };
 
   const submitNew = () => {
@@ -184,8 +194,39 @@ export default function CrewRoster({ code }: { code: string }) {
       setError("Type your full name");
       return;
     }
+    setAsking({ kind: "join", label: name });
+  };
+
+  /**
+   * Location is asked for, never required: a crew standing in a basement with
+   * GPS off still has to be able to reach their pay. Whatever they choose, the
+   * request goes to the office either way.
+   */
+  const send = async (allowLocation: boolean) => {
+    const target = asking;
+    if (!target) return;
+    setLocating(true);
+    let granted = false;
+    if (allowLocation) {
+      const pos = await getPosition();
+      granted = Boolean(pos);
+    }
+    setLocating(false);
+    setLocationOff(!granted);
+    setAsking(null);
+
+    if (target.kind === "pick" && target.person) {
+      claim.mutate(
+        { code, data: { crewId: target.person.id } },
+        {
+          onSuccess: sent,
+          onError: () => setError("Couldn't send that to the office. Try again."),
+        },
+      );
+      return;
+    }
     join.mutate(
-      { code, data: { name, leaderId: newLeader || null } },
+      { code, data: { name: target.label, leaderId: newLeader || null } },
       {
         onSuccess: sent,
         onError: () => setError("Couldn't send that to the office. Check the name and try again."),
@@ -224,6 +265,12 @@ export default function CrewRoster({ code }: { code: string }) {
             by itself the second they approve it.
           </p>
           <Loader2 className="mx-auto mt-4 h-5 w-5 animate-spin text-slate-300" />
+          {locationOff ? (
+            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-left text-[12px] leading-relaxed text-amber-800">
+              Location is off, so you won't show up on the office map. Turn it on for this site in
+              your phone's settings whenever you're ready — your link still works either way.
+            </p>
+          ) : null}
           <button
             type="button"
             className="mt-5 text-[13px] font-medium text-slate-500 underline"
@@ -459,6 +506,60 @@ export default function CrewRoster({ code }: { code: string }) {
           ))}
         </div>
       )}
+
+      {/* Asked here, over the list, because the phone only offers its location
+          dialog inside a tap — and because the person should read why before
+          they answer, not discover it from a system pop-up with no context. */}
+      {asking ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/40 px-4 pb-4">
+          <div className="w-full rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900">
+                <MapPin className="h-5 w-5 text-white" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-[16px] font-semibold text-slate-900">
+                  Share your location, {asking.label.split(" ")[0]}?
+                </h2>
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+                  HALO puts your pin on the office map while you're on the clock, so the office can
+                  see your crew arrive and nobody has to call you for an update. It stops when you
+                  check out.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => void send(true)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-[15px] font-semibold text-white disabled:opacity-60"
+            >
+              {locating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="h-4 w-4" />
+              )}
+              {locating ? "Waiting on your phone…" : "Allow location"}
+            </button>
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => void send(false)}
+              className="mt-2 w-full rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-500 disabled:opacity-60"
+            >
+              Not now — send my request anyway
+            </button>
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => setAsking(null)}
+              className="mt-1 w-full text-[13px] text-slate-400 underline disabled:opacity-60"
+            >
+              Back to the list
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
