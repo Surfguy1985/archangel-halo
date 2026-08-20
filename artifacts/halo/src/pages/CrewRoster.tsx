@@ -13,7 +13,7 @@
  * to the office for approval.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
   useGetCrewRoster,
@@ -95,9 +95,22 @@ export default function CrewRoster({ code }: { code: string }) {
     kind: "pick" | "join";
     person?: Person;
     label: string;
+    leaderId: string | null;
   } | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationOff, setLocationOff] = useState(false);
+  // Refs, not state: these decide things inside an async handler, where a
+  // re-render is always one beat behind the second tap.
+  const inFlight = useRef(false);
+  const attempt = useRef(0);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const idle = !approved && !pending;
   const roster = useGetCrewRoster(code, {
@@ -184,7 +197,7 @@ export default function CrewRoster({ code }: { code: string }) {
    */
   const pick = (person: Person) => {
     setError(null);
-    setAsking({ kind: "pick", person, label: person.name });
+    setAsking({ kind: "pick", person, label: person.name, leaderId: null });
   };
 
   const submitNew = () => {
@@ -194,7 +207,18 @@ export default function CrewRoster({ code }: { code: string }) {
       setError("Type your full name");
       return;
     }
-    setAsking({ kind: "join", label: name });
+    // Snapshot the whole answer now. What gets sent must be what the person
+    // was looking at when they tapped, not whatever the form holds a slow
+    // location lookup later.
+    setAsking({ kind: "join", label: name, leaderId: newLeader || null });
+  };
+
+  /** Abandon whatever the sheet is doing; any lookup still running is orphaned. */
+  const cancelAsk = () => {
+    attempt.current += 1;
+    inFlight.current = false;
+    setLocating(false);
+    setAsking(null);
   };
 
   /**
@@ -203,33 +227,52 @@ export default function CrewRoster({ code }: { code: string }) {
    * request goes to the office either way.
    */
   const send = async (allowLocation: boolean) => {
+    // A tap that lands twice must not become two people waiting on the office.
+    // React's disabled prop only takes effect on the next render, which is far
+    // too late for a double-tap, so the guard is a ref set synchronously here.
+    if (inFlight.current) return;
     const target = asking;
     if (!target) return;
+    inFlight.current = true;
+    const mine = ++attempt.current;
+
     setLocating(true);
     let granted = false;
     if (allowLocation) {
       const pos = await getPosition();
       granted = Boolean(pos);
     }
+    // Backing out during the wait — or leaving the page — cancels the send.
+    // Geolocation can sit for fifteen seconds, and nobody should have a
+    // request appear in the office after they chose to go back.
+    if (attempt.current !== mine || !alive.current) {
+      inFlight.current = false;
+      return;
+    }
     setLocating(false);
     setLocationOff(!granted);
     setAsking(null);
 
+    const settled = () => {
+      inFlight.current = false;
+    };
     if (target.kind === "pick" && target.person) {
       claim.mutate(
         { code, data: { crewId: target.person.id } },
         {
           onSuccess: sent,
           onError: () => setError("Couldn't send that to the office. Try again."),
+          onSettled: settled,
         },
       );
       return;
     }
     join.mutate(
-      { code, data: { name: target.label, leaderId: newLeader || null } },
+      { code, data: { name: target.label, leaderId: target.leaderId } },
       {
         onSuccess: sent,
         onError: () => setError("Couldn't send that to the office. Check the name and try again."),
+        onSettled: settled,
       },
     );
   };
@@ -551,9 +594,8 @@ export default function CrewRoster({ code }: { code: string }) {
             </button>
             <button
               type="button"
-              disabled={locating}
-              onClick={() => setAsking(null)}
-              className="mt-1 w-full text-[13px] text-slate-400 underline disabled:opacity-60"
+              onClick={cancelAsk}
+              className="mt-1 w-full text-[13px] text-slate-400 underline"
             >
               Back to the list
             </button>
