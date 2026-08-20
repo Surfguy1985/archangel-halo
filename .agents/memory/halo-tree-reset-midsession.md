@@ -18,3 +18,12 @@ before debugging the code. Recovery: re-apply the edits to the tracked files.
 Generated client output can be rebuilt from the spec, and if the spec itself was
 lost, the surviving generated type files under lib/api-zod are an accurate record
 of the schemas to rewrite. Commit early once a feature verifies.
+
+## Sibling symptom: workspace-wide 502
+
+The same class of surprise shows up as a 502 across the whole workspace. The
+usual cause is that an artifact's workflow was killed (its log ends in
+`Command failed with signal "SIGTERM"` after a run of healthy 200s), not a port
+or binding problem. Restart the workflow; do not go hunting for a port to set.
+Nothing here has a single "Run" button — each artifact has its own workflow and
+binds the port the platform assigns through `PORT`.
