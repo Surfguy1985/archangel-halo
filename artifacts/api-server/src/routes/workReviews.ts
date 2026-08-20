@@ -7,7 +7,7 @@ import {
   runReviewAutopilot, buildMarginReport, listReportCards, getReportCard,
 } from "../lib/workReviewPipeline";
 import {
-  runMoneyLock, listMoneyLockExceptions, listInvoiceQueueForTab,
+  runMoneyLock, listMoneyLockExceptions, listInvoiceQueueForTab, listDispatchApproved,
   reopenForCorrection, applyInvoiceCorrection, classifyJobForMoneyLock,
 } from "../lib/moneyLock";
 
@@ -114,10 +114,28 @@ workReviewsRouter.get("/work-reviews/money-lock/exceptions", async (_req, res) =
 workReviewsRouter.get("/work-reviews/money-lock/summary", async (_req, res) => {
   try {
     const exceptions = await listMoneyLockExceptions();
-    const queue = await listInvoiceQueueForTab();
+    const dispatchApproved = await listDispatchApproved();
+    const invoiceQueue = await listInvoiceQueueForTab();
     return res.json({
-      exceptions: exceptions.length, invoiceQueue: queue.length,
-      message: exceptions.length === 0 ? "All clear — no exceptions." : `${exceptions.length} need a look. Queue: ${queue.length}.`,
+      section: "dispatch",
+      exceptions: exceptions.length,
+      dispatchApproved: dispatchApproved.length,
+      invoiceQueue: invoiceQueue.length,
+      message: exceptions.length === 0
+        ? `Dispatch clear. ${dispatchApproved.length} margin-locked on Dispatch (not invoiced yet). Invoice queue: ${invoiceQueue.length}.`
+        : `${exceptions.length} Dispatch exceptions need a look. ${dispatchApproved.length} Dispatch-approved. Invoice: ${invoiceQueue.length}.`,
+    });
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
+});
+
+workReviewsRouter.get("/work-reviews/money-lock/dispatch-approved", async (_req, res) => {
+  try {
+    const reviews = await listDispatchApproved();
+    return res.json({
+      section: "dispatch",
+      reviews,
+      count: reviews.length,
+      message: "Margin locked on Dispatch — send to Invoice only when you choose",
     });
   } catch (err: any) { return res.status(500).json({ error: err.message }); }
 });

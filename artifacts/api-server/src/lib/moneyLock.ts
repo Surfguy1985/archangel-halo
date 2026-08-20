@@ -64,8 +64,12 @@ export async function runMoneyLock(opts?: { limit?: number; dryRun?: boolean }) 
   let autoApproved = 0, exceptions = 0, blocked = 0;
 
   for (const j of jobs) {
+    // Skip if already past Dispatch close (margin locked) or already invoiced
     const already = await db.select().from(workReviewsTable).where(
-      and(eq(workReviewsTable.jobId, j.id), eq(workReviewsTable.status, "sent_to_invoice")),
+      and(
+        eq(workReviewsTable.jobId, j.id),
+        inArray(workReviewsTable.status, ["margin_ready", "sent_to_invoice", "approved_for_invoice"]),
+      ),
     ).orderBy(desc(workReviewsTable.updatedAt)).limit(1);
     if (already[0]) continue;
 
@@ -103,6 +107,8 @@ export async function runMoneyLock(opts?: { limit?: number; dryRun?: boolean }) 
       continue;
     }
 
+    // DISPATCH auto-approve only — lock margin on Dispatch, do NOT push to Invoice.
+    // Invoice handoff is a separate explicit step from the Dispatch / invoicing tab.
     autoApproved++;
     let reviewId: string | null = null;
     if (!dryRun) {
@@ -110,22 +116,35 @@ export async function runMoneyLock(opts?: { limit?: number; dryRun?: boolean }) 
       reviewId = opened.reviewId;
       await db.update(workReviewsTable).set({
         status: "field_submitted",
-        fieldEdits: { confirmAccurate: true, moneyLockAuto: true },
+        fieldEdits: { confirmAccurate: true, moneyLockAuto: true, dispatchSection: true },
         fieldSubmittedAt: new Date(), fieldSubmittedBy: "money_lock", updatedAt: new Date(),
       }).where(eq(workReviewsTable.id, opened.reviewId));
       const final = await botFinalizeReview(opened.reviewId);
       if (final.ok && final.decision === "margin_ready") {
-        await completeReviewToInvoice(opened.reviewId, "money_lock");
+        // Stay on Dispatch at margin_ready — ready for office to send to Invoice when they choose
+        try {
+          await db.update(jobsTable).set({ boardStatus: "billing" }).where(eq(jobsTable.id, j.id));
+        } catch { /* board column optional */ }
         await saveReportCard({
           reviewId: opened.reviewId, jobId: j.id, jobNo: classified.jobNo, unitNo: classified.unitNo,
-          stage: "money_lock_auto_approved", title: `Money Lock AUTO · ${classified.jobNo || j.id.slice(0, 8)}`,
-          summary: classified.reason, actor: "money_lock", marginReport: final.marginReport as any,
-          card: { version: 1, stage: "money_lock_auto_approved", ...classified, reviewId: opened.reviewId, marginReport: final.marginReport },
+          stage: "money_lock_dispatch_approved",
+          title: `Money Lock DISPATCH · ${classified.jobNo || j.id.slice(0, 8)}`,
+          summary: `Dispatch closed clean — margin locked. Not sent to invoice yet. ${classified.reason}`,
+          actor: "money_lock", marginReport: final.marginReport as any,
+          card: {
+            version: 1,
+            stage: "money_lock_dispatch_approved",
+            section: "dispatch",
+            ...classified,
+            reviewId: opened.reviewId,
+            marginReport: final.marginReport,
+            nextStep: "Send to invoicing from Dispatch when ready",
+          },
         }).catch(() => null);
       } else {
         autoApproved--; exceptions++;
         classified.bucket = "exception";
-        classified.reason = final.ok ? final.notes : "Bot finalize held auto-approve";
+        classified.reason = final.ok ? final.notes : "Bot finalize held dispatch auto-approve";
         items.push({ ...classified, reviewId: opened.reviewId });
         continue;
       }
@@ -153,6 +172,11 @@ export async function listMoneyLockExceptions() {
 
 export async function listInvoiceQueueForTab() {
   return listReviews("sent_to_invoice");
+}
+
+/** Dispatch section: Money Lock approved (margin locked), not yet sent to Invoice */
+export async function listDispatchApproved() {
+  return listReviews("margin_ready");
 }
 
 export async function reopenForCorrection(opts: {
