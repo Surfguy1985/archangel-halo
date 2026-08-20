@@ -37,6 +37,18 @@ A camera input that does not clear `e.target.value` fires no change event when
 the crew picks the *same* photo again, so every retry after a failed upload
 looks dead.
 
+## Storage upload requests need the full contract
+
+The public paycard's presign request must include `name`, `size`, and
+`contentType`. The storage route validates all three before minting a URL;
+omitting `size` makes every browser photo fail before the bytes leave the phone.
+
+**Why:** the paycard was sending only name and content type, while the shared
+storage schema requires a positive byte count.
+
+**How to apply:** send the prepared file's actual `size` (after JPEG
+normalization), not the original camera file size, with every paycard upload.
+
 ## Cards left open overnight
 An unbounded elapsed timer renders totals like `478:56:27` for check-ins that
 were never closed. Past ~12h, show the check-in date in a caution tone plus

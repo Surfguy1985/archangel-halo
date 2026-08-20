@@ -322,7 +322,11 @@ export function HaloCrewPaycardPage({ token }: { token: string }) {
         const urlResp = await fetch("/api/storage/uploads/request-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: `paycard-${phase}-${Date.now()}.jpg`, contentType }),
+          body: JSON.stringify({
+            name: prepared.file.name || `paycard-${phase}-${Date.now()}.jpg`,
+            size: prepared.file.size,
+            contentType,
+          }),
         });
         const signed = (await urlResp.json().catch(() => ({}))) as {
           uploadURL?: string;
