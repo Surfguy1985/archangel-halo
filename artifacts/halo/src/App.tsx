@@ -32,6 +32,7 @@ import CrewJoinPage from "./pages/CrewJoinPage";
 import HaloCommand from "./pages/HaloCommand";
 import PropertyPulse from "./pages/PropertyPulse";
 import PulseHome from "./pages/PulseHome";
+import PortfolioHome from "./pages/PortfolioHome";
 const ClientPortfolioPulse = lazy(() => import("./pages/ClientPortfolioPulse"));
 const PropertyTurnBoard = lazy(() => import("./pages/PropertyTurnBoard"));
 const EntrataImportPage = lazy(() => import("./pages/EntrataImport"));
@@ -174,7 +175,10 @@ function App() {
             </Route>
 
             <Route path="/property-portfolio">
-              <PropertyPulse level="portfolio" />
+              <PortfolioHome />
+            </Route>
+            <Route path="/portfolio">
+              <PortfolioHome />
             </Route>
 
             <Route path="/pulse">

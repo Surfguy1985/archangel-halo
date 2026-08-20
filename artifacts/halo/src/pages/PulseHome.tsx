@@ -37,9 +37,12 @@ export default function PulseHome() {
   const [filter, setFilter] = useState<"all" | "blocked" | "turning" | "waiting" | "done">("all");
 
   const q = useQuery({
-    queryKey: ["pulse-home"],
+    queryKey: ["pulse-home", typeof window !== "undefined" ? window.location.search : ""],
     queryFn: async () => {
-      const r = await fetch("/api/pulse/home?limit=40", { credentials: "include" });
+      const params = new URLSearchParams(window.location.search);
+      const propertyId = params.get("propertyId");
+      const q = propertyId ? `?limit=40&propertyId=${encodeURIComponent(propertyId)}` : "?limit=40";
+      const r = await fetch(`/api/pulse/home${q}`, { credentials: "include" });
       if (!r.ok) throw new Error("Failed to load Pulse");
       return r.json() as Promise<PulseHomeData>;
     },
