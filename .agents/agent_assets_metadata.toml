@@ -205,3 +205,10 @@ uri = "file://halo-export.csv"
 type = "table"
 title = "HALO Full Data Export"
 description = "Properties · Units · Crew Members · Jobs · Invoices Received · Crew Payments · Check Images"
+
+[[outputs]]
+id = "VrtdPaeNMxMjiBGOxwymU"
+uri = "file://handouts/crew-roster-qr.png"
+type = "image"
+title = "Crew roster QR — one code for everyone"
+description = "Scans to the live crew roster page on archangel-halo.replit.app. A crew member taps their own name and the office approves the link."
