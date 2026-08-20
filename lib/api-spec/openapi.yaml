@@ -1782,6 +1782,76 @@ paths:
                 items:
                   $ref: "#/components/schemas/PhotoReelUnit"
 
+  /pulse/units:
+    get:
+      operationId: listPulseUnits
+      tags: [jobs]
+      summary: Unit lookup for the Pulse desk — match a typed unit number across properties
+      description: >
+        Client-safe lookup that powers the unit search above the Pulse Overview photo reel.
+        Matching is done on a normalised unit label, so "12", "Unit 12" and "#12" all find
+        the same unit. Carries no money and nothing that opens an office screen.
+      parameters:
+        - name: propertyId
+          in: query
+          required: false
+          description: Limit the lookup to one property
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          description: Partial unit number
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum matches returned (default 12, max 40)
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Matching units, exact match first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PulseUnitMatch"
+
+  /pulse/unit-report:
+    get:
+      operationId: getPulseUnitReport
+      tags: [jobs]
+      summary: Everything a viewer may see about one unit — status, turn time, POs, scope and photos
+      description: >
+        The read model behind the Pulse unit report popup. Deliberately excludes invoice
+        totals, crew pay, margin and client billing: the payload itself is the gate, because
+        the Pulse desk is read by property managers, not the office.
+      parameters:
+        - name: unit
+          in: query
+          required: true
+          description: Unit number as shown on the board
+          schema:
+            type: string
+        - name: propertyId
+          in: query
+          required: false
+          description: Property the unit belongs to
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The unit's report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PulseUnitReportDoc"
+        "404":
+          description: No such unit
+
   /jobs/{id}/photos/assign:
     post:
       operationId: assignPhotosToJob
@@ -15596,6 +15666,112 @@ components:
         takenAt: { type: ["string", "null"], description: "ISO timestamp the shot landed" }
         crewName: { type: ["string", "null"] }
         source: { type: string, description: "field | base44" }
+    PulseUnitMatch:
+      type: object
+      required: [key, unitNo, jobCount, openJobs, stage]
+      properties:
+        key:
+          type: string
+          description: Stable match key — property + unit
+        unitNo: { type: string }
+        propertyId: { type: string, nullable: true }
+        propertyName: { type: string, nullable: true }
+        jobCount: { type: integer }
+        openJobs: { type: integer }
+        lastActivityAt: { type: string, nullable: true }
+        stage:
+          type: string
+          description: not_started | in_turn | complete
+
+    PulseUnitPhoto:
+      type: object
+      required: [url, phase]
+      properties:
+        url: { type: string }
+        phase:
+          type: string
+          description: before | after
+        takenAt: { type: string, nullable: true }
+        jobNo: { type: string, nullable: true }
+
+    PulseUnitScopeLine:
+      type: object
+      required: [service, done]
+      properties:
+        service: { type: string }
+        done: { type: boolean }
+
+    PulseUnitJob:
+      type: object
+      required: [jobNo, stage, stageLabel, poStatus, scope, photos]
+      properties:
+        jobNo: { type: string }
+        title: { type: string, nullable: true }
+        category: { type: string, nullable: true }
+        stage:
+          type: string
+          description: scheduled | in_progress | complete | cleared
+        stageLabel:
+          type: string
+          description: Plain-language stage for the viewer
+        scheduledOn:
+          type: string
+          nullable: true
+          description: YYYY-MM-DD
+        completedAt: { type: string, nullable: true }
+        crewName: { type: string, nullable: true }
+        poNumber: { type: string, nullable: true }
+        poStatus:
+          type: string
+          description: on_file | received | awaiting
+        poReceivedAt: { type: string, nullable: true }
+        warrantyUntil: { type: string, nullable: true }
+        daysOnSite: { type: number, nullable: true }
+        scopeDone: { type: integer }
+        scopeTotal: { type: integer }
+        scope:
+          type: array
+          items:
+            $ref: "#/components/schemas/PulseUnitScopeLine"
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PulseUnitPhoto"
+
+    PulseUnitReportDoc:
+      type: object
+      required: [unitNo, stage, stageLabel, jobCount, openPos, jobs, photos]
+      properties:
+        unitNo: { type: string }
+        propertyId: { type: string, nullable: true }
+        propertyName: { type: string, nullable: true }
+        stage:
+          type: string
+          description: not_started | in_turn | complete
+        stageLabel: { type: string }
+        turnStartedAt: { type: string, nullable: true }
+        turnCompletedAt: { type: string, nullable: true }
+        turnDays:
+          type: number
+          nullable: true
+          description: Days from the start of this turn to completion, or to now while it is still running
+        turnTarget:
+          type: number
+          nullable: true
+          description: Target turn days the desk measures against
+        jobCount: { type: integer }
+        openPos:
+          type: integer
+          description: Jobs on this unit still waiting on a client PO
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PulseUnitJob"
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PulseUnitPhoto"
+
     PhotoReelUnit:
       type: object
       required: [key, unitNo, photoCount]

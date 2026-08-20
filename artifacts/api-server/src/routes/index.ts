@@ -45,6 +45,7 @@ import walksRouter from "./walks";
 import falkonRouter from "./falkon";
 import { falkonWebhookRouter } from "./falkonWebhook";
 import discrepanciesRouter from "./discrepancies";
+import pulseUnitsRouter from "./pulseUnits";
 import agentsRouter from "./agents";
 import workLoggedRouter from "./workLogged";
 import workReviewsRouter from "./workReviews";
@@ -168,6 +169,7 @@ if (process.env.HALO_E2E_ENABLED === "1") {
 router.use(falkonRouter);
 router.use(falkonWebhookRouter);
 router.use(discrepanciesRouter);
+router.use(pulseUnitsRouter);
 router.use(agentsRouter);
 router.use(workLoggedRouter);
 router.use(workReviewsRouter);

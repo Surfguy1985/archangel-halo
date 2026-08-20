@@ -28,6 +28,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { PulseUnitSearch, PulseUnitReportModal, type PulseUnitPick } from "@/components/PulseUnitReport";
 import {
   useGetBusinessSettings,
   useGetCrewMapPins,
@@ -712,6 +713,9 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
   // 15-second read rather than a wall of lists.
   const [drill, setDrill] = useState<DrillId | null>(null);
   const [twinOpen, setTwinOpen] = useState(false);
+  // Unit lookup above the proof reel: picking a unit opens its read-only
+  // report popup. Client-safe surface — see PulseUnitReport.
+  const [unitPick, setUnitPick] = useState<PulseUnitPick | null>(null);
   // The twin's unit sheet can ask whoever is standing in that unit for proof.
   const requestUnitPhotos = async (u: { unitId: string; label: string; crewId: string | null }) => {
     if (!u.crewId) {
@@ -1215,6 +1219,7 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
                 doneToday={doneToday}
                 sample={turnSample}
               />
+              <PulseUnitSearch onPick={setUnitPick} />
               <HaloProofReel
                 units={photoReel ?? []}
                 loading={reelLoading}
@@ -1655,6 +1660,8 @@ export default function PropertyPulse(props: { level?: HaloStoryLevel } = {}) {
           {floatingPanels}
         </div>
       </div>
+
+      {unitPick && <PulseUnitReportModal pick={unitPick} onClose={() => setUnitPick(null)} />}
 
       {gpsOpen && selected && (
         <div className="pulse-modal" onClick={() => setGpsOpen(false)}>

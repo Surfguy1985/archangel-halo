@@ -246,6 +246,7 @@ import type {
   GetPortfolioPulseParams,
   GetProfitAndLossParams,
   GetPropertyTurnBoardParams,
+  GetPulseUnitReportParams,
   GetTaxReportParams,
   GetTurnRecordFileParams,
   GetWalkTargetParams,
@@ -313,6 +314,7 @@ import type {
   ListJournalEntriesParams,
   ListLedgerAccounts200,
   ListPropertiesParams,
+  ListPulseUnitsParams,
   ListPurchaseOrdersParams,
   ListRemindersParams,
   ListWalksParams,
@@ -402,6 +404,8 @@ import type {
   PublicPaymentRequest,
   PullCrewInput,
   PullCrewResult,
+  PulseUnitMatch,
+  PulseUnitReportDoc,
   PurchaseOrder,
   PurchaseOrderInput,
   QualityCheckResult,
@@ -6114,6 +6118,176 @@ export function useGetPhotoReel<TData = Awaited<ReturnType<typeof getPhotoReel>>
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPhotoReelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPulseUnitsUrl = (params?: ListPulseUnitsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/pulse/units?${stringifiedParams}` : `/api/pulse/units`
+}
+
+/**
+ * Client-safe lookup that powers the unit search above the Pulse Overview photo reel. Matching is done on a normalised unit label, so "12", "Unit 12" and "#12" all find the same unit. Carries no money and nothing that opens an office screen.
+ * @summary Unit lookup for the Pulse desk — match a typed unit number across properties
+ */
+export const listPulseUnits = async (params?: ListPulseUnitsParams, options?: RequestInit): Promise<PulseUnitMatch[]> => {
+
+  return customFetch<PulseUnitMatch[]>(getListPulseUnitsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPulseUnitsQueryKey = (params?: ListPulseUnitsParams,) => {
+    return [
+    `/api/pulse/units`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPulseUnitsQueryOptions = <TData = Awaited<ReturnType<typeof listPulseUnits>>, TError = ErrorType<unknown>>(params?: ListPulseUnitsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPulseUnits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPulseUnitsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPulseUnits>>> = ({ signal }) => listPulseUnits(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPulseUnits>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPulseUnitsQueryResult = NonNullable<Awaited<ReturnType<typeof listPulseUnits>>>
+export type ListPulseUnitsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Unit lookup for the Pulse desk — match a typed unit number across properties
+ */
+
+export function useListPulseUnits<TData = Awaited<ReturnType<typeof listPulseUnits>>, TError = ErrorType<unknown>>(
+ params?: ListPulseUnitsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPulseUnits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPulseUnitsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPulseUnitReportUrl = (params: GetPulseUnitReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/pulse/unit-report?${stringifiedParams}` : `/api/pulse/unit-report`
+}
+
+/**
+ * The read model behind the Pulse unit report popup. Deliberately excludes invoice totals, crew pay, margin and client billing: the payload itself is the gate, because the Pulse desk is read by property managers, not the office.
+ * @summary Everything a viewer may see about one unit — status, turn time, POs, scope and photos
+ */
+export const getPulseUnitReport = async (params: GetPulseUnitReportParams, options?: RequestInit): Promise<PulseUnitReportDoc> => {
+
+  return customFetch<PulseUnitReportDoc>(getGetPulseUnitReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPulseUnitReportQueryKey = (params?: GetPulseUnitReportParams,) => {
+    return [
+    `/api/pulse/unit-report`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPulseUnitReportQueryOptions = <TData = Awaited<ReturnType<typeof getPulseUnitReport>>, TError = ErrorType<void>>(params: GetPulseUnitReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPulseUnitReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPulseUnitReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPulseUnitReport>>> = ({ signal }) => getPulseUnitReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPulseUnitReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPulseUnitReportQueryResult = NonNullable<Awaited<ReturnType<typeof getPulseUnitReport>>>
+export type GetPulseUnitReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Everything a viewer may see about one unit — status, turn time, POs, scope and photos
+ */
+
+export function useGetPulseUnitReport<TData = Awaited<ReturnType<typeof getPulseUnitReport>>, TError = ErrorType<void>>(
+ params: GetPulseUnitReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPulseUnitReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPulseUnitReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

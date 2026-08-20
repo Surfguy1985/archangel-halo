@@ -3049,6 +3049,86 @@ export const GetPhotoReelResponse = zod.array(GetPhotoReelResponseItem)
 
 
 /**
+ * Client-safe lookup that powers the unit search above the Pulse Overview photo reel. Matching is done on a normalised unit label, so "12", "Unit 12" and "#12" all find the same unit. Carries no money and nothing that opens an office screen.
+ * @summary Unit lookup for the Pulse desk — match a typed unit number across properties
+ */
+export const ListPulseUnitsQueryParams = zod.object({
+  "propertyId": zod.coerce.string().optional().describe('Limit the lookup to one property'),
+  "q": zod.coerce.string().optional().describe('Partial unit number'),
+  "limit": zod.coerce.number().optional().describe('Maximum matches returned (default 12, max 40)')
+})
+
+export const ListPulseUnitsResponseItem = zod.object({
+  "key": zod.string().describe('Stable match key — property + unit'),
+  "unitNo": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "jobCount": zod.number(),
+  "openJobs": zod.number(),
+  "lastActivityAt": zod.string().nullish(),
+  "stage": zod.string().describe('not_started | in_turn | complete')
+})
+export const ListPulseUnitsResponse = zod.array(ListPulseUnitsResponseItem)
+
+
+/**
+ * The read model behind the Pulse unit report popup. Deliberately excludes invoice totals, crew pay, margin and client billing: the payload itself is the gate, because the Pulse desk is read by property managers, not the office.
+ * @summary Everything a viewer may see about one unit — status, turn time, POs, scope and photos
+ */
+export const GetPulseUnitReportQueryParams = zod.object({
+  "unit": zod.coerce.string().describe('Unit number as shown on the board'),
+  "propertyId": zod.coerce.string().optional().describe('Property the unit belongs to')
+})
+
+export const GetPulseUnitReportResponse = zod.object({
+  "unitNo": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "stage": zod.string().describe('not_started | in_turn | complete'),
+  "stageLabel": zod.string(),
+  "turnStartedAt": zod.string().nullish(),
+  "turnCompletedAt": zod.string().nullish(),
+  "turnDays": zod.number().nullish().describe('Days from the start of this turn to completion, or to now while it is still running'),
+  "turnTarget": zod.number().nullish().describe('Target turn days the desk measures against'),
+  "jobCount": zod.number(),
+  "openPos": zod.number().describe('Jobs on this unit still waiting on a client PO'),
+  "jobs": zod.array(zod.object({
+  "jobNo": zod.string(),
+  "title": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "stage": zod.string().describe('scheduled | in_progress | complete | cleared'),
+  "stageLabel": zod.string().describe('Plain-language stage for the viewer'),
+  "scheduledOn": zod.string().nullish().describe('YYYY-MM-DD'),
+  "completedAt": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "poStatus": zod.string().describe('on_file | received | awaiting'),
+  "poReceivedAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "daysOnSite": zod.number().nullish(),
+  "scopeDone": zod.number().optional(),
+  "scopeTotal": zod.number().optional(),
+  "scope": zod.array(zod.object({
+  "service": zod.string(),
+  "done": zod.boolean()
+})),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().describe('before | after'),
+  "takenAt": zod.string().nullish(),
+  "jobNo": zod.string().nullish()
+}))
+})),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().describe('before | after'),
+  "takenAt": zod.string().nullish(),
+  "jobNo": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Attach photos from the library to a job card (copies them onto the job as before/after photos)
  */
 export const AssignPhotosToJobParams = zod.object({

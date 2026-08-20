@@ -2786,6 +2786,76 @@ export interface PhotoReelShot {
   source?: string;
 }
 
+export interface PulseUnitMatch {
+  /** Stable match key — property + unit */
+  key: string;
+  unitNo: string;
+  propertyId?: string | null;
+  propertyName?: string | null;
+  jobCount: number;
+  openJobs: number;
+  lastActivityAt?: string | null;
+  /** not_started | in_turn | complete */
+  stage: string;
+}
+
+export interface PulseUnitPhoto {
+  url: string;
+  /** before | after */
+  phase: string;
+  takenAt?: string | null;
+  jobNo?: string | null;
+}
+
+export interface PulseUnitScopeLine {
+  service: string;
+  done: boolean;
+}
+
+export interface PulseUnitJob {
+  jobNo: string;
+  title?: string | null;
+  category?: string | null;
+  /** scheduled | in_progress | complete | cleared */
+  stage: string;
+  /** Plain-language stage for the viewer */
+  stageLabel: string;
+  /** YYYY-MM-DD */
+  scheduledOn?: string | null;
+  completedAt?: string | null;
+  crewName?: string | null;
+  poNumber?: string | null;
+  /** on_file | received | awaiting */
+  poStatus: string;
+  poReceivedAt?: string | null;
+  warrantyUntil?: string | null;
+  daysOnSite?: number | null;
+  scopeDone?: number;
+  scopeTotal?: number;
+  scope: PulseUnitScopeLine[];
+  photos: PulseUnitPhoto[];
+}
+
+export interface PulseUnitReportDoc {
+  unitNo: string;
+  propertyId?: string | null;
+  propertyName?: string | null;
+  /** not_started | in_turn | complete */
+  stage: string;
+  stageLabel: string;
+  turnStartedAt?: string | null;
+  turnCompletedAt?: string | null;
+  /** Days from the start of this turn to completion, or to now while it is still running */
+  turnDays?: number | null;
+  /** Target turn days the desk measures against */
+  turnTarget?: number | null;
+  jobCount: number;
+  /** Jobs on this unit still waiting on a client PO */
+  openPos: number;
+  jobs: PulseUnitJob[];
+  photos: PulseUnitPhoto[];
+}
+
 export interface PhotoReelUnit {
   /** Stable slide key — property + unit */
   key: string;
@@ -9784,6 +9854,32 @@ propertyId?: string;
  * Maximum units returned (default 12, max 40)
  */
 limit?: number;
+};
+
+export type ListPulseUnitsParams = {
+/**
+ * Limit the lookup to one property
+ */
+propertyId?: string;
+/**
+ * Partial unit number
+ */
+q?: string;
+/**
+ * Maximum matches returned (default 12, max 40)
+ */
+limit?: number;
+};
+
+export type GetPulseUnitReportParams = {
+/**
+ * Unit number as shown on the board
+ */
+unit: string;
+/**
+ * Property the unit belongs to
+ */
+propertyId?: string;
 };
 
 export type AssignPhotosToJob200 = {
