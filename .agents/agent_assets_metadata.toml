@@ -210,5 +210,5 @@ description = "Properties · Units · Crew Members · Jobs · Invoices Received 
 id = "VrtdPaeNMxMjiBGOxwymU"
 uri = "file://handouts/crew-roster-qr.png"
 type = "image"
-title = "Crew roster QR — one code for everyone"
-description = "Scans to the live crew roster page on archangel-halo.replit.app. A crew member taps their own name and the office approves the link."
+title = "Crew QR — scan to pick your name"
+description = "Opens https://archangel-halo.replit.app/roster/_3YmQ0ncod45VNFV — the name-selection page. 1400px, high error correction, prints clean."
