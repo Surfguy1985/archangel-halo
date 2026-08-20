@@ -323,13 +323,14 @@ export async function persistDraft(draft: InvoiceDraft) {
   await db.execute(sql`
     DELETE FROM invoice_drafts WHERE job_id = ${draft.jobId}::uuid AND status = 'draft'
   `);
+  const reviewIdParam = draft.reviewId || null;
   await db.execute(sql`
     INSERT INTO invoice_drafts (
       job_id, review_id, job_no, unit_no, bucket, checks, lines,
       invoice_total_cents, crew_total_cents, margin_cents, margin_pct, summary, status, payload
     ) VALUES (
       ${draft.jobId}::uuid,
-      ${draft.reviewId}::uuid,
+      ${reviewIdParam},
       ${draft.jobNo},
       ${draft.unitNo},
       ${draft.bucket},

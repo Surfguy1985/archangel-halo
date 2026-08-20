@@ -2,6 +2,7 @@
  * Demo / default landing — pick a portal in 3 seconds.
  * Property views vs vendor back office. Invoicing = Base44.
  */
+import type { ReactNode } from "react";
 import { Building2, HardHat, Home } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -50,7 +51,7 @@ function LaunchCard({
   subtitle,
   onClick,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;

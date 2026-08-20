@@ -199,7 +199,6 @@ export async function buildPulseUnitDetail(jobId: string) {
       propertyId: jobsTable.propertyId,
       updatedAt: jobsTable.updatedAt,
       createdAt: jobsTable.createdAt,
-      notes: (jobsTable as any).notes,
     })
     .from(jobsTable)
     .where(eq(jobsTable.id, jobId))
@@ -257,7 +256,7 @@ export async function buildPulseUnitDetail(jobId: string) {
     boardStatus: job.boardStatus,
     updatedAt: job.updatedAt ? new Date(job.updatedAt).toISOString() : null,
     createdAt: job.createdAt ? new Date(job.createdAt).toISOString() : null,
-    notes: typeof job.notes === "string" ? job.notes : null,
+    notes: null as string | null,
     photos,
     // Explicitly no money keys
     money: false as const,

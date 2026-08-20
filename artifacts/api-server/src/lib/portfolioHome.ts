@@ -2,9 +2,8 @@
  * Portfolio Home — corporate property lens.
  * Aggregates Pulse-style status by property. ZERO money fields.
  */
-import { desc, eq, inArray } from "drizzle-orm";
-import { db, jobsTable, propertiesTable, crewPhotosTable } from "@workspace/db";
-import { logger } from "./logger";
+import { desc } from "drizzle-orm";
+import { db, jobsTable, propertiesTable } from "@workspace/db";
 import { resolveCoords } from "./mapCoords";
 
 export type PortfolioPropertyCard = {
@@ -52,7 +51,7 @@ export async function buildPortfolioHome(opts?: { limitJobs?: number }): Promise
     .select({
       id: propertiesTable.id,
       name: propertiesTable.name,
-      city: (propertiesTable as any).city,
+      city: propertiesTable.city,
       lat: propertiesTable.latitude,
       lng: propertiesTable.longitude,
     })
