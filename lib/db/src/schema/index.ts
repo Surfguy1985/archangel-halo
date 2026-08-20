@@ -36,3 +36,4 @@ export * from "./crew_payout_master";
 export * from "./service_mapping";
 export * from "./discrepancies";
 export * from "./reconciliation_runs";
+export * from "./work_reviews";

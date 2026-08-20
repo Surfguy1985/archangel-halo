@@ -29,8 +29,11 @@ workLoggedRouter.post("/internal/work-logged", requireToken, async (req: Request
     if (jobId) {
       try {
         const { verifyAfterLogWork } = await import("../lib/workVerification");
+        const { openFieldReview } = await import("../lib/workReviewPipeline");
         const result = await verifyAfterLogWork(String(jobId));
         verification = result.verification;
+        const field = await openFieldReview(String(jobId), "log_work");
+        if (verification) { (verification as any).reviewId = field.reviewId; (verification as any).requiresFieldAck = true; }
         cards = result.cards || [];
         base44Push = await pushPricingAlertToBase44({
           jobId: String(jobId), jobNo: jobNo || verification?.jobNo, unitNo: unitNo || verification?.unitNo, propertyName,

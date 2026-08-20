@@ -387,6 +387,10 @@ async function tick(): Promise<void> {
     lastAgentsCheck = stamp;
     try { await runContinuousAgents("scheduler"); }
     catch (err) { logger.warn({ err }, "HaloCommand agents cycle failed"); }
+    try {
+      const { runReviewAutopilot } = await import("./workReviewPipeline");
+      await runReviewAutopilot();
+    } catch (err) { logger.warn({ err }, "work review autopilot failed"); }
   }
 
   if (stamp - lastBase44Sync >= BASE44_SYNC_MS) {
