@@ -10,6 +10,7 @@ import { BoardRouteFallback } from "@workspace/board-ui";
 // Operational deep-link targets (emails, notifications, menu)
 import JobDetail from "./pages/JobDetail";
 import InvoiceDetail from "./pages/InvoiceDetail";
+import InvoiceDrafts from "./pages/InvoiceDrafts";
 import PropertyDetail from "./pages/PropertyDetail";
 import ClientBoardOffice from "./pages/ClientBoardOffice";
 import Settings from "./pages/Settings";
@@ -265,6 +266,7 @@ function App() {
             <Route path="/calendar">
               <GatedOps><Calendar /></GatedOps>
             </Route>
+            <Route path="/invoice-drafts" component={InvoiceDrafts} />
             <Route path="/money">
               <GatedOps><Money /></GatedOps>
             </Route>
