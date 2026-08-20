@@ -2,12 +2,13 @@ import { useListCrews, useUpdateCrew, getListCrewsQueryKey} from "@workspace/api
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
-import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight, HardHat} from "lucide-react";
+import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight, HardHat, QrCode} from "lucide-react";
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
 import { CrewCommandCenter } from "@/components/CrewCommandCenter";
 import { CrewDayPlanDialog } from "@/components/CrewDayPlanDialog";
 import { CrewAccessDialog } from "@/components/CrewAccessDialog";
+import { ClaimsPanel } from "@/pages/CrewLinks";
 import { Route } from "lucide-react";
 
 export default function Crews() {
@@ -70,6 +71,13 @@ export default function Crews() {
           <p className="text-muted-foreground mt-1 text-sm">{crews?.length || 0} active crews</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/crew-links"
+            className="flex items-center gap-2 rounded-full border border-[var(--hairline)] px-5 py-2.5 font-bold text-[var(--ink)] hover:bg-black/[0.04] transition-colors"
+            data-testid="link-crew-links"
+          >
+            <QrCode className="w-4 h-4" /> Crew links & approvals
+          </Link>
           <button
             onClick={() => setMapOpen(true)}
             className="flex items-center gap-2 bg-[var(--ink)] text-white px-5 py-2.5 rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:opacity-90 transition-opacity"
@@ -84,6 +92,10 @@ export default function Crews() {
           </button>
         </div>
       </header>
+
+      {/* A crew scanning the shared code in the field lands here — the office is
+          usually somewhere else, so the request shows up on this page itself. */}
+      <ClaimsPanel compact />
 
       {mapOpen && <CrewCommandCenter onClose={() => setMapOpen(false)} />}
 

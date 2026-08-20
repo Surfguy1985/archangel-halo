@@ -21,6 +21,7 @@ import JobDetail from "@/pages/JobDetail";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
+import CrewLinks from "@/pages/CrewLinks";
 import CrewPortal from "@/pages/CrewPortal";
 import { HaloCrewPaycardPage as CrewCheckinPage } from "@workspace/board-ui";
 import CrewJoinPage from "./pages/CrewJoinPage";
@@ -201,6 +202,7 @@ function App() {
                     <Route path="/calendar">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
                     <Route path="/dispatch">{() => <HubShell title="Jobs" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
                     <Route path="/crews" component={Crews} />
+                    <Route path="/crew-links" component={CrewLinks} />
                     <Route path="/crews/:id" component={CrewDetail} />
                     <Route path="/wings" component={Wings} />
                     <Route path="/pipeline">{() => <HubShell title="Properties" tabs={CLIENT_TABS}><Pipeline /></HubShell>}</Route>
