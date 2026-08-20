@@ -42,7 +42,7 @@ const router = Router();
  * a dead link.
  */
 const rosterView = rateLimit({ limit: 240, windowMs: 60_000 });
-const rosterWrite = rateLimit({ limit: 60, windowMs: 60_000 });
+const rosterWrite = rateLimit({ limit: 20, windowMs: 60_000 });
 
 const ClaimBody = z.object({ crewId: z.string().uuid() });
 const JoinBody = z.object({
@@ -65,12 +65,32 @@ function param(raw: string | string[] | undefined): string {
  * details. Existing links are never touched: this is an additional key, so
  * approving a new phone can't kill the QR already on the old one.
  */
+class TooManyPendingClaims extends Error {}
+
+/** A crew has two phones, maybe three. Nobody legitimately needs five waiting. */
+const MAX_PENDING_PER_CREW = 5;
+
 async function requestDeviceBearer(
   crew: { id: string; name: string },
   requestedName: string,
   reason: "picked" | "self-added",
   note?: string | null,
 ): Promise<{ claimId: string; token: string }> {
+  // Per-crew, server-side, and therefore the real ceiling: the IP limiter in
+  // front of this route keys off a header the caller can vary, so it can't be
+  // what stops someone with the code from burying the office in requests.
+  const [pendingBefore] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(crewPortalBearersTable)
+    .where(
+      and(
+        eq(crewPortalBearersTable.crewId, crew.id),
+        eq(crewPortalBearersTable.status, "pending"),
+      ),
+    );
+  const waiting = pendingBefore?.n ?? 0;
+  if (waiting >= MAX_PENDING_PER_CREW) throw new TooManyPendingClaims();
+
   const minted = mintPortalToken();
   const [row] = await db
     .insert(crewPortalBearersTable)
@@ -84,21 +104,26 @@ async function requestDeviceBearer(
     .returning();
   if (!row) throw new Error("claim insert returned no row");
 
-  await db.insert(notificationsTable).values({
-    kind: "crew_portal_claim",
-    priority: "high",
-    entityType: "crew",
-    entityId: crew.id,
-    title: `Approve crew link · ${crew.name}`,
-    body: [
-      reason === "self-added"
-        ? `${requestedName} added themselves from the crew code and is waiting for a link. Approve it on the Crew links page — they can't see any pay until you do.`
-        : `Someone scanned the crew code and picked ${crew.name}. Approve it on the Crew links page — the link stays dead until you do.`,
-      note,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  });
+  // One ping per crew while something is waiting. The Crew links page lists
+  // every request, so a second notification adds nothing the office can act on
+  // and a repeated tap shouldn't be able to flood the bell.
+  if (waiting === 0) {
+    await db.insert(notificationsTable).values({
+      kind: "crew_portal_claim",
+      priority: "high",
+      entityType: "crew",
+      entityId: crew.id,
+      title: `Approve crew link · ${crew.name}`,
+      body: [
+        reason === "self-added"
+          ? `${requestedName} added themselves from the crew code and is waiting for a link. Approve it on the Crew links page — they can't see any pay until you do.`
+          : `Someone scanned the crew code and picked ${crew.name}. Approve it on the Crew links page — the link stays dead until you do.`,
+        note,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    });
+  }
 
   return { claimId: row.id, token: minted.token };
 }
@@ -246,6 +271,12 @@ router.post("/roster/:code/claim", rosterWrite, async (req, res): Promise<void> 
       color: colors.get(crew.id) ?? ARCHANGEL_GOLD,
     });
   } catch (err) {
+    if (err instanceof TooManyPendingClaims) {
+      res
+        .status(429)
+        .json({ error: "The office already has a request waiting for this person. Ask them to approve it." });
+      return;
+    }
     logger.error({ err }, "roster claim failed");
     res.status(500).json({ error: "Couldn't send that to the office" });
   }
@@ -408,6 +439,12 @@ router.post("/roster/:code/join", rosterWrite, async (req, res): Promise<void> =
       color: colors.get(crew.id) ?? ARCHANGEL_GOLD,
     });
   } catch (err) {
+    if (err instanceof TooManyPendingClaims) {
+      res
+        .status(429)
+        .json({ error: "The office already has a request waiting for this person. Ask them to approve it." });
+      return;
+    }
     logger.error({ err }, "roster join failed");
     res.status(500).json({ error: "Couldn't add you to the roster" });
   }

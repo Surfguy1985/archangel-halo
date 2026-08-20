@@ -28,3 +28,7 @@ strand a printed QR silently.
   dropped packet sends a crew hunting for a QR that doesn't exist.
 - Rate limits on the roster routes are sized for a whole crew behind one
   carrier NAT; a tripped limiter looks exactly like a dead link.
+- The IP limiter in front of these routes keys off a caller-supplied
+  forwarding header, so it cannot be the real ceiling. Abuse of the claim flow
+  is capped server-side per crew (a bounded number of pending claims), and the
+  office bell gets one ping per crew while anything is still waiting.
