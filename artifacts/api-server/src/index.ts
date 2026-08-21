@@ -142,7 +142,7 @@ app.listen(port, (err) => {
     );
   void import("./lib/seedThornburyPulse")
     .then(({ ensureThornburyPulse }) => ensureThornburyPulse())
-    .then((seeded) =>
+    .then((seeded) => {
       logger.info(
         {
           property: seeded.propertyName,
@@ -151,8 +151,22 @@ app.listen(port, (err) => {
           jobs: seeded.jobs,
         },
         "Thornbury Pulse workspace ready",
-      ),
-    )
+      );
+      // Continuous Grok Site Ops Bot (default ON; set SITE_OPS_AUTO_START=false to disable)
+      if (process.env.SITE_OPS_AUTO_START !== "false") {
+        return import("./lib/siteOpsBot").then(({ configureSiteOpsBot, startSiteOpsBot }) => {
+          configureSiteOpsBot({
+            propertyId: seeded.propertyId,
+            intervalMs: Number(process.env.SITE_OPS_INTERVAL_MS) || 5 * 60 * 1000,
+          });
+          startSiteOpsBot();
+          logger.info(
+            { propertyId: seeded.propertyId },
+            "Site Ops Bot continuous mode started",
+          );
+        });
+      }
+    })
     .catch((err) => logger.error({ err }, "Failed to seed Thornbury Pulse"));
 });
 }

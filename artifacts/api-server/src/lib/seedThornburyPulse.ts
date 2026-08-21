@@ -134,7 +134,14 @@ async function seedPhotos(crewId: string, jobId: string, today: Date): Promise<n
       logger.warn({ err, file: p.file }, "thornbury pulse: could not seed photo");
     }
   }
-  if (rows.length) await db.insert(crewPhotosTable).values(rows);
+  if (rows.length) {
+    try {
+      await db.insert(crewPhotosTable).values(rows).onConflictDoNothing();
+    } catch (err) {
+      // unique storage_path — already seeded
+      logger.warn({ err }, "thornbury pulse photos seed conflict (idempotent skip)");
+    }
+  }
   return existing.length + rows.length;
 }
 

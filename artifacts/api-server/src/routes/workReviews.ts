@@ -189,10 +189,27 @@ workReviewsRouter.post("/work-reviews/:id/field-submit", async (req, res) => {
       edits: body.edits || { confirmAccurate: true },
     });
     if (!result.ok) return res.status(400).json({ error: result.error });
+    let vapiCall: unknown = null;
+    // Opt-in: set VAPI_AUTO_VERIFY=true + VAPI_* secrets to dial crew after field submit
+    if (process.env.VAPI_AUTO_VERIFY === "true") {
+      try {
+        const rev = await getReview(result.reviewId);
+        if (rev?.jobId) {
+          vapiCall = await startFieldVerifyCall({
+            jobId: rev.jobId,
+            reviewId: result.reviewId,
+            phone: body.phone || null,
+          });
+        }
+      } catch (err) {
+        logger.warn({ err }, "VAPI_AUTO_VERIFY call failed (non-fatal)");
+      }
+    }
     return res.json({
       ok: true, next: result.decision, notes: result.notes, marginReport: result.marginReport,
       review: await getReview(result.reviewId), showMargin: result.decision === "margin_ready", historySaved: true,
       message: result.decision === "margin_ready" ? "Bot finished — review margin, then Complete." : result.notes,
+      vapiCall,
     });
   } catch (err: any) { return res.status(500).json({ error: err.message }); }
 });
