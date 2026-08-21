@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -14,19 +15,25 @@ namespace Halo.SiteTwin
         TwinResponse _last;
         public TwinResponse Last => _last;
         public bool IsLive { get; private set; }
+        public string LastError { get; private set; }
+        public string LastUrl { get; private set; }
+        public int LastHttpCode { get; private set; }
 
         void OnEnable()
         {
             if (config == null)
             {
-                Debug.LogError("[Halo] Assign HaloConfig (Create → Halo → Site Twin Config)");
+                LastError = "No HaloConfig — menu Halo → Setup Site Twin Scene";
+                Debug.LogError("[Halo] " + LastError);
                 return;
             }
-            StartCoroutine(PollLoop());
+            StartCoroutine(BootAndPoll());
         }
 
-        IEnumerator PollLoop()
+        IEnumerator BootAndPoll()
         {
+            // Health first so Mac TLS / DNS failures are obvious
+            yield return PingHealth();
             var wait = new WaitForSeconds(Mathf.Max(1f, config.pollSeconds));
             while (enabled)
             {
@@ -35,28 +42,56 @@ namespace Halo.SiteTwin
             }
         }
 
+        IEnumerator PingHealth()
+        {
+            LastUrl = config.HealthUrl;
+            using var req = UnityWebRequest.Get(config.HealthUrl);
+            req.timeout = 12;
+            yield return req.SendWebRequest();
+            LastHttpCode = (int)req.responseCode;
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                LastError = $"Health failed: {req.error} code={req.responseCode} url={config.HealthUrl}";
+                Debug.LogError("[Halo] " + LastError);
+                OnError?.Invoke(LastError);
+            }
+            else
+            {
+                Debug.Log($"[Halo] Health OK ({req.responseCode}) {config.HealthUrl}");
+            }
+        }
+
         IEnumerator FetchTwin()
         {
             if (string.IsNullOrEmpty(config.propertyId))
             {
-                OnError?.Invoke("propertyId empty");
+                LastError = "propertyId empty on HaloConfig";
+                OnError?.Invoke(LastError);
                 yield break;
             }
 
+            LastUrl = config.TwinUrl;
             using var req = UnityWebRequest.Get(config.TwinUrl);
             req.timeout = 15;
+            // Avoid caching
+            req.SetRequestHeader("Cache-Control", "no-cache");
             yield return req.SendWebRequest();
+            LastHttpCode = (int)req.responseCode;
 
             if (req.result != UnityWebRequest.Result.Success)
             {
+                Debug.LogWarning($"[Halo] building-ops failed: {req.error} — trying unity-twin");
                 using var req2 = UnityWebRequest.Get(config.SnapshotUrl);
                 req2.timeout = 15;
+                LastUrl = config.SnapshotUrl;
                 yield return req2.SendWebRequest();
+                LastHttpCode = (int)req2.responseCode;
                 if (req2.result != UnityWebRequest.Result.Success)
                 {
                     IsLive = false;
-                    OnError?.Invoke(req2.error);
-                    Debug.LogWarning($"[Halo] fetch failed: {req2.error}");
+                    LastError = $"{req2.error} HTTP {req2.responseCode} url={config.SnapshotUrl}";
+                    Debug.LogError("[Halo] " + LastError);
+                    OnError?.Invoke(LastError);
                     yield break;
                 }
                 ApplyJson(req2.downloadHandler.text);
@@ -65,18 +100,54 @@ namespace Halo.SiteTwin
             ApplyJson(req.downloadHandler.text);
         }
 
+        /// <summary>
+        /// Unity JsonUtility breaks on JSON null for value types (lat/lng null from API).
+        /// Strip nulls and unknown fields into a JsonUtility-safe payload.
+        /// </summary>
+        public static string SanitizeJsonForUnity(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return json;
+            // "lat":null → "lat":0  (and lng, building, weight, etc.)
+            json = Regex.Replace(json, @":\s*null\b", ":0");
+            // JsonUtility does not like bool null — already handled
+            return json;
+        }
+
         void ApplyJson(string json)
         {
             try
             {
-                var data = JsonUtility.FromJson<TwinResponse>(json);
+                var safe = SanitizeJsonForUnity(json);
+                var data = JsonUtility.FromJson<TwinResponse>(safe);
+                if (data == null)
+                {
+                    LastError = "JsonUtility returned null — check response shape";
+                    Debug.LogError("[Halo] " + LastError + " raw len=" + json.Length);
+                    IsLive = false;
+                    return;
+                }
+                // Force lists non-null
+                data.buildings = data.buildings ?? new System.Collections.Generic.List<BuildingPin>();
+                data.presence = data.presence ?? new System.Collections.Generic.List<CrewPresence>();
+                data.heat = data.heat ?? new System.Collections.Generic.List<HeatCell>();
+                data.units = data.units ?? new System.Collections.Generic.List<UnitRow>();
+                if (data.summary == null) data.summary = new TwinSummary { headline = "no summary" };
+                if (data.site == null) data.site = new SiteCenter();
+
                 _last = data;
-                IsLive = data != null && data.ok;
+                IsLive = true;
+                LastError = null;
+                var nB = data.buildings.Count;
+                var nC = 0;
+                foreach (var p in data.presence) if (p.onSite) nC++;
+                Debug.Log($"[Halo Twin] {data.summary.headline} | buildings={nB} onSite={nC} property={data.propertyName}");
                 OnTwinUpdated?.Invoke(data);
             }
             catch (Exception e)
             {
                 IsLive = false;
+                LastError = e.Message;
+                Debug.LogError("[Halo] parse error: " + e.Message);
                 OnError?.Invoke(e.Message);
             }
         }
@@ -85,5 +156,12 @@ namespace Halo.SiteTwin
 
         [ContextMenu("Fetch Once")]
         void FetchOnceMenu() => FetchOnce();
+
+        [ContextMenu("Log Config")]
+        void LogConfig()
+        {
+            if (config == null) { Debug.LogError("No config"); return; }
+            Debug.Log($"[Halo] apiBase={config.apiBase}\npropertyId={config.propertyId}\nTwinUrl={config.TwinUrl}");
+        }
     }
 }

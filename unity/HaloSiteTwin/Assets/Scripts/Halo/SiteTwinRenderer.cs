@@ -87,7 +87,7 @@ namespace Halo.SiteTwin
                 foreach (var p in twin.presence)
                 {
                     if (!p.onSite || p.building <= 0) continue;
-                    counts[p.building] = counts.GetValueOrDefault(p.building, 0) + 1;
+                    counts.TryGetValue(p.building, out var _cv); counts[p.building] = _cv + 1;
                 }
             }
             foreach (var kv in counts)
@@ -134,7 +134,7 @@ namespace Halo.SiteTwin
                     if (rend != null)
                     {
                         bool dense = b.building == densestBuilding;
-                        bool hasCrew = counts.GetValueOrDefault(b.building, 0) > 0;
+                        counts.TryGetValue(b.building, out var _hc); bool hasCrew = _hc > 0;
                         rend.material.color = dense
                             ? new Color(0.22f, 0.74f, 0.98f)
                             : hasCrew
