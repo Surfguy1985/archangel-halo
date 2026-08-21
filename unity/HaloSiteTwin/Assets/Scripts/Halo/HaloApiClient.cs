@@ -12,14 +12,14 @@ namespace Halo.SiteTwin
         public event Action<string> OnError;
 
         TwinResponse _last;
-
         public TwinResponse Last => _last;
+        public bool IsLive { get; private set; }
 
         void OnEnable()
         {
             if (config == null)
             {
-                Debug.LogError("[Halo] Assign HaloConfig asset");
+                Debug.LogError("[Halo] Assign HaloConfig (Create → Halo → Site Twin Config)");
                 return;
             }
             StartCoroutine(PollLoop());
@@ -43,7 +43,6 @@ namespace Halo.SiteTwin
                 yield break;
             }
 
-            // Prefer live building-ops (crews + heat); unity-twin is geometry metadata
             using var req = UnityWebRequest.Get(config.TwinUrl);
             req.timeout = 15;
             yield return req.SendWebRequest();
@@ -55,7 +54,9 @@ namespace Halo.SiteTwin
                 yield return req2.SendWebRequest();
                 if (req2.result != UnityWebRequest.Result.Success)
                 {
+                    IsLive = false;
                     OnError?.Invoke(req2.error);
+                    Debug.LogWarning($"[Halo] fetch failed: {req2.error}");
                     yield break;
                 }
                 ApplyJson(req2.downloadHandler.text);
@@ -70,18 +71,19 @@ namespace Halo.SiteTwin
             {
                 var data = JsonUtility.FromJson<TwinResponse>(json);
                 _last = data;
+                IsLive = data != null && data.ok;
                 OnTwinUpdated?.Invoke(data);
             }
             catch (Exception e)
             {
+                IsLive = false;
                 OnError?.Invoke(e.Message);
             }
         }
 
+        public void FetchOnce() => StartCoroutine(FetchTwin());
+
         [ContextMenu("Fetch Once")]
-        public void FetchOnce()
-        {
-            StartCoroutine(FetchTwin());
-        }
+        void FetchOnceMenu() => FetchOnce();
     }
 }

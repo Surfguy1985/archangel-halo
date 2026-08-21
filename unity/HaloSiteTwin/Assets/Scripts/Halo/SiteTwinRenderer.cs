@@ -4,23 +4,24 @@ using UnityEngine;
 namespace Halo.SiteTwin
 {
     /// <summary>
-    /// Building-first plate: boxes for buildings, spheres for on-site crews.
-    /// Lat/lng projected onto a flat plane around site center.
+    /// Building-first plate: boxes = buildings, spheres = on-site crews, pulse densest.
     /// </summary>
     public class SiteTwinRenderer : MonoBehaviour
     {
         public HaloApiClient client;
+        public HaloConfig config;
         public Transform buildingsRoot;
         public Transform crewsRoot;
-        public GameObject buildingPrefab; // optional; else Primitive Cube
-        public GameObject crewPrefab;     // optional; else Primitive Sphere
-        public float metersPerDegreeLat = 111320f;
-        public float worldScale = 0.05f; // shrink site into view
-        public float buildingHeight = 8f;
+        public Transform labelsRoot;
+        public GameObject buildingPrefab;
+        public GameObject crewPrefab;
+        public int densestBuilding = -1;
 
         readonly Dictionary<int, GameObject> _buildings = new();
         readonly Dictionary<string, GameObject> _crews = new();
+        readonly Dictionary<int, TextMesh> _labels = new();
         SiteCenter _origin;
+        float _pulse;
 
         void OnEnable()
         {
@@ -32,74 +33,159 @@ namespace Halo.SiteTwin
             if (client != null) client.OnTwinUpdated -= Apply;
         }
 
-        void Apply(TwinResponse twin)
+        void Update()
         {
-            if (twin?.site == null) return;
-            _origin = twin.site;
+            _pulse += Time.deltaTime * 3f;
+            if (densestBuilding > 0 && _buildings.TryGetValue(densestBuilding, out var go) && go)
+            {
+                float s = 1f + 0.08f * Mathf.Sin(_pulse);
+                var baseScale = BuildingScale();
+                go.transform.localScale = baseScale * s;
+            }
+        }
 
+        float WorldScale => config != null ? config.worldScale : 0.05f;
+        float BuildingHeight => config != null ? config.buildingHeight : 8f;
+        float MetersPerDeg => config != null ? config.metersPerDegreeLat : 111320f;
+
+        Vector3 BuildingScale() => new Vector3(12f, BuildingHeight, 12f) * WorldScale * 20f;
+
+        void EnsureRoots()
+        {
             if (buildingsRoot == null)
             {
                 var go = new GameObject("Buildings");
-                go.transform.SetParent(transform);
+                go.transform.SetParent(transform, false);
                 buildingsRoot = go.transform;
             }
             if (crewsRoot == null)
             {
                 var go = new GameObject("Crews");
-                go.transform.SetParent(transform);
+                go.transform.SetParent(transform, false);
                 crewsRoot = go.transform;
+            }
+            if (labelsRoot == null)
+            {
+                var go = new GameObject("Labels");
+                go.transform.SetParent(transform, false);
+                labelsRoot = go.transform;
+            }
+        }
+
+        void Apply(TwinResponse twin)
+        {
+            if (twin?.site == null) return;
+            _origin = twin.site;
+            EnsureRoots();
+
+            densestBuilding = -1;
+            int bestCount = 0;
+            // densest from presence counts
+            var counts = new Dictionary<int, int>();
+            if (twin.presence != null)
+            {
+                foreach (var p in twin.presence)
+                {
+                    if (!p.onSite || p.building <= 0) continue;
+                    counts[p.building] = counts.GetValueOrDefault(p.building, 0) + 1;
+                }
+            }
+            foreach (var kv in counts)
+            {
+                if (kv.Value > bestCount)
+                {
+                    bestCount = kv.Value;
+                    densestBuilding = kv.Key;
+                }
             }
 
             if (twin.buildings != null)
             {
                 foreach (var b in twin.buildings)
                 {
-                    if (!_buildings.TryGetValue(b.building, out var go))
+                    if (!_buildings.TryGetValue(b.building, out var go) || !go)
                     {
                         go = buildingPrefab != null
                             ? Instantiate(buildingPrefab, buildingsRoot)
                             : GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        go.name = b.label;
+                        go.name = b.label ?? $"Building {b.building}";
                         go.transform.SetParent(buildingsRoot, false);
-                        go.transform.localScale = new Vector3(12f, buildingHeight, 12f) * worldScale * 20f;
+                        go.transform.localScale = BuildingScale();
                         _buildings[b.building] = go;
+
+                        // Number label
+                        var labelGo = new GameObject($"Label-{b.building}");
+                        labelGo.transform.SetParent(labelsRoot, false);
+                        var tm = labelGo.AddComponent<TextMesh>();
+                        tm.text = b.building.ToString();
+                        tm.fontSize = 32;
+                        tm.characterSize = 0.15f;
+                        tm.anchor = TextAnchor.MiddleCenter;
+                        tm.color = Color.white;
+                        _labels[b.building] = tm;
                     }
-                    go.transform.position = LatLngToWorld(b.lat, b.lng);
+
+                    var pos = LatLngToWorld(b.lat, b.lng);
+                    go.transform.position = pos;
+                    if (_labels.TryGetValue(b.building, out var lab) && lab)
+                        lab.transform.position = pos + Vector3.up * (BuildingHeight * WorldScale * 14f);
+
+                    var rend = go.GetComponent<Renderer>();
+                    if (rend != null)
+                    {
+                        bool dense = b.building == densestBuilding;
+                        bool hasCrew = counts.GetValueOrDefault(b.building, 0) > 0;
+                        rend.material.color = dense
+                            ? new Color(0.22f, 0.74f, 0.98f)
+                            : hasCrew
+                                ? new Color(0.2f, 0.82f, 0.6f)
+                                : new Color(0.25f, 0.3f, 0.38f);
+                    }
                 }
             }
 
-            // Clear missing crews
             var seen = new HashSet<string>();
             if (twin.presence != null)
             {
                 foreach (var c in twin.presence)
                 {
-                    if (!c.onSite || c.lat == 0 && c.lng == 0) continue;
+                    if (!c.onSite) continue;
+                    if (c.lat == 0 && c.lng == 0 && c.building <= 0) continue;
                     seen.Add(c.crewId);
-                    if (!_crews.TryGetValue(c.crewId, out var go))
+
+                    if (!_crews.TryGetValue(c.crewId, out var go) || !go)
                     {
                         go = crewPrefab != null
                             ? Instantiate(crewPrefab, crewsRoot)
                             : GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        go.name = c.crewName;
+                        go.name = c.crewName ?? c.crewId;
                         go.transform.SetParent(crewsRoot, false);
-                        go.transform.localScale = Vector3.one * (worldScale * 30f);
+                        go.transform.localScale = Vector3.one * (WorldScale * 30f);
+                        var rend = go.GetComponent<Renderer>();
+                        if (rend != null) rend.material.color = new Color(1f, 0.75f, 0.15f);
                         _crews[c.crewId] = go;
                     }
-                    var pos = LatLngToWorld(c.lat, c.lng);
-                    pos.y = buildingHeight * worldScale * 12f;
+
+                    Vector3 pos;
+                    if (c.lat != 0 || c.lng != 0)
+                        pos = LatLngToWorld(c.lat, c.lng);
+                    else if (c.building > 0 && _buildings.TryGetValue(c.building, out var bgo))
+                        pos = bgo.transform.position + Vector3.right * 2f;
+                    else
+                        pos = Vector3.zero;
+                    pos.y = BuildingHeight * WorldScale * 12f;
                     go.transform.position = pos;
                 }
             }
 
-            var toRemove = new List<string>();
+            var remove = new List<string>();
             foreach (var kv in _crews)
             {
-                if (!seen.Contains(kv.Key)) toRemove.Add(kv.Key);
+                if (!seen.Contains(kv.Key)) remove.Add(kv.Key);
             }
-            foreach (var id in toRemove)
+            foreach (var id in remove)
             {
-                if (_crews.TryGetValue(id, out var go) && go != null) Destroy(go);
+                if (_crews.TryGetValue(id, out var go) && go) Destroy(go);
                 _crews.Remove(id);
             }
 
@@ -111,21 +197,27 @@ namespace Halo.SiteTwin
         {
             double dLat = lat - _origin.lat;
             double dLng = lng - _origin.lng;
-            float z = (float)(dLat * metersPerDegreeLat * worldScale);
-            float x = (float)(dLng * metersPerDegreeLat * Mathf.Cos((float)(_origin.lat * Mathf.Deg2Rad)) * worldScale);
+            float z = (float)(dLat * MetersPerDeg * WorldScale);
+            float x = (float)(dLng * MetersPerDeg * Mathf.Cos((float)(_origin.lat * Mathf.Deg2Rad)) * WorldScale);
             return new Vector3(x, 0f, z);
         }
 
-        /// <summary>MCP / external: focus camera on building number.</summary>
         public bool FocusBuilding(int building, Camera cam = null)
         {
-            if (!_buildings.TryGetValue(building, out var go) || go == null) return false;
+            if (!_buildings.TryGetValue(building, out var go) || !go) return false;
             cam = cam != null ? cam : Camera.main;
             if (cam == null) return false;
-            var target = go.transform.position + Vector3.up * 40f + Vector3.back * 50f;
+            var target = go.transform.position + Vector3.up * 40f + Vector3.back * 55f;
             cam.transform.position = target;
             cam.transform.LookAt(go.transform.position);
+            densestBuilding = building;
             return true;
+        }
+
+        public bool FocusDensest(Camera cam = null)
+        {
+            if (densestBuilding <= 0) return false;
+            return FocusBuilding(densestBuilding, cam);
         }
     }
 }

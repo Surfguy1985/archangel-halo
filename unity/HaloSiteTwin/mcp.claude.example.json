@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "halo": {
+      "command": "node",
+      "args": ["ABS_PATH_TO_REPO/tools/halo-mcp/server.mjs"],
+      "env": {
+        "HALO_API_BASE": "https://archangel-halo.replit.app",
+        "HALO_PROPERTY_ID": "49dec4b1-1dc5-4b59-8025-0c0bc14d35ce"
+      }
+    }
+  }
+}

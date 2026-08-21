@@ -3,6 +3,9 @@ using Halo.SiteTwin;
 
 namespace Halo.SiteTwin.MCP
 {
+    /// <summary>
+    /// Runtime hooks for Unity MCP / AI agents and Inspector debug.
+    /// </summary>
     public class HaloTwinMcpBridge : MonoBehaviour
     {
         public SiteTwinRenderer siteRenderer;
@@ -13,40 +16,45 @@ namespace Halo.SiteTwin.MCP
 
         public int OnSiteCount() => client?.Last?.summary?.onSite ?? 0;
 
-        public bool FocusBuilding(int building)
-        {
-            return siteRenderer != null && siteRenderer.FocusBuilding(building);
-        }
+        public int DensestBuilding() => siteRenderer != null ? siteRenderer.densestBuilding : -1;
+
+        public bool FocusBuilding(int building) =>
+            siteRenderer != null && siteRenderer.FocusBuilding(building);
+
+        public bool FocusDensest() =>
+            siteRenderer != null && siteRenderer.FocusDensest();
 
         public string ListOnSiteCrew()
         {
             var twin = client?.Last;
-            if (twin?.presence == null) return "[]";
-            var lines = new System.Text.StringBuilder();
+            if (twin?.presence == null) return "(no data)";
+            var sb = new System.Text.StringBuilder();
             foreach (var p in twin.presence)
             {
                 if (!p.onSite) continue;
-                lines.AppendLine($"{p.crewName} | {p.title}");
+                sb.AppendLine($"{p.crewName} | Bldg {p.building} | {p.title}");
             }
-            return lines.Length == 0 ? "(none on site)" : lines.ToString();
+            return sb.Length == 0 ? "(none on site)" : sb.ToString();
         }
 
         public string DescribeHeat()
         {
             var twin = client?.Last;
             if (twin?.heat == null) return "0 cells";
-            return $"{twin.heat.Count} heat cells · densest buildings: {JsonUtility.ToJson(twin.summary)}";
+            return $"{twin.heat.Count} heat cells · {GetHeadline()}";
         }
 
-        public void Refresh()
-        {
-            if (client != null) client.FetchOnce();
-        }
+        public void Refresh() => client?.FetchOnce();
+
+        public bool IsLive() => client != null && client.IsLive;
 
         [ContextMenu("Log Headline")]
-        void LogHeadline() => Debug.Log(GetHeadline());
+        void MenuHeadline() => Debug.Log(GetHeadline());
 
         [ContextMenu("Log On-Site")]
-        void LogOnSite() => Debug.Log(ListOnSiteCrew());
+        void MenuOnSite() => Debug.Log(ListOnSiteCrew());
+
+        [ContextMenu("Focus Densest")]
+        void MenuFocus() => Debug.Log(FocusDensest() ? $"Focused {DensestBuilding()}" : "No densest");
     }
 }
