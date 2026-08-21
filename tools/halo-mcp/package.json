@@ -1,0 +1,8 @@
+{
+  "name": "halo-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "halo-mcp": "./server.mjs" },
+  "description": "MCP server: Halo building twin + ops tools for Claude/Cursor (pairs with Unity MCP)"
+}
