@@ -1,6 +1,7 @@
 import { isUuid } from "../lib/crewJobAccess";
 import { Router } from "express";
 import { logger } from "../lib/logger";
+import { startFieldVerifyCall } from "../lib/vapiFieldVerify";
 import {
   scanDispatchForReview, openFieldReview, submitFieldReview, botFinalizeReview,
   completeReviewToInvoice, listReviews, getReview, getOpenFieldReviewForJob,
