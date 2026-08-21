@@ -1,75 +1,73 @@
-# Unity MCP × Halo — Phase 1
+# Unity MCP × Halo — HEAVY Phase 2
 
-## What shipped
+## Stack
 
-| Piece | Path | Role |
-|-------|------|------|
-| **Unity scripts** | `unity/HaloSiteTwin/Assets/Scripts/` | Poll Halo, render buildings + crews |
-| **Unity twin API** | `GET /api/properties/:id/unity-twin` | Geometry + MCP hints |
-| **Live plate** | `GET /api/properties/:id/building-ops` | Crews, heat, jobs (Unity primary feed) |
-| **Halo MCP server** | `tools/halo-mcp/server.mjs` | Claude/Cursor tools for ops data |
-| **CoplayDev Unity MCP** | external package | AI controls Unity Editor/scene |
+| Layer | What |
+|-------|------|
+| **Live plate** | `GET /api/properties/:id/building-ops` |
+| **SSE stream** | `GET /api/properties/:id/building-ops/stream?ms=4000` |
+| **Unity twin** | `GET /api/properties/:id/unity-twin` (full live + 3D hints) |
+| **Browser twin** | `/site-twin/:propertyId` (canvas, no Unity install) |
+| **Halo MCP** | `tools/halo-mcp/server.mjs` v2 — 13 tools |
+| **Unity scripts** | `unity/HaloSiteTwin/Assets/Scripts` |
+| **Unity MCP** | CoplayDev package in Editor |
 
 ## Architecture
 
 ```
-Claude / Cursor
-   ├─ halo-mcp (this repo)     → jobs, buildings, on-site list
-   └─ Unity MCP (CoplayDev)    → camera, GameObjects, console
-            │
-            ▼
-   Halo Site Twin scene (C#)
-            │ HTTP poll
-            ▼
-   Halo API /building-ops
+Claude / Grok / Cursor
+  ├─ halo-mcp (ops + focus commands)
+  └─ Unity MCP (scene camera / objects)
+           │
+     ┌─────┴──────┐
+     ▼            ▼
+  Browser      Unity Play
+  /site-twin   HaloApiClient
+     │            │
+     └─────┬──────┘
+           ▼
+    Halo building-ops (+ SSE)
 ```
 
-## Install Unity MCP (Editor AI control)
+## MCP tools (halo-mcp v2)
 
-1. Unity Package Manager → Add from git URL:
-   ```
-   https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity
-   ```
-2. Window → MCP for Unity → Configure clients (Claude / Cursor).
-3. Copy `unity/HaloSiteTwin/Assets/Scripts` into your Unity project.
-4. Scene setup: `HaloApiClient` + `SiteTwinRenderer` + `HaloTwinMcpBridge` + HaloConfig asset.
+- halo_health, halo_building_ops, halo_unity_twin
+- halo_list_on_site, halo_focus_hint, halo_heat, halo_units_status
+- halo_building_qr, halo_checkin
+- halo_money_lock_summary, halo_operator_status, halo_work_reviews_health
+- halo_unity_command (focus_building | list_on_site | headline | show_heat)
 
-## Install Halo MCP (ops data for the same agent)
+## Replit
 
-Claude Desktop `claude_desktop_config.json`:
+```bash
+git fetch origin && git reset --hard origin/main
+pnpm --filter @workspace/api-server run build
+# Run API on 5000
+curl -s http://127.0.0.1:5000/api/unity-twin/health
+curl -s http://127.0.0.1:5000/api/building-ops/health
+# Browser: open /site-twin/PROPERTY_UUID
+```
+
+## Unity
+
+1. Package: `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity`
+2. Copy `Assets/Scripts`
+3. HaloApiClient + SiteTwinRenderer + HeatRenderer + HaloTwinMcpBridge
+4. HaloConfig: apiBase + propertyId
+
+## Claude config
 
 ```json
 {
   "mcpServers": {
     "halo": {
       "command": "node",
-      "args": ["ABS_PATH/archangel-halo/tools/halo-mcp/server.mjs"],
+      "args": ["ABS/tools/halo-mcp/server.mjs"],
       "env": {
         "HALO_API_BASE": "https://archangel-halo.replit.app",
-        "HALO_PROPERTY_ID": "YOUR_PROPERTY_UUID"
+        "HALO_PROPERTY_ID": "UUID"
       }
     }
   }
 }
 ```
-
-## Agent prompt examples
-
-- "Call halo_list_on_site and then focus the Unity camera on the densest building"
-- "halo_focus_hint then run FocusBuilding in the twin"
-- "What's the Halo twin headline?"
-
-## Replit activate
-
-```bash
-git fetch origin && git reset --hard origin/main
-pnpm --filter @workspace/api-server run build
-# Run API
-curl -s http://127.0.0.1:5000/api/unity-twin/health
-```
-
-## Phase 2 (later)
-
-- WebSocket live push instead of poll  
-- WebGL build embedded in Pulse  
-- Custom Unity MCP tools registered against HaloTwinMcpBridge  

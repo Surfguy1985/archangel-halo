@@ -1,130 +1,169 @@
 #!/usr/bin/env node
 /**
- * Halo MCP server (stdio) — AI agents call Halo ops without Unity Editor.
+ * Halo MCP — heavy tool surface for Claude / Cursor / Grok agents.
  * Pair with CoplayDev Unity MCP when the 3D scene is open.
  *
- * Env:
- *   HALO_API_BASE=https://archangel-halo.replit.app
- *   HALO_PROPERTY_ID=<uuid>
- *
- * Claude Desktop mcp.json example:
- * {
- *   "mcpServers": {
- *     "halo": {
- *       "command": "node",
- *       "args": ["/path/to/archangel-halo/tools/halo-mcp/server.mjs"],
- *       "env": { "HALO_API_BASE": "https://archangel-halo.replit.app", "HALO_PROPERTY_ID": "..." }
- *     }
- *   }
- * }
+ * HALO_API_BASE, HALO_PROPERTY_ID
  */
-
 import { createInterface } from "readline";
 
 const BASE = (process.env.HALO_API_BASE || "http://127.0.0.1:5000").replace(/\/$/, "");
 const PROPERTY_ID = process.env.HALO_PROPERTY_ID || "";
 
-async function api(path, opts) {
+async function api(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
-    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
   });
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch {
-    return { ok: false, error: text.slice(0, 500), status: res.status };
+    return { ok: false, error: text.slice(0, 800), status: res.status };
   }
+}
+
+function pid(args) {
+  return args?.propertyId || PROPERTY_ID;
 }
 
 const TOOLS = [
   {
     name: "halo_health",
-    description: "Check Halo building-ops and unity-twin health",
+    description: "Health: building-ops, unity-twin, work-reviews",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "halo_building_ops",
-    description: "Live building-first plate: crews on site, heat, units, headline",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: { type: "string", description: "Property UUID (optional if HALO_PROPERTY_ID set)" },
-      },
-    },
+    description: "Full live plate: buildings, presence, heat, units, headline",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
+  },
+  {
+    name: "halo_unity_twin",
+    description: "Unity-optimized twin snapshot (same live data + 3D hints)",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
   },
   {
     name: "halo_list_on_site",
-    description: "List crews currently on site with unit from job",
-    inputSchema: {
-      type: "object",
-      properties: { propertyId: { type: "string" } },
-    },
-  },
-  {
-    name: "halo_building_qr",
-    description: "QR payloads for building check-in signs",
-    inputSchema: {
-      type: "object",
-      properties: { propertyId: { type: "string" } },
-    },
+    description: "Crews on site with unit-from-job titles",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
   },
   {
     name: "halo_focus_hint",
-    description: "Return which building an agent/Unity should focus (densest or named)",
+    description: "Which building Unity/web twin should focus (densest or explicit)",
     inputSchema: {
       type: "object",
       properties: {
         propertyId: { type: "string" },
-        building: { type: "number", description: "Optional building number 1-20" },
+        building: { type: "number" },
       },
+    },
+  },
+  {
+    name: "halo_heat",
+    description: "GPS heat cells for the property",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
+  },
+  {
+    name: "halo_units_status",
+    description: "Unit list with job status (turn board without geometry)",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
+  },
+  {
+    name: "halo_building_qr",
+    description: "QR payloads for breezeway check-in signs",
+    inputSchema: { type: "object", properties: { propertyId: { type: "string" } } },
+  },
+  {
+    name: "halo_checkin",
+    description: "QR/NFC building check-in for a crew",
+    inputSchema: {
+      type: "object",
+      properties: {
+        propertyId: { type: "string" },
+        crewId: { type: "string" },
+        building: { type: "number" },
+        lat: { type: "number" },
+        lng: { type: "number" },
+      },
+      required: ["crewId", "building"],
+    },
+  },
+  {
+    name: "halo_money_lock_summary",
+    description: "Dispatch money-lock summary (exceptions vs approved)",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "halo_operator_status",
+    description: "Halo Operator last status / health",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "halo_work_reviews_health",
+    description: "Work reviews pipeline health",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "halo_unity_command",
+    description: "Structured command for Unity MCP bridge (focus/list/headline)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        propertyId: { type: "string" },
+        action: {
+          type: "string",
+          enum: ["focus_building", "list_on_site", "headline", "show_heat"],
+        },
+        building: { type: "number" },
+      },
+      required: ["action"],
     },
   },
 ];
 
 async function callTool(name, args = {}) {
-  const pid = args.propertyId || PROPERTY_ID;
+  const id = pid(args);
   switch (name) {
-    case "halo_health": {
-      const [a, b] = await Promise.all([
-        api("/api/building-ops/health"),
-        api("/api/unity-twin/health"),
-      ]);
-      return { buildingOps: a, unityTwin: b, base: BASE };
-    }
-    case "halo_building_ops": {
-      if (!pid) return { error: "propertyId required" };
-      return api(`/api/properties/${pid}/building-ops`);
-    }
+    case "halo_health":
+      return {
+        base: BASE,
+        buildingOps: await api("/api/building-ops/health"),
+        unityTwin: await api("/api/unity-twin/health"),
+        workReviews: await api("/api/work-reviews/health"),
+      };
+    case "halo_building_ops":
+      if (!id) return { error: "propertyId required" };
+      return api(`/api/properties/${id}/building-ops`);
+    case "halo_unity_twin":
+      if (!id) return { error: "propertyId required" };
+      return api(`/api/properties/${id}/unity-twin`);
     case "halo_list_on_site": {
-      if (!pid) return { error: "propertyId required" };
-      const data = await api(`/api/properties/${pid}/building-ops`);
+      if (!id) return { error: "propertyId required" };
+      const data = await api(`/api/properties/${id}/building-ops`);
       const onSite = (data.presence || []).filter((p) => p.onSite);
       return {
         headline: data.summary?.headline,
         count: onSite.length,
+        byBuilding: data.byBuilding,
         crews: onSite.map((p) => ({
           name: p.crewName,
           building: p.building,
           unitNo: p.unitNo,
           title: p.title,
+          confidence: p.confidence,
         })),
       };
     }
-    case "halo_building_qr": {
-      if (!pid) return { error: "propertyId required" };
-      return api(`/api/properties/${pid}/building-ops/qr`);
-    }
     case "halo_focus_hint": {
-      if (!pid) return { error: "propertyId required" };
-      const data = await api(`/api/properties/${pid}/building-ops`);
+      if (!id) return { error: "propertyId required" };
+      const data = await api(`/api/properties/${id}/building-ops`);
       if (args.building) {
-        const b = (data.buildings || []).find((x) => x.building === args.building);
         return {
           action: "focus_building",
           building: args.building,
           unity: `HaloTwinMcpBridge.FocusBuilding(${args.building})`,
-          pin: b || null,
+          pin: (data.buildings || []).find((x) => x.building === args.building) || null,
         };
       }
       const densest = Object.entries(data.byBuilding || {}).sort((a, b) => b[1] - a[1])[0];
@@ -137,14 +176,69 @@ async function callTool(name, args = {}) {
         headline: data.summary?.headline,
       };
     }
+    case "halo_heat": {
+      if (!id) return { error: "propertyId required" };
+      const data = await api(`/api/properties/${id}/building-ops`);
+      return { heat: data.heat || [], count: (data.heat || []).length };
+    }
+    case "halo_units_status": {
+      if (!id) return { error: "propertyId required" };
+      const data = await api(`/api/properties/${id}/building-ops`);
+      return { units: data.units || [], count: (data.units || []).length };
+    }
+    case "halo_building_qr":
+      if (!id) return { error: "propertyId required" };
+      return api(`/api/properties/${id}/building-ops/qr`);
+    case "halo_checkin": {
+      if (!id) return { error: "propertyId required" };
+      return api(`/api/properties/${id}/building-ops/checkin`, {
+        method: "POST",
+        body: JSON.stringify({
+          crewId: args.crewId,
+          building: args.building,
+          lat: args.lat,
+          lng: args.lng,
+        }),
+      });
+    }
+    case "halo_money_lock_summary":
+      return api("/api/work-reviews/money-lock/summary");
+    case "halo_operator_status":
+      return api("/api/halo-operator/health").catch(() =>
+        api("/api/halo-operator/status")
+      );
+    case "halo_work_reviews_health":
+      return api("/api/work-reviews/health");
+    case "halo_unity_command": {
+      if (!id && args.action !== "headline") {
+        /* allow headline via env */
+      }
+      if (args.action === "headline") {
+        const data = id ? await api(`/api/properties/${id}/building-ops`) : null;
+        return {
+          action: "headline",
+          text: data?.summary?.headline || "set HALO_PROPERTY_ID",
+          unity: "HaloTwinMcpBridge.GetHeadline()",
+        };
+      }
+      if (!id) return { error: "propertyId required" };
+      if (args.action === "list_on_site") {
+        return callTool("halo_list_on_site", args);
+      }
+      if (args.action === "show_heat") {
+        return callTool("halo_heat", args);
+      }
+      if (args.action === "focus_building") {
+        return callTool("halo_focus_hint", { ...args, building: args.building });
+      }
+      return { error: "unknown action" };
+    }
     default:
       return { error: `unknown tool ${name}` };
   }
 }
 
-// Minimal MCP stdio JSON-RPC
 const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-
 function send(msg) {
   process.stdout.write(JSON.stringify(msg) + "\n");
 }
@@ -165,7 +259,7 @@ rl.on("line", async (line) => {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "halo-mcp", version: "1.0.0" },
+          serverInfo: { name: "halo-mcp", version: "2.0.0" },
         },
       });
       return;
@@ -176,20 +270,24 @@ rl.on("line", async (line) => {
       return;
     }
     if (method === "tools/call") {
-      const name = params?.name;
-      const args = params?.arguments || {};
-      const result = await callTool(name, args);
+      const result = await callTool(params?.name, params?.arguments || {});
       send({
         jsonrpc: "2.0",
         id,
-        result: {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        },
+        result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] },
       });
       return;
     }
-    send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
+    send({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32601, message: `Method not found: ${method}` },
+    });
   } catch (e) {
-    send({ jsonrpc: "2.0", id, error: { code: -32000, message: String(e.message || e) } });
+    send({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32000, message: String(e.message || e) },
+    });
   }
 });

@@ -3,28 +3,19 @@ using Halo.SiteTwin;
 
 namespace Halo.SiteTwin.MCP
 {
-    /// <summary>
-    /// Runtime hooks for AI / Unity MCP custom tools.
-    /// Wire these from Editor MCP custom tools or a local TCP bridge.
-    /// </summary>
     public class HaloTwinMcpBridge : MonoBehaviour
     {
-        public SiteTwinRenderer renderer;
+        public SiteTwinRenderer siteRenderer;
         public HaloApiClient client;
+        public HeatRenderer heatRenderer;
 
-        public string GetHeadline()
-        {
-            return client?.Last?.summary?.headline ?? "no data";
-        }
+        public string GetHeadline() => client?.Last?.summary?.headline ?? "no data";
 
-        public int OnSiteCount()
-        {
-            return client?.Last?.summary?.onSite ?? 0;
-        }
+        public int OnSiteCount() => client?.Last?.summary?.onSite ?? 0;
 
         public bool FocusBuilding(int building)
         {
-            return renderer != null && renderer.FocusBuilding(building);
+            return siteRenderer != null && siteRenderer.FocusBuilding(building);
         }
 
         public string ListOnSiteCrew()
@@ -37,10 +28,25 @@ namespace Halo.SiteTwin.MCP
                 if (!p.onSite) continue;
                 lines.AppendLine($"{p.crewName} | {p.title}");
             }
-            return lines.ToString();
+            return lines.Length == 0 ? "(none on site)" : lines.ToString();
+        }
+
+        public string DescribeHeat()
+        {
+            var twin = client?.Last;
+            if (twin?.heat == null) return "0 cells";
+            return $"{twin.heat.Count} heat cells · densest buildings: {JsonUtility.ToJson(twin.summary)}";
+        }
+
+        public void Refresh()
+        {
+            if (client != null) client.FetchOnce();
         }
 
         [ContextMenu("Log Headline")]
         void LogHeadline() => Debug.Log(GetHeadline());
+
+        [ContextMenu("Log On-Site")]
+        void LogOnSite() => Debug.Log(ListOnSiteCrew());
     }
 }

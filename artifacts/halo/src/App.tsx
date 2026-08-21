@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import SiteTwin3D from "@/pages/SiteTwin3D";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
@@ -175,6 +176,7 @@ function App() {
             <Route path="/">
               <PortalLaunch />
             </Route>
+            <Route path="/site-twin/:propertyId" component={SiteTwin3D} />
             <Route path="/command">
               <HaloCommand />
             </Route>
