@@ -16,7 +16,7 @@ export type SiteUnitBox = {
 };
 
 /** Building footprint centers on the overview map (fractional). */
-const BUILDING_CENTER: Record<number, { x: number; y: number }> = {
+export const BUILDING_CENTER_EXPORT: Record<number, { x: number; y: number }> = {
   1: { x: 0.40, y: 0.72 },
   2: { x: 0.30, y: 0.80 },
   3: { x: 0.34, y: 0.58 },
@@ -43,7 +43,7 @@ const BUILDING_CENTER: Record<number, { x: number; y: number }> = {
  * Unit numbers read from building close-ups (unit # only — floorplan codes stripped).
  * Order is left→right, top→bottom within each building where readable.
  */
-const BUILDING_UNITS: Record<number, string[]> = {
+export const BUILDING_UNITS_EXPORT: Record<number, string[]> = {
   1: [
     "114", "124", "115", "125",
     "113", "123", "116", "126",
@@ -130,7 +130,7 @@ const CELL_W = 0.018;
 const CELL_H = 0.014;
 
 function packBuilding(building: number, labels: string[]): SiteUnitBox[] {
-  const center = BUILDING_CENTER[building];
+  const center = BUILDING_CENTER_EXPORT[building];
   if (!center) return [];
   const cols = Math.ceil(Math.sqrt(labels.length * 1.4));
   const rows = Math.ceil(labels.length / cols);
@@ -155,7 +155,7 @@ function packBuilding(building: number, labels: string[]): SiteUnitBox[] {
 /** Full site plate — every residential unit from the leasing maps. */
 export function buildThornburySiteUnits(): SiteUnitBox[] {
   const out: SiteUnitBox[] = [];
-  for (const [b, labels] of Object.entries(BUILDING_UNITS)) {
+  for (const [b, labels] of Object.entries(BUILDING_UNITS_EXPORT)) {
     out.push(...packBuilding(Number(b), labels));
   }
   // Leasing office / common (not a residential unit box, but useful on plate)
@@ -171,7 +171,7 @@ export function buildThornburySiteUnits(): SiteUnitBox[] {
 }
 
 export function thornburyUnitCount(): number {
-  return Object.values(BUILDING_UNITS).reduce((n, a) => n + a.length, 0);
+  return Object.values(BUILDING_UNITS_EXPORT).reduce((n, a) => n + a.length, 0);
 }
 
 export const THORNBURY_SITE_META = {
@@ -196,3 +196,24 @@ export const THORNBURY_GCPS = [
   { ix: 0.88, iy: 0.18, lat: 33.0716, lng: -96.7496, label: "NE buildings 17–18" },
   { ix: 0.82, iy: 0.55, lat: 33.0702, lng: -96.7498, label: "E near Chase Oaks Blvd" },
 ] as const;
+
+
+/** Map unit number → building (Thornbury numbering: 1xxx → bldg 1, 12xx → 12, etc.). */
+export function unitToBuilding(unitNo: string): number | null {
+  const digits = String(unitNo).replace(/\D/g, "");
+  if (!digits) return null;
+  // 4-digit: first 1–2 digits are building (1011 → 10, 1224 → 12, 211 → 2)
+  if (digits.length >= 4) {
+    const two = Number(digits.slice(0, 2));
+    if (two >= 1 && two <= 20) return two;
+  }
+  if (digits.length === 3) {
+    const one = Number(digits[0]);
+    if (one >= 1 && one <= 9) return one;
+  }
+  // search catalog
+  for (const [b, list] of Object.entries(BUILDING_UNITS_EXPORT)) {
+    if (list.includes(digits) || list.includes(unitNo)) return Number(b);
+  }
+  return null;
+}
