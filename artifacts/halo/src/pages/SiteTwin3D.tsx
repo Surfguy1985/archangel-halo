@@ -1,9 +1,9 @@
 /**
  * Browser Site Twin — building-first live plate (no Unity required).
- * Canvas top-down twin fed by /api/properties/:id/building-ops.
+ * /site-twin or /site-twin/:propertyId
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 
 type Building = {
   building: number;
@@ -32,6 +32,7 @@ type Plate = {
   heat?: { lat: number; lng: number; weight: number }[];
   byBuilding?: Record<string, number>;
 };
+type PropRow = { id: string; name: string; city?: string | null };
 
 function project(
   lat: number,
@@ -51,11 +52,33 @@ function project(
 
 export default function SiteTwin3D() {
   const [, params] = useRoute("/site-twin/:propertyId");
+  const [, setLocation] = useLocation();
   const propertyId = params?.propertyId || "";
   const [plate, setPlate] = useState<Plate | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
+  const [propsList, setPropsList] = useState<PropRow[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (propertyId) return;
+    (async () => {
+      try {
+        const r = await fetch("/api/properties");
+        const j = await r.json();
+        const list = Array.isArray(j) ? j : j.properties || j.items || [];
+        setPropsList(
+          list.map((p: any) => ({
+            id: p.id || p.propertyId,
+            name: p.name || p.propertyName || "Property",
+            city: p.city || null,
+          })).filter((p: PropRow) => p.id)
+        );
+      } catch (e: any) {
+        setErr(e.message || "Could not list properties");
+      }
+    })();
+  }, [propertyId]);
 
   const load = useCallback(async () => {
     if (!propertyId) return;
@@ -71,10 +94,11 @@ export default function SiteTwin3D() {
   }, [propertyId]);
 
   useEffect(() => {
+    if (!propertyId) return;
     load();
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, propertyId]);
 
   useEffect(() => {
     const c = canvasRef.current;
@@ -89,7 +113,6 @@ export default function SiteTwin3D() {
     ctx.fillStyle = "#0b1220";
     ctx.fillRect(0, 0, w, h);
 
-    // heat
     for (const ht of plate.heat || []) {
       const p = project(ht.lat, ht.lng, origin, w, h, scale);
       const r = 8 + Math.min(ht.weight, 12) * 2;
@@ -102,7 +125,6 @@ export default function SiteTwin3D() {
       ctx.fill();
     }
 
-    // buildings
     for (const b of plate.buildings) {
       const p = project(b.lat, b.lng, origin, w, h, scale);
       const active = focus === b.building;
@@ -119,7 +141,6 @@ export default function SiteTwin3D() {
       ctx.fillText(String(b.building), p.x, p.y + 4);
     }
 
-    // crews
     for (const cr of plate.presence || []) {
       if (!cr.onSite || cr.lat == null || cr.lng == null) continue;
       const p = project(cr.lat, cr.lng, origin, w, h, scale);
@@ -132,7 +153,6 @@ export default function SiteTwin3D() {
       ctx.fillText(cr.crewName.split(" ")[0] || "?", p.x, p.y - 10);
     }
 
-    // site center
     const o = project(origin.lat, origin.lng, origin, w, h, scale);
     ctx.strokeStyle = "#94a3b8";
     ctx.beginPath();
@@ -145,10 +165,40 @@ export default function SiteTwin3D() {
     return entries[0] ? Number(entries[0][0]) : null;
   }, [plate]);
 
+  // Picker
   if (!propertyId) {
     return (
-      <div className="p-6 text-sm text-slate-400">
-        Open <code>/site-twin/PROPERTY_UUID</code>
+      <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+        <div className="max-w-lg mx-auto space-y-4">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-slate-500">Site Twin</div>
+            <h1 className="text-2xl font-semibold">Choose a property</h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Live building plate · crew presence · heat — no unit photo mapping
+            </p>
+          </div>
+          {err && <div className="text-red-400 text-sm">{err}</div>}
+          <ul className="space-y-2">
+            {propsList.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="w-full text-left rounded-xl bg-slate-900 border border-slate-800 px-4 py-3 hover:border-sky-500"
+                  onClick={() => setLocation(`/site-twin/${p.id}`)}
+                >
+                  <div className="font-medium">{p.name}</div>
+                  {p.city && <div className="text-xs text-slate-500">{p.city}</div>}
+                </button>
+              </li>
+            ))}
+            {propsList.length === 0 && !err && (
+              <div className="text-slate-500 text-sm">Loading properties…</div>
+            )}
+          </ul>
+          <Link href="/pulse" className="text-sm text-sky-400">
+            ← Pulse
+          </Link>
+        </div>
       </div>
     );
   }
@@ -161,7 +211,7 @@ export default function SiteTwin3D() {
           <div className="text-lg font-semibold">{plate?.propertyName || "Loading…"}</div>
           <div className="text-sm text-sky-300">{plate?.summary?.headline || err || "…"}</div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap justify-end">
           <button
             type="button"
             className="px-3 py-1.5 rounded-lg bg-slate-800 text-sm hover:bg-slate-700"
@@ -176,7 +226,10 @@ export default function SiteTwin3D() {
           >
             Refresh
           </button>
-          <Link href="/pulse" className="px-3 py-1.5 rounded-lg bg-sky-600 text-sm">
+          <Link href="/site-twin" className="px-3 py-1.5 rounded-lg bg-slate-800 text-sm">
+            Switch
+          </Link>
+          <Link href={`/pulse?propertyId=${propertyId}`} className="px-3 py-1.5 rounded-lg bg-sky-600 text-sm">
             Pulse
           </Link>
         </div>
@@ -189,7 +242,6 @@ export default function SiteTwin3D() {
           height={640}
           className="flex-1 max-w-full bg-slate-950 cursor-crosshair"
           onClick={(e) => {
-            // click nearest building
             if (!plate?.buildings || !plate.site || !canvasRef.current) return;
             const rect = canvasRef.current.getBoundingClientRect();
             const mx = ((e.clientX - rect.left) / rect.width) * canvasRef.current.width;

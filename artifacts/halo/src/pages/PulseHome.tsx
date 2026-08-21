@@ -5,6 +5,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Camera, LayoutGrid, Map, MapPin, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { SimpleOpsMap, type MapPin as OpsPin } from "@/components/SimpleOpsMap";
 import { UnitPulseDrawer } from "@/components/UnitPulseDrawer";
 import { PortalNav } from "@/components/PortalNav";
@@ -203,6 +204,14 @@ export default function PulseHome() {
       )}
 
       <UnitPulseDrawer jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
+      <div className="fixed top-3 right-3 z-40">
+        <Link
+          href="/site-twin"
+          className="inline-flex items-center gap-1.5 rounded-full bg-sky-600/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+        >
+          Site Twin
+        </Link>
+      </div>
       <PortalNav portal="pulse" />
     </div>
   );

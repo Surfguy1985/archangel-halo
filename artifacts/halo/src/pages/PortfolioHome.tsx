@@ -231,9 +231,14 @@ export default function PortfolioHome() {
         onClose={() => setSelected(null)}
         onOpenPulse={(id) => {
           setSelected(null);
-          setLocation(`/pulse?propertyId=${id}`);
+          setLocation(`/site-twin/${id}`);
         }}
       />
+      <div className="fixed top-3 right-3 z-40">
+        <a href="/site-twin" className="inline-flex rounded-full bg-sky-600/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg">
+          Site Twin
+        </a>
+      </div>
       <PortalNav portal="portfolio" />
     </div>
   );

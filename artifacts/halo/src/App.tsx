@@ -177,6 +177,7 @@ function App() {
               <PortalLaunch />
             </Route>
             <Route path="/site-twin/:propertyId" component={SiteTwin3D} />
+            <Route path="/site-twin" component={SiteTwin3D} />
             <Route path="/command">
               <HaloCommand />
             </Route>

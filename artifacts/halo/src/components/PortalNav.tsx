@@ -7,10 +7,12 @@ type Item = { label: string; href: string };
 
 const NAV: Record<"portfolio" | "pulse" | "punchlist", Item[]> = {
   portfolio: [
+    { label: "Twin", href: "/site-twin" },
     { label: "Portfolio", href: "/portfolio" },
     { label: "Pulse", href: "/pulse" },
   ],
   pulse: [
+    { label: "Twin", href: "/site-twin" },
     { label: "Pulse", href: "/pulse" },
     { label: "Portfolio", href: "/portfolio" },
   ],
