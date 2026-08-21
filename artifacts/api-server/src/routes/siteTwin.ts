@@ -32,6 +32,8 @@ import {
   type PresenceDay,
   type TrackPing,
 } from "../lib/siteTwinCore";
+import { buildThornburySiteUnits, THORNBURY_SITE_META } from "../lib/thornburySitePlan";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -564,5 +566,75 @@ router.get("/properties/:id/site-twin", async (req, res): Promise<void> => {
     },
   });
 });
+
+
+/** Apply full Thornbury leasing-map unit plate (buildings 1–20). Idempotent. */
+router.post("/properties/:id/apply-thornbury-site-plan", async (req, res): Promise<void> => {
+  const id = String(req.params.id ?? "");
+  if (!UUID_RE.test(id)) {
+    res.status(400).json({ error: "Invalid property" });
+    return;
+  }
+  const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, id));
+  if (!p) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const siteUnits = buildThornburySiteUnits();
+  const existing = await db
+    .select()
+    .from(propertyUnitsTable)
+    .where(eq(propertyUnitsTable.propertyId, id));
+  const byLabel = new Map(existing.map((u) => [u.label, u]));
+  let inserted = 0;
+  let updated = 0;
+  const toInsert = siteUnits.filter((u) => !byLabel.has(u.label));
+  for (let i = 0; i < toInsert.length; i += 80) {
+    const chunk = toInsert.slice(i, i + 80);
+    await db.insert(propertyUnitsTable).values(
+      chunk.map((u) => ({
+        propertyId: id,
+        label: u.label,
+        x: u.x,
+        y: u.y,
+        w: u.w,
+        h: u.h,
+      })),
+    );
+    inserted += chunk.length;
+  }
+  for (const u of siteUnits) {
+    const row = byLabel.get(u.label);
+    if (!row) continue;
+    await db
+      .update(propertyUnitsTable)
+      .set({ x: u.x, y: u.y, w: u.w, h: u.h, updatedAt: new Date() })
+      .where(eq(propertyUnitsTable.id, row.id));
+    updated += 1;
+  }
+  // Ensure property pin is on site
+  if (p.latitude == null || p.longitude == null) {
+    await db
+      .update(propertiesTable)
+      .set({
+        latitude: THORNBURY_SITE_META.lat,
+        longitude: THORNBURY_SITE_META.lng,
+        address: THORNBURY_SITE_META.address,
+        city: "Plano",
+      })
+      .where(eq(propertiesTable.id, id));
+  }
+  logger.info({ propertyId: id, inserted, updated, total: siteUnits.length }, "thornbury site plan applied");
+  res.json({
+    ok: true,
+    propertyId: id,
+    inserted,
+    updated,
+    totalUnits: siteUnits.length,
+    meta: THORNBURY_SITE_META,
+    message: "Site plan applied — open Site Twin to see units + live crew GPS",
+  });
+});
+
 
 export default router;

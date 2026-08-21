@@ -27,6 +27,7 @@ import { objectStorageClient, ObjectStorageService } from "./objectStorage";
 import { demoAssetsDir } from "./bundledObjects";
 import { logger } from "./logger";
 import { PULSE_PROPERTY_NAME } from "./pulseSeat";
+import { buildThornburySiteUnits, THORNBURY_SITE_META } from "./thornburySitePlan";
 
 export const PULSE_JOB_PREFIX = "TP-";
 export const PULSE_CREW_EMAIL = "pulse-crew@thornbury.halo.local";
@@ -34,7 +35,7 @@ export const PULSE_PM_EMAIL = "pm@thornbury.chaseoaks";
 
 const THORNBURY_LAT = 33.0705;
 const THORNBURY_LNG = -96.751;
-const THORNBURY_ADDRESS = "Chase Oaks, Plano, TX";
+const THORNBURY_ADDRESS = "7101 Chase Oaks Blvd, Plano, TX";
 
 const DEMO_PHOTOS: Array<{ file: string; phase: "before" | "after"; note: string }> = [
   { file: "photo-before-1.jpg", phase: "before", note: "Living room wall damage — before" },
@@ -221,25 +222,45 @@ export async function ensureThornburyPulse(): Promise<ThornburyPulseSeedResult> 
       .where(eq(clientUsersTable.id, existingUser.id));
   }
 
-  const unitLabels = ["1161", "2001", "5000", "6000", "Common Area"];
+  // Full site plate from leasing office maps (buildings 1–20 + unit numbers)
+  const siteUnits = buildThornburySiteUnits();
   const existingUnits = await db
     .select()
     .from(propertyUnitsTable)
     .where(eq(propertyUnitsTable.propertyId, prop.id));
-  const have = new Set(existingUnits.map((u) => u.label));
-  const missingUnits = unitLabels.filter((l) => !have.has(l));
-  if (missingUnits.length) {
-    await db.insert(propertyUnitsTable).values(
-      missingUnits.map((label, i) => ({
-        propertyId: prop.id,
-        label,
-        x: 0.08 + (i % 3) * 0.3,
-        y: 0.12 + Math.floor(i / 3) * 0.28,
-        w: 0.22,
-        h: 0.18,
-      })),
-    );
+  const byLabel = new Map(existingUnits.map((u) => [u.label, u]));
+  const toInsert = siteUnits.filter((u) => !byLabel.has(u.label));
+  const toUpdate = siteUnits.filter((u) => byLabel.has(u.label));
+  if (toInsert.length) {
+    // batch insert
+    for (let i = 0; i < toInsert.length; i += 80) {
+      const chunk = toInsert.slice(i, i + 80);
+      await db.insert(propertyUnitsTable).values(
+        chunk.map((u) => ({
+          propertyId: prop.id,
+          label: u.label,
+          x: u.x,
+          y: u.y,
+          w: u.w,
+          h: u.h,
+        })),
+      );
+    }
   }
+  for (const u of toUpdate) {
+    const row = byLabel.get(u.label)!;
+    // Refresh layout coords when seed re-runs
+    if (row.x !== u.x || row.y !== u.y) {
+      await db
+        .update(propertyUnitsTable)
+        .set({ x: u.x, y: u.y, w: u.w, h: u.h, updatedAt: new Date() })
+        .where(eq(propertyUnitsTable.id, row.id));
+    }
+  }
+  logger.info(
+    { propertyId: prop.id, units: siteUnits.length, inserted: toInsert.length, meta: THORNBURY_SITE_META.unitCount },
+    "thornbury site plan units applied",
+  );
 
   const crewRows = await db.select().from(crewsTable).where(eq(crewsTable.email, PULSE_CREW_EMAIL));
   let paint = crewRows[0];
