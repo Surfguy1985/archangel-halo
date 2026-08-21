@@ -182,3 +182,17 @@ export const THORNBURY_SITE_META = {
   buildings: 20,
   unitCount: thornburyUnitCount(),
 } as const;
+
+
+/**
+ * Ground control points — image fraction → real-world WGS84.
+ * Anchored on leasing office (~map center) + site extents estimated from
+ * Chase Oaks Blvd / Oak Ridge Drive orientation on the wall board.
+ * Refine in QGIS with 4+ points against satellite for survey-grade accuracy.
+ */
+export const THORNBURY_GCPS = [
+  { ix: 0.48, iy: 0.52, lat: 33.0705, lng: -96.7510, label: "Leasing 7101" },
+  { ix: 0.22, iy: 0.78, lat: 33.0696, lng: -96.7522, label: "SW near Oak Ridge" },
+  { ix: 0.88, iy: 0.18, lat: 33.0716, lng: -96.7496, label: "NE buildings 17–18" },
+  { ix: 0.82, iy: 0.55, lat: 33.0702, lng: -96.7498, label: "E near Chase Oaks Blvd" },
+] as const;

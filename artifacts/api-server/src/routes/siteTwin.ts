@@ -7,6 +7,7 @@ import {
   db,
   propertiesTable,
   propertyUnitsTable,
+  propertyMapsTable,
   jobsTable,
   crewsTable,
   crewCheckinsTable,
@@ -32,7 +33,8 @@ import {
   type PresenceDay,
   type TrackPing,
 } from "../lib/siteTwinCore";
-import { buildThornburySiteUnits, THORNBURY_SITE_META } from "../lib/thornburySitePlan";
+import { buildThornburySiteUnits, THORNBURY_SITE_META, THORNBURY_GCPS } from "../lib/thornburySitePlan";
+import { fitAffine, bboxFromCoeff, imageBounds } from "../lib/sitePlanGeoref";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -625,6 +627,27 @@ router.post("/properties/:id/apply-thornbury-site-plan", async (req, res): Promi
       .where(eq(propertiesTable.id, id));
   }
   logger.info({ propertyId: id, inserted, updated, total: siteUnits.length }, "thornbury site plan applied");
+  // Georef plate for ImageOverlay + GPS snap bbox
+  const coeff = fitAffine([...THORNBURY_GCPS]);
+  const georef = coeff
+    ? {
+        bounds: imageBounds(coeff),
+        bbox: bboxFromCoeff(coeff),
+        gcps: THORNBURY_GCPS,
+      }
+    : null;
+
+  // Tighten property pin to leasing office
+  await db
+    .update(propertiesTable)
+    .set({
+      latitude: THORNBURY_SITE_META.lat,
+      longitude: THORNBURY_SITE_META.lng,
+      address: THORNBURY_SITE_META.address,
+      city: "Plano",
+    })
+    .where(eq(propertiesTable.id, id));
+
   res.json({
     ok: true,
     propertyId: id,
@@ -632,9 +655,53 @@ router.post("/properties/:id/apply-thornbury-site-plan", async (req, res): Promi
     updated,
     totalUnits: siteUnits.length,
     meta: THORNBURY_SITE_META,
-    message: "Site plan applied — open Site Twin to see units + live crew GPS",
+    georef,
+    message: "Site plan applied — open Site Twin for unit plate + live crew GPS",
   });
 });
+
+/** Georef + live twin payload extras for clients that draw ImageOverlay. */
+router.get("/properties/:id/site-plan-georef", async (req, res): Promise<void> => {
+  const id = String(req.params.id ?? "");
+  if (!UUID_RE.test(id)) {
+    res.status(400).json({ error: "Invalid property" });
+    return;
+  }
+  const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, id));
+  if (!p) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const [map] = await db
+    .select()
+    .from(propertyMapsTable)
+    .where(eq(propertyMapsTable.propertyId, id))
+    .limit(1);
+  const coeff = fitAffine([...THORNBURY_GCPS]);
+  res.json({
+    ok: true,
+    propertyId: id,
+    name: p.name,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    mapImagePath: map?.imagePath ?? null,
+    georef: coeff
+      ? {
+          bounds: imageBounds(coeff), // [[south,west],[north,east]] for Leaflet
+          bbox: bboxFromCoeff(coeff),
+          gcps: THORNBURY_GCPS,
+          source: "thornbury_leasing_board_gcps",
+        }
+      : null,
+    tools: {
+      qgis: "Georeferencer + OSM/satellite control points → export GeoTIFF",
+      libreCad: "Optional DXF vector of buildings",
+      huggingFace: "Interior floorplan models (Raster2Seq, planparser) — not for multi-building site boards",
+      liveGps: "Site Twin snaps crew_checkins + crew_track_points via snapGpsToFloor",
+    },
+  });
+});
+
 
 
 export default router;
