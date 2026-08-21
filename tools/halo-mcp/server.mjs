@@ -104,6 +104,48 @@ const TOOLS = [
     description: "Work reviews pipeline health",
     inputSchema: { type: "object", properties: {} },
   },
+
+  {
+    name: "halo_site_ops_status",
+    description: "Grok Site Ops Bot status — continuous on-site manager",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "halo_site_ops_run",
+    description: "Run one full on-site ops cycle (presence + operator + money-lock awareness)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        propertyId: { type: "string" },
+        dryRun: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "halo_site_ops_start",
+    description: "Start continuous Site Ops Bot (manages site on an interval)",
+    inputSchema: {
+      type: "object",
+      properties: { propertyId: { type: "string" }, intervalMs: { type: "number" } },
+    },
+  },
+  {
+    name: "halo_site_ops_stop",
+    description: "Stop continuous Site Ops Bot",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "halo_site_ops_chat",
+    description: "Natural language site ops: status|run|start|stop|site|exceptions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        propertyId: { type: "string" },
+      },
+      required: ["message"],
+    },
+  },
   {
     name: "halo_unity_command",
     description: "Structured command for Unity MCP bridge (focus/list/headline)",
@@ -209,6 +251,26 @@ async function callTool(name, args = {}) {
       );
     case "halo_work_reviews_health":
       return api("/api/work-reviews/health");
+
+    case "halo_site_ops_status":
+      return api("/api/site-ops-bot/status");
+    case "halo_site_ops_run":
+      return api("/api/site-ops-bot/run", {
+        method: "POST",
+        body: JSON.stringify({ propertyId: args.propertyId || PROPERTY_ID || undefined, dryRun: !!args.dryRun }),
+      });
+    case "halo_site_ops_start":
+      return api("/api/site-ops-bot/start", {
+        method: "POST",
+        body: JSON.stringify({ propertyId: args.propertyId || PROPERTY_ID || undefined }),
+      });
+    case "halo_site_ops_stop":
+      return api("/api/site-ops-bot/stop", { method: "POST", body: "{}" });
+    case "halo_site_ops_chat":
+      return api("/api/site-ops-bot/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: args.message, propertyId: args.propertyId || PROPERTY_ID || undefined }),
+      });
     case "halo_unity_command": {
       if (!id && args.action !== "headline") {
         /* allow headline via env */
