@@ -533,7 +533,6 @@ router.get("/properties/:id/site-twin", async (req, res): Promise<void> => {
       .filter((c) => c.points.length > 1),
   };
 
-  const lead = crews.find((c) => c.confidence === "inside" || c.confidence === "near") ?? crews[0] ?? null;
   const inferredUnits = new Set(
     siteJobs.map((j) => (j.unitNo ?? "").trim()).filter((u) => u.length > 0),
   ).size;
@@ -635,7 +634,9 @@ router.get("/properties/:id/site-twin", async (req, res): Promise<void> => {
     demo: { active: demoActive, presentationOnly: true },
     counts,
     replay,
-    headline: lead?.title ?? (units.length === 0
+    headline: overlayCrews.find((c) => c.confidence === "inside" || c.confidence === "near")?.title
+      ?? overlayCrews[0]?.title
+      ?? (units.length === 0
       ? `${property.name} — lay out units so GPS can snap to apartments`
       : `${property.name} — no crew GPS on the plate yet`),
     setup: {

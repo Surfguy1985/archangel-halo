@@ -12,6 +12,7 @@ namespace Halo.SiteTwin
         public string propertyName;
         public SiteCenter site;
         public TwinSummary summary;
+        public TwinDemoFlag demo;
         public List<BuildingPin> buildings;
         public List<CrewPresence> presence;
         public List<HeatCell> heat;
@@ -38,6 +39,14 @@ namespace Halo.SiteTwin
         public int offSite;
         public int liveJobs;
         public string headline;
+        public bool demoActive;
+    }
+
+    [Serializable]
+    public class TwinDemoFlag
+    {
+        public bool active;
+        public bool presentationOnly;
     }
 
     [Serializable]
@@ -110,8 +119,10 @@ namespace Halo.SiteTwin
     {
         public string crewId;
         public string crewName;
+        public string trade;
         public double lat;
         public double lng;
+        public string at;
         public bool onSite;
         public int building;
         public string buildingLabel;
@@ -121,6 +132,9 @@ namespace Halo.SiteTwin
         public string unitNo;
         public bool unitFromJob;
         public string title;
+        public string source;
+        public bool demo;
+        public bool fresh;
     }
 
     [Serializable]

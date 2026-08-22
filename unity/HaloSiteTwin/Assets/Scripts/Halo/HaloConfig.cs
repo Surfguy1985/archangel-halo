@@ -15,6 +15,10 @@ namespace Halo.SiteTwin
         [Range(1f, 30f)]
         public float pollSeconds = 3f;
 
+        [Header("Thornbury demo")]
+        [Tooltip("When on, building-ops and unity-twin requests add ?demo=1. Mock crews are labeled DEMO and never written as GPS.")]
+        public bool thornburyDemo;
+
         [Header("World")]
         [Tooltip("1 = one Unity unit per meter. Keep at 1 so the campus matches Thornbury.")]
         public float worldScale = 1f;
@@ -29,10 +33,16 @@ namespace Halo.SiteTwin
         [Tooltip("WGS84 ellipsoid height in meters at 7101 Chase Oaks Blvd.")]
         public double photorealHeightM = 209.0;
 
-        public string TwinUrl => $"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/building-ops";
-        public string SnapshotUrl => $"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/unity-twin";
+        public string TwinUrl => WithDemo($"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/building-ops");
+        public string SnapshotUrl => WithDemo($"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/unity-twin");
         public string HealthUrl => $"{apiBase.TrimEnd('/')}/api/building-ops/health";
-        public string StreamUrl => $"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/building-ops/stream";
+        public string StreamUrl => WithDemo($"{apiBase.TrimEnd('/')}/api/properties/{propertyId}/building-ops/stream");
+
+        string WithDemo(string url)
+        {
+            if (!thornburyDemo) return url;
+            return url.IndexOf('?') >= 0 ? url + "&demo=1" : url + "?demo=1";
+        }
 
         public string Google3DTilesUrl
         {

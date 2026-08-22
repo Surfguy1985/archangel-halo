@@ -55,5 +55,6 @@ namespace Halo.SiteTwin
         public static readonly Material AccentLive = Make(new Color(0.25f, 0.72f, 0.55f), 0.3f);
         public static readonly Material AccentHot = Make(new Color(0.25f, 0.62f, 0.92f), 0.35f);
         public static readonly Material Crew = Make(new Color(1f, 0.78f, 0.18f), 0.4f);
+        public static readonly Material CrewDemo = Make(new Color(0.91f, 0.28f, 0.82f), 0.45f);
     }
 }

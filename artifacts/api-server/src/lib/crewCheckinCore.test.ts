@@ -299,6 +299,40 @@ describe("production portal exposure", () => {
   });
 });
 
+describe("demo crew ids never persist as check-ins", () => {
+  it("rejects a demo: link crew id on check-in", () => {
+    const d = decideCheckin({
+      session: sessionFromEvents([]),
+      now,
+      linkCrewId: "demo:paint",
+      crewActive: true,
+    });
+    expect(d).toEqual({ ok: false, code: "malformed", status: 400 });
+  });
+
+  it("rejects a requested demo: crew id on check-in", () => {
+    const d = decideCheckin({
+      session: sessionFromEvents([]),
+      now,
+      linkCrewId: "crew-a",
+      requestedCrewId: "demo:paint",
+      crewActive: true,
+    });
+    expect(d).toEqual({ ok: false, code: "malformed", status: 400 });
+  });
+
+  it("rejects a demo: crew on checkout so mocks cannot close a real session", () => {
+    const session = sessionFromEvents([punch({ kind: "checkin", createdAt: new Date(now.getTime() - 60_000) })]);
+    const d = decideCheckout({
+      session,
+      now,
+      linkCrewId: "demo:paint",
+      crewActive: true,
+    });
+    expect(d).toEqual({ ok: false, code: "malformed", status: 400 });
+  });
+});
+
 describe("rate-limit abuse surface", () => {
   it("maps abuse to 429 at the HTTP limiter (policy keeps punches cheap)", () => {
     const d = decideCheckin({

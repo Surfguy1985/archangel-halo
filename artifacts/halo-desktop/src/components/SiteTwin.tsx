@@ -5,12 +5,13 @@
  * whose boxes sit on the real roof.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, Polygon, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, Polygon, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { divIcon, type Marker as LeafletMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   Camera,
   Clock,
+  Crosshair,
   Loader2,
   MapPin,
   Move,
@@ -23,6 +24,7 @@ import {
 
 const LIME = "#B4FF44";
 const CHARCOAL = "#1A1C1A";
+const DEMO_PIN = "#E879F9";
 
 type UnitState = "blocked" | "active" | "turning" | "scheduled" | "ready" | "idle";
 
@@ -77,6 +79,19 @@ type TwinCrew = {
   onSiteMinutes: number;
   arrivedAt: string | null;
   visits: TwinVisit[];
+  source?: "live" | "demo";
+  demo?: boolean;
+  building?: number | null;
+  buildingLabel?: string | null;
+  fresh?: boolean;
+};
+
+type TwinBuilding = {
+  building: number;
+  label: string;
+  lat: number;
+  lng: number;
+  unitCount?: number;
 };
 
 type TwinCounts = {
@@ -105,6 +120,9 @@ type TwinPayload = {
   bbox?: { south: number; west: number; north: number; east: number } | null;
   units: TwinUnit[];
   crews: TwinCrew[];
+  presence?: TwinCrew[];
+  buildings?: TwinBuilding[];
+  demo?: { active: boolean; presentationOnly?: boolean };
   counts?: TwinCounts;
   replay?: { since: string; crews: ReplayCrew[] };
   setup?: {
@@ -144,6 +162,24 @@ function gpsFresh(iso: string | null | undefined): boolean {
   return Date.now() - new Date(iso).getTime() <= 5 * 60 * 1000;
 }
 
+function isDemoCrew(c: Pick<TwinCrew, "id" | "demo" | "source">): boolean {
+  return c.demo === true || c.source === "demo" || c.id.startsWith("demo:");
+}
+
+function readTwinDemoQuery(): boolean {
+  if (typeof window === "undefined") return false;
+  const v = (new URLSearchParams(window.location.search).get("demo") ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "thornbury" || v === "on";
+}
+
+function writeTwinDemoQuery(on: boolean) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (on) url.searchParams.set("demo", "1");
+  else url.searchParams.delete("demo");
+  window.history.replaceState(window.history.state, "", url);
+}
+
 function dwellLabel(minutes: number): string {
   if (!minutes || minutes < 1) return "—";
   if (minutes < 60) return `${Math.round(minutes)}m`;
@@ -181,14 +217,62 @@ function esc(s: string): string {
   );
 }
 
-function crewIcon(hot: boolean, initial: string) {
-  const bg = hot ? LIME : CHARCOAL;
-  const fg = hot ? CHARCOAL : LIME;
+function crewIcon(opts: {
+  hot: boolean;
+  initial: string;
+  name: string;
+  demo: boolean;
+  selected: boolean;
+  fresh: boolean;
+}) {
+  const first = esc((opts.name.split(" ")[0] || opts.initial).slice(0, 12));
+  if (opts.demo) {
+    return divIcon({
+      className: "site-twin-leaflet",
+      html: `<div class="site-twin-pin demo ${opts.selected ? "sel" : ""}">
+        <span class="site-twin-pin-badge">DEMO</span>
+        <div class="site-twin-pin-body">${esc(opts.initial)}</div>
+        <em>${first}</em>
+      </div>`,
+      iconSize: [88, 68],
+      iconAnchor: [44, 30],
+    });
+  }
   return divIcon({
-    className: "",
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${bg};border:2px solid ${CHARCOAL};color:${fg};display:grid;place-items:center;font-weight:800;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.35)">${esc(initial)}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    className: "site-twin-leaflet",
+    html: `<div class="site-twin-pin live ${opts.hot ? "hot" : ""} ${opts.fresh ? "fresh" : ""} ${opts.selected ? "sel" : ""}">
+        <span class="site-twin-pin-radar" aria-hidden="true"></span>
+        <div class="site-twin-pin-body">${esc(opts.initial)}</div>
+        <em>${first}</em>
+      </div>`,
+    iconSize: [88, 62],
+    iconAnchor: [44, 24],
+  });
+}
+
+function buildingTone(
+  b: number,
+  crews: TwinCrew[],
+  densest: number | null,
+): "idle" | "live" | "demo" | "mixed" | "hot" {
+  if (densest === b) return "hot";
+  const here = crews.filter(
+    (c) => c.building === b && (isDemoCrew(c) || c.confidence === "inside" || c.confidence === "near"),
+  );
+  const hasLive = here.some((c) => !isDemoCrew(c));
+  const hasDemo = here.some(isDemoCrew);
+  if (hasLive && hasDemo) return "mixed";
+  if (hasDemo) return "demo";
+  if (hasLive) return "live";
+  return "idle";
+}
+
+function buildingIcon(n: number, tone: "idle" | "live" | "demo" | "mixed" | "hot") {
+  return divIcon({
+    className: "site-twin-leaflet",
+    html: `<div class="site-twin-bldg ${tone}">${n}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
 }
 
@@ -229,6 +313,18 @@ function Fit({ lat, lng }: { lat: number; lng: number }) {
     const t = setTimeout(() => map.invalidateSize(), 80);
     return () => clearTimeout(t);
   }, [map, lat, lng]);
+  return null;
+}
+
+function FlyToCrew({ target }: { target: { lat: number; lng: number; id: string } | null }) {
+  const map = useMap();
+  const last = useRef<string | null>(null);
+  useEffect(() => {
+    if (!target) return;
+    if (last.current === target.id) return;
+    last.current = target.id;
+    map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 18), { duration: 0.65 });
+  }, [map, target]);
   return null;
 }
 
@@ -290,6 +386,10 @@ function GlideMarker({
     };
   }, [position[0], position[1]]);
 
+  useEffect(() => {
+    ref.current?.setIcon(icon);
+  }, [icon]);
+
   return (
     <Marker
       ref={ref}
@@ -328,6 +428,14 @@ export function SiteTwin({
   const [floor, setFloor] = useState<number | "all">("all");
   const [replayAt, setReplayAt] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [demoMode, setDemoMode] = useState(() => readTwinDemoQuery());
+  const [flyTo, setFlyTo] = useState<{ id: string; lat: number; lng: number } | null>(null);
+  const [clock, setClock] = useState(() => new Date());
+
+  const pickCrew = useCallback((c: TwinCrew, fly = true) => {
+    setSelectedCrew(c.id);
+    if (fly && c.lat != null && c.lng != null) setFlyTo({ id: c.id, lat: c.lat, lng: c.lng });
+  }, []);
 
   // Every fetch carries a generation stamp. Freezing the poll stops FUTURE
   // refreshes, but a request already in flight would still land mid-drag and
@@ -339,7 +447,8 @@ export function SiteTwin({
   const load = useCallback(async () => {
     const gen = ++loadGen.current;
     try {
-      const r = await fetch(`/api/properties/${propertyId}/site-twin`, { credentials: "include" });
+      const qs = demoMode ? "?demo=1" : "";
+      const r = await fetch(`/api/properties/${propertyId}/site-twin${qs}`, { credentials: "include" });
       if (!r.ok) throw new Error(`Twin failed (${r.status})`);
       const json = await r.json();
       if (gen !== loadGen.current) return;
@@ -349,11 +458,16 @@ export function SiteTwin({
       if (gen !== loadGen.current) return;
       setErr(e instanceof Error ? e.message : "Twin unavailable");
     }
-  }, [propertyId]);
+  }, [propertyId, demoMode]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => retireInFlight, [retireInFlight]);
 
@@ -376,6 +490,17 @@ export function SiteTwin({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        setDemoMode((v) => {
+          const next = !v;
+          writeTwinDemoQuery(next);
+          return next;
+        });
+        return;
+      }
       if (e.key !== "Escape") return;
       // A pin save is already in flight and cannot be recalled — refuse to
       // imply it was discarded.
@@ -494,7 +619,10 @@ export function SiteTwin({
   // Crews clocked into a job here whose phone says otherwise. This is the
   // exception the office would never otherwise catch.
   const offSite = useMemo(
-    () => (data?.crews ?? []).filter((c) => c.jobNo && c.lat != null && gpsFresh(c.at) && c.confidence === "far"),
+    () =>
+      (data?.crews ?? []).filter(
+        (c) => !isDemoCrew(c) && c.jobNo && c.lat != null && gpsFresh(c.at) && c.confidence === "far",
+      ),
     [data],
   );
 
@@ -546,7 +674,28 @@ export function SiteTwin({
     [data, unitSheet],
   );
 
-  const live = (data?.setup?.freshGps ?? 0) > 0 || data?.crews.some((c) => gpsFresh(c.at));
+  const live = (data?.setup?.freshGps ?? 0) > 0 || data?.crews.some((c) => !isDemoCrew(c) && gpsFresh(c.at));
+  const demoOn = demoMode || !!data?.demo?.active;
+  const liveCrews = (data?.crews ?? []).filter((c) => !isDemoCrew(c));
+  const mockCrews = (data?.crews ?? []).filter(isDemoCrew);
+  const densestBuilding = useMemo(() => {
+    const tally = new Map<number, number>();
+    for (const c of data?.crews ?? []) {
+      if (c.building == null) continue;
+      if (isDemoCrew(c) || c.confidence === "inside" || c.confidence === "near") {
+        tally.set(c.building, (tally.get(c.building) ?? 0) + 1);
+      }
+    }
+    let best = 0;
+    let n = 0;
+    for (const [b, count] of tally) {
+      if (count > n) {
+        n = count;
+        best = b;
+      }
+    }
+    return best || null;
+  }, [data]);
   const kicker = !data?.ready
     ? "SITE TWIN · PIN GPS"
     : replayAt != null
@@ -555,23 +704,63 @@ export function SiteTwin({
         ? "SITE TWIN · PLACING UNITS"
         : moving
           ? "SITE TWIN · MOVING PIN"
-          : live
-            ? "SITE TWIN · LIVE"
-            : "SITE TWIN · LAST SEEN";
+          : demoOn
+            ? "SITE TWIN · DEMO WALKTHROUGH"
+            : live
+              ? "SITE TWIN · LIVE"
+              : "SITE TWIN · LAST SEEN";
 
   const sitePin: LatLng | null =
     pinDraft ??
     (data?.latitude != null && data?.longitude != null ? { lat: data.latitude, lng: data.longitude } : null);
 
   return (
-    <div className="site-twin" role="dialog" aria-label="Site twin">
+    <div className={`site-twin${demoOn ? " is-demo" : live ? " is-live" : ""}`} role="dialog" aria-label="Site twin">
       <header className="site-twin-hud">
         <div>
-          <p className="site-twin-kicker">{kicker}</p>
+          <p className={`site-twin-kicker${demoOn ? " demo" : ""}`}>
+            <span className={`site-twin-live-dot${live && !demoOn ? " on" : ""}`} />
+            {kicker}
+          </p>
           <h2>{data?.headline ?? `${data?.property.name ?? "Site"} — acquiring plate`}</h2>
-          <p className="site-twin-sub">{data?.property.name}</p>
+          <p className="site-twin-sub">
+            {data?.property.name}
+            {data?.property.address ? ` · ${data.property.address}` : ""}
+            {" · "}
+            {clock.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            <span className="site-twin-keys">D demo</span>
+          </p>
         </div>
         <div className="site-twin-hud-actions">
+          <button
+            type="button"
+            className="site-twin-movepin"
+            aria-pressed={demoMode}
+            title="Place labeled mock crews on Thornbury buildings. Live GPS still wins. Shortcut: D"
+            onClick={() => {
+              setDemoMode((v) => {
+                const next = !v;
+                writeTwinDemoQuery(next);
+                return next;
+              });
+            }}
+          >
+            {demoMode ? "Hide demo" : "Thornbury demo"}
+          </button>
+          {densestBuilding != null && data?.ready && (
+            <button
+              type="button"
+              className="site-twin-movepin"
+              title="Jump to the densest building"
+              onClick={() => {
+                const crew = (data.crews ?? []).find((c) => c.building === densestBuilding && c.lat != null);
+                if (crew) pickCrew(crew);
+              }}
+            >
+              <Crosshair size={14} />
+              Densest {densestBuilding}
+            </button>
+          )}
           {data?.ready && (replay?.crews.length ?? 0) > 0 && replayRange && (
             <button
               type="button"
@@ -635,17 +824,41 @@ export function SiteTwin({
         </div>
       </header>
 
-      {counts && counts.total > 0 && (
-        <div className="site-twin-counts" role="list">
-          <span role="listitem" className="tally active"><b>{counts.active}</b> crew inside</span>
-          <span role="listitem" className="tally turning"><b>{counts.turning}</b> turning</span>
-          <span role="listitem" className="tally blocked"><b>{counts.blocked}</b> blocked</span>
-          <span role="listitem" className="tally scheduled"><b>{counts.scheduled}</b> scheduled</span>
-          <span role="listitem" className="tally ready"><b>{counts.ready}</b> ready</span>
-          <span role="listitem" className="tally money"><b>{money(counts.unpaid)}</b> in flight</span>
-          <span role="listitem" className="tally"><b>{dwellLabel(counts.minutesToday)}</b> on site today</span>
-          <span role="listitem" className="tally"><b>{counts.photosToday}</b> photos today</span>
+      {demoOn && (
+        <div className="site-twin-demo-banner" role="status">
+          <div>
+            <strong>DEMO WALKTHROUGH</strong>
+            Magenta MOCK pins are presentation only — never check-ins or GPS history. Lime radar is live GPS and still wins.
+          </div>
+          <div className="site-twin-stage" aria-label="Mock crew placements">
+            {mockCrews.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={c.id === active?.id ? "on" : ""}
+                onClick={() => pickCrew(c)}
+              >
+                <b>{c.building ?? "—"}</b>
+                <span>{c.trade ?? c.name.split(" ")[0]}</span>
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+
+      {data && (
+      <div className="site-twin-counts" role="list">
+        <span role="listitem" className="tally active"><b>{liveCrews.filter((c) => gpsFresh(c.at)).length}</b> live GPS</span>
+        {demoOn && <span role="listitem" className="tally demo"><b>{mockCrews.length}</b> mock</span>}
+        {counts && counts.total > 0 && (
+          <>
+            <span role="listitem" className="tally turning"><b>{counts.turning}</b> turning</span>
+            <span role="listitem" className="tally blocked"><b>{counts.blocked}</b> blocked</span>
+            <span role="listitem" className="tally money"><b>{money(counts.unpaid)}</b> in flight</span>
+            <span role="listitem" className="tally"><b>{dwellLabel(counts.minutesToday)}</b> on site today</span>
+          </>
+        )}
+      </div>
       )}
 
       {offSite.length > 0 && (
@@ -725,7 +938,11 @@ export function SiteTwin({
                         }}
                         onClick={() => {
                           setOpenUnit(u.id);
-                          if (u.crewId) setSelectedCrew(u.crewId);
+                          if (u.crewId) {
+                            const crew = data.crews.find((c) => c.id === u.crewId);
+                            if (crew) pickCrew(crew, false);
+                            else setSelectedCrew(u.crewId);
+                          }
                         }}
                         title={`${u.label} — ${STATE_LABEL[u.state]}`}
                       >
@@ -756,6 +973,7 @@ export function SiteTwin({
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               />
               <Fit lat={data.latitude} lng={data.longitude} />
+              <FlyToCrew target={flyTo} />
               <PickPoint enabled={moving} onPick={setPinDraft} />
               {data.footprint?.ring && data.footprint.ring.length > 2 && (
                 <Polygon
@@ -763,6 +981,39 @@ export function SiteTwin({
                   pathOptions={{ color: LIME, weight: 2, fillColor: LIME, fillOpacity: 0.12 }}
                 />
               )}
+              {(data.buildings ?? []).map((b) => {
+                const tone = buildingTone(b.building, data.crews, densestBuilding);
+                return (
+                  <Circle
+                    key={`bldg-ring-${b.building}`}
+                    center={[b.lat, b.lng]}
+                    radius={tone === "hot" ? 28 : 22}
+                    pathOptions={{
+                      color: tone === "demo" ? DEMO_PIN : tone === "idle" ? "rgba(255,255,255,0.28)" : LIME,
+                      weight: tone === "hot" ? 2 : 1,
+                      fillColor: tone === "demo" ? DEMO_PIN : tone === "idle" ? "#64748b" : LIME,
+                      fillOpacity: tone === "idle" ? 0.08 : 0.2,
+                    }}
+                  />
+                );
+              })}
+              {(data.buildings ?? []).map((b) => {
+                const tone = buildingTone(b.building, data.crews, densestBuilding);
+                const here = data.crews.find((c) => c.building === b.building && c.lat != null);
+                return (
+                  <Marker
+                    key={`bldg-${b.building}`}
+                    position={[b.lat, b.lng]}
+                    icon={buildingIcon(b.building, tone)}
+                    zIndexOffset={-400}
+                    eventHandlers={{
+                      click: () => {
+                        if (here) pickCrew(here);
+                      },
+                    }}
+                  />
+                );
+              })}
               {sitePin && (
                 <Marker
                   position={[sitePin.lat, sitePin.lng]}
@@ -809,7 +1060,14 @@ export function SiteTwin({
                       {c.here && (
                         <Marker
                           position={[c.here.lat, c.here.lng]}
-                          icon={crewIcon(true, c.name.slice(0, 1).toUpperCase())}
+                          icon={crewIcon({
+                            hot: true,
+                            initial: c.name.slice(0, 1).toUpperCase(),
+                            name: c.name,
+                            demo: false,
+                            selected: false,
+                            fresh: true,
+                          })}
                         />
                       )}
                     </Fragment>
@@ -819,12 +1077,42 @@ export function SiteTwin({
                       <GlideMarker
                         key={c.id}
                         position={[c.lat, c.lng]}
-                        icon={crewIcon(c.confidence === "inside" || c.confidence === "near", c.name.slice(0, 1).toUpperCase())}
-                        onClick={() => setSelectedCrew(c.id)}
+                        icon={crewIcon({
+                          hot: c.confidence === "inside" || c.confidence === "near",
+                          initial: c.name.slice(0, 1).toUpperCase(),
+                          name: c.name,
+                          demo: isDemoCrew(c),
+                          selected: c.id === active?.id,
+                          fresh: !isDemoCrew(c) && gpsFresh(c.at),
+                        })}
+                        onClick={() => pickCrew(c)}
                       />
                     ) : null,
                   )}
             </MapContainer>
+
+            <div className="site-twin-legend" aria-label="Crew legend">
+              <span className="live"><i /> Live GPS radar</span>
+              {demoOn && <span className="demo"><i /> DEMO / MOCK — not a check-in</span>}
+            </div>
+
+            {active && active.lat != null && (
+              <div className={`site-twin-inspect${isDemoCrew(active) ? " demo" : ""}`} role="status">
+                <p className="site-twin-inspect-kicker">
+                  {isDemoCrew(active) ? "MOCK PLACEMENT" : gpsFresh(active.at) ? "LIVE FIX" : "LAST SEEN"}
+                </p>
+                <strong>{active.name}</strong>
+                <em>{active.title}</em>
+                <p>
+                  {active.trade ? `${active.trade} · ` : ""}
+                  {active.buildingLabel ?? (active.building != null ? `Building ${active.building}` : "On site")}
+                  {active.unitLabel ? ` · Unit ${active.unitLabel}` : ""}
+                </p>
+                {!isDemoCrew(active) && (
+                  <p className="site-twin-inspect-age">{gpsAgeLabel(active.at) ?? "waiting on phone"}</p>
+                )}
+              </div>
+            )}
 
             {placing && (
               <div className="site-twin-pinbar">
@@ -894,19 +1182,27 @@ export function SiteTwin({
             )}
             {data.crews.map((c) => {
               const age = gpsAgeLabel(c.at);
-              const fresh = gpsFresh(c.at);
+              const fresh = !isDemoCrew(c) && gpsFresh(c.at);
+              const mock = isDemoCrew(c);
               return (
                 <button
                   key={c.id}
                   type="button"
-                  className={`site-twin-crew ${c.id === active?.id ? "on" : ""}`}
-                  onClick={() => setSelectedCrew(c.id)}
+                  className={`site-twin-crew ${mock ? "demo" : ""} ${c.id === active?.id ? "on" : ""}`}
+                  onClick={() => pickCrew(c)}
                 >
-                  <span className={`site-twin-dot ${fresh ? c.confidence : "far"}`} />
+                  <span className={`site-twin-dot ${mock ? "demo" : fresh ? c.confidence : "far"}`} />
                   <div>
-                    <strong>{c.title}</strong>
-                    <em>{c.jobNo ? `${c.jobNo} · ` : ""}{c.lat == null ? "waiting on phone" : age ? (fresh ? age : `last seen ${age}`) : "no ping"}</em>
-                    {c.onSiteMinutes > 0 && (
+                    <strong>
+                      {mock && <span className="site-twin-mock">DEMO</span>}
+                      {c.title}
+                    </strong>
+                    <em>
+                      {mock
+                        ? `${c.buildingLabel ?? (c.building != null ? `Building ${c.building}` : "On site")} · mock placement, not live GPS`
+                        : `${c.jobNo ? `${c.jobNo} · ` : ""}${c.lat == null ? "waiting on phone" : age ? (fresh ? age : `last seen ${age}`) : "no ping"}`}
+                    </em>
+                    {!mock && c.onSiteMinutes > 0 && (
                       <em className="site-twin-crew-dwell">
                         {dwellLabel(c.onSiteMinutes)} on site
                         {c.arrivedAt ? ` · in at ${clockLabel(c.arrivedAt)}` : ""}
@@ -918,7 +1214,9 @@ export function SiteTwin({
                 </button>
               );
             })}
-            {data.crews.length > 0 && data.crews.every((c) => c.lat == null || !gpsFresh(c.at)) && onRequestGps && (
+            {data.crews.filter((c) => !isDemoCrew(c)).length > 0 &&
+              data.crews.filter((c) => !isDemoCrew(c)).every((c) => c.lat == null || !gpsFresh(c.at)) &&
+              onRequestGps && (
               <button type="button" className="site-twin-wake" onClick={onRequestGps}>
                 Text crew to keep GPS live
               </button>

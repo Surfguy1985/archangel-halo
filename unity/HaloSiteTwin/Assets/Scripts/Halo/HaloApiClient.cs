@@ -133,6 +133,7 @@ namespace Halo.SiteTwin
                 data.units = data.units ?? new System.Collections.Generic.List<UnitRow>();
                 if (data.summary == null) data.summary = new TwinSummary { headline = "no summary" };
                 if (data.site == null) data.site = new SiteCenter();
+                if (data.demo == null) data.demo = new TwinDemoFlag();
 
                 _last = data;
                 IsLive = true;
@@ -140,7 +141,7 @@ namespace Halo.SiteTwin
                 var nB = data.buildings.Count;
                 var nC = 0;
                 foreach (var p in data.presence) if (p.onSite) nC++;
-                Debug.Log($"[Halo Twin] {data.summary.headline} | buildings={nB} onSite={nC} property={data.propertyName}");
+                Debug.Log($"[Halo Twin] {data.summary.headline} | buildings={nB} onSite={nC} demo={data.summary.demoActive || data.demo.active} property={data.propertyName}");
                 OnTwinUpdated?.Invoke(data);
             }
             catch (Exception e)

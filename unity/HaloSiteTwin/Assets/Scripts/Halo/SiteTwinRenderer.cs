@@ -142,14 +142,19 @@ namespace Halo.SiteTwin
                     if (!_crews.TryGetValue(c.crewId, out var go) || !go)
                     {
                         go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                        go.name = c.crewName ?? c.crewId;
                         go.transform.SetParent(crewsRoot, false);
                         go.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
-                        go.GetComponent<Renderer>().sharedMaterial = HaloMaterials.Crew;
                         var col = go.GetComponent<Collider>();
                         if (col) Destroy(col);
                         _crews[c.crewId] = go;
                     }
+
+                    var demo = IsDemoCrew(c);
+                    go.name = demo ? "[DEMO] " + (c.crewName ?? c.crewId) : (c.crewName ?? c.crewId);
+                    go.GetComponent<Renderer>().sharedMaterial = demo ? HaloMaterials.CrewDemo : HaloMaterials.Crew;
+                    EnsureDemoBadge(go, demo);
+                    EnsureNameplate(go, c.crewName ?? "Crew", demo);
+                    EnsurePulse(go, !demo);
 
                     Vector3 pos;
                     if (c.lat != 0 || c.lng != 0)
@@ -222,6 +227,96 @@ namespace Halo.SiteTwin
         public void FitCameraToAll()
         {
             FrameCamera();
+        }
+
+        static bool IsDemoCrew(CrewPresence c)
+        {
+            if (c == null) return false;
+            if (c.demo) return true;
+            if (!string.IsNullOrEmpty(c.source) && c.source == "demo") return true;
+            return !string.IsNullOrEmpty(c.crewId) && c.crewId.StartsWith("demo:");
+        }
+
+        static void EnsureDemoBadge(GameObject go, bool demo)
+        {
+            var existing = go.transform.Find("DemoLabel");
+            if (demo)
+            {
+                if (existing != null) return;
+                var t = new GameObject("DemoLabel");
+                t.transform.SetParent(go.transform, false);
+                t.transform.localPosition = new Vector3(0f, 1.65f, 0f);
+                var tm = t.AddComponent<TextMesh>();
+                tm.text = "DEMO";
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.characterSize = 0.08f;
+                tm.fontSize = 64;
+                tm.color = new Color(0.95f, 0.35f, 0.85f);
+            }
+            else if (existing != null)
+            {
+                Object.Destroy(existing.gameObject);
+            }
+        }
+
+        static void EnsureNameplate(GameObject go, string name, bool demo)
+        {
+            var existing = go.transform.Find("Nameplate");
+            TextMesh tm;
+            if (existing == null)
+            {
+                var t = new GameObject("Nameplate");
+                t.transform.SetParent(go.transform, false);
+                t.transform.localPosition = new Vector3(0f, demo ? 2.05f : 1.75f, 0f);
+                t.AddComponent<HaloBillboard>();
+                tm = t.AddComponent<TextMesh>();
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.characterSize = 0.07f;
+                tm.fontSize = 64;
+                tm.fontStyle = FontStyle.Bold;
+            }
+            else
+            {
+                tm = existing.GetComponent<TextMesh>();
+                existing.localPosition = new Vector3(0f, demo ? 2.05f : 1.75f, 0f);
+            }
+            if (tm == null) return;
+            var first = name.Trim();
+            var sp = first.IndexOf(' ');
+            if (sp > 0) first = first.Substring(0, sp);
+            tm.text = first;
+            tm.color = demo ? new Color(0.96f, 0.82f, 1f) : new Color(0.71f, 1f, 0.27f);
+        }
+
+        static void EnsurePulse(GameObject go, bool live)
+        {
+            var existing = go.transform.Find("Pulse");
+            if (live)
+            {
+                HaloPulseRing ring;
+                if (existing == null)
+                {
+                    var pulse = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    pulse.name = "Pulse";
+                    pulse.transform.SetParent(go.transform, false);
+                    pulse.transform.localPosition = new Vector3(0f, -0.85f, 0f);
+                    var col = pulse.GetComponent<Collider>();
+                    if (col) Object.Destroy(col);
+                    ring = pulse.AddComponent<HaloPulseRing>();
+                }
+                else
+                {
+                    ring = existing.GetComponent<HaloPulseRing>();
+                }
+                if (ring != null) ring.live = true;
+            }
+            else if (existing != null)
+            {
+                var ring = existing.GetComponent<HaloPulseRing>();
+                if (ring != null) ring.live = false;
+            }
         }
     }
 }
