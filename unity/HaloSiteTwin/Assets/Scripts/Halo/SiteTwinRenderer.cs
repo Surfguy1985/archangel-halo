@@ -15,10 +15,17 @@ namespace Halo.SiteTwin
         public Transform crewsRoot;
         public int densestBuilding = -1;
 
+        /// <summary>
+        /// Live GPS farther than this from 7101 Chase Oaks is the old Ridge Hollow pin.
+        /// Place those crews on their snapped building so the photoreal twin is not empty.
+        /// </summary>
+        public const float CampusRadiusMeters = 280f;
+
         readonly Dictionary<int, GameObject> _buildings = new();
         readonly Dictionary<string, GameObject> _crews = new();
         bool _campusBuilt;
         SiteCenter _origin;
+        public int lastSnappedToBuilding;
 
         void OnEnable()
         {
@@ -80,9 +87,12 @@ namespace Halo.SiteTwin
                 }
             }
             _campusBuilt = true;
-            if (photoreal) OsmFootprintCampus.HideSolids(buildingsRoot, true);
+            if (photoreal && HaloViewCleaner.HasCesiumTileset())
+                OsmFootprintCampus.HideSolids(buildingsRoot, true);
+            else if (photoreal)
+                Debug.LogWarning("[Halo Twin] Photoreal is on but no Cesium3DTileset — keeping OSM solids so the campus is visible.");
             FrameCamera(photoreal);
-            Debug.Log($"[Halo Twin] Campus ready — {_buildings.Count} numbered (OSM footprints={osmN}) origin={TwinWorld.OriginLat:F6},{TwinWorld.OriginLng:F6} photoreal={photoreal}");
+            Debug.Log($"[Halo Twin] Campus ready — {_buildings.Count} numbered (OSM footprints={osmN}) origin={TwinWorld.OriginLat:F6},{TwinWorld.OriginLng:F6} photoreal={photoreal} cesium={HaloViewCleaner.HasCesiumTileset()}");
         }
 
         void Apply(TwinResponse twin)
@@ -131,42 +141,52 @@ namespace Halo.SiteTwin
             }
 
             var seen = new HashSet<string>();
+            lastSnappedToBuilding = 0;
             if (twin?.presence != null)
             {
                 foreach (var c in twin.presence)
                 {
                     if (!c.onSite) continue;
-                    if (c.lat == 0 && c.lng == 0 && c.building <= 0) continue;
+                    if (!TwinWorld.HasGps(c.lat, c.lng) && c.building <= 0) continue;
                     seen.Add(c.crewId);
 
-                    if (!_crews.TryGetValue(c.crewId, out var go) || !go)
+                    try
                     {
-                        go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                        go.transform.SetParent(crewsRoot, false);
-                        go.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
-                        var col = go.GetComponent<Collider>();
-                        if (col) Destroy(col);
-                        _crews[c.crewId] = go;
+                        if (!_crews.TryGetValue(c.crewId, out var go) || !go)
+                        {
+                            go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                            go.transform.SetParent(crewsRoot, false);
+                            go.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
+                            var col = go.GetComponent<Collider>();
+                            if (col) Destroy(col);
+                            _crews[c.crewId] = go;
+                        }
+
+                        var demo = IsDemoCrew(c);
+                        go.name = demo ? "[DEMO] " + (c.crewName ?? c.crewId) : (c.crewName ?? c.crewId);
+                        var rend = go.GetComponent<Renderer>();
+                        if (rend != null)
+                            rend.sharedMaterial = demo ? HaloMaterials.CrewDemo : HaloMaterials.Crew;
+                        EnsureDemoBadge(go, demo);
+                        EnsureNameplate(go, c.crewName ?? "Crew", demo);
+                        try { EnsurePulse(go, !demo); }
+                        catch (System.Exception pulseEx)
+                        {
+                            Debug.LogWarning("[Halo Twin] pulse skipped for " + go.name + ": " + pulseEx.Message);
+                        }
+
+                        var pos = PlaceCrew(c, out var snapped);
+                        if (snapped) lastSnappedToBuilding++;
+                        go.transform.position = pos;
                     }
-
-                    var demo = IsDemoCrew(c);
-                    go.name = demo ? "[DEMO] " + (c.crewName ?? c.crewId) : (c.crewName ?? c.crewId);
-                    go.GetComponent<Renderer>().sharedMaterial = demo ? HaloMaterials.CrewDemo : HaloMaterials.Crew;
-                    EnsureDemoBadge(go, demo);
-                    EnsureNameplate(go, c.crewName ?? "Crew", demo);
-                    EnsurePulse(go, !demo);
-
-                    Vector3 pos;
-                    if (c.lat != 0 || c.lng != 0)
-                        pos = TwinWorld.LatLngToWorld(c.lat, c.lng);
-                    else if (c.building > 0 && _buildings.TryGetValue(c.building, out var bgo))
-                        pos = bgo.transform.position + bgo.transform.forward * 8f;
-                    else
-                        pos = Vector3.zero;
-                    pos.y = 1.1f;
-                    go.transform.position = pos;
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning("[Halo Twin] crew skipped " + c.crewId + ": " + ex.Message);
+                    }
                 }
             }
+            if (lastSnappedToBuilding > 0)
+                Debug.Log($"[Halo Twin] {lastSnappedToBuilding} on-site crew(s) GPS is off Chase Oaks — shown at assigned building.");
 
             var remove = new List<string>();
             foreach (var kv in _crews)
@@ -199,20 +219,36 @@ namespace Halo.SiteTwin
 
         public bool FocusBuilding(int building, Camera cam = null)
         {
-            if (!_buildings.TryGetValue(building, out var go) || !go) return false;
+            Transform targetXf = null;
+            if (_buildings.TryGetValue(building, out var go) && go) targetXf = go.transform;
+            if (targetXf == null)
+            {
+                var pos = BuildingWorld(building);
+                if (pos.sqrMagnitude < 0.01f) return false;
+                var anchor = transform.Find("FocusAnchor");
+                if (anchor == null)
+                {
+                    var a = new GameObject("FocusAnchor");
+                    a.transform.SetParent(transform, false);
+                    anchor = a.transform;
+                }
+                pos.y = 1.1f;
+                anchor.position = pos;
+                targetXf = anchor;
+            }
             cam = cam != null ? cam : Camera.main;
             if (cam == null) return false;
             var orbit = cam.GetComponent<HaloOrbitCamera>();
             if (orbit != null)
             {
-                orbit.target = go.transform;
+                orbit.target = targetXf;
                 orbit.distance = 55f;
                 orbit.pitch = 38f;
             }
             else
             {
-                cam.transform.position = go.transform.position + Vector3.up * 28f + Vector3.back * 42f;
-                cam.transform.LookAt(go.transform.position + Vector3.up * 6f);
+                cam.transform.position = targetXf.position + Vector3.up * 28f + Vector3.back * 42f;
+                cam.transform.LookAt(targetXf.position + Vector3.up * 6f);
             }
             densestBuilding = building;
             return true;
@@ -227,6 +263,50 @@ namespace Halo.SiteTwin
         public void FitCameraToAll()
         {
             FrameCamera();
+        }
+
+        Vector3 PlaceCrew(CrewPresence c, out bool snappedToBuilding)
+        {
+            snappedToBuilding = false;
+            var buildingPos = BuildingWorld(c.building);
+            var hasGps = TwinWorld.HasGps(c.lat, c.lng);
+            var onCampus = hasGps && TwinWorld.HorizontalMetersFromOrigin(c.lat, c.lng) <= CampusRadiusMeters;
+
+            Vector3 pos;
+            if (onCampus)
+            {
+                pos = TwinWorld.LatLngToWorld(c.lat, c.lng);
+            }
+            else if (buildingPos.sqrMagnitude > 0.01f || c.building > 0)
+            {
+                snappedToBuilding = hasGps || c.building > 0;
+                pos = buildingPos;
+                var hash = Mathf.Abs((c.crewId ?? "").GetHashCode());
+                var yaw = (hash % 8) * 45f;
+                pos += Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * 6f;
+            }
+            else if (hasGps)
+            {
+                pos = TwinWorld.LatLngToWorld(c.lat, c.lng);
+            }
+            else
+            {
+                pos = Vector3.zero;
+            }
+            pos.y = 1.1f;
+            return pos;
+        }
+
+        Vector3 BuildingWorld(int number)
+        {
+            if (number > 0 && _buildings.TryGetValue(number, out var go) && go)
+                return go.transform.position;
+            foreach (var plan in ThornburySitePlan.Buildings)
+            {
+                if (plan.number != number) continue;
+                return ThornburySitePlan.ImageToWorld(plan.ix, plan.iy);
+            }
+            return Vector3.zero;
         }
 
         static bool IsDemoCrew(CrewPresence c)

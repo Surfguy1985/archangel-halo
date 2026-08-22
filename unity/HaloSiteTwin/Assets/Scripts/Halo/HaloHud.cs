@@ -64,8 +64,11 @@ namespace Halo.SiteTwin
             else if (client.IsLive && twin?.summary != null)
             {
                 GUI.Label(new Rect(24, 42, 536, 28), twin.propertyName ?? "Thornbury", _title);
+                var snap = siteRenderer != null && siteRenderer.lastSnappedToBuilding > 0
+                    ? $"  ·  {siteRenderer.lastSnappedToBuilding} at bldg (GPS off Chase Oaks)"
+                    : "";
                 GUI.Label(new Rect(24, 70, 536, 40),
-                    $"{twin.summary.headline}\nLive {liveCount}  ·  Demo {demoCount}  ·  Densest Bldg {siteRenderer?.densestBuilding}   D demo   F densest   drag orbit",
+                    $"{twin.summary.headline}\nLive {liveCount}  ·  Demo {demoCount}  ·  Densest Bldg {siteRenderer?.densestBuilding}{snap}   D demo   F densest   drag orbit",
                     _body);
             }
             else

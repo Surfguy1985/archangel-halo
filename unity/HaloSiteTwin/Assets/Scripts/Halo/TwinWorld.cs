@@ -35,5 +35,22 @@ namespace Halo.SiteTwin
             if (origin == null) return LatLngToWorld(lat, lng);
             return LatLngToWorld(lat, lng, origin.lat, origin.lng);
         }
+
+        /// <summary>
+        /// Horizontal meters from the photoreal / OSM origin. Live GPS from the
+        /// old Ridge Hollow pin (~5 km west) is off this campus.
+        /// </summary>
+        public static float HorizontalMetersFromOrigin(double lat, double lng)
+        {
+            var p = LatLngToWorld(lat, lng);
+            p.y = 0f;
+            var meters = p.magnitude;
+            return Scale > 0.01f ? meters / Scale : meters;
+        }
+
+        public static bool HasGps(double lat, double lng)
+        {
+            return lat != 0d || lng != 0d;
+        }
     }
 }

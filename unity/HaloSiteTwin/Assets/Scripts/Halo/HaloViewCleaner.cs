@@ -53,6 +53,15 @@ namespace Halo.SiteTwin
             TuneCesium();
         }
 
+        public static bool HasCesiumTileset()
+        {
+            foreach (var mb in Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (mb != null && mb.GetType().Name == "Cesium3DTileset") return true;
+            }
+            return false;
+        }
+
         public static void TuneCesium()
         {
             TwinWorld.SetOrigin(ThornburySitePlan.Lat, ThornburySitePlan.Lng);

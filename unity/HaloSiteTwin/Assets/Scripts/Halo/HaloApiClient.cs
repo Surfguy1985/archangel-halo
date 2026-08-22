@@ -102,14 +102,19 @@ namespace Halo.SiteTwin
 
         /// <summary>
         /// Unity JsonUtility breaks on JSON null for value types (lat/lng null from API).
-        /// Strip nulls and unknown fields into a JsonUtility-safe payload.
+        /// Object/string nulls must not become 0 — that turns "demo":null into a number
+        /// and "at":null into a bogus timestamp, which can drop the whole plate.
         /// </summary>
         public static string SanitizeJsonForUnity(string json)
         {
             if (string.IsNullOrEmpty(json)) return json;
-            // "lat":null → "lat":0  (and lng, building, weight, etc.)
+            json = Regex.Replace(json,
+                @"""(demo|site|summary|selection)""\s*:\s*null\b",
+                "\"$1\":{}");
+            json = Regex.Replace(json,
+                @"""(at|source|crewName|crewId|trade|title|jobId|jobNo|unitNo|buildingLabel|confidence|headline|propertyName|mode|label|risk|riskLabel|status|phase|note|storagePath|capturedAt|id)""\s*:\s*null\b",
+                "\"$1\":\"\"");
             json = Regex.Replace(json, @":\s*null\b", ":0");
-            // JsonUtility does not like bool null — already handled
             return json;
         }
 

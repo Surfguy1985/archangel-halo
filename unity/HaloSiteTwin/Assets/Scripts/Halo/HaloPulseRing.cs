@@ -13,7 +13,13 @@ namespace Halo.SiteTwin
         {
             var rend = GetComponent<Renderer>();
             if (rend == null) return;
-            _mat = new Material(HaloMaterials.LitShader);
+            var shader = HaloMaterials.LitShader;
+            if (shader == null)
+            {
+                rend.enabled = false;
+                return;
+            }
+            _mat = new Material(shader);
             HaloMaterials.ApplyColor(_mat, color);
             rend.sharedMaterial = _mat;
         }
