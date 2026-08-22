@@ -21,6 +21,11 @@ namespace Halo.SiteTwin.MCP
         public bool FocusBuilding(int building) =>
             siteRenderer != null && siteRenderer.FocusBuilding(building);
 
+        public void FitAll()
+        {
+            if (siteRenderer != null) siteRenderer.FitCameraToAll();
+        }
+
         public bool FocusDensest() =>
             siteRenderer != null && siteRenderer.FocusDensest();
 
@@ -56,5 +61,8 @@ namespace Halo.SiteTwin.MCP
 
         [ContextMenu("Focus Densest")]
         void MenuFocus() => Debug.Log(FocusDensest() ? $"Focused {DensestBuilding()}" : "No densest");
+
+        [ContextMenu("Fit All Buildings")]
+        void MenuFitAll() => FitAll();
     }
 }
