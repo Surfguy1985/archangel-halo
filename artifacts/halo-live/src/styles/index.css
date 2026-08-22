@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-halo-ink: #0A0F0C;
+  --color-halo-panel: #111814;
+  --color-halo-card: #161E19;
+  --color-halo-line: #243029;
+  --color-halo-lime: #B4FF44;
+  --color-halo-lime-dim: #8FCC36;
+  --color-halo-mist: #A8B5AD;
+  --color-halo-hot: #FF5A4A;
+  --color-halo-watch: #FFB020;
+  --color-halo-ok: #3DDC97;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
+}
+
+html, body, #root { height: 100%; }
+body { font-family: var(--font-sans); background: var(--color-halo-ink); color: #fff; }
+
+/* Leaflet dark map feel */
+.leaflet-container { background: #0d1410 !important; font-family: var(--font-sans); }
+.halo-marker {
+  background: var(--color-halo-lime);
+  color: #0A0F0C;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  border: 2px solid #0A0F0C;
+  white-space: nowrap;
+}
+.halo-marker.hot { background: var(--color-halo-hot); color: #fff; }
+.halo-marker.watch { background: var(--color-halo-watch); color: #0A0F0C; }
+.halo-marker.crew {
+  background: #0A0F0C;
+  color: var(--color-halo-lime);
+  border-color: var(--color-halo-lime);
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border-radius: 50%;
+}
+
+.sheet-handle {
+  width: 40px; height: 4px; border-radius: 999px;
+  background: #3a4a40; margin: 0 auto 12px;
+}
