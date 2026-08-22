@@ -194,6 +194,11 @@ namespace Halo.SiteTwin.EditorTools
             if (root.GetComponent<HaloEnsureCamera>() == null)
                 Undo.AddComponent<HaloEnsureCamera>(root);
 
+            var osm = root.GetComponent<OsmFootprintLoader>() ?? Undo.AddComponent<OsmFootprintLoader>(root);
+            osm.config = config;
+            osm.loadOnStart = true;
+            osm.replaceGridWhenLoaded = true;
+
             EditorUtility.SetDirty(root);
             EditorUtility.SetDirty(client);
         }
