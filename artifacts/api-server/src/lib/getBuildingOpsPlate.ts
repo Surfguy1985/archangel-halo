@@ -24,8 +24,19 @@ import { haversineMeters } from "./siteTwinCore";
 import { buildSiteTwinLayers } from "./siteTwinLayers";
 import { getSelection } from "./siteSelection";
 import { getMatchedFootprints } from "./footprintsCache";
+import {
+  countByBuilding,
+  countOnSite,
+  mergeTwinPresence,
+  tagLivePresence,
+  thornburyDemoPresence,
+  type TwinCrewPresence,
+} from "./twinCrewPresence";
 
-export async function getBuildingOpsPlate(propertyId: string) {
+export async function getBuildingOpsPlate(
+  propertyId: string,
+  opts: { demo?: boolean } = {},
+) {
   const [prop] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId));
   if (!prop) return null;
 
@@ -89,7 +100,7 @@ export async function getBuildingOpsPlate(propertyId: string) {
   }
 
   const interest = new Set([...lastGps.keys(), ...crewIds]);
-  const presence = [];
+  const livePresence: TwinCrewPresence[] = [];
   for (const crewId of interest) {
     const crew = crewById.get(crewId);
     if (!crew) continue;
@@ -124,30 +135,37 @@ export async function getBuildingOpsPlate(propertyId: string) {
       };
     }
 
-    presence.push({
-      crewId,
-      crewName: crew.name,
-      lat: gps?.lat ?? null,
-      lng: gps?.lng ?? null,
-      at: gps?.at ?? null,
-      onSite,
-      building: snap.building,
-      buildingLabel: snap.label,
-      confidence: snap.confidence,
-      meters: snap.meters,
-      jobId: job?.id ?? null,
-      jobNo: job?.jobNo ?? null,
-      unitNo: fromJob.unitNo,
-      unitFromJob: !!fromJob.unitNo,
-      title: presenceTitle({
-        unitNo: fromJob.unitNo,
+    livePresence.push(
+      tagLivePresence({
+        crewId,
+        crewName: crew.name,
+        trade: crew.trade ?? null,
+        lat: gps?.lat ?? null,
+        lng: gps?.lng ?? null,
+        at: gps?.at ?? null,
+        onSite,
         building: snap.building,
+        buildingLabel: snap.label,
         confidence: snap.confidence,
         meters: snap.meters,
+        jobId: job?.id ?? null,
+        jobNo: job?.jobNo ?? null,
+        unitNo: fromJob.unitNo,
         unitFromJob: !!fromJob.unitNo,
+        title: presenceTitle({
+          unitNo: fromJob.unitNo,
+          building: snap.building,
+          confidence: snap.confidence,
+          meters: snap.meters,
+          unitFromJob: !!fromJob.unitNo,
+        }),
       }),
-    });
+    );
   }
+
+  const presence = opts.demo
+    ? mergeTwinPresence(livePresence, thornburyDemoPresence(buildings))
+    : livePresence;
 
   const heatPts = trails
     .filter((t) => t.lat != null && t.lng != null)
@@ -172,13 +190,8 @@ export async function getBuildingOpsPlate(propertyId: string) {
     });
   }
 
-  const onSiteCount = presence.filter((p) => p.onSite).length;
-  const byBuilding: Record<string, number> = {};
-  for (const p of presence) {
-    if (p.building != null && p.onSite) {
-      byBuilding[String(p.building)] = (byBuilding[String(p.building)] || 0) + 1;
-    }
-  }
+  const onSiteCount = countOnSite(presence);
+  const byBuilding = countByBuilding(presence);
 
   const centroids = new Map(
     buildings.map((b) => [b.building, { lat: b.lat, lng: b.lng }] as const),
@@ -218,6 +231,7 @@ export async function getBuildingOpsPlate(propertyId: string) {
   return {
     ok: true as const,
     mode: "building_first" as const,
+    demo: { active: !!opts.demo, presentationOnly: true },
     propertyId,
     propertyName: prop.name,
     site: siteCenter,
@@ -231,6 +245,7 @@ export async function getBuildingOpsPlate(propertyId: string) {
       heatCells: heat.length,
       overdueTurns: layers.layerSummary.overdueTurns,
       photoCount: layers.layerSummary.photoCount,
+      demoActive: !!opts.demo,
       headline:
         onSiteCount === 0
           ? "No crews on site right now"

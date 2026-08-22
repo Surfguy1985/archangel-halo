@@ -34,6 +34,13 @@ import {
   type TrackPing,
 } from "../lib/siteTwinCore";
 import { buildThornburySiteUnits, THORNBURY_SITE_META, THORNBURY_GCPS } from "../lib/thornburySitePlan";
+import { buildBuildingPins, snapGpsToBuilding } from "../lib/buildingSiteOps";
+import {
+  mergeTwinPresence,
+  tagLivePresence,
+  thornburyDemoPresence,
+  wantsTwinDemo,
+} from "../lib/twinCrewPresence";
 import { fitAffine, bboxFromCoeff, imageBounds } from "../lib/sitePlanGeoref";
 import { logger } from "../lib/logger";
 
@@ -537,6 +544,76 @@ router.get("/properties/:id/site-twin", async (req, res): Promise<void> => {
     return Date.now() - new Date(c.at).getTime() <= 5 * 60 * 1000;
   }).length;
 
+  const demoActive = wantsTwinDemo(req.query);
+  const buildingPins = buildBuildingPins();
+  const livePresence = crews.map((c) => {
+    const snap =
+      c.lat != null && c.lng != null
+        ? snapGpsToBuilding({ lat: c.lat, lng: c.lng }, buildingPins)
+        : { building: null as number | null, label: null as string | null, meters: c.meters, confidence: c.confidence };
+    return tagLivePresence({
+      crewId: c.id,
+      crewName: c.name,
+      trade: c.trade ?? null,
+      lat: c.lat,
+      lng: c.lng,
+      at: c.at ?? null,
+      onSite: c.confidence !== "far",
+      building: snap.building,
+      buildingLabel: snap.label,
+      confidence: c.confidence,
+      meters: snap.meters ?? c.meters,
+      jobId: c.jobId,
+      jobNo: c.jobNo,
+      unitNo: c.unitLabel,
+      unitFromJob: !!c.jobUnit,
+      title: c.title,
+    });
+  });
+  const presence = demoActive
+    ? mergeTwinPresence(livePresence, thornburyDemoPresence(buildingPins))
+    : livePresence;
+  const crewById = new Map(crews.map((c) => [c.id, c]));
+  const overlayCrews = presence.map((p) => {
+    const liveRow = crewById.get(p.crewId);
+    if (liveRow) {
+      return {
+        ...liveRow,
+        source: p.source,
+        demo: p.demo,
+        building: p.building,
+        buildingLabel: p.buildingLabel,
+        title: p.demo ? p.title : liveRow.title,
+      };
+    }
+    return {
+      id: p.crewId,
+      name: p.crewName,
+      trade: p.trade,
+      phone: null,
+      selfiePath: null,
+      lat: p.lat,
+      lng: p.lng,
+      at: p.at,
+      jobId: p.jobId,
+      jobNo: p.jobNo,
+      jobUnit: p.unitNo,
+      unitId: null,
+      unitLabel: p.unitNo,
+      meters: p.meters,
+      confidence: p.confidence,
+      title: p.title,
+      minutesHere: 0,
+      onSiteMinutes: 0,
+      arrivedAt: null,
+      visits: [],
+      source: p.source,
+      demo: p.demo,
+      building: p.building,
+      buildingLabel: p.buildingLabel,
+    };
+  });
+
   res.json({
     ok: true,
     ready: true,
@@ -552,7 +629,10 @@ router.get("/properties/:id/site-twin", async (req, res): Promise<void> => {
     footprint: { ring: footprint.ring, source: footprint.source },
     bbox,
     units: plateUnits,
-    crews,
+    crews: overlayCrews,
+    presence,
+    buildings: buildingPins,
+    demo: { active: demoActive, presentationOnly: true },
     counts,
     replay,
     headline: lead?.title ?? (units.length === 0

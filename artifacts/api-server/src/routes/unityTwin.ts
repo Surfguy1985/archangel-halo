@@ -3,6 +3,7 @@
  */
 import { Router } from "express";
 import { getBuildingOpsPlate } from "../lib/getBuildingOpsPlate";
+import { wantsTwinDemo } from "../lib/twinCrewPresence";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -28,7 +29,7 @@ router.get("/properties/:id/unity-twin", async (req, res) => {
     return;
   }
   try {
-    const plate = await getBuildingOpsPlate(id);
+    const plate = await getBuildingOpsPlate(id, { demo: wantsTwinDemo(req.query) });
     if (!plate) {
       res.status(404).json({ error: "Property not found" });
       return;

@@ -7,6 +7,7 @@ import { Router } from "express";
 import { db, crewCheckinsTable } from "@workspace/db";
 import { buildBuildingPins } from "../lib/buildingSiteOps";
 import { getBuildingOpsPlate, qrForProperty } from "../lib/getBuildingOpsPlate";
+import { wantsTwinDemo } from "../lib/twinCrewPresence";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -43,7 +44,7 @@ router.get("/properties/:id/building-ops", async (req, res) => {
     return;
   }
   try {
-    const plate = await getBuildingOpsPlate(id);
+    const plate = await getBuildingOpsPlate(id, { demo: wantsTwinDemo(req.query) });
     if (!plate) {
       res.status(404).json({ error: "Property not found" });
       return;
@@ -63,6 +64,7 @@ router.get("/properties/:id/building-ops/stream", async (req, res) => {
     return;
   }
   const intervalMs = Math.min(15000, Math.max(2000, Number(req.query.ms) || 4000));
+  const demo = wantsTwinDemo(req.query);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -76,7 +78,7 @@ router.get("/properties/:id/building-ops/stream", async (req, res) => {
   const tick = async () => {
     if (closed) return;
     try {
-      const plate = await getBuildingOpsPlate(id);
+      const plate = await getBuildingOpsPlate(id, { demo: wantsTwinDemo(req.query) });
       res.write(`data: ${JSON.stringify(plate || { ok: false })}\n\n`);
     } catch (err: any) {
       res.write(`data: ${JSON.stringify({ ok: false, error: err.message })}\n\n`);

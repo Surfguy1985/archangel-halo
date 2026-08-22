@@ -218,8 +218,10 @@ function identityGate(
   requestedCrewId: unknown,
   crewActive: boolean,
 ): { ok: true } | { ok: false; code: "wrong_crew" | "crew_inactive" | "malformed"; status: 400 | 403 } {
+  if (linkCrewId.startsWith("demo:")) return { ok: false, code: "malformed", status: 400 };
   if (requestedCrewId != null && requestedCrewId !== "") {
     if (typeof requestedCrewId !== "string") return { ok: false, code: "malformed", status: 400 };
+    if (requestedCrewId.startsWith("demo:")) return { ok: false, code: "malformed", status: 400 };
     if (requestedCrewId !== linkCrewId) return { ok: false, code: "wrong_crew", status: 403 };
   }
   if (!crewActive) return { ok: false, code: "crew_inactive", status: 403 };
