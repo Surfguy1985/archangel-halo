@@ -23,6 +23,7 @@ import { THORNBURY_SITE_META } from "./thornburySitePlan";
 import { haversineMeters } from "./siteTwinCore";
 import { buildSiteTwinLayers } from "./siteTwinLayers";
 import { getSelection } from "./siteSelection";
+import { getMatchedFootprints } from "./footprintsCache";
 
 export async function getBuildingOpsPlate(propertyId: string) {
   const [prop] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId));
@@ -194,6 +195,13 @@ export async function getBuildingOpsPlate(propertyId: string) {
     };
   }
 
+  let footprints: Awaited<ReturnType<typeof getMatchedFootprints>> = [];
+  try {
+    footprints = await getMatchedFootprints();
+  } catch {
+    footprints = [];
+  }
+
   // Attach risk onto building pins for clients
   const tintMap = new Map(layers.moneyTint.map((m) => [m.building, m]));
   const buildingsWithTint = buildings.map((b) => {
@@ -241,6 +249,8 @@ export async function getBuildingOpsPlate(propertyId: string) {
     photoBillboards: layers.photoBillboards,
     layerSummary: layers.layerSummary,
     selection: getSelection(propertyId),
+    footprints,
+    footprintsCount: footprints.length,
   };
 }
 

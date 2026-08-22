@@ -203,6 +203,11 @@ namespace Halo.SiteTwin.EditorTools
             layers.client = client;
             layers.siteRenderer = renderer;
 
+            var matched = root.GetComponent<OsmMatchedLoader>() ?? Undo.AddComponent<OsmMatchedLoader>(root);
+            matched.config = config;
+            matched.gridToHide = renderer;
+            matched.loadOnStart = true;
+
             EditorUtility.SetDirty(root);
             EditorUtility.SetDirty(client);
         }
