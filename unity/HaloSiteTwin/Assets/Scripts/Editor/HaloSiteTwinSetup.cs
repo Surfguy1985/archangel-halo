@@ -32,10 +32,10 @@ namespace Halo.SiteTwin.EditorTools
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
             Undo.CollapseUndoOperations(group);
 
-            Debug.Log("[Halo] FULL SETUP DONE — Press Play. Game view should show ground + buildings. HUD top-left = LIVE/ERROR.");
+            Debug.Log("[Halo] FULL SETUP DONE — Press Play. You should see Thornbury: 20 three-story buildings, leasing, pool. Drag to orbit.");
             EditorUtility.DisplayDialog(
                 "Halo Site Twin",
-                "Setup complete.\n\n• Main Camera created & framed\n• Light + ground\n• Twin stack wired\n\nPress Play.\nTop-left HUD must say LIVE.",
+                "Setup complete.\n\nPress Play to load Thornbury at Chase Oaks (20 garden buildings).\nDrag to orbit · scroll to zoom.\nTop-left HUD = LIVE / Connecting.",
                 "OK");
         }
 
@@ -58,7 +58,7 @@ namespace Halo.SiteTwin.EditorTools
                 return;
             }
             var c = client.config;
-            Debug.Log($"[Halo DIAG]\napiBase={c.apiBase}\npropertyId={c.propertyId}\nHealth={c.HealthUrl}\nTwin={c.TwinUrl}");
+            Debug.Log($"[Halo DIAG]\napiBase={c.apiBase}\npropertyId={c.propertyId}\nHealth={c.HealthUrl}\nTwin={c.TwinUrl}\nphotoreal={c.useGooglePhotoreal} key={(HaloLocalSecrets.HasKey(c) ? "present" : "missing")}");
         }
 
         static HaloConfig EnsureConfig()
@@ -70,9 +70,12 @@ namespace Halo.SiteTwin.EditorTools
                 config.apiBase = "https://archangel-halo.replit.app";
                 config.propertyId = "49dec4b1-1dc5-4b59-8025-0c0bc14d35ce";
                 config.pollSeconds = 3f;
+                config.worldScale = 1f;
                 AssetDatabase.CreateAsset(config, ConfigPath);
                 AssetDatabase.SaveAssets();
             }
+            if (config.worldScale < 0.5f) config.worldScale = 1f;
+            EditorUtility.SetDirty(config);
             return config;
         }
 
@@ -81,7 +84,7 @@ namespace Halo.SiteTwin.EditorTools
             Camera cam = Camera.main;
             if (cam == null)
             {
-                var all = Object.FindObjectsOfType<Camera>();
+                var all = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
                 if (all != null && all.Length > 0) cam = all[0];
             }
 
@@ -101,17 +104,20 @@ namespace Halo.SiteTwin.EditorTools
                     cam.gameObject.AddComponent<AudioListener>();
             }
 
-            // Frame the site twin plate
-            cam.transform.position = new Vector3(0f, 95f, -75f);
-            cam.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
-            cam.fieldOfView = 60f;
-            cam.nearClipPlane = 0.3f;
-            cam.farClipPlane = 2000f;
+            // Frame the 250m Thornbury campus
+            cam.transform.position = new Vector3(55f, 165f, -210f);
+            cam.transform.rotation = Quaternion.Euler(50f, 18f, 0f);
+            cam.fieldOfView = 50f;
+            cam.nearClipPlane = 0.5f;
+            cam.farClipPlane = 80000f;
             cam.clearFlags = CameraClearFlags.Skybox;
+            cam.backgroundColor = new Color(0.55f, 0.72f, 0.90f);
             cam.enabled = true;
+            if (cam.GetComponent<HaloOrbitCamera>() == null)
+                Undo.AddComponent<HaloOrbitCamera>(cam.gameObject);
 
             // Only one audio listener
-            foreach (var al in Object.FindObjectsOfType<AudioListener>())
+            foreach (var al in Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
             {
                 if (al.gameObject != cam.gameObject)
                     Object.DestroyImmediate(al);
@@ -122,7 +128,7 @@ namespace Halo.SiteTwin.EditorTools
 
         static void EnsureLight()
         {
-            var lights = Object.FindObjectsOfType<Light>();
+            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
             Light sun = null;
             foreach (var l in lights)
             {
@@ -135,30 +141,16 @@ namespace Halo.SiteTwin.EditorTools
                 sun = go.AddComponent<Light>();
                 sun.type = LightType.Directional;
             }
-            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-            sun.intensity = 1.1f;
-            sun.color = Color.white;
+            sun.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
+            sun.intensity = 1.2f;
+            sun.color = new Color(1f, 0.96f, 0.88f);
+            sun.shadows = LightShadows.Soft;
+            RenderSettings.ambientLight = new Color(0.42f, 0.46f, 0.40f);
         }
 
         static void EnsureGround()
         {
-            var ground = GameObject.Find("HaloGround");
-            if (ground == null)
-            {
-                ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-                ground.name = "HaloGround";
-                Undo.RegisterCreatedObjectUndo(ground, "Create Ground");
-            }
-            ground.transform.position = Vector3.zero;
-            ground.transform.localScale = new Vector3(25f, 1f, 25f);
-            var r = ground.GetComponent<Renderer>();
-            if (r != null)
-            {
-                // Default material tint if possible
-                r.sharedMaterial = new Material(Shader.Find("Standard") ?? Shader.Find("Diffuse"));
-                if (r.sharedMaterial != null)
-                    r.sharedMaterial.color = new Color(0.07f, 0.09f, 0.12f);
-            }
+            HaloViewCleaner.Apply();
         }
 
         static void EnsureHaloRoot(HaloConfig config)
@@ -196,8 +188,8 @@ namespace Halo.SiteTwin.EditorTools
 
             var osm = root.GetComponent<OsmFootprintLoader>() ?? Undo.AddComponent<OsmFootprintLoader>(root);
             osm.config = config;
-            osm.loadOnStart = true;
-            osm.replaceGridWhenLoaded = true;
+            osm.loadOnStart = !config.useGooglePhotoreal;
+            osm.replaceGridWhenLoaded = !config.useGooglePhotoreal;
 
             var layers = root.GetComponent<SiteTwinLayersRenderer>() ?? Undo.AddComponent<SiteTwinLayersRenderer>(root);
             layers.client = client;
@@ -206,7 +198,14 @@ namespace Halo.SiteTwin.EditorTools
             var matched = root.GetComponent<OsmMatchedLoader>() ?? Undo.AddComponent<OsmMatchedLoader>(root);
             matched.config = config;
             matched.gridToHide = renderer;
-            matched.loadOnStart = true;
+            matched.loadOnStart = !config.useGooglePhotoreal;
+
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var orbit = cam.GetComponent<HaloOrbitCamera>();
+                if (orbit != null) orbit.target = root.transform;
+            }
 
             EditorUtility.SetDirty(root);
             EditorUtility.SetDirty(client);

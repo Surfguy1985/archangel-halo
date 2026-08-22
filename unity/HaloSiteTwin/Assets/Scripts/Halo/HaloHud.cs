@@ -27,11 +27,13 @@ namespace Halo.SiteTwin
             else if (!string.IsNullOrEmpty(client.LastError))
                 line = "ERROR: " + client.LastError;
             else if (client.IsLive && client.Last?.summary != null)
-                line = $"LIVE · {client.Last.summary.headline}\nDensest Bldg {siteRenderer?.densestBuilding}\n{client.LastUrl}";
+                line = $"LIVE · {client.Last.propertyName ?? "Thornbury"}\n{client.Last.summary.headline}\nDensest Bldg {siteRenderer?.densestBuilding}  ·  drag to orbit, scroll to zoom";
+            else if (siteRenderer != null)
+                line = "Thornbury · OpenStreetMap WGS84\nReal footprints + roads · connecting Halo…";
             else
                 line = "Connecting to Halo…\n" + (client.LastUrl ?? "");
 
-            GUI.Box(new Rect(12, 12, 520, 72), line, _style);
+            GUI.Box(new Rect(12, 12, 560, 78), line, _style);
         }
     }
 }

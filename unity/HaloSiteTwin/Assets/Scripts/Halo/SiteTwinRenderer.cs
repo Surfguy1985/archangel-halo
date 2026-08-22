@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Halo.SiteTwin
 {
     /// <summary>
-    /// Building-first plate. Layout: Grid (see all 20) or Geo (true lat/lng).
-    /// Auto-frames camera so every building is visible.
+    /// Thornbury campus: real 3-story garden buildings from the leasing site plan,
+    /// then live crew / densest tint from building-ops.
     /// </summary>
     public class SiteTwinRenderer : MonoBehaviour
     {
@@ -13,27 +13,19 @@ namespace Halo.SiteTwin
         public HaloConfig config;
         public Transform buildingsRoot;
         public Transform crewsRoot;
-        public Transform labelsRoot;
-        public GameObject buildingPrefab;
-        public GameObject crewPrefab;
-
-        [Tooltip("Grid = all 20 visible in a neat layout. Geo = real GPS positions (may need high camera).")]
-        public bool useGridLayout = true;
-
-        public float gridSpacing = 18f;
         public int densestBuilding = -1;
 
         readonly Dictionary<int, GameObject> _buildings = new();
         readonly Dictionary<string, GameObject> _crews = new();
-        readonly Dictionary<int, TextMesh> _labels = new();
-        readonly Dictionary<int, Vector3> _buildingPos = new();
+        bool _campusBuilt;
         SiteCenter _origin;
-        float _pulse;
-        bool _framedOnce;
 
         void OnEnable()
         {
+            TwinWorld.SetOrigin(ThornburySitePlan.Lat, ThornburySitePlan.Lng);
+            TwinWorld.Scale = config != null && config.worldScale > 0.2f ? config.worldScale : 1f;
             if (client != null) client.OnTwinUpdated += Apply;
+            if (!_campusBuilt) BuildCampus();
         }
 
         void OnDisable()
@@ -41,21 +33,10 @@ namespace Halo.SiteTwin
             if (client != null) client.OnTwinUpdated -= Apply;
         }
 
-        void Update()
+        void Start()
         {
-            _pulse += Time.deltaTime * 3f;
-            if (densestBuilding > 0 && _buildings.TryGetValue(densestBuilding, out var go) && go)
-            {
-                float s = 1f + 0.1f * Mathf.Sin(_pulse);
-                go.transform.localScale = BuildingScale() * s;
-            }
+            if (!_campusBuilt) BuildCampus();
         }
-
-        float WorldScale => config != null ? config.worldScale : 0.05f;
-        float BuildingHeight => config != null ? config.buildingHeight : 8f;
-        float MetersPerDeg => config != null ? config.metersPerDegreeLat : 111320f;
-
-        Vector3 BuildingScale() => new Vector3(10f, BuildingHeight, 10f) * (useGridLayout ? 1f : WorldScale * 20f);
 
         void EnsureRoots()
         {
@@ -71,50 +52,55 @@ namespace Halo.SiteTwin
                 go.transform.SetParent(transform, false);
                 crewsRoot = go.transform;
             }
-            if (labelsRoot == null)
+        }
+
+        void BuildCampus()
+        {
+            HaloViewCleaner.Apply();
+            EnsureRoots();
+            bool photoreal = config != null && config.useGooglePhotoreal && HaloLocalSecrets.HasKey(config);
+            var osmN = OsmFootprintCampus.Build(buildingsRoot, out var numbered, solids: !photoreal);
+            if (osmN > 0)
             {
-                var go = new GameObject("Labels");
-                go.transform.SetParent(transform, false);
-                labelsRoot = go.transform;
+                foreach (var kv in numbered) _buildings[kv.Key] = kv.Value;
             }
-        }
-
-        Vector3 GridPos(int building)
-        {
-            // 5 x 4 grid for buildings 1–20
-            int idx = Mathf.Max(0, building - 1);
-            int col = idx % 5;
-            int row = idx / 5;
-            float x = (col - 2) * gridSpacing;
-            float z = (row - 1.5f) * gridSpacing;
-            return new Vector3(x, 0f, z);
-        }
-
-        Vector3 GeoPos(double lat, double lng)
-        {
-            double dLat = lat - _origin.lat;
-            double dLng = lng - _origin.lng;
-            float z = (float)(dLat * MetersPerDeg * WorldScale);
-            float x = (float)(dLng * MetersPerDeg * Mathf.Cos((float)(_origin.lat * Mathf.Deg2Rad)) * WorldScale);
-            return new Vector3(x, 0f, z);
+            else if (!photoreal)
+            {
+                SiteCampusBuilder.Build(transform);
+                var lease = ThornburySitePlan.ImageToWorld(0.455f, 0.505f);
+                foreach (var plan in ThornburySitePlan.Buildings)
+                {
+                    var pos = ThornburySitePlan.ImageToWorld(plan.ix, plan.iy);
+                    var to = lease - pos;
+                    to.y = 0f;
+                    var rot = to.sqrMagnitude > 0.5f ? Quaternion.LookRotation(to.normalized) : Quaternion.identity;
+                    var go = BuildingFactory.Create(plan, pos, rot);
+                    go.transform.SetParent(buildingsRoot, true);
+                    if (!plan.leasing) _buildings[plan.number] = go;
+                }
+            }
+            _campusBuilt = true;
+            if (photoreal) OsmFootprintCampus.HideSolids(buildingsRoot, true);
+            FrameCamera(photoreal);
+            Debug.Log($"[Halo Twin] Campus ready — {_buildings.Count} numbered (OSM footprints={osmN}) origin={TwinWorld.OriginLat:F6},{TwinWorld.OriginLng:F6} photoreal={photoreal}");
         }
 
         void Apply(TwinResponse twin)
         {
-            if (twin?.site == null) return;
-            _origin = twin.site;
-            EnsureRoots();
+            if (!_campusBuilt) BuildCampus();
+            if (twin?.site != null) _origin = twin.site;
+            else _origin = new SiteCenter { lat = ThornburySitePlan.Lat, lng = ThornburySitePlan.Lng };
 
             densestBuilding = -1;
             int bestCount = 0;
             var counts = new Dictionary<int, int>();
-            if (twin.presence != null)
+            if (twin?.presence != null)
             {
                 foreach (var p in twin.presence)
                 {
                     if (!p.onSite || p.building <= 0) continue;
-                    counts.TryGetValue(p.building, out var cv);
-                    counts[p.building] = cv + 1;
+                    counts.TryGetValue(p.building, out var n);
+                    counts[p.building] = n + 1;
                 }
             }
             foreach (var kv in counts)
@@ -126,94 +112,53 @@ namespace Halo.SiteTwin
                 }
             }
 
-            int built = 0;
-            if (twin.buildings != null)
+            bool photoreal = config != null && config.useGooglePhotoreal && HaloLocalSecrets.HasKey(config);
+            if (!photoreal)
             {
-                foreach (var b in twin.buildings)
+                foreach (var kv in _buildings)
                 {
-                    if (!_buildings.TryGetValue(b.building, out var go) || !go)
+                    counts.TryGetValue(kv.Key, out var n);
+                    bool dense = kv.Key == densestBuilding;
+                    var mat = dense ? HaloMaterials.AccentHot : n > 0 ? HaloMaterials.AccentLive : null;
+                    if (mat != null) BuildingFactory.TintMass(kv.Value, mat);
+                    else
                     {
-                        go = buildingPrefab != null
-                            ? Instantiate(buildingPrefab, buildingsRoot)
-                            : GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        go.name = $"Building_{b.building}";
-                        go.transform.SetParent(buildingsRoot, false);
-                        go.transform.localScale = BuildingScale();
-                        _buildings[b.building] = go;
-
-                        var labelGo = new GameObject($"Label_{b.building}");
-                        labelGo.transform.SetParent(labelsRoot, false);
-                        var tm = labelGo.AddComponent<TextMesh>();
-                        tm.text = b.building.ToString();
-                        tm.fontSize = 48;
-                        tm.characterSize = 0.35f;
-                        tm.anchor = TextAnchor.MiddleCenter;
-                        tm.alignment = TextAlignment.Center;
-                        tm.color = Color.white;
-                        tm.fontStyle = FontStyle.Bold;
-                        _labels[b.building] = tm;
+                        var planSkin = kv.Key % 3;
+                        BuildingFactory.TintMass(kv.Value,
+                            planSkin == 0 ? HaloMaterials.Brick : planSkin == 1 ? HaloMaterials.Stucco : HaloMaterials.BrickDeep);
                     }
-
-                    Vector3 pos = useGridLayout
-                        ? GridPos(b.building)
-                        : GeoPos(b.lat, b.lng);
-                    _buildingPos[b.building] = pos;
-                    go.transform.position = pos;
-                    go.transform.localScale = BuildingScale();
-
-                    if (_labels.TryGetValue(b.building, out var lab) && lab)
-                    {
-                        lab.transform.position = pos + Vector3.up * (BuildingScale().y * 0.65f + 1.5f);
-                        // Face camera
-                        if (Camera.main != null)
-                            lab.transform.rotation = Quaternion.LookRotation(
-                                lab.transform.position - Camera.main.transform.position);
-                    }
-
-                    var rend = go.GetComponent<Renderer>();
-                    if (rend != null)
-                    {
-                        counts.TryGetValue(b.building, out var hc);
-                        bool dense = b.building == densestBuilding;
-                        bool hasCrew = hc > 0;
-                        rend.material.color = dense
-                            ? new Color(0.2f, 0.75f, 1f)
-                            : hasCrew
-                                ? new Color(0.2f, 0.85f, 0.55f)
-                                : new Color(0.35f, 0.4f, 0.5f);
-                    }
-                    built++;
                 }
             }
 
-            // Crews
             var seen = new HashSet<string>();
-            if (twin.presence != null)
+            if (twin?.presence != null)
             {
                 foreach (var c in twin.presence)
                 {
                     if (!c.onSite) continue;
+                    if (c.lat == 0 && c.lng == 0 && c.building <= 0) continue;
                     seen.Add(c.crewId);
+
                     if (!_crews.TryGetValue(c.crewId, out var go) || !go)
                     {
-                        go = crewPrefab != null
-                            ? Instantiate(crewPrefab, crewsRoot)
-                            : GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                         go.name = c.crewName ?? c.crewId;
                         go.transform.SetParent(crewsRoot, false);
-                        go.transform.localScale = Vector3.one * 3.5f;
-                        var rend = go.GetComponent<Renderer>();
-                        if (rend != null) rend.material.color = new Color(1f, 0.8f, 0.15f);
+                        go.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
+                        go.GetComponent<Renderer>().sharedMaterial = HaloMaterials.Crew;
+                        var col = go.GetComponent<Collider>();
+                        if (col) Destroy(col);
                         _crews[c.crewId] = go;
                     }
 
                     Vector3 pos;
-                    if (c.building > 0 && _buildingPos.TryGetValue(c.building, out var bp))
-                        pos = bp + Vector3.up * (BuildingScale().y + 2f) + Vector3.right * 3f;
-                    else if (!useGridLayout && (c.lat != 0 || c.lng != 0))
-                        pos = GeoPos(c.lat, c.lng) + Vector3.up * 8f;
+                    if (c.lat != 0 || c.lng != 0)
+                        pos = TwinWorld.LatLngToWorld(c.lat, c.lng);
+                    else if (c.building > 0 && _buildings.TryGetValue(c.building, out var bgo))
+                        pos = bgo.transform.position + bgo.transform.forward * 8f;
                     else
-                        pos = Vector3.up * 8f;
+                        pos = Vector3.zero;
+                    pos.y = 1.1f;
                     go.transform.position = pos;
                 }
             }
@@ -226,38 +171,25 @@ namespace Halo.SiteTwin
                 if (_crews.TryGetValue(id, out var go) && go) Destroy(go);
                 _crews.Remove(id);
             }
-
-            Debug.Log($"[Halo Twin] buildings visible={built}/{(twin.buildings != null ? twin.buildings.Count : 0)} densest={densestBuilding} layout={(useGridLayout ? "GRID" : "GEO")}");
-
-            if (!_framedOnce && built > 0)
-            {
-                _framedOnce = true;
-                FitCameraToAll();
-            }
         }
 
-        /// <summary>Frame every building in the Main Camera view.</summary>
-        public void FitCameraToAll()
+        static void FrameCamera(bool photoreal = false)
         {
-            if (_buildingPos.Count == 0) return;
             var cam = Camera.main;
             if (cam == null) return;
-
-            Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
-            bool first = true;
-            foreach (var pos in _buildingPos.Values)
+            var orbit = cam.GetComponent<HaloOrbitCamera>();
+            if (orbit == null) orbit = cam.gameObject.AddComponent<HaloOrbitCamera>();
+            var root = GameObject.Find("HaloSiteTwin");
+            if (root != null) orbit.target = root.transform;
+            orbit.distance = photoreal ? 220f : 140f;
+            orbit.pitch = 52f;
+            orbit.yaw = 28f;
+            if (photoreal)
             {
-                if (first) { bounds = new Bounds(pos, BuildingScale()); first = false; }
-                else bounds.Encapsulate(new Bounds(pos, BuildingScale()));
+                orbit.maxDistance = 900f;
+                orbit.minDistance = 25f;
+                cam.farClipPlane = 80000f;
             }
-
-            Vector3 center = bounds.center;
-            float size = Mathf.Max(bounds.size.x, bounds.size.z, 40f);
-            float dist = size * 1.15f;
-            cam.transform.position = center + new Vector3(0f, dist * 0.85f, -dist * 0.75f);
-            cam.transform.LookAt(center + Vector3.up * 2f);
-            cam.farClipPlane = Mathf.Max(cam.farClipPlane, dist * 4f);
-            Debug.Log($"[Halo] Camera fit all { _buildingPos.Count } buildings size={size:F0}");
         }
 
         public bool FocusBuilding(int building, Camera cam = null)
@@ -265,9 +197,18 @@ namespace Halo.SiteTwin
             if (!_buildings.TryGetValue(building, out var go) || !go) return false;
             cam = cam != null ? cam : Camera.main;
             if (cam == null) return false;
-            var p = go.transform.position;
-            cam.transform.position = p + new Vector3(0f, 35f, -40f);
-            cam.transform.LookAt(p);
+            var orbit = cam.GetComponent<HaloOrbitCamera>();
+            if (orbit != null)
+            {
+                orbit.target = go.transform;
+                orbit.distance = 55f;
+                orbit.pitch = 38f;
+            }
+            else
+            {
+                cam.transform.position = go.transform.position + Vector3.up * 28f + Vector3.back * 42f;
+                cam.transform.LookAt(go.transform.position + Vector3.up * 6f);
+            }
             densestBuilding = building;
             return true;
         }
@@ -276,6 +217,11 @@ namespace Halo.SiteTwin
         {
             if (densestBuilding <= 0) return false;
             return FocusBuilding(densestBuilding, cam);
+        }
+
+        public void FitCameraToAll()
+        {
+            FrameCamera();
         }
     }
 }
