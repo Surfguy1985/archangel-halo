@@ -21,6 +21,8 @@ import {
 } from "./buildingSiteOps";
 import { THORNBURY_SITE_META } from "./thornburySitePlan";
 import { haversineMeters } from "./siteTwinCore";
+import { buildSiteTwinLayers } from "./siteTwinLayers";
+import { getSelection } from "./siteSelection";
 
 export async function getBuildingOpsPlate(propertyId: string) {
   const [prop] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId));
@@ -177,6 +179,34 @@ export async function getBuildingOpsPlate(propertyId: string) {
     }
   }
 
+  const centroids = new Map(
+    buildings.map((b) => [b.building, { lat: b.lat, lng: b.lng }] as const),
+  );
+  let layers: Awaited<ReturnType<typeof buildSiteTwinLayers>>;
+  try {
+    layers = await buildSiteTwinLayers(propertyId, centroids);
+  } catch {
+    layers = {
+      moneyTint: [],
+      turnRadar: [],
+      photoBillboards: [],
+      layerSummary: { hotBuildings: [], watchBuildings: [], overdueTurns: 0, photoCount: 0 },
+    };
+  }
+
+  // Attach risk onto building pins for clients
+  const tintMap = new Map(layers.moneyTint.map((m) => [m.building, m]));
+  const buildingsWithTint = buildings.map((b) => {
+    const t = tintMap.get(b.building);
+    return {
+      ...b,
+      risk: t?.risk ?? "clean",
+      openTurns: t?.openTurns ?? 0,
+      openDiscrepancies: t?.openDiscrepancies ?? 0,
+      riskLabel: t?.label ?? b.label,
+    };
+  });
+
   return {
     ok: true as const,
     mode: "building_first" as const,
@@ -191,6 +221,8 @@ export async function getBuildingOpsPlate(propertyId: string) {
       offSite: presence.length - onSiteCount,
       liveJobs: liveJobs.length,
       heatCells: heat.length,
+      overdueTurns: layers.layerSummary.overdueTurns,
+      photoCount: layers.layerSummary.photoCount,
       headline:
         onSiteCount === 0
           ? "No crews on site right now"
@@ -199,11 +231,16 @@ export async function getBuildingOpsPlate(propertyId: string) {
               ? ` · densest Bldg ${Object.entries(byBuilding).sort((a, b) => b[1] - a[1])[0]![0]}`
               : ""),
     },
-    buildings,
+    buildings: buildingsWithTint,
     presence,
     heat,
     units: [...unitRows.values()].sort((a, b) => a.unitNo.localeCompare(b.unitNo)),
     byBuilding,
+    moneyTint: layers.moneyTint,
+    turnRadar: layers.turnRadar,
+    photoBillboards: layers.photoBillboards,
+    layerSummary: layers.layerSummary,
+    selection: getSelection(propertyId),
   };
 }
 

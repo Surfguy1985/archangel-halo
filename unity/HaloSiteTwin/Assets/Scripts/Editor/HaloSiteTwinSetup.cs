@@ -199,6 +199,10 @@ namespace Halo.SiteTwin.EditorTools
             osm.loadOnStart = true;
             osm.replaceGridWhenLoaded = true;
 
+            var layers = root.GetComponent<SiteTwinLayersRenderer>() ?? Undo.AddComponent<SiteTwinLayersRenderer>(root);
+            layers.client = client;
+            layers.siteRenderer = renderer;
+
             EditorUtility.SetDirty(root);
             EditorUtility.SetDirty(client);
         }

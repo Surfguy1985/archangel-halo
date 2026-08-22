@@ -16,6 +16,10 @@ namespace Halo.SiteTwin
         public List<CrewPresence> presence;
         public List<HeatCell> heat;
         public List<UnitRow> units;
+        public List<MoneyTint> moneyTint;
+        public List<TurnRadarItem> turnRadar;
+        public List<PhotoBillboard> photoBillboards;
+        public SelectionState selection;
     }
 
     [Serializable]
@@ -46,6 +50,59 @@ namespace Halo.SiteTwin
         public double lat;
         public double lng;
         public int unitCount;
+        public string risk;
+        public int openTurns;
+        public int openDiscrepancies;
+        public string riskLabel;
+    }
+
+    [Serializable]
+    public class MoneyTint
+    {
+        public int building;
+        public string risk;
+        public int openTurns;
+        public int openDiscrepancies;
+        public string label;
+    }
+
+    [Serializable]
+    public class TurnRadarItem
+    {
+        public string jobId;
+        public string jobNo;
+        public string unitNo;
+        public int building;
+        public string status;
+        public float ageHours;
+        public string risk;
+        public double lat;
+        public double lng;
+    }
+
+    [Serializable]
+    public class PhotoBillboard
+    {
+        public string id;
+        public string jobId;
+        public string unitNo;
+        public int building;
+        public string phase;
+        public string note;
+        public string storagePath;
+        public double lat;
+        public double lng;
+        public string capturedAt;
+    }
+
+    [Serializable]
+    public class SelectionState
+    {
+        public int building;
+        public string unitNo;
+        public string jobId;
+        public string crewId;
+        public string source;
     }
 
     [Serializable]
