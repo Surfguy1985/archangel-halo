@@ -15,6 +15,7 @@ import {
   bboxAround,
   type BBox,
 } from "../lib/osmBuildings";
+import { matchOsmToHaloBuildings } from "../lib/matchOsmToHalo";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -118,4 +119,72 @@ router.get("/properties/:id/osm-buildings", async (req, res) => {
   }
 });
 
+
+/** Auto-label OSM footprints as Halo Bldg 1–20 (nearest centroid). */
+router.get("/osm/buildings/matched", async (req, res) => {
+  try {
+    const maxMeters = Math.min(200, Math.max(20, Number(req.query.maxMeters) || 90));
+    const data = await cachedFetch(THORNBURY_BBOX);
+    const result = matchOsmToHaloBuildings(data.buildings, maxMeters);
+    res.json({
+      ok: true,
+      source: "overpass+halo-centroids",
+      maxMeters,
+      matchedCount: result.matched.length,
+      unmatchedOsmCount: result.unmatchedOsm.length,
+      unmatchedHalo: result.unmatchedHalo,
+      matched: result.matched,
+      unmatchedOsm: result.unmatchedOsm.map((o) => ({
+        osmId: o.osmId,
+        name: o.name,
+        centroid: o.centroid,
+        areaApproxM2: o.areaApproxM2,
+      })),
+      fetchedAt: data.fetchedAt,
+      cached: data.cached,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "osm matched failed");
+    res.status(502).json({ error: err.message || "match failed" });
+  }
+});
+
+router.get("/properties/:id/osm-buildings/matched", async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!UUID_RE.test(id)) {
+      res.status(400).json({ error: "Invalid property id" });
+      return;
+    }
+    const maxMeters = Math.min(200, Math.max(20, Number(req.query.maxMeters) || 90));
+    // reuse property bbox path
+    const [prop] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, id)).limit(1);
+    if (!prop) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const lat = Number((prop as any).lat ?? (prop as any).latitude);
+    const lng = Number((prop as any).lng ?? (prop as any).longitude);
+    const bbox =
+      Number.isFinite(lat) && Number.isFinite(lng)
+        ? bboxAround(lat, lng, Number(req.query.meters) || 550)
+        : THORNBURY_BBOX;
+    const data = await cachedFetch(bbox);
+    const result = matchOsmToHaloBuildings(data.buildings, maxMeters);
+    res.json({
+      ok: true,
+      propertyId: id,
+      propertyName: prop.name,
+      matchedCount: result.matched.length,
+      unmatchedHalo: result.unmatchedHalo,
+      matched: result.matched,
+      fetchedAt: data.fetchedAt,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "property osm matched failed");
+    res.status(502).json({ error: err.message || "match failed" });
+  }
+});
+
 export default router;
+
