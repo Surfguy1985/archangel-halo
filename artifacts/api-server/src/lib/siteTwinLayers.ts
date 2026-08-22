@@ -50,7 +50,11 @@ function ageHours(d: Date | string | null | undefined): number {
 export async function buildSiteTwinLayers(propertyId: string, buildingCentroids: Map<number, { lat: number; lng: number }>) {
   const jobs = await db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId));
   const openStatuses = new Set(["open", "active", "in_progress", "scheduled", "dispatched", "qc", "pending"]);
-  const openJobs = jobs.filter((j) => openStatuses.has((j.status || j.boardStatus || "open").toLowerCase()) || !["complete", "paid", "cancelled"].includes((j.status || "").toLowerCase()));
+  const openJobs = jobs.filter((j) => {
+    const st = String((j as any).status || (j as any).boardStatus || "open").toLowerCase();
+    if (["complete", "paid", "cancelled", "canceled"].includes(st)) return false;
+    return true;
+  });
 
   // Turn radar
   const radar: TurnRadarItem[] = [];
@@ -65,7 +69,7 @@ export async function buildSiteTwinLayers(propertyId: string, buildingCentroids:
     else if (age >= 36) risk = "aging";
 
     // lightweight "discrepancy proxy": no invoice / board stuck
-    const status = (j.status || j.boardStatus || "").toLowerCase();
+    const status = String((j as any).status || (j as any).boardStatus || "").toLowerCase();
     const looksStuck = status.includes("exception") || status === "needs_fix" || !(j as any).invoiceId;
     if (u.building != null) {
       turnsByBuilding.set(u.building, (turnsByBuilding.get(u.building) || 0) + 1);
@@ -80,7 +84,7 @@ export async function buildSiteTwinLayers(propertyId: string, buildingCentroids:
       jobNo: j.jobNo,
       unitNo: u.unitNo,
       building: u.building,
-      status: j.status || j.boardStatus || "open",
+      status: String((j as any).status || (j as any).boardStatus || "open"),
       ageHours: Math.round(age * 10) / 10,
       risk,
       lat: pin?.lat ?? null,

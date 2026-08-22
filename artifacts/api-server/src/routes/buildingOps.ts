@@ -1,3 +1,5 @@
+import path from "path";
+import { fileURLToPath } from "url";
 /**
  * Building-first site ops — no per-unit photo mapping.
  */
@@ -9,6 +11,26 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+
+/** Live ops board (Leaflet) — money tint, radar, crew, shared selection. */
+router.get("/building-ops-board", (_req, res) => {
+  const fs = require("fs");
+  const path = require("path");
+  const candidates = [
+    path.join(process.cwd(), "artifacts/api-server/public/building-ops.html"),
+    path.join(process.cwd(), "public/building-ops.html"),
+    path.join(__dirname, "../../public/building-ops.html"),
+    path.join(__dirname, "../public/building-ops.html"),
+  ];
+  for (const f of candidates) {
+    if (fs.existsSync(f)) {
+      res.type("html").send(fs.readFileSync(f, "utf8"));
+      return;
+    }
+  }
+  res.status(404).send("building-ops.html missing");
+});
 
 router.get("/building-ops/health", (_req, res) => {
   res.json({ ok: true, service: "building-ops", version: 2 });

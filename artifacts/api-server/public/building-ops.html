@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Halo Building Ops</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root { --bg:#0b0f14; --card:#141a22; --text:#e8eef6; --muted:#8b9bb0; --teal:#2dd4bf; --hot:#ef4444; --watch:#f59e0b; --clean:#22d3ee; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); }
+    header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #1f2937; }
+    header h1 { font-size:15px; margin:0; font-weight:600; letter-spacing:.02em; }
+    header .sub { color:var(--muted); font-size:13px; }
+    #map { height:58vh; width:100%; background:#0a0e13; }
+    .panels { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:12px; }
+    @media (max-width:900px){ .panels{ grid-template-columns:1fr; } #map{ height:45vh; } }
+    .card { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:12px; max-height:32vh; overflow:auto; }
+    .card h2 { margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+    .row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a222d; font-size:13px; cursor:pointer; }
+    .row:hover { color:var(--teal); }
+    .pill { font-size:11px; padding:2px 8px; border-radius:999px; background:#1f2937; }
+    .pill.hot { background:#7f1d1d; color:#fecaca; }
+    .pill.watch { background:#78350f; color:#fde68a; }
+    .pill.clean { background:#134e4a; color:#99f6e4; }
+    .pill.overdue { background:#7f1d1d; color:#fecaca; }
+    .pill.aging { background:#78350f; color:#fde68a; }
+    button { background:#1f2937; color:var(--text); border:1px solid #374151; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; }
+    button:hover { border-color:var(--teal); }
+    .legend { display:flex; gap:10px; font-size:12px; color:var(--muted); }
+    .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="title">Halo Building Ops</h1>
+      <div class="sub" id="headline">Loading…</div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--clean)"></i>clean</span>
+      <span><i class="dot" style="background:var(--watch)"></i>watch</span>
+      <span><i class="dot" style="background:var(--hot)"></i>hot</span>
+      <span><i class="dot" style="background:#eab308"></i>crew</span>
+    </div>
+    <button type="button" id="refresh">Refresh</button>
+  </header>
+  <div id="map"></div>
+  <div class="panels">
+    <div class="card"><h2>Buildings</h2><div id="buildings"></div></div>
+    <div class="card"><h2>Turn radar</h2><div id="radar"></div></div>
+    <div class="card"><h2>Crew on site</h2><div id="crew"></div></div>
+  </div>
+  <script>
+    const DEFAULT_PROP = "49dec4b1-1dc5-4b59-8025-0c0bc14d35ce";
+    const params = new URLSearchParams(location.search);
+    const propertyId = params.get("propertyId") || DEFAULT_PROP;
+    const map = L.map("map", { zoomControl: true }).setView([33.073, -96.695], 17);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OSM &copy; CARTO", maxZoom: 20
+    }).addTo(map);
+    let layer = L.layerGroup().addTo(map);
+
+    function riskColor(r) {
+      if (r === "hot") return "#ef4444";
+      if (r === "watch") return "#f59e0b";
+      return "#22d3ee";
+    }
+
+    async function selectBuilding(b, unitNo, jobId) {
+      await fetch(`/api/properties/${propertyId}/selection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ building: b, unitNo, jobId, source: "web-ops" }),
+      });
+    }
+
+    async function load() {
+      const res = await fetch(`/api/properties/${propertyId}/building-ops`);
+      const p = await res.json();
+      if (!p.ok) { document.getElementById("headline").textContent = p.error || "Failed"; return; }
+      document.getElementById("title").textContent = p.propertyName || "Halo Building Ops";
+      document.getElementById("headline").textContent = p.summary?.headline || "";
+      layer.clearLayers();
+      const bounds = [];
+
+      (p.buildings || []).forEach((b) => {
+        const c = [b.lat, b.lng];
+        bounds.push(c);
+        const m = L.circleMarker(c, {
+          radius: 11,
+          color: riskColor(b.risk),
+          fillColor: riskColor(b.risk),
+          fillOpacity: 0.85,
+          weight: 2,
+        }).addTo(layer);
+        m.bindPopup(`<b>${b.riskLabel || b.label}</b><br/>${b.openTurns || 0} open turns`);
+        m.on("click", () => selectBuilding(b.building));
+      });
+
+      (p.presence || []).filter((x) => x.onSite && x.lat != null).forEach((c) => {
+        const pt = [c.lat, c.lng];
+        bounds.push(pt);
+        L.circleMarker(pt, { radius: 7, color: "#eab308", fillColor: "#eab308", fillOpacity: 1 })
+          .bindPopup(`<b>${c.crewName}</b><br/>${c.title || ""}`)
+          .addTo(layer);
+      });
+
+      (p.turnRadar || []).filter((t) => t.risk !== "ok" && t.lat != null).forEach((t) => {
+        L.circleMarker([t.lat, t.lng], {
+          radius: 5,
+          color: t.risk === "overdue" ? "#ef4444" : "#f59e0b",
+          fillOpacity: 0.9,
+        }).bindPopup(`Turn ${t.unitNo || t.jobNo}<br/>${t.risk} · ${t.ageHours}h`).addTo(layer);
+      });
+
+      if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+
+      document.getElementById("buildings").innerHTML = (p.buildings || []).map((b) =>
+        `<div class="row" data-b="${b.building}"><span>Bldg ${b.building}</span><span class="pill ${b.risk || "clean"}">${b.risk || "clean"} · ${b.openTurns || 0}</span></div>`
+      ).join("");
+      document.getElementById("radar").innerHTML = (p.turnRadar || []).slice(0, 40).map((t) =>
+        `<div class="row" data-b="${t.building || ""}" data-u="${t.unitNo || ""}" data-j="${t.jobId}"><span>${t.unitNo || t.jobNo || "—"}</span><span class="pill ${t.risk}">${t.risk} · ${t.ageHours}h</span></div>`
+      ).join("") || "<div class='sub'>No open turns</div>";
+      document.getElementById("crew").innerHTML = (p.presence || []).filter((c) => c.onSite).map((c) =>
+        `<div class="row"><span>${c.crewName}</span><span class="pill clean">${c.title || "on site"}</span></div>`
+      ).join("") || "<div class='sub'>No crew on site</div>";
+
+      document.querySelectorAll("#buildings .row, #radar .row").forEach((el) => {
+        el.addEventListener("click", () => {
+          const b = el.getAttribute("data-b");
+          const u = el.getAttribute("data-u");
+          const j = el.getAttribute("data-j");
+          selectBuilding(b ? Number(b) : null, u || null, j || null);
+        });
+      });
+    }
+
+    document.getElementById("refresh").onclick = load;
+    load();
+    setInterval(load, 12000);
+  </script>
+</body>
+</html>
