@@ -135,7 +135,6 @@ router.get("/native/field-feed", async (req, res): Promise<void> => {
       propertyName: property?.name ?? null,
       propertyAddress: property?.address ?? null,
       propertyCity: property?.city ?? null,
-      propertyState: property?.state ?? null,
       unitNo: job.unitNo ?? null,
       category: job.category ?? null,
       description: job.description ?? null,
