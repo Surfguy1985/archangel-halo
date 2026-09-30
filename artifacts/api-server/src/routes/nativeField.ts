@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { and, eq, gte, inArray, lte, notInArray } from "drizzle-orm";
 import {
   db,
@@ -13,7 +13,7 @@ import { localToday } from "../lib/localDate";
 
 const router: IRouter = Router();
 
-function bearerFromRequest(req: Parameters<IRouter["get"]>[1] extends never ? never : any): string | null {
+function bearerFromRequest(req: Request): string | null {
   const header = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
   if (match?.[1]) return match[1].trim();
@@ -148,7 +148,7 @@ router.get("/native/field-feed", async (req, res): Promise<void> => {
       source: dispatch ? "dispatch" : schedule ? "schedule" : "assigned",
       crewLeaderId: job.crewLeaderId ?? crew.id,
       crewLeaderName: crew.name,
-      updatedAt: job.updatedAt?.toISOString?.() ?? null,
+      updatedAt: job.createdAt?.toISOString?.() ?? null,
     };
   });
 
