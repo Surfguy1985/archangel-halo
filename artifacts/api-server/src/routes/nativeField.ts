@@ -9,12 +9,14 @@ import {
   crewDispatchAssignmentsTable,
   crewPhotosTable,
   activitiesTable,
+  crewCheckinsTable,
 } from "@workspace/db";
 import { findCrewByPortalBearer } from "../lib/portalToken";
 import { localToday } from "../lib/localDate";
 import { isUuid, jobBelongsToCrew } from "../lib/crewJobAccess";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { isMintedUploadPath, mirrorFieldPhotoActivity } from "../lib/fieldPhotos";
+import { recordFieldProvenance } from "../lib/fieldProvenance";
 
 const router: IRouter = Router();
 const objectStorage = new ObjectStorageService();
@@ -158,6 +160,8 @@ router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
       propertyName: property?.name ?? null,
       propertyAddress: property?.address ?? null,
       propertyCity: property?.city ?? null,
+      propertyLatitude: property?.latitude ?? null,
+      propertyLongitude: property?.longitude ?? null,
       unitNo: job.unitNo ?? null,
       category: job.category ?? null,
       description: job.description ?? null,
@@ -199,6 +203,178 @@ router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
   });
 });
 
+
+
+function metersBetween(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const earthRadius = 6_371_000;
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const dLat = toRadians(bLat - aLat);
+  const dLng = toRadians(bLng - aLng);
+  const lat1 = toRadians(aLat);
+  const lat2 = toRadians(bLat);
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * earthRadius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+router.post("/native/v1/check-in", async (req, res): Promise<void> => {
+  const crew = await authorizedCrew(req);
+  if (!crew) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
+  const lat = typeof body.lat === "number" ? body.lat : Number.NaN;
+  const lng = typeof body.lng === "number" ? body.lng : Number.NaN;
+  const accuracy = typeof body.accuracy === "number" ? body.accuracy : Number.NaN;
+  const capturedAtRaw = typeof body.capturedAt === "string" ? body.capturedAt : "";
+  const capturedAt = new Date(capturedAtRaw);
+  const now = new Date();
+
+  if (!isUuid(jobId) || !(await jobBelongsToCrew(jobId, crew.id))) {
+    res.status(403).json({ error: "That job is not assigned to this crew", code: "job_not_assigned" });
+    return;
+  }
+
+  if (
+    !Number.isFinite(lat) || !Number.isFinite(lng) ||
+    lat < -90 || lat > 90 || lng < -180 || lng > 180 ||
+    !Number.isFinite(accuracy) || accuracy < 0
+  ) {
+    res.status(400).json({ error: "A valid GPS fix is required.", code: "gps_invalid" });
+    return;
+  }
+
+  if (!Number.isFinite(capturedAt.getTime()) || Math.abs(now.getTime() - capturedAt.getTime()) > 120_000) {
+    res.status(400).json({ error: "Location is too old. Get a fresh GPS fix.", code: "gps_stale" });
+    return;
+  }
+
+  if (accuracy > 100) {
+    res.status(409).json({
+      error: "GPS accuracy is not strong enough yet. Move outside or wait for a better signal.",
+      code: "gps_accuracy",
+      accuracy,
+      requiredAccuracy: 100,
+    });
+    return;
+  }
+
+  const [job] = await db
+    .select({
+      id: jobsTable.id,
+      propertyId: jobsTable.propertyId,
+      unitNo: jobsTable.unitNo,
+    })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, jobId))
+    .limit(1);
+
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+
+  const [property] = await db
+    .select({
+      id: propertiesTable.id,
+      name: propertiesTable.name,
+      latitude: propertiesTable.latitude,
+      longitude: propertiesTable.longitude,
+    })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, job.propertyId))
+    .limit(1);
+
+  if (
+    !property ||
+    property.latitude == null ||
+    property.longitude == null
+  ) {
+    res.status(409).json({
+      error: "This property needs a verified map location before mobile check-in can be used.",
+      code: "property_location_missing",
+    });
+    return;
+  }
+
+  const distanceMeters = metersBetween(
+    lat,
+    lng,
+    property.latitude,
+    property.longitude,
+  );
+  const allowedRadiusMeters = 300;
+
+  if (distanceMeters > allowedRadiusMeters) {
+    res.status(409).json({
+      error: "You are not close enough to this property to check in.",
+      code: "outside_geofence",
+      distanceMeters: Math.round(distanceMeters),
+      allowedRadiusMeters,
+    });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(crewCheckinsTable)
+    .where(
+      and(
+        eq(crewCheckinsTable.crewId, crew.id),
+        eq(crewCheckinsTable.jobId, jobId),
+        eq(crewCheckinsTable.kind, "checkin"),
+        gte(crewCheckinsTable.createdAt, new Date(now.getTime() - 12 * 60 * 60 * 1000)),
+      ),
+    )
+    .limit(1);
+
+  let checkinId = existing?.id ?? null;
+  if (!existing) {
+    const [created] = await db
+      .insert(crewCheckinsTable)
+      .values({
+        crewId: crew.id,
+        jobId,
+        kind: "checkin",
+        lat,
+        lng,
+        accuracy,
+        label: "Verified native iOS check-in",
+      })
+      .returning({ id: crewCheckinsTable.id });
+    checkinId = created?.id ?? null;
+
+    if (created) {
+      void recordFieldProvenance({
+        eventId: created.id,
+        kind: "checkin",
+        crewId: crew.id,
+        haloJobId: jobId,
+        lat,
+        lng,
+      });
+    }
+  }
+
+  res.json({
+    ok: true,
+    verified: true,
+    replayed: Boolean(existing),
+    checkinId,
+    jobId,
+    propertyId: property.id,
+    propertyName: property.name,
+    distanceMeters: Math.round(distanceMeters),
+    allowedRadiusMeters,
+    accuracyMeters: accuracy,
+    verifiedAt: now.toISOString(),
+  });
+});
 
 router.post("/native/v1/actions", async (req, res): Promise<void> => {
   const crew = await authorizedCrew(req);
