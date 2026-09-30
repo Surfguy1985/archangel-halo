@@ -7,11 +7,40 @@ import {
   propertiesTable,
   jobLineItemsTable,
   crewDispatchAssignmentsTable,
+  crewPhotosTable,
+  activitiesTable,
 } from "@workspace/db";
 import { findCrewByPortalBearer } from "../lib/portalToken";
 import { localToday } from "../lib/localDate";
+import { isUuid, jobBelongsToCrew } from "../lib/crewJobAccess";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { isMintedUploadPath, mirrorFieldPhotoActivity } from "../lib/fieldPhotos";
 
 const router: IRouter = Router();
+const objectStorage = new ObjectStorageService();
+
+async function authorizedCrew(req: Request) {
+  const token = bearerFromRequest(req);
+  if (!token) return null;
+  const crew = await findCrewByPortalBearer(token);
+  if (!crew || crew.active === false) return null;
+  return crew;
+}
+
+function safeGps(body: Record<string, unknown>) {
+  const lat = typeof body.lat === "number" ? body.lat : null;
+  const lng = typeof body.lng === "number" ? body.lng : null;
+  const accuracy = typeof body.accuracy === "number" ? body.accuracy : null;
+  if (lat == null || lng == null) return { lat: null, lng: null, accuracy: null };
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { lat: null, lng: null, accuracy: null };
+  }
+  return {
+    lat,
+    lng,
+    accuracy: accuracy != null && accuracy >= 0 && accuracy < 10_000 ? accuracy : null,
+  };
+}
 
 function bearerFromRequest(req: Request): string | null {
   const header = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
@@ -31,14 +60,8 @@ function plusDays(ymd: string, days: number): string {
 }
 
 router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
-  const token = bearerFromRequest(req);
-  if (!token) {
-    res.status(401).json({ error: "Crew activation token required" });
-    return;
-  }
-
-  const crew = await findCrewByPortalBearer(token);
-  if (!crew || crew.active === false) {
+  const crew = await authorizedCrew(req);
+  if (!crew) {
     res.status(401).json({ error: "Crew activation token is invalid or inactive" });
     return;
   }
@@ -139,6 +162,16 @@ router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
       category: job.category ?? null,
       description: job.description ?? null,
       services: serviceMap.get(job.id) ?? [],
+      tasks: lineItems
+        .filter((line) => line.jobId === job.id && line.service && line.service !== "Quoted price")
+        .map((line) => ({
+          id: line.id,
+          title: line.service,
+          detail: line.unit ?? null,
+          isComplete: Boolean(line.completedAt),
+          requiresPhoto: true,
+          assignedCrewId: line.assignedCrewId ?? null,
+        })),
       status: job.status,
       boardStatus: job.boardStatus ?? null,
       scheduledOn: schedule?.scheduledOn ?? job.scheduledOn ?? dispatch?.day ?? null,
@@ -163,6 +196,191 @@ router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
     crew: { id: crew.id, name: crew.name },
     range: { start, end },
     jobs: payload,
+  });
+});
+
+
+router.post("/native/v1/actions", async (req, res): Promise<void> => {
+  const crew = await authorizedCrew(req);
+  if (!crew) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const actionId = typeof body.id === "string" ? body.id.trim() : "";
+  const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
+  const kind = typeof body.kind === "string" ? body.kind.trim() : "";
+  const payload = (body.payload ?? {}) as Record<string, unknown>;
+
+  if (!actionId || !isUuid(jobId)) {
+    res.status(400).json({ error: "Invalid field action" });
+    return;
+  }
+  if (!(await jobBelongsToCrew(jobId, crew.id))) {
+    res.status(403).json({ error: "That job is not assigned to this crew" });
+    return;
+  }
+
+  if (kind === "taskToggle") {
+    const taskId = typeof payload.taskID === "string" ? payload.taskID.trim() : "";
+    const isComplete = payload.isComplete === true || payload.isComplete === "true";
+    if (!isUuid(taskId)) {
+      res.status(400).json({ error: "Invalid task" });
+      return;
+    }
+
+    const [line] = await db
+      .select()
+      .from(jobLineItemsTable)
+      .where(and(eq(jobLineItemsTable.id, taskId), eq(jobLineItemsTable.jobId, jobId)))
+      .limit(1);
+    if (!line) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (line.assignedCrewId && line.assignedCrewId !== crew.id) {
+      res.status(403).json({ error: "That task is assigned to another crew" });
+      return;
+    }
+
+    await db
+      .update(jobLineItemsTable)
+      .set({
+        completedAt: isComplete ? new Date() : null,
+        completedByCrewId: isComplete ? crew.id : null,
+      })
+      .where(eq(jobLineItemsTable.id, taskId));
+
+    res.json({ ok: true, actionId, kind, jobId });
+    return;
+  }
+
+  if (kind === "workflowState") {
+    const state = typeof payload.to === "string" ? payload.to : "";
+    const allowed = new Set(["enRoute", "arrived", "active", "proof", "review"]);
+    if (!allowed.has(state)) {
+      res.status(400).json({ error: "Unsupported field state" });
+      return;
+    }
+
+    // Field-state events are intentionally audit-only. They do not bypass the
+    // existing office completion/billing workflow or mutate financial status.
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: jobId,
+      kind: "field_state",
+      body: JSON.stringify({
+        actionId,
+        state,
+        crewId: crew.id,
+        crewName: crew.name,
+        at: new Date().toISOString(),
+      }),
+    });
+
+    res.json({ ok: true, actionId, kind, jobId, state });
+    return;
+  }
+
+  res.status(400).json({ error: "Unsupported field action" });
+});
+
+router.post("/native/v1/proofs/request-upload", async (req, res): Promise<void> => {
+  const crew = await authorizedCrew(req);
+  if (!crew) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
+  const size = typeof body.size === "number" ? body.size : 0;
+  const contentType = typeof body.contentType === "string" ? body.contentType : "image/jpeg";
+
+  if (!isUuid(jobId) || !(await jobBelongsToCrew(jobId, crew.id))) {
+    res.status(403).json({ error: "That job is not assigned to this crew" });
+    return;
+  }
+  if (size <= 0 || size > 25 * 1024 * 1024 || contentType !== "image/jpeg") {
+    res.status(400).json({ error: "Invalid proof file" });
+    return;
+  }
+
+  const uploadURL = await objectStorage.getObjectEntityUploadURL();
+  const objectPath = objectStorage.normalizeObjectEntityPath(uploadURL);
+  res.json({ ok: true, uploadURL, objectPath });
+});
+
+router.post("/native/v1/proofs/register", async (req, res): Promise<void> => {
+  const crew = await authorizedCrew(req);
+  if (!crew) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const proofId = typeof body.proofId === "string" ? body.proofId.trim() : "";
+  const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
+  const storagePath = typeof body.storagePath === "string" ? body.storagePath.trim() : "";
+  const phase = body.phase === "after" ? "after" : body.phase === "before" ? "before" : null;
+
+  if (!proofId || !isUuid(jobId) || !(await jobBelongsToCrew(jobId, crew.id))) {
+    res.status(403).json({ error: "That job is not assigned to this crew" });
+    return;
+  }
+  if (!phase || !isMintedUploadPath(storagePath)) {
+    res.status(400).json({ error: "Invalid proof registration" });
+    return;
+  }
+
+  const [already] = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.storagePath, storagePath))
+    .limit(1);
+
+  if (already && already.crewId !== crew.id) {
+    res.status(403).json({ error: "That proof belongs to another crew" });
+    return;
+  }
+
+  let photo = already;
+  if (!photo) {
+    const gps = safeGps(body);
+    [photo] = await db
+      .insert(crewPhotosTable)
+      .values({
+        crewId: crew.id,
+        jobId,
+        storagePath,
+        takenOn: localToday(),
+        note: typeof body.note === "string" ? body.note.slice(0, 500) : null,
+        phase,
+        lat: gps.lat,
+        lng: gps.lng,
+        accuracy: gps.accuracy,
+        capturedAt: new Date(),
+      })
+      .returning();
+  }
+
+  try {
+    await mirrorFieldPhotoActivity({
+      jobId,
+      phase,
+      storagePath,
+      crewName: crew.name,
+      note: typeof body.note === "string" ? body.note.slice(0, 500) : null,
+    });
+  } catch {
+    // Registration is already committed; mirror is best-effort and idempotent.
+  }
+
+  res.status(201).json({
+    ok: true,
+    proofId,
+    photo: photo ? { id: photo.id, phase: photo.phase, url: `/api/storage${photo.storagePath}` } : null,
   });
 });
 
