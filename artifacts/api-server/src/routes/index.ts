@@ -87,6 +87,7 @@ import bidBoardRouter from "./bidBoard";
 import turnPipelineRouter from "./turnPipeline";
 import clientBoardAuditRouter from "./clientBoardAudit";
 import nativeFieldRouter from "./nativeField";
+import nativeHandoffRouter from "./nativeHandoff";
 
 const router: IRouter = Router();
 
@@ -150,6 +151,7 @@ router.use(geoRouter);
 router.use(arrivalsRouter);
 router.use(fieldRouter);
 router.use(nativeFieldRouter);
+router.use(nativeHandoffRouter);
 router.use(accountingRouter);
 router.use(taxPlannerRouter);
 router.use(vapiRouter);
