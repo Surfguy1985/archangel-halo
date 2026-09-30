@@ -30,7 +30,7 @@ function plusDays(ymd: string, days: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-router.get("/native/field-feed", async (req, res): Promise<void> => {
+router.get("/native/v1/field-feed", async (req, res): Promise<void> => {
   const token = bearerFromRequest(req);
   if (!token) {
     res.status(401).json({ error: "Crew activation token required" });
