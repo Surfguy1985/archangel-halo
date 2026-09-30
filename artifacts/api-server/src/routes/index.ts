@@ -86,6 +86,7 @@ import costToServeRouter from "./costToServe";
 import bidBoardRouter from "./bidBoard";
 import turnPipelineRouter from "./turnPipeline";
 import clientBoardAuditRouter from "./clientBoardAudit";
+import nativeFieldRouter from "./nativeField";
 
 const router: IRouter = Router();
 
@@ -148,6 +149,7 @@ router.use(plaidRouter);
 router.use(geoRouter);
 router.use(arrivalsRouter);
 router.use(fieldRouter);
+router.use(nativeFieldRouter);
 router.use(accountingRouter);
 router.use(taxPlannerRouter);
 router.use(vapiRouter);
