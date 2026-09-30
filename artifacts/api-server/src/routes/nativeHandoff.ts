@@ -5,6 +5,7 @@ import {
   jobsTable,
   jobLineItemsTable,
   activitiesTable,
+  propertiesTable,
 } from "@workspace/db";
 import { findCrewByPortalBearer } from "../lib/portalToken";
 import { isUuid, jobBelongsToCrew } from "../lib/crewJobAccess";
@@ -157,21 +158,33 @@ router.get("/native/v1/handoffs/open", async (req, res): Promise<void> => {
       ),
     );
 
+  const propertyIds = [...new Set(rows.map((job) => job.propertyId))];
+  const properties = propertyIds.length
+    ? await db.select().from(propertiesTable)
+    : [];
+  const propertyById = new Map(properties.map((property) => [property.id, property]));
+
   res.json({
     ok: true,
-    handoffs: rows.map((job) => ({
-      id: job.id,
-      jobNo: job.jobNo,
-      propertyId: job.propertyId,
-      unitNo: job.unitNo,
-      category: job.category,
-      description: job.description,
-      status: job.status,
-      boardStatus: job.boardStatus,
-      flexDueBy: job.flexDueBy,
-      priority: job.priority,
-      createdAt: job.createdAt?.toISOString?.() ?? null,
-    })),
+    handoffs: rows.map((job) => {
+      const property = propertyById.get(job.propertyId);
+      return {
+        id: job.id,
+        jobNo: job.jobNo,
+        propertyId: job.propertyId,
+        propertyName: property?.name ?? "Property",
+        propertyAddress: property?.address ?? null,
+        propertyCity: property?.city ?? null,
+        unitNo: job.unitNo,
+        category: job.category,
+        description: job.description,
+        status: job.status,
+        boardStatus: job.boardStatus,
+        flexDueBy: job.flexDueBy,
+        priority: job.priority,
+        createdAt: job.createdAt?.toISOString?.() ?? null,
+      };
+    }),
   });
 });
 
