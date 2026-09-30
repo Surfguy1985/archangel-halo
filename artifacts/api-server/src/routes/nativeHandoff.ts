@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -11,6 +11,25 @@ import { isUuid, jobBelongsToCrew } from "../lib/crewJobAccess";
 import { localToday } from "../lib/localDate";
 
 const router: IRouter = Router();
+
+function canPickUpTurns(crew: {
+  trade?: string | null;
+  services?: unknown;
+}): boolean {
+  const serviceNames = Array.isArray(crew.services)
+    ? (crew.services as Array<{ name?: unknown }>)
+        .map((item) => (typeof item?.name === "string" ? item.name : ""))
+    : [];
+  const haystack = [crew.trade ?? "", ...serviceNames].join(" ").toLowerCase();
+  return [
+    "turn",
+    "make ready",
+    "paint",
+    "clean",
+    "drywall",
+    "floor",
+  ].some((needle) => haystack.includes(needle));
+}
 
 function bearer(req: Request): string | null {
   const header = typeof req.headers.authorization === "string"
@@ -112,6 +131,117 @@ router.post("/native/v1/handoffs", async (req, res): Promise<void> => {
     turnJobId: turnJob.id,
     jobNo: turnJob.jobNo,
   });
+});
+
+
+router.get("/native/v1/handoffs/open", async (req, res): Promise<void> => {
+  const token = bearer(req);
+  const crew = token ? await findCrewByPortalBearer(token) : null;
+  if (!crew || crew.active === false) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+  if (!canPickUpTurns(crew)) {
+    res.json({ ok: true, handoffs: [] });
+    return;
+  }
+
+  const rows = await db
+    .select()
+    .from(jobsTable)
+    .where(
+      and(
+        eq(jobsTable.category, "Turn Handoff"),
+        eq(jobsTable.status, "open"),
+        isNull(jobsTable.crewLeaderId),
+      ),
+    );
+
+  res.json({
+    ok: true,
+    handoffs: rows.map((job) => ({
+      id: job.id,
+      jobNo: job.jobNo,
+      propertyId: job.propertyId,
+      unitNo: job.unitNo,
+      category: job.category,
+      description: job.description,
+      status: job.status,
+      boardStatus: job.boardStatus,
+      flexDueBy: job.flexDueBy,
+      priority: job.priority,
+      createdAt: job.createdAt?.toISOString?.() ?? null,
+    })),
+  });
+});
+
+router.post("/native/v1/handoffs/:id/claim", async (req, res): Promise<void> => {
+  const token = bearer(req);
+  const crew = token ? await findCrewByPortalBearer(token) : null;
+  if (!crew || crew.active === false) {
+    res.status(401).json({ error: "Crew activation token is invalid or inactive" });
+    return;
+  }
+  if (!canPickUpTurns(crew)) {
+    res.status(403).json({ error: "This crew is not configured for Turn pickup." });
+    return;
+  }
+
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const jobId = typeof rawId === "string" ? rawId.trim() : "";
+  if (!isUuid(jobId)) {
+    res.status(400).json({ error: "Invalid handoff job." });
+    return;
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [job] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId))
+      .for("update");
+
+    if (!job || job.category !== "Turn Handoff") {
+      return { status: 404 as const, error: "Handoff not found." };
+    }
+    if (job.crewLeaderId && job.crewLeaderId !== crew.id) {
+      return { status: 409 as const, error: "Another crew already picked up this handoff." };
+    }
+    if (job.status !== "open") {
+      return { status: 409 as const, error: "This handoff is no longer available." };
+    }
+
+    if (!job.crewLeaderId) {
+      await tx
+        .update(jobsTable)
+        .set({
+          crewLeaderId: crew.id,
+          crewsFilled: 1,
+          boardStatus: "filled",
+        })
+        .where(eq(jobsTable.id, jobId));
+
+      await tx.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: jobId,
+        kind: "handoff_claimed",
+        body: JSON.stringify({
+          crewId: crew.id,
+          crewName: crew.name,
+          at: new Date().toISOString(),
+        }),
+      });
+    }
+
+    return { status: 200 as const };
+  });
+
+  if ("error" in result) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  res.json({ ok: true, jobId, crewId: crew.id, crewName: crew.name });
 });
 
 export default router;
